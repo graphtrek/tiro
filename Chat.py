@@ -77,6 +77,10 @@ st.markdown(
     "[data-testid='stAppDeployButton'] { display: none; }"
     "footer { display: none; }"
     ".stMenuVersionCopyButton { display: none; }"
+    "html, body, [class*='css'] { font-size: 18px; }"
+    ".stMarkdown p, .stMarkdown li { font-size: 1.1rem; }"
+    ".stChatMessage p { font-size: 1.1rem; }"
+    "[data-testid='stSidebarNav'] a { font-size: 1.05rem; }"
     "</style>",
     unsafe_allow_html=True,
 )

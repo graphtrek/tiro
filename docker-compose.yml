@@ -18,3 +18,7 @@ services:
     # The .env file is never baked into the image.
     env_file:
       - .env
+
+    volumes:
+      # Persist uploaded files across container restarts
+      - ./uploads:/app/uploads
