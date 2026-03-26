@@ -11,6 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application source
 COPY scaleway-chat.py .
 
+# Copy Streamlit configuration (needed for correct WS URLs behind a reverse proxy)
+COPY .streamlit/ .streamlit/
+
 # Streamlit listens on 8501 by default
 EXPOSE 8501
 
