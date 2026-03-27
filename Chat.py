@@ -25,7 +25,7 @@ from datetime import datetime
 import json
 
 # RAG utilities: document indexing, semantic search, and web search fallback.
-from rag_utils import index_documents, search_documents, search_web, get_file_chunks, get_all_chunks
+from rag_utils import index_documents, search_documents, search_web, get_file_chunks
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 # os.environ reads values that were loaded from .env by load_dotenv() above.
@@ -181,8 +181,6 @@ with st.sidebar:
     # prompt (model memory) back to defaults, then rerun to refresh the UI.
     if st.button("🗑️ Clear conversation", use_container_width=True):
         st.session_state.messages = []
-        st.session_state.usage_history = []
-        _save_usage_history([])
         st.session_state.system_prompt_reset = _DEFAULT_SYSTEM_PROMPT
         st.rerun()
 
@@ -281,7 +279,7 @@ if user_input:
                 mentioned_file_chunks = get_file_chunks(_fname)
                 break
 
-    doc_chunks = mentioned_file_chunks or get_all_chunks()
+    doc_chunks = mentioned_file_chunks or []
 
     if web_search_enabled:
         web_results = search_web(user_input)
