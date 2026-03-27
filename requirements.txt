@@ -6,3 +6,7 @@ pypdf
 python-docx
 openpyxl
 duckduckgo-search
+langchain
+langchain-openai
+langchain-chroma
+langchain-community

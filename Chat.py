@@ -4,33 +4,30 @@
 import streamlit as st
 
 # st.set_page_config must be the first Streamlit call in the script.
-# menu_items={} removes all entries from the hamburger menu (including the
-# "Made with Streamlit" version footer that appears inside it).
 st.set_page_config(page_title="Graphtrek AI Chat", page_icon="💬", menu_items={})
 
-# openai  — the official OpenAI Python SDK. Scaleway exposes a compatible API,
-#           so we can reuse the same client by just changing the base URL.
-from openai import OpenAI
-
-# dotenv  — loads key=value pairs from a .env file into environment variables
-#           so secrets never have to be written in source code.
+# LangChain imports for RAG and LLM integration
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 import os
 from dotenv import load_dotenv
 
-# Read the .env file from the same folder as this script.
+# Load environment variables
 load_dotenv()
 
 import threading
 from datetime import datetime
 import json
 
-# RAG utilities: document indexing, semantic search, and web search fallback.
-from rag_utils import index_documents, search_documents, search_web, get_file_chunks
+# RAG utilities: LangChain-powered document indexing and search
+from rag_utils_langchain import (
+    index_documents_langchain,
+    search_documents_langchain,
+    search_web_langchain,
+    get_langchain_retriever,
+    get_file_chunks,
+)
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-# os.environ reads values that were loaded from .env by load_dotenv() above.
-# If a variable is missing, a clear error is raised immediately instead of
-# failing later with a cryptic message.
 BASE_URL   = os.environ["SCALEWAY_BASE_URL"]
 API_KEY    = os.environ["SCALEWAY_API_KEY"]
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
@@ -60,6 +57,26 @@ def _save_usage_history(history):
     with open(USAGE_FILE, "w", encoding="utf-8") as f:
         json.dump(serialisable, f, ensure_ascii=False, indent=2)
 
+
+# ── LangChain LLM Setup ────────────────────────────────────────────────────────
+# Create a LangChain-compatible LLM that points to Scaleway's OpenAI-compatible API
+def _get_langchain_llm(model_name: str):
+    """Create a LangChain ChatOpenAI instance for the given model."""
+    return ChatOpenAI(
+        model=model_name,
+        temperature=0.4,
+        top_p=0.95,
+        max_tokens=2048,
+        openai_api_base=BASE_URL,
+        openai_api_key=API_KEY,
+        streaming=False,  # We handle streaming with the direct OpenAI client
+    )
+
+
+# ── OpenAI client (for streaming) ──────────────────────────────────────────────
+from openai import OpenAI
+client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
+
 # The list of AI models the user can choose from in the sidebar.
 MODELS = [
     "devstral-2-123b-instruct-2512",
@@ -69,15 +86,10 @@ MODELS = [
 
 # Tasks supported by each model — shown above the dropdown as a caption.
 MODEL_LABELS = {
-    "devstral-2-123b-instruct-2512": "Chat & Code",
-    "qwen3.5-397b-a17b":            "Chat & Code",
+    "devstral-2-123b-instruct-2512":       "Chat & Code",
+    "qwen3.5-397b-a17b":                   "Chat & Code",
     "mistral-small-3.2-24b-instruct-2506": "Chat & Vision",
 }
-
-# ── OpenAI client ──────────────────────────────────────────────────────────────
-# Create one shared API client. We point it at Scaleway's endpoint instead of
-# the default OpenAI URL so all requests go to Scaleway's servers.
-client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
 
 # ── Session state defaults ─────────────────────────────────────────────────────
 # st.session_state is a dictionary Streamlit keeps alive between re-runs for the
@@ -99,7 +111,11 @@ if "usage_history" not in st.session_state:
 # docs_indexed: index uploaded files once per server process in a background
 # thread so the page renders immediately without waiting for ONNX inference.
 if "docs_indexed" not in st.session_state:
-    threading.Thread(target=index_documents, args=(UPLOAD_DIR,), daemon=True).start()
+    threading.Thread(
+        target=index_documents_langchain,
+        args=(UPLOAD_DIR,),
+        daemon=True
+    ).start()
     st.session_state.docs_indexed = True
 
 # msg_area: the current text in the chat input area. Stored in session_state so
@@ -264,44 +280,50 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # 2) Retrieve context: always search web when enabled (not just as fallback).
-    #    File chunks are still added to the prompt when available.
-    #    source = "web" whenever a web search was actually performed and returned
-    #    results; source = "files" only when files contributed and web did not.
-
-    # If the user explicitly mentioned an uploaded filename, load all chunks
-    # from that file directly.  If no specific file is referenced, load all
-    # chunks from every indexed file so the model sees the full context.
-    mentioned_file_chunks = None
+    # 2) Retrieve context using LangChain retriever and web search
+    doc_chunks = None
+    source = "model"
+    
+    # Check if user mentioned a specific file
     if os.path.isdir(UPLOAD_DIR):
         for _fname in sorted(os.listdir(UPLOAD_DIR)):
-            if os.path.isfile(os.path.join(UPLOAD_DIR, _fname)) and _fname.lower() in user_input.lower():
-                mentioned_file_chunks = get_file_chunks(_fname)
+            fpath = os.path.join(UPLOAD_DIR, _fname)
+            if os.path.isfile(fpath) and _fname.lower() in user_input.lower():
+                doc_chunks = get_file_chunks(_fname)
+                source = "files"
                 break
-
-    doc_chunks = mentioned_file_chunks or []
-
+    
+    # If no specific file mentioned, use semantic search with LangChain retriever
+    if not doc_chunks:
+        try:
+            retrieved = search_documents_langchain(user_input, k=4)
+            if retrieved:
+                doc_chunks = retrieved
+                source = "files"
+        except Exception:
+            pass
+    
+    # Web search fallback or enhancement
+    web_results = None
     if web_search_enabled:
-        web_results = search_web(user_input)
-        if web_results:
-            context_parts = []
-            if doc_chunks:
-                context_parts.append("\n\n".join(doc_chunks))
-            context_parts.append(web_results)
-            context_text = "\n\n".join(context_parts)
-            source = "web"
-        elif doc_chunks:
-            context_text = "\n\n".join(doc_chunks)
-            source = "files"
+        try:
+            web_results = search_web_langchain(user_input)
+        except Exception:
+            pass
+    
+    # Combine doc chunks and web results
+    context_parts = []
+    if doc_chunks:
+        if isinstance(doc_chunks, list):
+            context_parts.append("\n\n".join(doc_chunks))
         else:
-            context_text = None
-            source = "model"
-    elif doc_chunks:
-        context_text = "\n\n".join(doc_chunks)
-        source = "files"
-    else:
-        context_text = None
-        source = "model"
+            context_parts.append(str(doc_chunks))
+    
+    if web_results:
+        context_parts.append(web_results)
+        source = "web" if web_results else source
+    
+    context_text = "\n\n".join(context_parts) if context_parts else None
 
     # 3) Build the full message list to send to the API.
     #    Augment the system prompt with the retrieved context (if any) so the
