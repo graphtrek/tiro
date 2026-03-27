@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Make the project root importable so rag_utils can be imported from pages/.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from rag_utils import index_documents
+from rag_utils import index_documents, get_index_stats
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="DropBox", page_icon="📁", menu_items={})
@@ -85,6 +85,47 @@ def set_sort(col: str) -> None:
     else:
         st.session_state.sort_col = col
         st.session_state.sort_asc = True
+
+
+# ── Sidebar — indexing statistics ─────────────────────────────────────────────
+def _fmt_num(n: int) -> str:
+    """Format a large integer with thousands separator."""
+    return f"{n:,}"
+
+
+with st.sidebar:
+    st.title("📊 Index statisztikák")
+    stats = get_index_stats()
+
+    if not stats:
+        st.info("Még nincs indexelt fájl.")
+    else:
+        total_files  = len(stats)
+        total_pages  = sum(s.get("pages", 0) for s in stats)
+        total_chunks = sum(s.get("chunks", 0) for s in stats)
+        total_tokens = sum(s.get("tokens_approx", 0) for s in stats)
+
+        col1, col2 = st.columns(2)
+        col1.metric("📄 Fájlok",   _fmt_num(total_files))
+        col2.metric("📑 Oldalak",  _fmt_num(total_pages))
+        col3, col4 = st.columns(2)
+        col3.metric("🧩 Chunkok",  _fmt_num(total_chunks))
+        col4.metric("🔢 ≈ Tokenek", _fmt_num(total_tokens))
+
+        with st.expander("📄 Fájlonkénti részletek"):
+            for s in sorted(stats, key=lambda x: x.get("filename", "")):
+                fname   = s.get("filename", "?")
+                pages   = s.get("pages", 0)
+                chunks  = s.get("chunks", 0)
+                tokens  = s.get("tokens_approx", 0)
+                indexed = s.get("indexed_at", "")[:10]  # just the date part
+
+                st.markdown(
+                    f"**{fname}**  \n"
+                    f"Oldalak: {_fmt_num(pages)} · Chunkok: {_fmt_num(chunks)} · "
+                    f"≈ Tokenek: {_fmt_num(tokens)} · Indexelve: {indexed}"
+                )
+                st.divider()
 
 
 # ── Page header ────────────────────────────────────────────────────────────────

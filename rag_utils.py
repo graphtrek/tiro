@@ -3,12 +3,15 @@ rag_utils.py — Retrieval-Augmented Generation helpers.
 
 Provides:
   - get_collection()       : opens / creates the persistent ChromaDB collection
+  - get_stats_collection() : opens / creates the index-stats ChromaDB collection
   - index_documents(dir)   : incrementally indexes files from the uploads folder
+  - get_index_stats()      : returns per-file indexing statistics from ChromaDB
   - search_documents(query): semantic search; returns relevant chunks or None
   - search_web(query)      : DuckDuckGo fallback; returns formatted snippets or None
 """
 
 import os
+from datetime import datetime, timezone
 import chromadb
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
@@ -16,7 +19,8 @@ import chromadb
 _ROOT       = os.path.dirname(os.path.abspath(__file__))
 CHROMA_DIR  = os.path.join(_ROOT, "chroma_db")
 
-COLLECTION_NAME = "dropbox_docs"
+COLLECTION_NAME       = "dropbox_docs"
+STATS_COLLECTION_NAME = "index_stats"
 
 # Chunking parameters: 500-character chunks with 50-character overlap so
 # context is not lost at chunk boundaries.
@@ -27,7 +31,7 @@ CHUNK_OVERLAP = 50
 SUPPORTED_EXTS = {".pdf", ".docx", ".xlsx", ".txt"}
 
 
-# ── Collection accessor ────────────────────────────────────────────────────────
+# ── Collection accessors ───────────────────────────────────────────────────────
 def get_collection() -> chromadb.Collection:
     """Return the persistent ChromaDB collection, creating it if necessary."""
     client = chromadb.PersistentClient(path=CHROMA_DIR)
@@ -36,6 +40,38 @@ def get_collection() -> chromadb.Collection:
         metadata={"hnsw:space": "cosine"},
     )
     return collection
+
+
+def get_stats_collection() -> chromadb.Collection:
+    """Return the persistent index-stats ChromaDB collection (no embeddings needed)."""
+    client = chromadb.PersistentClient(path=CHROMA_DIR)
+    return client.get_or_create_collection(name=STATS_COLLECTION_NAME)
+
+
+# ── Page counter ───────────────────────────────────────────────────────────────
+def _count_pages(path: str, ext: str) -> int:
+    """Estimate the number of pages / logical units in a document."""
+    try:
+        if ext == ".pdf":
+            from pypdf import PdfReader
+            return len(PdfReader(path).pages)
+        if ext == ".docx":
+            from docx import Document
+            paragraphs = len(Document(path).paragraphs)
+            return max(paragraphs // 10, 1)
+        if ext == ".xlsx":
+            from openpyxl import load_workbook
+            wb = load_workbook(path, data_only=True, read_only=True)
+            count = len(wb.worksheets)
+            wb.close()
+            return max(count, 1)
+        if ext == ".txt":
+            with open(path, "r", encoding="utf-8", errors="ignore") as fh:
+                lines = sum(1 for _ in fh)
+            return max(lines // 50, 1)
+    except Exception:
+        pass
+    return 1
 
 
 # ── Text extraction ────────────────────────────────────────────────────────────
@@ -97,7 +133,8 @@ def index_documents(uploads_dir: str) -> None:
     if not os.path.isdir(uploads_dir):
         return
 
-    collection = get_collection()
+    collection       = get_collection()
+    stats_collection = get_stats_collection()
 
     # Build a map of filename → mtime from what is already in ChromaDB.
     all_meta   = collection.get(include=["metadatas"])["metadatas"]
@@ -112,7 +149,8 @@ def index_documents(uploads_dir: str) -> None:
         fpath = os.path.join(uploads_dir, fname)
         if not os.path.isfile(fpath):
             continue
-        if os.path.splitext(fname)[1].lower() not in SUPPORTED_EXTS:
+        ext = os.path.splitext(fname)[1].lower()
+        if ext not in SUPPORTED_EXTS:
             continue
 
         disk_files.add(fname)
@@ -141,9 +179,47 @@ def index_documents(uploads_dir: str) -> None:
         ]
         collection.upsert(documents=chunks, ids=ids, metadatas=metadatas)
 
-    # Remove chunks for files that were deleted from the uploads folder.
+        # ── Persist indexing statistics ────────────────────────────────────────
+        chars         = len(text)
+        tokens_approx = chars // 4
+        pages         = _count_pages(fpath, ext)
+        indexed_at    = datetime.now(timezone.utc).isoformat()
+
+        stats_collection.upsert(
+            ids=[fname],
+            documents=[fname],
+            metadatas=[{
+                "filename":     fname,
+                "pages":        pages,
+                "chunks":       len(chunks),
+                "chars":        chars,
+                "tokens_approx": tokens_approx,
+                "indexed_at":   indexed_at,
+            }],
+        )
+
+    # Remove chunks (and stats) for files that were deleted from the uploads folder.
     for fname in set(indexed.keys()) - disk_files:
         collection.delete(where={"filename": fname})
+        try:
+            stats_collection.delete(ids=[fname])
+        except Exception:
+            pass
+
+
+# ── Index statistics ───────────────────────────────────────────────────────────
+def get_index_stats() -> list[dict]:
+    """
+    Return per-file indexing statistics stored in the index_stats collection.
+
+    Each dict contains: filename, pages, chunks, chars, tokens_approx, indexed_at.
+    Returns an empty list if no files have been indexed yet.
+    """
+    try:
+        stats = get_stats_collection().get(include=["metadatas"])["metadatas"]
+        return [m for m in stats if m]
+    except Exception:
+        return []
 
 
 # ── Semantic search ────────────────────────────────────────────────────────────
