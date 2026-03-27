@@ -1,13 +1,16 @@
 # streamlit  — the library that turns this Python script into a web app.
 #              Every time the user interacts with the UI, Streamlit re-runs
 #              the whole script from top to bottom.
+import warnings
+warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality")
+
 import streamlit as st
 
 # st.set_page_config must be the first Streamlit call in the script.
 st.set_page_config(page_title="Graphtrek AI Chat", page_icon="💬", menu_items={})
 
-# LangChain imports for RAG and LLM integration
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+# LangChain imports for LLM integration
+from langchain_openai import ChatOpenAI
 import os
 from dotenv import load_dotenv
 
@@ -16,46 +19,22 @@ load_dotenv()
 
 import threading
 from datetime import datetime
-import json
 
-# RAG utilities: LangChain-powered document indexing and search
+# RAG utilities: LangChain-powered document indexing, search, and storage
 from rag_utils_langchain import (
     index_documents_langchain,
     search_documents_langchain,
     search_web_langchain,
     get_langchain_retriever,
     get_file_chunks,
+    load_usage_history,
+    save_usage_entry,
 )
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 BASE_URL   = os.environ["SCALEWAY_BASE_URL"]
 API_KEY    = os.environ["SCALEWAY_API_KEY"]
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
-USAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usage_history.json")
-
-
-def _load_usage_history():
-    """Load persisted usage history from disk."""
-    if not os.path.exists(USAGE_FILE):
-        return []
-    try:
-        with open(USAGE_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        for entry in data:
-            entry["timestamp"] = datetime.fromisoformat(entry["timestamp"])
-        return data
-    except Exception:
-        return []
-
-
-def _save_usage_history(history):
-    """Persist usage history to disk."""
-    serialisable = [
-        {**e, "timestamp": e["timestamp"].isoformat()}
-        for e in history
-    ]
-    with open(USAGE_FILE, "w", encoding="utf-8") as f:
-        json.dump(serialisable, f, ensure_ascii=False, indent=2)
 
 
 # ── LangChain LLM Setup ────────────────────────────────────────────────────────
@@ -106,7 +85,7 @@ if "messages" not in st.session_state:
 # Each entry: {"input_tokens": int, "output_tokens": int, "timestamp": datetime}
 # Loaded from disk on first run so data survives app restarts.
 if "usage_history" not in st.session_state:
-    st.session_state.usage_history = _load_usage_history()
+    st.session_state.usage_history = load_usage_history()
 
 # docs_indexed: index uploaded files once per server process in a background
 # thread so the page renders immediately without waiting for ONNX inference.
@@ -367,13 +346,17 @@ if user_input:
 
             # The very last chunk has no new tokens but carries usage statistics.
             if chunk.usage:
-                # Append this response's counts to the history collection.
-                st.session_state.usage_history.append({
+                entry = {
                     "input_tokens":  chunk.usage.prompt_tokens,
                     "output_tokens": chunk.usage.completion_tokens,
                     "timestamp":     datetime.now(),
-                })
-                _save_usage_history(st.session_state.usage_history)
+                }
+                st.session_state.usage_history.append(entry)
+                save_usage_entry(
+                    entry["input_tokens"],
+                    entry["output_tokens"],
+                    entry["timestamp"],
+                )
 
         # Remove the cursor and display the final clean text.
         placeholder.markdown(full_text)

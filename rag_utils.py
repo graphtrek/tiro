@@ -185,7 +185,13 @@ def index_documents(uploads_dir: str, force_files: set[str] | None = None) -> di
             {"filename": fname, "mtime": mtime, "chunk_index": i}
             for i in range(len(chunks))
         ]
-        collection.upsert(documents=chunks, ids=ids, metadatas=metadatas)
+        _CHROMA_BATCH = 5000
+        for _b in range(0, len(chunks), _CHROMA_BATCH):
+            collection.upsert(
+                documents=chunks[_b:_b + _CHROMA_BATCH],
+                ids=ids[_b:_b + _CHROMA_BATCH],
+                metadatas=metadatas[_b:_b + _CHROMA_BATCH],
+            )
 
         # ── Persist indexing statistics ────────────────────────────────────────
         chars         = len(text)

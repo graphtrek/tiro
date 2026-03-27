@@ -13,16 +13,15 @@ Provides:
 
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 
-# LangChain imports
+# LangChain imports — loaders and text splitter only (no API key needed)
 from langchain_community.document_loaders import (
     PyPDFLoader,
     TextLoader,
     Docx2txtLoader,
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_chroma import Chroma
+from langchain_chroma import Chroma          # used only by get_langchain_vectorstore()
 from langchain_community.tools import DuckDuckGoSearchRun
 import chromadb
 
@@ -33,6 +32,7 @@ UPLOAD_DIR  = os.path.join(_ROOT, "uploads")
 
 COLLECTION_NAME       = "dropbox_docs"
 STATS_COLLECTION_NAME = "index_stats"
+USAGE_COLLECTION_NAME = "usage_history"
 
 # Text splitting parameters
 CHUNK_SIZE    = 500
@@ -60,6 +60,54 @@ def _get_stats_collection():
     """Get the stats collection for metadata."""
     client = _get_chroma_client()
     return client.get_or_create_collection(name=STATS_COLLECTION_NAME)
+
+
+def _get_usage_collection():
+    """Get the usage history collection (no embeddings needed)."""
+    client = _get_chroma_client()
+    return client.get_or_create_collection(name=USAGE_COLLECTION_NAME)
+
+
+# ── Usage history ─────────────────────────────────────────────────────────────
+def load_usage_history() -> list[dict]:
+    """
+    Load all token-usage entries from ChromaDB, sorted by timestamp.
+
+    Each entry: {"input_tokens": int, "output_tokens": int, "timestamp": datetime}
+    """
+    from datetime import datetime
+    try:
+        result = _get_usage_collection().get(include=["metadatas"])
+        entries = [
+            {
+                "input_tokens":  int(m["input_tokens"]),
+                "output_tokens": int(m["output_tokens"]),
+                "timestamp":     datetime.fromisoformat(m["timestamp"]),
+            }
+            for m in result["metadatas"]
+            if m
+        ]
+        return sorted(entries, key=lambda e: e["timestamp"])
+    except Exception:
+        return []
+
+
+def save_usage_entry(input_tokens: int, output_tokens: int, timestamp) -> None:
+    """
+    Persist a single token-usage entry to ChromaDB.
+
+    Uses the ISO timestamp string as the unique ID so re-runs never duplicate.
+    """
+    ts = timestamp.isoformat() if hasattr(timestamp, "isoformat") else str(timestamp)
+    _get_usage_collection().upsert(
+        ids=[ts],
+        documents=[ts],          # ChromaDB requires a non-empty document
+        metadatas=[{
+            "input_tokens":  input_tokens,
+            "output_tokens": output_tokens,
+            "timestamp":     ts,
+        }],
+    )
 
 
 def _count_pages(path: str, ext: str) -> int:
@@ -104,18 +152,12 @@ def _load_document(file_path: str):
 
 
 # ── Vector Store Retriever ────────────────────────────────────────────────────
-def get_langchain_vectorstore(embedding_model=None):
+def get_langchain_vectorstore(embedding_model):
     """
     Return a LangChain Chroma vectorstore wrapper around our ChromaDB collection.
-    
-    This allows seamless integration with LangChain chains and retrievers.
-    If embedding_model is None, uses LangChain's default embedding (OpenAI).
+    An explicit embedding_model (LangChain Embeddings instance) is required —
+    e.g. OpenAIEmbeddings(openai_api_base=..., openai_api_key=...).
     """
-    from langchain_openai import OpenAIEmbeddings
-    
-    if embedding_model is None:
-        embedding_model = OpenAIEmbeddings()
-    
     return Chroma(
         client=_get_chroma_client(),
         collection_name=COLLECTION_NAME,
@@ -125,15 +167,11 @@ def get_langchain_vectorstore(embedding_model=None):
 
 def get_langchain_retriever(k: int = 4, embedding_model=None):
     """
-    Return a LangChain retriever for semantic search.
-    
-    Args:
-        k: Number of results to retrieve
-        embedding_model: LangChain embedding function (defaults to OpenAI)
-    
-    Returns:
-        A LangChain retriever object for use in chains.
+    Return a LangChain retriever. Requires an explicit embedding_model.
+    When embedding_model is None the function returns None gracefully.
     """
+    if embedding_model is None:
+        return None
     vectorstore = get_langchain_vectorstore(embedding_model)
     return vectorstore.as_retriever(search_kwargs={"k": k})
 
@@ -142,35 +180,22 @@ def get_langchain_retriever(k: int = 4, embedding_model=None):
 def index_documents_langchain(
     uploads_dir: str,
     force_files: set[str] | None = None,
-    embedding_model=None,
 ):
     """
     Index all supported documents using LangChain loaders and text splitter.
-    
-    - Uses LangChain's RecursiveCharacterTextSplitter for better chunk quality
-    - Skips unchanged files (checks mtime)
-    - Re-indexes modified and explicitly forced files
-    - Removes chunks for deleted files
-    
-    Args:
-        uploads_dir: Directory containing files to index
-        force_files: Set of filenames to always re-index
-        embedding_model: LangChain embedding function
-    
+
+    Uses LangChain's RecursiveCharacterTextSplitter for better chunk quality,
+    then stores chunks directly in ChromaDB using its built-in local embedding
+    model (no external API key required).
+
     Returns:
         Dict mapping filename → "ok" | "no_text" | "no_chunks" | "unsupported"
     """
-    from langchain_openai import OpenAIEmbeddings
-    
-    if embedding_model is None:
-        embedding_model = OpenAIEmbeddings()
-    
     results = {}
-    
+
     if not os.path.isdir(uploads_dir):
         return results
-    
-    vectorstore = get_langchain_vectorstore(embedding_model)
+
     collection = _get_collection()
     stats_collection = _get_stats_collection()
     
@@ -219,25 +244,33 @@ def index_documents_langchain(
             results[fname] = "no_text"
             continue
         
-        # Add source metadata
+        # Split documents with LangChain text splitter
+        # Add filename metadata so ChromaDB can filter by file later
         for doc in docs:
             doc.metadata["filename"] = fname
-            doc.metadata["source"] = fpath
-        
-        # Split documents with LangChain text splitter
+
         chunks = text_splitter.split_documents(docs)
         if not chunks:
             results[fname] = "no_chunks"
             continue
-        
-        # Add to vectorstore
-        try:
-            vectorstore.add_documents(chunks)
-        except Exception as e:
-            print(f"Error adding documents for {fname}: {e}")
-            results[fname] = "error"
-            continue
-        
+
+        # Store directly in ChromaDB using its built-in local embedding model.
+        # ChromaDB has a max batch size (~5461), so we upsert in chunks.
+        chunk_texts = [c.page_content for c in chunks]
+        ids = [f"{fname}_chunk_{i}" for i in range(len(chunks))]
+        metadatas = [
+            {"filename": fname, "mtime": mtime, "chunk_index": i}
+            for i in range(len(chunks))
+        ]
+        _CHROMA_BATCH = 5000
+        for batch_start in range(0, len(chunk_texts), _CHROMA_BATCH):
+            batch_end = batch_start + _CHROMA_BATCH
+            collection.upsert(
+                documents=chunk_texts[batch_start:batch_end],
+                ids=ids[batch_start:batch_end],
+                metadatas=metadatas[batch_start:batch_end],
+            )
+
         # Store indexing statistics
         total_text = "\n".join([doc.page_content for doc in docs])
         chars = len(total_text)
@@ -284,26 +317,31 @@ def get_index_stats() -> list[dict]:
 def search_documents_langchain(
     query: str,
     k: int = 4,
-    embedding_model=None,
+    threshold: float = 0.7,
 ) -> list[str] | None:
     """
-    Search indexed documents using LangChain retriever.
-    
-    Args:
-        query: Search query
-        k: Number of results to return
-        embedding_model: LangChain embedding function
-    
-    Returns:
-        List of relevant document chunks or None if no results.
+    Search indexed documents using ChromaDB's built-in local embedding.
+
+    Returns a list of relevant text chunks or None if nothing is found.
+    threshold: maximum cosine distance (0 = identical, 1 = orthogonal).
     """
-    retriever = get_langchain_retriever(k=k, embedding_model=embedding_model)
-    
+    collection = _get_collection()
+    count = collection.count()
+    if count == 0:
+        return None
+
     try:
-        docs = retriever.invoke(query)
-        if not docs:
-            return None
-        return [doc.page_content for doc in docs]
+        results = collection.query(
+            query_texts=[query],
+            n_results=min(k, count),
+        )
+        distances = results["distances"][0]
+        documents = results["documents"][0]
+        relevant = [
+            doc for doc, dist in zip(documents, distances)
+            if dist <= threshold
+        ]
+        return relevant if relevant else None
     except Exception:
         return None
 

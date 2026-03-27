@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Make the project root importable so rag_utils can be imported from pages/.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from rag_utils import index_documents, get_index_stats
+from rag_utils_langchain import index_documents_langchain as index_documents, get_index_stats
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="DropBox", page_icon="📁", menu_items={})
