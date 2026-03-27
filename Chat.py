@@ -118,6 +118,9 @@ with st.sidebar:
         height=120,
     )
 
+    # Toggle for enabling/disabling internet search.
+    web_search_enabled = st.toggle("🌐 Internetes keresés", value=False)
+
     # When this button is clicked, we reset all conversation data and call
     # st.rerun() so the UI refreshes immediately.
     if st.button("🗑️ Clear conversation", use_container_width=True):
@@ -176,12 +179,13 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # 2) Retrieve context: check uploaded files first, fall back to web search.
+    # 2) Retrieve context: check uploaded files first, fall back to web search
+    #    (only if internet search is enabled via the sidebar toggle).
     doc_chunks = search_documents(user_input)
     if doc_chunks:
         context_text = "\n\n".join(doc_chunks)
         source = "files"
-    else:
+    elif web_search_enabled:
         web_results = search_web(user_input)
         if web_results:
             context_text = web_results
@@ -189,6 +193,9 @@ if user_input:
         else:
             context_text = None
             source = None
+    else:
+        context_text = None
+        source = None
 
     # 3) Build the full message list to send to the API.
     #    Augment the system prompt with the retrieved context (if any) so the
