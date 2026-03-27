@@ -22,3 +22,5 @@ services:
     volumes:
       # Persist uploaded files across container restarts
       - ./uploads:/app/uploads
+      # Persist ChromaDB embeddings so files are not re-indexed on every restart
+      - ./chroma_db:/app/chroma_db

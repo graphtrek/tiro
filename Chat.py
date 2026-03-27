@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 # Read the .env file from the same folder as this script.
 load_dotenv()
 
+import threading
+
 # RAG utilities: document indexing, semantic search, and web search fallback.
 from rag_utils import index_documents, search_documents, search_web
 
@@ -70,10 +72,10 @@ if "last_usage" not in st.session_state:
 if "total_usage" not in st.session_state:
     st.session_state.total_usage = {"input_tokens": 0, "output_tokens": 0}
 
-# docs_indexed: index uploaded files once per browser session so RAG is ready
-# before the first message. Incremental — unchanged files are skipped quickly.
+# docs_indexed: index uploaded files once per server process in a background
+# thread so the page renders immediately without waiting for ONNX inference.
 if "docs_indexed" not in st.session_state:
-    index_documents(UPLOAD_DIR)
+    threading.Thread(target=index_documents, args=(UPLOAD_DIR,), daemon=True).start()
     st.session_state.docs_indexed = True
 
 # msg_area: the current text in the chat input area. Stored in session_state so
