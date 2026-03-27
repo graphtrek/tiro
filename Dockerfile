@@ -23,6 +23,7 @@ ef(['warmup']) \
 # Copy the application source
 COPY Chat.py .
 COPY rag_utils.py .
+COPY rag_utils_langchain.py .
 COPY pages/ pages/
 
 # Ensure uploads directory exists
