@@ -224,20 +224,30 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # 2) Retrieve context: check uploaded files first, fall back to web search
-    #    (only if internet search is enabled via the sidebar toggle).
+    # 2) Retrieve context: always search web when enabled (not just as fallback).
+    #    File chunks are still added to the prompt when available.
+    #    source = "web" whenever a web search was actually performed and returned
+    #    results; source = "files" only when files contributed and web did not.
     doc_chunks = search_documents(user_input)
-    if doc_chunks:
-        context_text = "\n\n".join(doc_chunks)
-        source = "files"
-    elif web_search_enabled:
+
+    if web_search_enabled:
         web_results = search_web(user_input)
         if web_results:
-            context_text = web_results
+            context_parts = []
+            if doc_chunks:
+                context_parts.append("\n\n".join(doc_chunks))
+            context_parts.append(web_results)
+            context_text = "\n\n".join(context_parts)
             source = "web"
+        elif doc_chunks:
+            context_text = "\n\n".join(doc_chunks)
+            source = "files"
         else:
             context_text = None
             source = None
+    elif doc_chunks:
+        context_text = "\n\n".join(doc_chunks)
+        source = "files"
     else:
         context_text = None
         source = None
