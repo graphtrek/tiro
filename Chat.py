@@ -186,10 +186,14 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
         if msg["role"] == "assistant":
             _src = msg.get("source")
+            _mdl = msg.get("model", "")
+            _mdl_tag = f" · `{_mdl}`" if _mdl else ""
             if _src == "files":
-                st.caption("📁 Answered from your uploaded files")
+                st.caption(f"📁 Answered from your uploaded files{_mdl_tag}")
             elif _src == "web":
-                st.caption("🌐 Answered from internet search")
+                st.caption(f"🌐 Answered from internet search{_mdl_tag}")
+            else:
+                st.caption(f"🤖 Answered by model{_mdl_tag}")
 
 # ── Chat input ─────────────────────────────────────────────────────────────────
 # text_area is used instead of chat_input so that the Files modal can inject
@@ -244,13 +248,13 @@ if user_input:
             source = "files"
         else:
             context_text = None
-            source = None
+            source = "model"
     elif doc_chunks:
         context_text = "\n\n".join(doc_chunks)
         source = "files"
     else:
         context_text = None
-        source = None
+        source = "model"
 
     # 3) Build the full message list to send to the API.
     #    Augment the system prompt with the retrieved context (if any) so the
@@ -306,14 +310,16 @@ if user_input:
         # Remove the cursor and display the final clean text.
         placeholder.markdown(full_text)
         if source == "files":
-            st.caption("📁 Answered from your uploaded files")
+            st.caption(f"📁 Answered from your uploaded files · `{selected_model}`")
         elif source == "web":
-            st.caption("🌐 Answered from internet search")
+            st.caption(f"🌐 Answered from internet search · `{selected_model}`")
+        else:
+            st.caption(f"🤖 Answered by model · `{selected_model}`")
 
     # 5) Save the completed assistant reply so it becomes part of the next
     #    request's conversation history (multi-turn memory).
     #    'source' is stored so the label is preserved when history is re-rendered.
-    st.session_state.messages.append({"role": "assistant", "content": full_text, "source": source})
+    st.session_state.messages.append({"role": "assistant", "content": full_text, "source": source, "model": selected_model})
 
     # Force Streamlit to re-run the script so the updated sidebar token
     # metrics are reflected immediately.
