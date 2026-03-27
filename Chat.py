@@ -76,6 +76,29 @@ if "docs_indexed" not in st.session_state:
     index_documents(UPLOAD_DIR)
     st.session_state.docs_indexed = True
 
+# msg_area: the current text in the chat input area. Stored in session_state so
+# the Files modal can programmatically append a filename before re-rendering.
+if "msg_area" not in st.session_state:
+    st.session_state.msg_area = ""
+
+# ── Files modal ───────────────────────────────────────────────────────────────
+# @st.dialog renders a modal overlay. When a filename button is clicked we
+# append the name to msg_area and call st.rerun() which closes the modal and
+# returns focus to the chat page with the updated text area content.
+@st.dialog("📁 Files")
+def files_modal():
+    files = sorted(f for f in os.listdir(UPLOAD_DIR) if os.path.isfile(os.path.join(UPLOAD_DIR, f)))
+    if not files:
+        st.info("Nincs feltöltött fájl.")
+        return
+    for fname in files:
+        if st.button(fname, use_container_width=True, key=f"file_modal_{fname}"):
+            current = st.session_state.get("msg_area", "")
+            sep = " " if current.strip() else ""
+            st.session_state.msg_new_value = current + sep + fname
+            st.rerun()
+
+
 # ── Reduce sidebar top padding ────────────────────────────────────────────────
 # Streamlit adds a large gap at the top of the sidebar by default.
 # We inject a small CSS snippet to shrink it to 1 rem (~16 px).
@@ -169,9 +192,31 @@ for msg in st.session_state.messages:
                 st.caption("🌐 Answered from internet search")
 
 # ── Chat input ─────────────────────────────────────────────────────────────────
-# st.chat_input shows a text box pinned to the bottom of the page.
-# It returns the submitted text, or None if nothing has been typed yet.
-user_input = st.chat_input("Send a message…")
+# text_area is used instead of chat_input so that the Files modal can inject
+# a filename into the field programmatically via session_state.
+# Apply any pending value (from Files modal or post-send clear) BEFORE the
+# widget is instantiated — Streamlit forbids changing widget state after render.
+if "msg_new_value" in st.session_state:
+    st.session_state.msg_area = st.session_state.pop("msg_new_value")
+
+st.text_area(
+    "Üzenet",
+    key="msg_area",
+    height=80,
+    label_visibility="collapsed",
+    placeholder="Send a message…",
+)
+col_send, col_files = st.columns([5, 1])
+with col_files:
+    if st.button("📁 Files", use_container_width=True):
+        files_modal()
+with col_send:
+    send_clicked = st.button("📤 Küldés", use_container_width=True, type="primary")
+
+user_input = None
+if send_clicked and st.session_state.get("msg_area", "").strip():
+    user_input = st.session_state.msg_area.strip()
+    st.session_state.msg_new_value = ""  # applied on next rerun, before widget renders
 
 if user_input:
     # 1) Save the user's message to history and show it immediately as a bubble.
