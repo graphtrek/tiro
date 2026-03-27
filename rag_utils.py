@@ -122,16 +122,22 @@ def _chunk_text(text: str) -> list[str]:
 
 
 # ── Document indexer ───────────────────────────────────────────────────────────
-def index_documents(uploads_dir: str) -> None:
+def index_documents(uploads_dir: str, force_files: set[str] | None = None) -> dict[str, str]:
     """
     Incrementally index all supported files in uploads_dir into ChromaDB.
 
     - Skips files whose mtime has not changed since last index.
     - Re-indexes files that were modified.
     - Removes chunks for files that have been deleted.
+    - Always re-indexes files listed in force_files (e.g. replaced uploads).
+
+    Returns a dict mapping filename → status string for files that were
+    processed (indexed OK) or failed (empty text / no chunks).
     """
+    results: dict[str, str] = {}   # fname -> "ok" | "no_text" | "no_chunks"
+
     if not os.path.isdir(uploads_dir):
-        return
+        return results
 
     collection       = get_collection()
     stats_collection = get_stats_collection()
@@ -156,8 +162,8 @@ def index_documents(uploads_dir: str) -> None:
         disk_files.add(fname)
         mtime = str(os.stat(fpath).st_mtime)
 
-        # Skip unchanged files.
-        if indexed.get(fname) == mtime:
+        # Skip unchanged files (always re-index explicitly forced files).
+        if indexed.get(fname) == mtime and fname not in (force_files or set()):
             continue
 
         # Remove stale chunks before re-indexing.
@@ -167,9 +173,11 @@ def index_documents(uploads_dir: str) -> None:
         # Extract, chunk, and upsert.
         text   = _extract_text(fpath)
         if not text.strip():
+            results[fname] = "no_text"
             continue
         chunks = _chunk_text(text)
         if not chunks:
+            results[fname] = "no_chunks"
             continue
 
         ids       = [f"{fname}_chunk_{i}" for i in range(len(chunks))]
@@ -197,6 +205,7 @@ def index_documents(uploads_dir: str) -> None:
                 "indexed_at":   indexed_at,
             }],
         )
+        results[fname] = "ok"
 
     # Remove chunks (and stats) for files that were deleted from the uploads folder.
     for fname in set(indexed.keys()) - disk_files:
@@ -205,6 +214,8 @@ def index_documents(uploads_dir: str) -> None:
             stats_collection.delete(ids=[fname])
         except Exception:
             pass
+
+    return results
 
 
 # ── Index statistics ───────────────────────────────────────────────────────────
@@ -255,6 +266,33 @@ def search_documents(
         if dist <= threshold
     ]
     return relevant if relevant else None
+
+
+# ── File-specific chunk retrieval ─────────────────────────────────────────────
+def get_file_chunks(filename: str) -> list[str] | None:
+    """
+    Return all indexed text chunks for a specific file, sorted by chunk order.
+
+    Used when the user explicitly references a filename in their message so we
+    can include the full document context rather than relying on semantic search.
+    """
+    collection = get_collection()
+    if collection.count() == 0:
+        return None
+    results = collection.get(
+        where={"filename": filename},
+        include=["documents", "metadatas"],
+    )
+    docs = results.get("documents")
+    metas = results.get("metadatas")
+    if not docs:
+        return None
+    pairs = sorted(
+        zip(metas, docs),
+        key=lambda x: x[0].get("chunk_index", 0),
+    )
+    chunks = [doc for _, doc in pairs]
+    return chunks if chunks else None
 
 
 # ── Web search fallback ────────────────────────────────────────────────────────

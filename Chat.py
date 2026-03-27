@@ -23,7 +23,7 @@ load_dotenv()
 import threading
 
 # RAG utilities: document indexing, semantic search, and web search fallback.
-from rag_utils import index_documents, search_documents, search_web
+from rag_utils import index_documents, search_documents, search_web, get_file_chunks
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 # os.environ reads values that were loaded from .env by load_dotenv() above.
@@ -234,7 +234,17 @@ if user_input:
     #    File chunks are still added to the prompt when available.
     #    source = "web" whenever a web search was actually performed and returned
     #    results; source = "files" only when files contributed and web did not.
-    doc_chunks = search_documents(user_input)
+
+    # If the user explicitly mentioned an uploaded filename, load all chunks
+    # from that file directly instead of relying on semantic search alone.
+    mentioned_file_chunks = None
+    if os.path.isdir(UPLOAD_DIR):
+        for _fname in sorted(os.listdir(UPLOAD_DIR)):
+            if os.path.isfile(os.path.join(UPLOAD_DIR, _fname)) and _fname.lower() in user_input.lower():
+                mentioned_file_chunks = get_file_chunks(_fname)
+                break
+
+    doc_chunks = mentioned_file_chunks or search_documents(user_input)
 
     if web_search_enabled:
         web_results = search_web(user_input)
@@ -282,7 +292,7 @@ if user_input:
             model=selected_model,
             messages=api_messages,
             max_tokens=2048,
-            temperature=0.6,   # higher = more creative / random answers
+            temperature=0.4,   # higher = more creative / random answers
             top_p=0.95,         # nucleus sampling: consider only top 95% probable tokens
             stream=True,
             stream_options={"include_usage": True},

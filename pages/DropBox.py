@@ -152,13 +152,21 @@ if uploaded_files:
             f.write(uf.getbuffer())
         (replaced if exists else saved).append(uf.name)
 
-    # Re-index immediately so the new files are searchable in Chat right away.
-    index_documents(UPLOAD_DIR)
+    # Re-index immediately; force re-index for replaced files to bypass mtime cache.
+    index_results = index_documents(UPLOAD_DIR, force_files=set(replaced))
 
     if saved:
         st.success(f"Saved: {', '.join(saved)}")
     if replaced:
         st.info(f"Replaced: {', '.join(replaced)}")
+
+    # Warn about files that could not be indexed (e.g. scanned/image-only PDFs).
+    failed = [f for f, s in index_results.items() if s != "ok"]
+    if failed:
+        st.warning(
+            f"⚠️ Could not extract text from: {', '.join(failed)}. "
+            "These files may be scanned/image-based and cannot be indexed for search."
+        )
 
 # ── File table ─────────────────────────────────────────────────────────────────
 records = load_file_records()
