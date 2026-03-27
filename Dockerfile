@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application source
 COPY Chat.py .
+COPY rag_utils.py .
 COPY pages/ pages/
 
 # Ensure uploads directory exists
