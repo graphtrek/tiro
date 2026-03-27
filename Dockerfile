@@ -8,9 +8,16 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download the ChromaDB default embedding model so it is baked into the
-# image and does not need to be fetched at container start-up.
-RUN python -c "from chromadb.utils.embedding_functions import DefaultEmbeddingFunction; DefaultEmbeddingFunction()"
+# Pre-download and cache the ChromaDB default embedding model so it is baked
+# into the image and does not need to be fetched at container start-up.
+# CHROMA_CACHE_DIR points to a world-readable path so non-root runtime users
+# find the model without re-downloading it.
+ENV CHROMA_CACHE_DIR=/opt/chroma-cache
+RUN python -c "\
+from chromadb.utils.embedding_functions.onnx_mini_lm_l6_v2 import ONNXMiniLM_L6_V2; \
+ef = ONNXMiniLM_L6_V2(); \
+ef(['warmup']) \
+" && chmod -R 755 /opt/chroma-cache
 
 # Copy the application source
 COPY Chat.py .
