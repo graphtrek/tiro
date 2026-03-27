@@ -21,6 +21,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import threading
+from datetime import datetime
+import json
 
 # RAG utilities: document indexing, semantic search, and web search fallback.
 from rag_utils import index_documents, search_documents, search_web, get_file_chunks, get_all_chunks
@@ -32,6 +34,31 @@ from rag_utils import index_documents, search_documents, search_web, get_file_ch
 BASE_URL   = os.environ["SCALEWAY_BASE_URL"]
 API_KEY    = os.environ["SCALEWAY_API_KEY"]
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+USAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usage_history.json")
+
+
+def _load_usage_history():
+    """Load persisted usage history from disk."""
+    if not os.path.exists(USAGE_FILE):
+        return []
+    try:
+        with open(USAGE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for entry in data:
+            entry["timestamp"] = datetime.fromisoformat(entry["timestamp"])
+        return data
+    except Exception:
+        return []
+
+
+def _save_usage_history(history):
+    """Persist usage history to disk."""
+    serialisable = [
+        {**e, "timestamp": e["timestamp"].isoformat()}
+        for e in history
+    ]
+    with open(USAGE_FILE, "w", encoding="utf-8") as f:
+        json.dump(serialisable, f, ensure_ascii=False, indent=2)
 
 # The list of AI models the user can choose from in the sidebar.
 MODELS = [
@@ -63,14 +90,11 @@ client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# last_usage: token counts from the most recent API response.
-# Starts as None so we can show "—" before any message is sent.
-if "last_usage" not in st.session_state:
-    st.session_state.last_usage = None
-
-# total_usage: running token totals across all messages in this session.
-if "total_usage" not in st.session_state:
-    st.session_state.total_usage = {"input_tokens": 0, "output_tokens": 0}
+# usage_history: list of token-count dicts, one entry per API response.
+# Each entry: {"input_tokens": int, "output_tokens": int, "timestamp": datetime}
+# Loaded from disk on first run so data survives app restarts.
+if "usage_history" not in st.session_state:
+    st.session_state.usage_history = _load_usage_history()
 
 # docs_indexed: index uploaded files once per server process in a background
 # thread so the page renders immediately without waiting for ONNX inference.
@@ -157,8 +181,8 @@ with st.sidebar:
     # prompt (model memory) back to defaults, then rerun to refresh the UI.
     if st.button("🗑️ Clear conversation", use_container_width=True):
         st.session_state.messages = []
-        st.session_state.last_usage = None
-        st.session_state.total_usage = {"input_tokens": 0, "output_tokens": 0}
+        st.session_state.usage_history = []
+        _save_usage_history([])
         st.session_state.system_prompt_reset = _DEFAULT_SYSTEM_PROMPT
         st.rerun()
 
@@ -169,18 +193,22 @@ with st.sidebar:
     # st.metric renders a labelled number widget (large value + label).
     # We show "—" when no data is available yet.
 
+    _history = st.session_state.usage_history
+    _last    = _history[-1] if _history else None
+    _total_in  = sum(e["input_tokens"]  for e in _history)
+    _total_out = sum(e["output_tokens"] for e in _history)
+
     st.subheader("Last response tokens")
-    usage = st.session_state.last_usage
-    # st.columns(2) splits the sidebar into two equal-width columns side by side.
+    if _last:
+        st.caption(_last["timestamp"].strftime("%Y-%m-%d %H:%M:%S"))
     col1, col2 = st.columns(2)
-    col1.metric("Input",  usage["input_tokens"]  if usage else "—")
-    col2.metric("Output", usage["output_tokens"] if usage else "—")
+    col1.metric("Input",  _last["input_tokens"]  if _last else "—")
+    col2.metric("Output", _last["output_tokens"] if _last else "—")
 
     st.subheader("Cumulative tokens")
-    total = st.session_state.total_usage
     col3, col4 = st.columns(2)
-    col3.metric("Input",  total["input_tokens"]  if total["input_tokens"]  else "—")
-    col4.metric("Output", total["output_tokens"] if total["output_tokens"] else "—")
+    col3.metric("Input",  _total_in  if _history else "—")
+    col4.metric("Output", _total_out if _history else "—")
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.title("💬 Graphtrek AI Chat")
@@ -319,14 +347,13 @@ if user_input:
 
             # The very last chunk has no new tokens but carries usage statistics.
             if chunk.usage:
-                # Save last-response counts for the sidebar metrics.
-                st.session_state.last_usage = {
+                # Append this response's counts to the history collection.
+                st.session_state.usage_history.append({
                     "input_tokens":  chunk.usage.prompt_tokens,
                     "output_tokens": chunk.usage.completion_tokens,
-                }
-                # Add to the running session totals.
-                st.session_state.total_usage["input_tokens"]  += chunk.usage.prompt_tokens
-                st.session_state.total_usage["output_tokens"] += chunk.usage.completion_tokens
+                    "timestamp":     datetime.now(),
+                })
+                _save_usage_history(st.session_state.usage_history)
 
         # Remove the cursor and display the final clean text.
         placeholder.markdown(full_text)
