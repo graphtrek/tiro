@@ -35,8 +35,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          # Pull BuildKit from GHCR instead of Docker Hub to avoid rate limits
-          driver-opts: image=ghcr.io/moby/buildkit:latest
+          # Use docker driver instead of docker-container to avoid pulling buildkit image
+          driver: docker
 
       - name: Extract image metadata (tags & labels)
         id: meta
