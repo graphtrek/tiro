@@ -268,6 +268,31 @@ def search_documents(
     return relevant if relevant else None
 
 
+# ── All-files chunk retrieval ────────────────────────────────────────────────
+def get_all_chunks() -> list[str] | None:
+    """
+    Return all indexed text chunks from every file, sorted by filename and
+    chunk order.
+
+    Used when the user's message does not reference a specific file, so the
+    model can consider the full content of every uploaded document.
+    """
+    collection = get_collection()
+    if collection.count() == 0:
+        return None
+    results = collection.get(include=["documents", "metadatas"])
+    docs  = results.get("documents")
+    metas = results.get("metadatas")
+    if not docs:
+        return None
+    pairs = sorted(
+        zip(metas, docs),
+        key=lambda x: (x[0].get("filename", ""), x[0].get("chunk_index", 0)),
+    )
+    chunks = [doc for _, doc in pairs]
+    return chunks if chunks else None
+
+
 # ── File-specific chunk retrieval ─────────────────────────────────────────────
 def get_file_chunks(filename: str) -> list[str] | None:
     """

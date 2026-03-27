@@ -23,7 +23,7 @@ load_dotenv()
 import threading
 
 # RAG utilities: document indexing, semantic search, and web search fallback.
-from rag_utils import index_documents, search_documents, search_web, get_file_chunks
+from rag_utils import index_documents, search_documents, search_web, get_file_chunks, get_all_chunks
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 # os.environ reads values that were loaded from .env by load_dotenv() above.
@@ -137,21 +137,29 @@ with st.sidebar:
 
     # st.text_area is a multi-line text box. The system prompt instructs the AI
     # how to behave before the user's first message.
+    # Apply any pending reset (from the clear button) BEFORE the widget is
+    # instantiated — Streamlit forbids changing widget-bound keys after render.
+    _DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
+    if "system_prompt_reset" in st.session_state:
+        st.session_state.system_prompt = st.session_state.pop("system_prompt_reset")
+    if "system_prompt" not in st.session_state:
+        st.session_state.system_prompt = _DEFAULT_SYSTEM_PROMPT
     system_prompt = st.text_area(
         "System prompt",
-        value="You are a helpful assistant.",
+        key="system_prompt",
         height=120,
     )
 
     # Toggle for enabling/disabling internet search.
     web_search_enabled = st.toggle("🌐 Internetes keresés", value=False)
 
-    # When this button is clicked, we reset all conversation data and call
-    # st.rerun() so the UI refreshes immediately.
+    # When this button is clicked, we reset all conversation data AND the system
+    # prompt (model memory) back to defaults, then rerun to refresh the UI.
     if st.button("🗑️ Clear conversation", use_container_width=True):
         st.session_state.messages = []
         st.session_state.last_usage = None
         st.session_state.total_usage = {"input_tokens": 0, "output_tokens": 0}
+        st.session_state.system_prompt_reset = _DEFAULT_SYSTEM_PROMPT
         st.rerun()
 
     # st.divider() draws a horizontal line to visually separate sections.
@@ -236,7 +244,8 @@ if user_input:
     #    results; source = "files" only when files contributed and web did not.
 
     # If the user explicitly mentioned an uploaded filename, load all chunks
-    # from that file directly instead of relying on semantic search alone.
+    # from that file directly.  If no specific file is referenced, load all
+    # chunks from every indexed file so the model sees the full context.
     mentioned_file_chunks = None
     if os.path.isdir(UPLOAD_DIR):
         for _fname in sorted(os.listdir(UPLOAD_DIR)):
@@ -244,7 +253,7 @@ if user_input:
                 mentioned_file_chunks = get_file_chunks(_fname)
                 break
 
-    doc_chunks = mentioned_file_chunks or search_documents(user_input)
+    doc_chunks = mentioned_file_chunks or get_all_chunks()
 
     if web_search_enabled:
         web_results = search_web(user_input)
