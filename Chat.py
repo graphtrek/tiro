@@ -20,12 +20,16 @@ from dotenv import load_dotenv
 # Read the .env file from the same folder as this script.
 load_dotenv()
 
+# RAG utilities: document indexing, semantic search, and web search fallback.
+from rag_utils import index_documents, search_documents, search_web
+
 # ── Constants ──────────────────────────────────────────────────────────────────
 # os.environ reads values that were loaded from .env by load_dotenv() above.
 # If a variable is missing, a clear error is raised immediately instead of
 # failing later with a cryptic message.
-BASE_URL = os.environ["SCALEWAY_BASE_URL"]
-API_KEY  = os.environ["SCALEWAY_API_KEY"]
+BASE_URL   = os.environ["SCALEWAY_BASE_URL"]
+API_KEY    = os.environ["SCALEWAY_API_KEY"]
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 
 # The list of AI models the user can choose from in the sidebar.
 MODELS = [
@@ -65,6 +69,12 @@ if "last_usage" not in st.session_state:
 # total_usage: running token totals across all messages in this session.
 if "total_usage" not in st.session_state:
     st.session_state.total_usage = {"input_tokens": 0, "output_tokens": 0}
+
+# docs_indexed: index uploaded files once per browser session so RAG is ready
+# before the first message. Incremental — unchanged files are skipped quickly.
+if "docs_indexed" not in st.session_state:
+    index_documents(UPLOAD_DIR)
+    st.session_state.docs_indexed = True
 
 # ── Reduce sidebar top padding ────────────────────────────────────────────────
 # Streamlit adds a large gap at the top of the sidebar by default.
@@ -148,6 +158,12 @@ st.caption(f"Model: `{selected_model}`")
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+        if msg["role"] == "assistant":
+            _src = msg.get("source")
+            if _src == "files":
+                st.caption("📁 Answered from your uploaded files")
+            elif _src == "web":
+                st.caption("🌐 Answered from internet search")
 
 # ── Chat input ─────────────────────────────────────────────────────────────────
 # st.chat_input shows a text box pinned to the bottom of the page.
@@ -160,12 +176,32 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # 2) Build the full message list to send to the API.
-    #    We prepend the system prompt (sets the AI's behaviour), then attach
-    #    the entire conversation history so the AI has full context.
-    api_messages = [{"role": "system", "content": system_prompt}] + st.session_state.messages
+    # 2) Retrieve context: check uploaded files first, fall back to web search.
+    doc_chunks = search_documents(user_input)
+    if doc_chunks:
+        context_text = "\n\n".join(doc_chunks)
+        source = "files"
+    else:
+        web_results = search_web(user_input)
+        if web_results:
+            context_text = web_results
+            source = "web"
+        else:
+            context_text = None
+            source = None
 
-    # 3) Stream the AI response token by token.
+    # 3) Build the full message list to send to the API.
+    #    Augment the system prompt with the retrieved context (if any) so the
+    #    model can ground its answer in the user's files or a live web search.
+    augmented_system_prompt = system_prompt
+    if context_text:
+        augmented_system_prompt += (
+            "\n\nUse the following context to answer the user's question:\n\n"
+            + context_text
+        )
+    api_messages = [{"role": "system", "content": augmented_system_prompt}] + st.session_state.messages
+
+    # 4) Stream the AI response token by token.
     with st.chat_message("assistant"):
         # st.empty() creates a placeholder we can update on every new token.
         placeholder = st.empty()
@@ -207,10 +243,15 @@ if user_input:
 
         # Remove the cursor and display the final clean text.
         placeholder.markdown(full_text)
+        if source == "files":
+            st.caption("📁 Answered from your uploaded files")
+        elif source == "web":
+            st.caption("🌐 Answered from internet search")
 
-    # 4) Save the completed assistant reply so it becomes part of the next
+    # 5) Save the completed assistant reply so it becomes part of the next
     #    request's conversation history (multi-turn memory).
-    st.session_state.messages.append({"role": "assistant", "content": full_text})
+    #    'source' is stored so the label is preserved when history is re-rendered.
+    st.session_state.messages.append({"role": "assistant", "content": full_text, "source": source})
 
     # Force Streamlit to re-run the script so the updated sidebar token
     # metrics are reflected immediately.
