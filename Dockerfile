@@ -8,6 +8,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download the ChromaDB default embedding model so it is baked into the
+# image and does not need to be fetched at container start-up.
+RUN python -c "from chromadb.utils.embedding_functions import DefaultEmbeddingFunction; DefaultEmbeddingFunction()"
+
 # Copy the application source
 COPY Chat.py .
 COPY rag_utils.py .
