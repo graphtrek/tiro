@@ -105,6 +105,13 @@ with st.sidebar:
         total_chunks = sum(s.get("chunks", 0) for s in stats)
         total_tokens = sum(s.get("tokens_approx", 0) for s in stats)
 
+        st.markdown(
+            "<style>"
+            "[data-testid='stSidebar'] [data-testid='stMetric'] label { font-size: 0.75rem !important; }"
+            "[data-testid='stSidebar'] [data-testid='stMetric'] [data-testid='stMetricValue'] { font-size: 1rem !important; }"
+            "</style>",
+            unsafe_allow_html=True,
+        )
         col1, col2 = st.columns(2)
         col1.metric("📄 Fájlok",   _fmt_num(total_files))
         col2.metric("📑 Oldalak",  _fmt_num(total_pages))
@@ -118,12 +125,15 @@ with st.sidebar:
                 pages   = s.get("pages", 0)
                 chunks  = s.get("chunks", 0)
                 tokens  = s.get("tokens_approx", 0)
-                indexed = s.get("indexed_at", "")[:10]  # just the date part
+                indexed = s.get("indexed_at", "")[:16]  # date + time (YYYY-MM-DD HH:MM)
 
                 st.markdown(
-                    f"**{fname}**  \n"
+                    f"<div style='font-size:0.78rem;line-height:1.5'>"
+                    f"<b>{fname}</b><br>"
                     f"Oldalak: {_fmt_num(pages)} · Chunkok: {_fmt_num(chunks)} · "
                     f"≈ Tokenek: {_fmt_num(tokens)} · Indexelve: {indexed}"
+                    f"</div>",
+                    unsafe_allow_html=True,
                 )
                 st.divider()
 
