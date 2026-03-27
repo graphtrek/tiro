@@ -77,6 +77,8 @@ if "sort_col" not in st.session_state:
     st.session_state.sort_col = "name"
 if "sort_asc" not in st.session_state:
     st.session_state.sort_asc = True
+if "processed_file_ids" not in st.session_state:
+    st.session_state.processed_file_ids = set()
 
 
 def set_sort(col: str) -> None:
@@ -152,31 +154,42 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    saved, replaced = [], []
+    # Filter out files already processed this session to avoid Streamlit rerun
+    # re-triggering the same upload on every page interaction.
+    new_uploads = [uf for uf in uploaded_files if uf.file_id not in st.session_state.processed_file_ids]
 
-    for uf in uploaded_files:
-        dest = os.path.join(UPLOAD_DIR, uf.name)
-        exists = os.path.isfile(dest)
-        with open(dest, "wb") as f:
-            f.write(uf.getbuffer())
-        (replaced if exists else saved).append(uf.name)
+    if new_uploads:
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        saved, replaced = [], []
 
-    # Re-index immediately; force re-index for replaced files to bypass mtime cache.
-    index_results = index_documents(UPLOAD_DIR, force_files=set(replaced))
+        for uf in new_uploads:
+            dest = os.path.join(UPLOAD_DIR, uf.name)
+            exists = os.path.isfile(dest)
+            with open(dest, "wb") as f:
+                f.write(uf.getbuffer())
+            (replaced if exists else saved).append(uf.name)
+            st.session_state.processed_file_ids.add(uf.file_id)
 
-    if saved:
-        st.success(f"Saved: {', '.join(saved)}")
-    if replaced:
-        st.info(f"Replaced: {', '.join(replaced)}")
-
-    # Warn about files that could not be indexed (e.g. scanned/image-only PDFs).
-    failed = [f for f, s in index_results.items() if s != "ok"]
-    if failed:
-        st.warning(
-            f"⚠️ Could not extract text from: {', '.join(failed)}. "
-            "These files may be scanned/image-based and cannot be indexed for search."
+        # Index only the actually uploaded files; pass force_files for replacements
+        # to bypass the mtime cache (mtime may not change on overwrite).
+        index_results = index_documents(
+            UPLOAD_DIR,
+            force_files=set(replaced),
+            only_files=set(saved) | set(replaced),
         )
+
+        if saved:
+            st.success(f"Saved: {', '.join(saved)}")
+        if replaced:
+            st.info(f"Replaced: {', '.join(replaced)}")
+
+        # Warn about files that could not be indexed (e.g. scanned/image-only PDFs).
+        failed = [f for f, s in index_results.items() if s != "ok"]
+        if failed:
+            st.warning(
+                f"⚠️ Could not extract text from: {', '.join(failed)}. "
+                "These files may be scanned/image-based and cannot be indexed for search."
+            )
 
 # ── File table ─────────────────────────────────────────────────────────────────
 records = load_file_records()

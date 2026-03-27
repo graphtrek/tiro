@@ -180,13 +180,17 @@ def get_langchain_retriever(k: int = 4, embedding_model=None):
 def index_documents_langchain(
     uploads_dir: str,
     force_files: set[str] | None = None,
+    only_files: set[str] | None = None,
 ):
     """
-    Index all supported documents using LangChain loaders and text splitter.
+    Index supported documents using LangChain loaders and text splitter.
 
-    Uses LangChain's RecursiveCharacterTextSplitter for better chunk quality,
-    then stores chunks directly in ChromaDB using its built-in local embedding
-    model (no external API key required).
+    When *only_files* is provided, only those filenames are processed and the
+    ChromaDB metadata fetch is scoped to those files — cheap regardless of how
+    many total files are already indexed.
+
+    When *only_files* is None, the full uploads directory is scanned (original
+    behaviour preserved for manual / admin re-index use cases).
 
     Returns:
         Dict mapping filename → "ok" | "no_text" | "no_chunks" | "unsupported"
@@ -198,35 +202,51 @@ def index_documents_langchain(
 
     collection = _get_collection()
     stats_collection = _get_stats_collection()
-    
-    # Build indexed files map
-    all_meta = collection.get(include=["metadatas"])["metadatas"]
+
+    # Build indexed-files mtime map — scoped to only_files when provided so we
+    # don't pull all chunk metadata for large collections.
     indexed = {}
-    for meta in all_meta:
-        if meta and "filename" in meta and "mtime" in meta:
-            indexed[meta["filename"]] = meta["mtime"]
-    
+    if only_files:
+        # Fetch metadata only for the specific files we care about.
+        for fname in only_files:
+            result = collection.get(
+                where={"filename": fname},
+                include=["metadatas"],
+            )
+            for meta in result["metadatas"]:
+                if meta and "mtime" in meta:
+                    indexed[fname] = meta["mtime"]
+                    break  # mtime is the same on all chunks for this file
+    else:
+        all_meta = collection.get(include=["metadatas"])["metadatas"]
+        for meta in all_meta:
+            if meta and "filename" in meta and "mtime" in meta:
+                indexed[meta["filename"]] = meta["mtime"]
+
     # Initialize text splitter (LangChain best practice for general content)
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
         separators=["\n\n", "\n", " ", ""],
     )
-    
+
     disk_files = set()
-    
+
+    # Determine which filenames to process — scoped or full directory.
+    files_to_process = only_files if only_files else set(os.listdir(uploads_dir))
+
     # Process each file in uploads directory
-    for fname in os.listdir(uploads_dir):
+    for fname in files_to_process:
         fpath = os.path.join(uploads_dir, fname)
-        
+
         if not os.path.isfile(fpath):
             continue
-        
+
         ext = os.path.splitext(fname)[1].lower()
         if ext not in SUPPORTED_EXTS:
             results[fname] = "unsupported"
             continue
-        
+
         disk_files.add(fname)
         mtime = str(os.stat(fpath).st_mtime)
         
@@ -293,14 +313,23 @@ def index_documents_langchain(
         
         results[fname] = "ok"
     
-    # Remove chunks for deleted files
-    for fname in set(indexed.keys()) - disk_files:
+    # Remove chunks for deleted files.
+    # Use stats_collection IDs (one entry per file) rather than chunk metadata
+    # so this check is O(files) not O(chunks).
+    try:
+        all_indexed_fnames = set(stats_collection.get()["ids"])
+    except Exception:
+        all_indexed_fnames = set(indexed.keys())
+    current_disk_files = set(
+        f for f in os.listdir(uploads_dir) if os.path.isfile(os.path.join(uploads_dir, f))
+    )
+    for fname in all_indexed_fnames - current_disk_files:
         collection.delete(where={"filename": fname})
         try:
             stats_collection.delete(ids=[fname])
         except Exception:
             pass
-    
+
     return results
 
 
