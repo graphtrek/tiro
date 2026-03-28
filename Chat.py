@@ -316,7 +316,7 @@ with st.sidebar:
         logger.info("conversation_cleared=true")
         st.session_state.messages = []
         st.session_state.system_prompt_reset = _DEFAULT_SYSTEM_PROMPT
-        st.session_state.msg_area = ""
+        st.session_state.msg_new_value = ""
         _save_persistent_settings()
         st.rerun()
 
@@ -394,7 +394,7 @@ with col_files:
         files_modal()
 with col_clear:
     if st.button("🗑️", use_container_width=True, help="Clear text area"):
-        st.session_state.msg_area = ""
+        st.session_state.msg_new_value = ""
         _save_persistent_settings()
         st.rerun()
 with col_send:
