@@ -8,35 +8,41 @@ import logging
 import os
 from datetime import datetime
 
-# Setup logging to shared log file
+# Setup logging to shared log file (only once)
+_LOGGING_CONFIGURED = False
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _LOG_FILE = os.path.join(_ROOT, "kage-ai.log")
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+if not _LOGGING_CONFIGURED:
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
 
-# Only add handlers if they don't exist yet (to avoid duplicates)
-if not logger.handlers:
-    log_format = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)s | %(filename)s | %(funcName)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(log_format)
-    logger.addHandler(console_handler)
-    
-    # File handler (same file as rag_utils_langchain.py)
-    file_handler = logging.FileHandler(_LOG_FILE)
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(log_format)
-    logger.addHandler(file_handler)
-# Enable debug logging for web search operations
-logging.getLogger("duckduckgo_search").setLevel(logging.DEBUG)
-logging.getLogger("urllib3").setLevel(logging.DEBUG)
-logging.getLogger("langchain_community").setLevel(logging.DEBUG)
+    # Only add handlers if they don't exist yet (to avoid duplicates)
+    if not logger.handlers:
+        log_format = logging.Formatter(
+            fmt="%(asctime)s | %(levelname)s | %(filename)s | %(funcName)s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+        
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(log_format)
+        logger.addHandler(console_handler)
+        
+        # File handler (same file as rag_utils_langchain.py)
+        file_handler = logging.FileHandler(_LOG_FILE)
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(log_format)
+        logger.addHandler(file_handler)
+
+    # Enable debug logging for web search operations
+    logging.getLogger("duckduckgo_search").setLevel(logging.DEBUG)
+    logging.getLogger("urllib3").setLevel(logging.DEBUG)
+    logging.getLogger("langchain_community").setLevel(logging.DEBUG)
+    _LOGGING_CONFIGURED = True
+else:
+    logger = logging.getLogger(__name__)
 import streamlit as st
 
 # st.set_page_config must be the first Streamlit call in the script.
@@ -73,6 +79,7 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 
 # ── LangChain LLM Setup ────────────────────────────────────────────────────────
 # Create a LangChain-compatible LLM that points to Scaleway's OpenAI-compatible API
+@st.cache_resource
 def _get_langchain_llm(model_name: str):
     """Create a LangChain ChatOpenAI instance for the given model."""
     return ChatOpenAI(
@@ -88,7 +95,12 @@ def _get_langchain_llm(model_name: str):
 
 # ── OpenAI client (for streaming) ──────────────────────────────────────────────
 from openai import OpenAI
-client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
+@st.cache_resource
+def _get_openai_client():
+    """Create and cache the OpenAI client."""
+    return OpenAI(base_url=BASE_URL, api_key=API_KEY)
+
+client = _get_openai_client()
 
 # The list of AI models the user can choose from in the sidebar.
 MODELS = [
@@ -118,8 +130,12 @@ if "messages" not in st.session_state:
 # usage_history: list of token-count dicts, one entry per API response.
 # Each entry: {"input_tokens": int, "output_tokens": int, "timestamp": datetime}
 # Loaded from disk on first run so data survives app restarts.
+@st.cache_resource
+def _load_usage_history_cached():
+    return load_usage_history()
+
 if "usage_history" not in st.session_state:
-    st.session_state.usage_history = load_usage_history()
+    st.session_state.usage_history = _load_usage_history_cached()
 
 # docs_indexed: index uploaded files once per server process in a background
 # thread so the page renders immediately without waiting for ONNX inference.
@@ -159,20 +175,24 @@ def files_modal():
 # Streamlit adds a large gap at the top of the sidebar by default.
 # We inject a small CSS snippet to shrink it to 1 rem (~16 px).
 # unsafe_allow_html=True is required whenever we pass raw HTML/CSS to Streamlit.
-st.markdown(
-    "<style>"
-    "section[data-testid='stSidebar'] > div:first-child { padding-top: 0.25rem; }"
-    "[data-testid='stSidebarHeader'] { display: none; }"
-    "[data-testid='stAppDeployButton'] { display: none; }"
-    "footer { display: none; }"
-    ".stMenuVersionCopyButton { display: none; }"
-    "html, body, [class*='css'] { font-size: 18px; }"
-    ".stMarkdown p, .stMarkdown li { font-size: 1.1rem; }"
-    ".stChatMessage p { font-size: 1.1rem; }"
-    "[data-testid='stSidebarNav'] a { font-size: 1.05rem; }"
-    "</style>",
-    unsafe_allow_html=True,
-)
+@st.cache_resource
+def _inject_css():
+    st.markdown(
+        "<style>"
+        "section[data-testid='stSidebar'] > div:first-child { padding-top: 0.25rem; }"
+        "[data-testid='stSidebarHeader'] { display: none; }"
+        "[data-testid='stAppDeployButton'] { display: none; }"
+        "footer { display: none; }"
+        ".stMenuVersionCopyButton { display: none; }"
+        "html, body, [class*='css'] { font-size: 18px; }"
+        ".stMarkdown p, .stMarkdown li { font-size: 1.1rem; }"
+        ".stChatMessage p { font-size: 1.1rem; }"
+        "[data-testid='stSidebarNav'] a { font-size: 1.05rem; }"
+        "</style>",
+        unsafe_allow_html=True,
+    )
+
+_inject_css()
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 # Everything indented inside "with st.sidebar:" is rendered in the left panel.

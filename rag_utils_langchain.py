@@ -15,41 +15,46 @@ import logging
 import os
 from datetime import datetime, timezone
 
-# Setup logging to shared log file
+# Setup logging to shared log file (only once)
+_LOGGING_CONFIGURED = False
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _LOG_FILE = os.path.join(_ROOT, "kage-ai.log")
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+if not _LOGGING_CONFIGURED:
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
 
-log_format = logging.Formatter(
-    fmt="%(asctime)s | %(levelname)s | %(filename)s | %(funcName)s | %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+    log_format = logging.Formatter(
+        fmt="%(asctime)s | %(levelname)s | %(filename)s | %(funcName)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
-# Configure root logger so all library loggers propagate to the shared log file
-_root_logger = logging.getLogger()
-if not any(isinstance(h, logging.FileHandler) and h.baseFilename == _LOG_FILE for h in _root_logger.handlers):
-    _root_file_handler = logging.FileHandler(_LOG_FILE)
-    _root_file_handler.setLevel(logging.DEBUG)
-    _root_file_handler.setFormatter(log_format)
-    _root_logger.addHandler(_root_file_handler)
-_root_logger.setLevel(logging.DEBUG)
+    # Configure root logger so all library loggers propagate to the shared log file
+    _root_logger = logging.getLogger()
+    if not any(isinstance(h, logging.FileHandler) and h.baseFilename == _LOG_FILE for h in _root_logger.handlers):
+        _root_file_handler = logging.FileHandler(_LOG_FILE)
+        _root_file_handler.setLevel(logging.DEBUG)
+        _root_file_handler.setFormatter(log_format)
+        _root_logger.addHandler(_root_file_handler)
+    _root_logger.setLevel(logging.DEBUG)
 
-# Only add handlers to module logger if they don't exist yet (to avoid duplicates)
-if not logger.handlers:
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
-    console_handler.setFormatter(log_format)
-    logger.addHandler(console_handler)
+    # Only add handlers to module logger if they don't exist yet (to avoid duplicates)
+    if not logger.handlers:
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG)
+        console_handler.setFormatter(log_format)
+        logger.addHandler(console_handler)
 
-# Enable verbose logs from external libraries for debugging
-logging.getLogger("urllib3").setLevel(logging.DEBUG)
-logging.getLogger("duckduckgo_search").setLevel(logging.DEBUG)
-logging.getLogger("langchain").setLevel(logging.DEBUG)
-logging.getLogger("langchain_community").setLevel(logging.DEBUG)
-# logging.getLogger("chromadb").setLevel(logging.DEBUG)
+    # Enable verbose logs from external libraries for debugging
+    logging.getLogger("urllib3").setLevel(logging.DEBUG)
+    logging.getLogger("duckduckgo_search").setLevel(logging.DEBUG)
+    logging.getLogger("langchain").setLevel(logging.DEBUG)
+    logging.getLogger("langchain_community").setLevel(logging.DEBUG)
+    # logging.getLogger("chromadb").setLevel(logging.DEBUG)
+    _LOGGING_CONFIGURED = True
+else:
+    logger = logging.getLogger(__name__)
 # LangChain imports — loaders and text splitter only (no API key needed)
 from langchain_community.document_loaders import (
     PyPDFLoader,
@@ -77,10 +82,15 @@ SUPPORTED_EXTS = {".pdf", ".docx", ".txt"}
 
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
+_chroma_client_cache = None
+
 def _get_chroma_client():
-    """Get or create ChromaDB persistent client."""
-    logger.info("path=%s", CHROMA_DIR)
-    return chromadb.PersistentClient(path=CHROMA_DIR)
+    """Get or create ChromaDB persistent client (cached to avoid reconnections)."""
+    global _chroma_client_cache
+    if _chroma_client_cache is None:
+        logger.info("path=%s", CHROMA_DIR)
+        _chroma_client_cache = chromadb.PersistentClient(path=CHROMA_DIR)
+    return _chroma_client_cache
 
 
 def _get_collection():
