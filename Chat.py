@@ -116,10 +116,67 @@ MODEL_LABELS = {
     "mistral-small-3.2-24b-instruct-2506": "Chat & Vision",
 }
 
+# ── Persistent settings management ─────────────────────────────────────────────
+import json
+import chromadb
+
+_CHROMA_DIR = os.path.join(_ROOT, "chroma_db")
+_SETTINGS_COLLECTION_NAME = "chat_settings"
+
+def _get_settings_collection():
+    """Get the ChromaDB collection for chat settings."""
+    client = chromadb.PersistentClient(path=_CHROMA_DIR)
+    return client.get_or_create_collection(name=_SETTINGS_COLLECTION_NAME)
+
+def _load_persistent_settings():
+    """Load settings like model, system prompt, and web search toggle from ChromaDB."""
+    default_settings = {
+        "selected_model": MODELS[0],
+        "system_prompt": "You are a helpful assistant.",
+        "web_search_enabled": True,
+        "msg_area": "",
+    }
+    try:
+        result = _get_settings_collection().get(ids=["chat_settings"])
+        if result and result["metadatas"] and result["metadatas"][0]:
+            saved = result["metadatas"][0]
+            # Validate that model is still in available models list
+            if saved.get("selected_model") not in MODELS:
+                saved["selected_model"] = MODELS[0]
+            # Convert web_search_enabled string back to boolean
+            if "web_search_enabled" in saved:
+                saved["web_search_enabled"] = saved["web_search_enabled"].lower() in ("true", "1", "yes")
+            return {**default_settings, **saved}
+        return default_settings
+    except Exception as e:
+        logger.warning("Failed to load persistent settings from ChromaDB: %s", str(e))
+        return default_settings
+
+def _save_persistent_settings():
+    """Save current settings (model, system prompt, web search toggle, msg_area) to ChromaDB."""
+    settings = {
+        "selected_model": st.session_state.get("selected_model", MODELS[0]),
+        "system_prompt": st.session_state.get("system_prompt", "You are a helpful assistant."),
+        "web_search_enabled": str(st.session_state.get("web_search_enabled", True)).lower(),
+        "msg_area": st.session_state.get("msg_area", ""),
+    }
+    try:
+        _get_settings_collection().upsert(
+            ids=["chat_settings"],
+            documents=["chat_settings"],  # ChromaDB requires a non-empty document
+            metadatas=[settings],
+        )
+        logger.info("Persistent settings saved to ChromaDB")
+    except Exception as e:
+        logger.warning("Failed to save persistent settings to ChromaDB: %s", str(e))
+
 # ── Session state defaults ─────────────────────────────────────────────────────
 # st.session_state is a dictionary Streamlit keeps alive between re-runs for the
 # same browser tab. Without it, every click would wipe all data.
 # The "not in" check ensures we only initialise each key once on first load.
+
+# Load persistent settings from disk on first app run
+_persistent_settings = _load_persistent_settings()
 
 # messages: the full conversation so far — a list of dicts, e.g.:
 #   {"role": "user",      "content": "Hello!"}
@@ -150,7 +207,19 @@ if "docs_indexed" not in st.session_state:
 # msg_area: the current text in the chat input area. Stored in session_state so
 # the Files modal can programmatically append a filename before re-rendering.
 if "msg_area" not in st.session_state:
-    st.session_state.msg_area = ""
+    st.session_state.msg_area = _persistent_settings["msg_area"]
+
+# selected_model: restore from persistent settings
+if "selected_model" not in st.session_state:
+    st.session_state.selected_model = _persistent_settings["selected_model"]
+
+# system_prompt: restore from persistent settings
+if "system_prompt" not in st.session_state:
+    st.session_state.system_prompt = _persistent_settings["system_prompt"]
+
+# web_search_enabled: restore from persistent settings
+if "web_search_enabled" not in st.session_state:
+    st.session_state.web_search_enabled = _persistent_settings["web_search_enabled"]
 
 # ── Files modal ───────────────────────────────────────────────────────────────
 # @st.dialog renders a modal overlay. When a filename button is clicked we
@@ -205,12 +274,12 @@ with st.sidebar:
     selected_model = st.selectbox(
         f"Model: {_tasks}",
         MODELS,
-        index=0,
         key="selected_model",
     )
     if st.session_state.get("selected_model") != st.session_state.get("_prev_model"):
         logger.info("model_selected=%s", selected_model)
         st.session_state._prev_model = st.session_state.get("selected_model")
+        _save_persistent_settings()
 
     # st.text_area is a multi-line text box. The system prompt instructs the AI
     # how to behave before the user's first message.
@@ -226,12 +295,20 @@ with st.sidebar:
         key="system_prompt",
         height=120,
     )
+    # Save system prompt changes to disk
+    if system_prompt != st.session_state.get("_prev_system_prompt"):
+        st.session_state._prev_system_prompt = system_prompt
+        _save_persistent_settings()
 
     # Toggle for enabling/disabling internet search.
-    web_search_enabled = st.toggle("🌐 Internetes keresés", value=True)
-    if web_search_enabled != st.session_state.get("_prev_web_search", True):
+    web_search_enabled = st.toggle(
+        "🌐 Internetes keresés",
+        key="web_search_enabled"
+    )
+    if web_search_enabled != st.session_state.get("_prev_web_search"):
         logger.info("web_search_toggled=%s", web_search_enabled)
         st.session_state._prev_web_search = web_search_enabled
+        _save_persistent_settings()
 
     # When this button is clicked, we reset all conversation data AND the system
     # prompt (model memory) back to defaults, then rerun to refresh the UI.
@@ -239,6 +316,8 @@ with st.sidebar:
         logger.info("conversation_cleared=true")
         st.session_state.messages = []
         st.session_state.system_prompt_reset = _DEFAULT_SYSTEM_PROMPT
+        st.session_state.msg_area = ""
+        _save_persistent_settings()
         st.rerun()
 
     # st.divider() draws a horizontal line to visually separate sections.
@@ -303,10 +382,21 @@ st.text_area(
     label_visibility="collapsed",
     placeholder="Send a message…",
 )
-col_send, col_files = st.columns([5, 1])
+
+# Save msg_area changes to disk when it's modified
+if st.session_state.get("msg_area") != st.session_state.get("_prev_msg_area"):
+    st.session_state._prev_msg_area = st.session_state.get("msg_area")
+    _save_persistent_settings()
+
+col_send, col_clear, col_files = st.columns([3, 1, 1])
 with col_files:
     if st.button("📁 Files", use_container_width=True):
         files_modal()
+with col_clear:
+    if st.button("🗑️", use_container_width=True, help="Clear text area"):
+        st.session_state.msg_area = ""
+        _save_persistent_settings()
+        st.rerun()
 with col_send:
     send_clicked = st.button("📤 Küldés", use_container_width=True, type="primary")
 
@@ -314,6 +404,7 @@ user_input = None
 if send_clicked and st.session_state.get("msg_area", "").strip():
     user_input = st.session_state.msg_area.strip()
     st.session_state.msg_new_value = ""  # applied on next rerun, before widget renders
+    _save_persistent_settings()  # Save with cleared msg_area
 
 if user_input:
     # 1) Save the user's message to history and show it immediately as a bubble.
