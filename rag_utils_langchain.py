@@ -11,9 +11,45 @@ Provides:
   - search_web_langchain()       : web search with LangChain DuckDuckGo tool
 """
 
+import logging
 import os
 from datetime import datetime, timezone
 
+# Setup logging to shared log file
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+_LOG_FILE = os.path.join(_ROOT, "kage-ai.log")
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+log_format = logging.Formatter(
+    fmt="%(asctime)s | %(levelname)s | %(filename)s | %(funcName)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+# Configure root logger so all library loggers propagate to the shared log file
+_root_logger = logging.getLogger()
+if not any(isinstance(h, logging.FileHandler) and h.baseFilename == _LOG_FILE for h in _root_logger.handlers):
+    _root_file_handler = logging.FileHandler(_LOG_FILE)
+    _root_file_handler.setLevel(logging.DEBUG)
+    _root_file_handler.setFormatter(log_format)
+    _root_logger.addHandler(_root_file_handler)
+_root_logger.setLevel(logging.DEBUG)
+
+# Only add handlers to module logger if they don't exist yet (to avoid duplicates)
+if not logger.handlers:
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(log_format)
+    logger.addHandler(console_handler)
+
+# Enable verbose logs from external libraries for debugging
+logging.getLogger("urllib3").setLevel(logging.DEBUG)
+logging.getLogger("duckduckgo_search").setLevel(logging.DEBUG)
+logging.getLogger("langchain").setLevel(logging.DEBUG)
+logging.getLogger("langchain_community").setLevel(logging.DEBUG)
+# logging.getLogger("chromadb").setLevel(logging.DEBUG)
 # LangChain imports — loaders and text splitter only (no API key needed)
 from langchain_community.document_loaders import (
     PyPDFLoader,
@@ -26,7 +62,6 @@ from langchain_community.tools import DuckDuckGoSearchRun
 import chromadb
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-_ROOT       = os.path.dirname(os.path.abspath(__file__))
 CHROMA_DIR  = os.path.join(_ROOT, "chroma_db")
 UPLOAD_DIR  = os.path.join(_ROOT, "uploads")
 
@@ -44,11 +79,13 @@ SUPPORTED_EXTS = {".pdf", ".docx", ".txt"}
 # ── Utilities ──────────────────────────────────────────────────────────────────
 def _get_chroma_client():
     """Get or create ChromaDB persistent client."""
+    logger.info("path=%s", CHROMA_DIR)
     return chromadb.PersistentClient(path=CHROMA_DIR)
 
 
 def _get_collection():
     """Get the main ChromaDB collection for document storage."""
+    logger.info("collection_name=%s", COLLECTION_NAME)
     client = _get_chroma_client()
     return client.get_or_create_collection(
         name=COLLECTION_NAME,
@@ -58,12 +95,14 @@ def _get_collection():
 
 def _get_stats_collection():
     """Get the stats collection for metadata."""
+    logger.info("collection_name=%s", STATS_COLLECTION_NAME)
     client = _get_chroma_client()
     return client.get_or_create_collection(name=STATS_COLLECTION_NAME)
 
 
 def _get_usage_collection():
     """Get the usage history collection (no embeddings needed)."""
+    logger.info("collection_name=%s", USAGE_COLLECTION_NAME)
     client = _get_chroma_client()
     return client.get_or_create_collection(name=USAGE_COLLECTION_NAME)
 
@@ -75,6 +114,7 @@ def load_usage_history() -> list[dict]:
 
     Each entry: {"input_tokens": int, "output_tokens": int, "timestamp": datetime}
     """
+    logger.info("no params")
     from datetime import datetime
     try:
         result = _get_usage_collection().get(include=["metadatas"])
@@ -98,6 +138,7 @@ def save_usage_entry(input_tokens: int, output_tokens: int, timestamp) -> None:
 
     Uses the ISO timestamp string as the unique ID so re-runs never duplicate.
     """
+    logger.info("input_tokens=%s, output_tokens=%s, timestamp=%s", input_tokens, output_tokens, timestamp)
     ts = timestamp.isoformat() if hasattr(timestamp, "isoformat") else str(timestamp)
     _get_usage_collection().upsert(
         ids=[ts],
@@ -112,6 +153,7 @@ def save_usage_entry(input_tokens: int, output_tokens: int, timestamp) -> None:
 
 def _count_pages(path: str, ext: str) -> int:
     """Estimate the number of pages in a document."""
+    logger.info("path=%s, ext=%s", path, ext)
     try:
         if ext == ".pdf":
             from pypdf import PdfReader
@@ -132,6 +174,7 @@ def _count_pages(path: str, ext: str) -> int:
 # ── LangChain Document Loading ─────────────────────────────────────────────────
 def _load_document(file_path: str):
     """Load a document using LangChain loaders based on file extension."""
+    logger.info("file_path=%s", file_path)
     ext = os.path.splitext(file_path)[1].lower()
 
     try:
@@ -158,6 +201,7 @@ def get_langchain_vectorstore(embedding_model):
     An explicit embedding_model (LangChain Embeddings instance) is required —
     e.g. OpenAIEmbeddings(openai_api_base=..., openai_api_key=...).
     """
+    logger.info("embedding_model=%s", type(embedding_model).__name__)
     return Chroma(
         client=_get_chroma_client(),
         collection_name=COLLECTION_NAME,
@@ -170,6 +214,7 @@ def get_langchain_retriever(k: int = 4, embedding_model=None):
     Return a LangChain retriever. Requires an explicit embedding_model.
     When embedding_model is None the function returns None gracefully.
     """
+    logger.info("k=%s, embedding_model=%s", k, type(embedding_model).__name__ if embedding_model else None)
     if embedding_model is None:
         return None
     vectorstore = get_langchain_vectorstore(embedding_model)
@@ -195,6 +240,7 @@ def index_documents_langchain(
     Returns:
         Dict mapping filename → "ok" | "no_text" | "no_chunks" | "unsupported"
     """
+    logger.info("uploads_dir=%s, force_files=%s, only_files=%s", uploads_dir, force_files, only_files)
     results = {}
 
     if not os.path.isdir(uploads_dir):
@@ -249,7 +295,7 @@ def index_documents_langchain(
 
         disk_files.add(fname)
         mtime = str(os.stat(fpath).st_mtime)
-        
+        logger.info("file=%s, mtime=%s", fname, mtime)
         # Skip unchanged files (unless explicitly forced)
         if indexed.get(fname) == mtime and fname not in (force_files or set()):
             continue
@@ -335,6 +381,7 @@ def index_documents_langchain(
 
 def get_index_stats() -> list[dict]:
     """Return per-file indexing statistics."""
+    logger.info("no params")
     try:
         stats = _get_stats_collection().get(include=["metadatas"])["metadatas"]
         return [m for m in stats if m]
@@ -354,6 +401,7 @@ def search_documents_langchain(
     Returns a list of relevant text chunks or None if nothing is found.
     threshold: maximum cosine distance (0 = identical, 1 = orthogonal).
     """
+    logger.info("query=%r, k=%s, threshold=%s", query, k, threshold)
     collection = _get_collection()
     count = collection.count()
     if count == 0:
@@ -385,11 +433,18 @@ def search_web_langchain(query: str) -> str | None:
     Returns:
         Formatted search results or None if search fails.
     """
+    logger.debug("[WEB SEARCH] Starting search: query=%r", query)
     try:
         tool = DuckDuckGoSearchRun()
         results = tool.run(query)
-        return results if results else None
-    except Exception:
+        response = results if results else None
+        if response:
+            logger.debug("[WEB SEARCH] Results received (%d chars): %s", len(response), response[:500])
+        else:
+            logger.debug("[WEB SEARCH] No results returned for query=%r", query)
+        return response
+    except Exception as e:
+        logger.error("[WEB SEARCH] Search failed: exception=%s", str(e))
         return None
 
 
@@ -397,6 +452,7 @@ def search_web_langchain(query: str) -> str | None:
 # Keep the old function names for drop-in compatibility
 def index_documents(uploads_dir: str, force_files: set[str] | None = None):
     """Legacy wrapper — use index_documents_langchain() directly."""
+    logger.info("uploads_dir=%s, force_files=%s", uploads_dir, force_files)
     return index_documents_langchain(uploads_dir, force_files)
 
 

@@ -4,10 +4,45 @@
 import warnings
 warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality")
 
+import logging
+import os
+from datetime import datetime
+
+# Setup logging to shared log file
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+_LOG_FILE = os.path.join(_ROOT, "kage-ai.log")
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# Only add handlers if they don't exist yet (to avoid duplicates)
+if not logger.handlers:
+    log_format = logging.Formatter(
+        fmt="%(asctime)s | %(levelname)s | %(filename)s | %(funcName)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(log_format)
+    logger.addHandler(console_handler)
+    
+    # File handler (same file as rag_utils_langchain.py)
+    file_handler = logging.FileHandler(_LOG_FILE)
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(log_format)
+    logger.addHandler(file_handler)
+# Enable debug logging for web search operations
+logging.getLogger("duckduckgo_search").setLevel(logging.DEBUG)
+logging.getLogger("urllib3").setLevel(logging.DEBUG)
+logging.getLogger("langchain_community").setLevel(logging.DEBUG)
 import streamlit as st
 
 # st.set_page_config must be the first Streamlit call in the script.
 st.set_page_config(page_title="Graphtrek AI Chat", page_icon="💬", menu_items={})
+
+logger.info("Chat.py app started")
 
 # LangChain imports for LLM integration
 from langchain_openai import ChatOpenAI
@@ -18,7 +53,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import threading
-from datetime import datetime
 
 # RAG utilities: LangChain-powered document indexing, search, and storage
 from rag_utils_langchain import (
@@ -114,6 +148,7 @@ def files_modal():
         return
     for fname in files:
         if st.button(fname, use_container_width=True, key=f"file_modal_{fname}"):
+            logger.info("file_selected=%s", fname)
             current = st.session_state.get("msg_area", "")
             sep = " " if current.strip() else ""
             st.session_state.msg_new_value = current + sep + fname
@@ -153,6 +188,9 @@ with st.sidebar:
         index=0,
         key="selected_model",
     )
+    if st.session_state.get("selected_model") != st.session_state.get("_prev_model"):
+        logger.info("model_selected=%s", selected_model)
+        st.session_state._prev_model = st.session_state.get("selected_model")
 
     # st.text_area is a multi-line text box. The system prompt instructs the AI
     # how to behave before the user's first message.
@@ -171,10 +209,14 @@ with st.sidebar:
 
     # Toggle for enabling/disabling internet search.
     web_search_enabled = st.toggle("🌐 Internetes keresés", value=False)
+    if web_search_enabled != st.session_state.get("_prev_web_search", False):
+        logger.info("web_search_toggled=%s", web_search_enabled)
+        st.session_state._prev_web_search = web_search_enabled
 
     # When this button is clicked, we reset all conversation data AND the system
     # prompt (model memory) back to defaults, then rerun to refresh the UI.
     if st.button("🗑️ Clear conversation", use_container_width=True):
+        logger.info("conversation_cleared=true")
         st.session_state.messages = []
         st.session_state.system_prompt_reset = _DEFAULT_SYSTEM_PROMPT
         st.rerun()
@@ -255,6 +297,7 @@ if send_clicked and st.session_state.get("msg_area", "").strip():
 
 if user_input:
     # 1) Save the user's message to history and show it immediately as a bubble.
+    logger.info("user_message=%r, model=%s", user_input[:100], selected_model)
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -269,26 +312,29 @@ if user_input:
             fpath = os.path.join(UPLOAD_DIR, _fname)
             if os.path.isfile(fpath) and _fname.lower() in user_input.lower():
                 doc_chunks = get_file_chunks(_fname)
+                logger.info("file_context_retrieved=%s, chunks_count=%s", _fname, len(doc_chunks) if doc_chunks else 0)
                 source = "files"
                 break
     
     # If no specific file mentioned, use semantic search with LangChain retriever
-    if not doc_chunks:
-        try:
-            retrieved = search_documents_langchain(user_input, k=4)
-            if retrieved:
-                doc_chunks = retrieved
-                source = "files"
-        except Exception:
-            pass
+    # if not doc_chunks:
+    #     try:
+    #         retrieved = search_documents_langchain(user_input, k=4)
+    #         if retrieved:
+    #             doc_chunks = retrieved
+    #             source = "files"
+    #     except Exception:
+    #         pass
     
     # Web search fallback or enhancement
     web_results = None
     if web_search_enabled:
         try:
             web_results = search_web_langchain(user_input)
-        except Exception:
-            pass
+            if web_results:
+                logger.info("web_search_completed=true, result_length=%s", len(str(web_results)))
+        except Exception as e:
+            logger.info("web_search_failed=%s", str(e))
     
     # Combine doc chunks and web results
     context_parts = []
@@ -351,6 +397,8 @@ if user_input:
                     "output_tokens": chunk.usage.completion_tokens,
                     "timestamp":     datetime.now(),
                 }
+                logger.info("response_completed=true, input_tokens=%s, output_tokens=%s, source=%s", 
+                           entry["input_tokens"], entry["output_tokens"], source)
                 st.session_state.usage_history.append(entry)
                 save_usage_entry(
                     entry["input_tokens"],
