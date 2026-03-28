@@ -2,7 +2,6 @@ import streamlit as st
 import os
 import re
 from datetime import datetime
-from pathlib import Path
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Logs", page_icon="📋", menu_items={})
@@ -34,8 +33,11 @@ st.markdown(
 st.title("📋 Log Viewer")
 
 # ── Get log file path ──────────────────────────────────────────────────────────
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_LOG_FILE = os.path.join(_ROOT, "kage-ai.log")
+# When running inside Docker the log file is mounted from the host at /app/kage-ai.log
+_is_docker = os.path.exists("/.dockerenv")
+_LOG_FILE = "/app/kage-ai.log" if _is_docker else os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "kage-ai.log"
+)
 
 # ── Check if log file exists ───────────────────────────────────────────────────
 if not os.path.exists(_LOG_FILE):
