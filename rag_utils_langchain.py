@@ -443,15 +443,15 @@ def search_web_langchain(query: str) -> str | None:
     Returns:
         Formatted search results or None if search fails.
     """
-    logger.debug("[WEB SEARCH] Starting search: query=%r", query)
+    logger.info("[WEB SEARCH] Starting search: query=%r", query)
     try:
         tool = DuckDuckGoSearchRun()
         results = tool.run(query)
         response = results if results else None
         if response:
-            logger.debug("[WEB SEARCH] Results received (%d chars): %s", len(response), response[:500])
+            logger.info("[WEB SEARCH] Results received (%d chars): %s", len(response), response[:500])
         else:
-            logger.debug("[WEB SEARCH] No results returned for query=%r", query)
+            logger.warning("[WEB SEARCH] No results returned for query=%r", query)
         return response
     except Exception as e:
         logger.error("[WEB SEARCH] Search failed: exception=%s", str(e))

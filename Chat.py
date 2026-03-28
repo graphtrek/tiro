@@ -228,8 +228,8 @@ with st.sidebar:
     )
 
     # Toggle for enabling/disabling internet search.
-    web_search_enabled = st.toggle("🌐 Internetes keresés", value=False)
-    if web_search_enabled != st.session_state.get("_prev_web_search", False):
+    web_search_enabled = st.toggle("🌐 Internetes keresés", value=True)
+    if web_search_enabled != st.session_state.get("_prev_web_search", True):
         logger.info("web_search_toggled=%s", web_search_enabled)
         st.session_state._prev_web_search = web_search_enabled
 
