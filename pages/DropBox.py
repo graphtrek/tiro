@@ -1,6 +1,9 @@
 import streamlit as st
 import os
 import sys
+import threading
+import time
+import uuid
 from datetime import datetime
 
 # Make the project root importable so rag_utils can be imported from pages/.
@@ -44,6 +47,23 @@ ALLOWED_MIME = [
 ]
 
 SORT_COLS = ["name", "ext", "size_bytes", "uploaded"]
+
+# ── Background indexing ─────────────────────────────────────────────────────────
+@st.cache_resource
+def _get_task_registry() -> dict:
+    """Shared dict that survives Streamlit reruns and page navigation."""
+    return {}
+
+
+def _run_indexing(task_id: str, upload_dir: str, force_files: set, only_files: set) -> None:
+    task = _get_task_registry()[task_id]
+    try:
+        results = index_documents(upload_dir, force_files=force_files, only_files=only_files)
+        task["status"] = "done"
+        task["results"] = results
+    except Exception as exc:
+        task["status"] = "failed"
+        task["error"] = str(exc)
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def fmt_size(n_bytes: int) -> str:
@@ -181,26 +201,55 @@ if uploaded_files:
             (replaced if exists else saved).append(uf.name)
             st.session_state.processed_file_ids.add(uf.file_id)
 
-        # Index only the actually uploaded files; pass force_files for replacements
-        # to bypass the mtime cache (mtime may not change on overwrite).
-        index_results = index_documents(
-            UPLOAD_DIR,
-            force_files=set(replaced),
-            only_files=set(saved) | set(replaced),
-        )
-
         if saved:
             st.success(f"Saved: {', '.join(saved)}")
         if replaced:
             st.info(f"Replaced: {', '.join(replaced)}")
 
-        # Warn about files that could not be indexed (e.g. scanned/image-only PDFs).
-        failed = [f for f, s in index_results.items() if s != "ok"]
-        if failed:
-            st.warning(
-                f"⚠️ Could not extract text from: {', '.join(failed)}. "
-                "These files may be scanned/image-based and cannot be indexed for search."
+        # Launch indexing in a background thread so the user is not blocked.
+        task_id = str(uuid.uuid4())
+        _get_task_registry()[task_id] = {
+            "status": "running",
+            "saved": saved,
+            "replaced": replaced,
+            "results": {},
+            "error": None,
+        }
+        st.session_state["indexing_task_id"] = task_id
+        threading.Thread(
+            target=_run_indexing,
+            args=(task_id, UPLOAD_DIR, set(replaced), set(saved) | set(replaced)),
+            daemon=True,
+        ).start()
+
+# ── Indexing status banner ──────────────────────────────────────────────────────
+_task_id = st.session_state.get("indexing_task_id")
+if _task_id:
+    _task = _get_task_registry().get(_task_id)
+    if _task:
+        if _task["status"] == "running":
+            _all_files = _task["saved"] + _task["replaced"]
+            st.info(
+                f"⏳ Indexing **{', '.join(_all_files)}** in the background… "
+                "You can navigate to other pages — this will finish automatically."
             )
+            time.sleep(1.5)
+            st.rerun()
+        else:
+            # Done or failed — show result once, then clean up.
+            if _task["status"] == "done":
+                failed = [f for f, s in _task["results"].items() if s != "ok"]
+                if failed:
+                    st.warning(
+                        f"⚠️ Could not extract text from: {', '.join(failed)}. "
+                        "These files may be scanned/image-based and cannot be indexed for search."
+                    )
+                else:
+                    st.success("✅ Indexing complete.")
+            else:
+                st.error(f"❌ Indexing failed: {_task['error']}")
+            _get_task_registry().pop(_task_id, None)
+            del st.session_state["indexing_task_id"]
 
 # ── File table ─────────────────────────────────────────────────────────────────
 records = load_file_records()
