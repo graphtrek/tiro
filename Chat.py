@@ -69,6 +69,7 @@ from rag_utils_langchain import (
     get_file_chunks,
     load_usage_history,
     save_usage_entry,
+    get_collection_diagnostics,
 )
 
 # ── Constants ──────────────────────────────────────────────────────────────────
@@ -76,6 +77,36 @@ BASE_URL   = os.environ["SCALEWAY_BASE_URL"]
 API_KEY    = os.environ["SCALEWAY_API_KEY"]
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 
+
+# ── Token counting utilities ──────────────────────────────────────────────────
+def _estimate_tokens(text: str) -> int:
+    """Rough estimate of token count (approximately 1 token per 4 chars)."""
+    return len(text) // 4
+
+def _trim_context(context_text: str, max_tokens: int = 8000) -> str:
+    """Trim context to fit within token budget."""
+    if not context_text:
+        return ""
+    
+    # Estimate current tokens
+    tokens = _estimate_tokens(context_text)
+    if tokens <= max_tokens:
+        return context_text
+    
+    # Progressively remove chunks until we fit
+    chunks = context_text.split("\n\n")
+    trimmed = []
+    current_tokens = 0
+    
+    for chunk in chunks:
+        chunk_tokens = _estimate_tokens(chunk)
+        if current_tokens + chunk_tokens <= max_tokens:
+            trimmed.append(chunk)
+            current_tokens += chunk_tokens
+        else:
+            break
+    
+    return "\n\n".join(trimmed) if trimmed else chunks[0][:max_tokens*4]  # Fallback to first chunk
 
 # ── LangChain LLM Setup ────────────────────────────────────────────────────────
 # Create a LangChain-compatible LLM that points to Scaleway's OpenAI-compatible API
@@ -133,7 +164,7 @@ def _load_persistent_settings():
     default_settings = {
         "selected_model": MODELS[0],
         "system_prompt": "You are a helpful assistant.",
-        "web_search_enabled": True,
+        "dropbox_context_enabled": False,
         "msg_area": "",
     }
     try:
@@ -143,9 +174,9 @@ def _load_persistent_settings():
             # Validate that model is still in available models list
             if saved.get("selected_model") not in MODELS:
                 saved["selected_model"] = MODELS[0]
-            # Convert web_search_enabled string back to boolean
-            if "web_search_enabled" in saved:
-                saved["web_search_enabled"] = saved["web_search_enabled"].lower() in ("true", "1", "yes")
+            # Convert dropbox_context_enabled string back to boolean
+            if "dropbox_context_enabled" in saved:
+                saved["dropbox_context_enabled"] = saved["dropbox_context_enabled"].lower() in ("true", "1", "yes")
             return {**default_settings, **saved}
         return default_settings
     except Exception as e:
@@ -157,7 +188,7 @@ def _save_persistent_settings():
     settings = {
         "selected_model": st.session_state.get("selected_model", MODELS[0]),
         "system_prompt": st.session_state.get("system_prompt", "You are a helpful assistant."),
-        "web_search_enabled": str(st.session_state.get("web_search_enabled", True)).lower(),
+        "dropbox_context_enabled": str(st.session_state.get("dropbox_context_enabled", False)).lower(),
         "msg_area": st.session_state.get("msg_area", ""),
     }
     try:
@@ -217,9 +248,9 @@ if "selected_model" not in st.session_state:
 if "system_prompt" not in st.session_state:
     st.session_state.system_prompt = _persistent_settings["system_prompt"]
 
-# web_search_enabled: restore from persistent settings
-if "web_search_enabled" not in st.session_state:
-    st.session_state.web_search_enabled = _persistent_settings["web_search_enabled"]
+# dropbox_context_enabled: restore from persistent settings
+if "dropbox_context_enabled" not in st.session_state:
+    st.session_state.dropbox_context_enabled = _persistent_settings["dropbox_context_enabled"]
 
 # ── Files modal ───────────────────────────────────────────────────────────────
 # @st.dialog renders a modal overlay. When a filename button is clicked we
@@ -229,7 +260,10 @@ if "web_search_enabled" not in st.session_state:
 def files_modal():
     files = sorted(f for f in os.listdir(UPLOAD_DIR) if os.path.isfile(os.path.join(UPLOAD_DIR, f)))
     if not files:
-        st.info("Nincs feltöltött fájl.")
+        st.warning(
+            "📁 **No files uploaded**\n\n"
+            "Please go to the **DropBox** page to upload your files (PDF, DOCX, TXT, XLSX)."
+        )
         return
     for fname in files:
         if st.button(fname, use_container_width=True, key=f"file_modal_{fname}"):
@@ -237,6 +271,9 @@ def files_modal():
             current = st.session_state.get("msg_area", "")
             sep = " " if current.strip() else ""
             st.session_state.msg_new_value = current + sep + fname
+            # Automatically activate DropBox context when a file is selected
+            st.session_state.dropbox_context_enabled = True
+            _save_persistent_settings()
             st.rerun()
 
 
@@ -257,11 +294,38 @@ def _inject_css():
         ".stMarkdown p, .stMarkdown li { font-size: 1.1rem; }"
         ".stChatMessage p { font-size: 1.1rem; }"
         "[data-testid='stSidebarNav'] a { font-size: 1.05rem; }"
+        "section[data-testid='stSidebar'] textarea { font-size: 0.7rem; line-height: 1.2; }"
         "</style>",
         unsafe_allow_html=True,
     )
 
 _inject_css()
+
+# ── System Prompts ─────────────────────────────────────────────────────────────
+_DROPBOX_SYSTEM_PROMPT = (
+    "You are my personal assistant specialized in managing and understanding documents stored in my Dropbox.\n\n"
+    "Your role is to:\n"
+    "- Retrieve, organize, and summarize documents based on my requests\n"
+    "- Maintain context across multiple files and conversations\n"
+    "- Extract key information, insights, and action items\n"
+    "- Answer questions using only the relevant document context when available\n"
+    "- Be concise, accurate, and structured in responses\n\n"
+    "If information is missing or unclear, ask clarifying questions before proceeding.\n"
+    "Always prioritize relevance, privacy, and correctness."
+)
+
+_INTERNET_SYSTEM_PROMPT = (
+    "You are my personal assistant specialized in understanding and analyzing information from the Internet.\n\n"
+    "Your role is to:\n"
+    "- Search, retrieve, and summarize relevant online information\n"
+    "- Evaluate sources for credibility and accuracy\n"
+    "- Provide clear, concise, and structured answers\n"
+    "- Synthesize insights from multiple sources when needed\n"
+    "- Highlight uncertainty or conflicting information\n\n"
+    "Always prioritize relevance, reliability, and up-to-date information. Ask clarifying questions if the request is ambiguous."
+)
+
+_DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 # Everything indented inside "with st.sidebar:" is rendered in the left panel.
@@ -281,15 +345,26 @@ with st.sidebar:
         st.session_state._prev_model = st.session_state.get("selected_model")
         _save_persistent_settings()
 
+    # Dynamically update system prompt display based on DropBox Context toggle state
+    # Check if the toggle state has changed and update the displayed prompt accordingly
+    _current_dropbox_state = st.session_state.get("dropbox_context_enabled", False)
+    _prev_dropbox_state_for_prompt = st.session_state.get("_dropbox_state_for_prompt", False)
+    
+    if _current_dropbox_state != _prev_dropbox_state_for_prompt:
+        if _current_dropbox_state:
+            st.session_state.system_prompt = _DROPBOX_SYSTEM_PROMPT
+        else:
+            st.session_state.system_prompt = _INTERNET_SYSTEM_PROMPT
+        st.session_state._dropbox_state_for_prompt = _current_dropbox_state
+
     # st.text_area is a multi-line text box. The system prompt instructs the AI
     # how to behave before the user's first message.
     # Apply any pending reset (from the clear button) BEFORE the widget is
     # instantiated — Streamlit forbids changing widget-bound keys after render.
-    _DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
     if "system_prompt_reset" in st.session_state:
         st.session_state.system_prompt = st.session_state.pop("system_prompt_reset")
     if "system_prompt" not in st.session_state:
-        st.session_state.system_prompt = _DEFAULT_SYSTEM_PROMPT
+        st.session_state.system_prompt = _INTERNET_SYSTEM_PROMPT  # Default to internet prompt
     system_prompt = st.text_area(
         "System prompt",
         key="system_prompt",
@@ -300,14 +375,15 @@ with st.sidebar:
         st.session_state._prev_system_prompt = system_prompt
         _save_persistent_settings()
 
-    # Toggle for enabling/disabling internet search.
-    web_search_enabled = st.toggle(
-        "🌐 Internetes keresés",
-        key="web_search_enabled"
+    # Toggle for enabling/disabling DropBox context (ChromaDB).
+    # When active: use only DropBox/ChromaDB documents, no internet search.
+    dropbox_context_enabled = st.toggle(
+        "🌐 DropBox Context",
+        key="dropbox_context_enabled"
     )
-    if web_search_enabled != st.session_state.get("_prev_web_search"):
-        logger.info("web_search_toggled=%s", web_search_enabled)
-        st.session_state._prev_web_search = web_search_enabled
+    if dropbox_context_enabled != st.session_state.get("_prev_dropbox_context"):
+        logger.info("dropbox_context_toggled=%s", dropbox_context_enabled)
+        st.session_state._prev_dropbox_context = dropbox_context_enabled
         _save_persistent_settings()
 
     # When this button is clicked, we reset all conversation data AND the system
@@ -417,6 +493,30 @@ if user_input:
     doc_chunks = None
     source = "model"
     
+    logger.info("dropbox_context_enabled=%s, user_input=%r", st.session_state.get("dropbox_context_enabled", False), user_input[:100])
+    
+    # Check if DropBox context is active but no files are uploaded
+    if st.session_state.get("dropbox_context_enabled", False):
+        files_in_upload = []
+        if os.path.isdir(UPLOAD_DIR):
+            files_in_upload = [f for f in os.listdir(UPLOAD_DIR) if os.path.isfile(os.path.join(UPLOAD_DIR, f))]
+        
+        if not files_in_upload:
+            logger.warning("dropbox_context_enabled_but_no_files=true")
+            with st.chat_message("assistant"):
+                st.warning(
+                    "📁 **DropBox Context is active but no files uploaded**\n\n"
+                    "Please upload files in the **DropBox** page to enable semantic search on your documents.\n\n"
+                    "Steps:\n"
+                    "1. Go to **📁 DropBox** page\n"
+                    "2. Upload your files (PDF, DOCX, TXT, XLSX)\n"
+                    "3. Wait for indexing to complete\n"
+                    "4. Return here and ask your question"
+                )
+                st.caption(f"🤖 · `{selected_model}`")
+            st.session_state.messages.append({"role": "assistant", "content": "📁 DropBox Context is active but no files uploaded. Please upload files in the DropBox page.", "source": "system", "model": selected_model})
+            st.rerun()
+    
     # Check if user mentioned a specific file
     if os.path.isdir(UPLOAD_DIR):
         for _fname in sorted(os.listdir(UPLOAD_DIR)):
@@ -427,19 +527,24 @@ if user_input:
                 source = "files"
                 break
     
-    # If no specific file mentioned, use semantic search with LangChain retriever
-    # if not doc_chunks:
-    #     try:
-    #         retrieved = search_documents_langchain(user_input, k=4)
-    #         if retrieved:
-    #             doc_chunks = retrieved
-    #             source = "files"
-    #     except Exception:
-    #         pass
-    
-    # Web search fallback or enhancement
+    # If no specific file mentioned and DropBox context is active,
+    # use ChromaDB semantic search
+    if not doc_chunks and st.session_state.get("dropbox_context_enabled", False):
+        logger.info("DropBox context active - attempting semantic search on ChromaDB")
+        try:
+            retrieved = search_documents_langchain(user_input, k=4)
+            if retrieved:
+                doc_chunks = retrieved
+                source = "files"
+                logger.info("DropBox context search successful, retrieved %d chunks", len(doc_chunks))
+            else:
+                logger.warning("DropBox context search returned no results for query: %r", user_input[:100])
+        except Exception as e:
+            logger.error("DropBox context search failed: %s", str(e), exc_info=True)
+
+    # Web search — only when DropBox context is inactive
     web_results = None
-    if web_search_enabled:
+    if not st.session_state.get("dropbox_context_enabled", False):
         try:
             web_results = search_web_langchain(user_input)
             if web_results:
@@ -447,16 +552,20 @@ if user_input:
         except Exception as e:
             logger.info("web_search_failed=%s", str(e))
     
-    # Combine doc chunks and web results
+    # Combine doc chunks and web results, trimming to fit token budget
     context_parts = []
     if doc_chunks:
         if isinstance(doc_chunks, list):
-            context_parts.append("\n\n".join(doc_chunks))
+            # Limit doc chunks to top 3 most relevant
+            limited_chunks = doc_chunks[:3]
+            context_parts.append("\n\n".join(limited_chunks))
         else:
             context_parts.append(str(doc_chunks))
     
     if web_results:
-        context_parts.append(web_results)
+        # Trim web results to ~4000 tokens max
+        trimmed_web = _trim_context(web_results, max_tokens=4000)
+        context_parts.append(trimmed_web)
         source = "web" if web_results else source
     
     context_text = "\n\n".join(context_parts) if context_parts else None
@@ -464,13 +573,38 @@ if user_input:
     # 3) Build the full message list to send to the API.
     #    Augment the system prompt with the retrieved context (if any) so the
     #    model can ground its answer in the user's files or a live web search.
-    augmented_system_prompt = system_prompt
+    if st.session_state.get("dropbox_context_enabled", False):
+        augmented_system_prompt = _DROPBOX_SYSTEM_PROMPT
+    else:
+        augmented_system_prompt = _INTERNET_SYSTEM_PROMPT
     if context_text:
+        # Trim context to 8000 tokens to leave room for conversation history
+        trimmed_context = _trim_context(context_text, max_tokens=8000)
         augmented_system_prompt += (
             "\n\nUse the following context to answer the user's question:\n\n"
-            + context_text
+            + trimmed_context
         )
-    api_messages = [{"role": "system", "content": augmented_system_prompt}] + st.session_state.messages
+    
+    # Build conversation history with sliding window to avoid token overflow
+    # Keep more recent messages, drop older ones if needed
+    conversation_msgs = st.session_state.messages
+    
+    # Estimate total tokens: system prompt + context + conversation
+    system_tokens = _estimate_tokens(augmented_system_prompt)
+    max_input_tokens = 245000  # Conservative limit (262144 - 2048 - buffer)
+    
+    # Keep recent ~40 messages (last ~100k tokens of conversation)
+    if len(conversation_msgs) > 40:
+        conversation_msgs = conversation_msgs[-40:]
+    
+    api_messages = [{"role": "system", "content": augmented_system_prompt}] + conversation_msgs
+    
+    # One more safety check: if we're still over budget, trim oldest user messages
+    total_tokens = _estimate_tokens(str(api_messages))
+    if total_tokens > max_input_tokens - 1000:  # Leave 1000 token buffer
+        logger.warning("Token budget exceeded (%d), trimming conversation history", total_tokens)
+        # Keep system + recent 20 messages
+        api_messages = [api_messages[0]] + conversation_msgs[-20:]
 
     # 4) Stream the AI response token by token.
     with st.chat_message("assistant"):
@@ -481,6 +615,9 @@ if user_input:
         # stream=True sends the response in small chunks instead of waiting
         # for the full reply. stream_options asks for token counts in the
         # final chunk.
+        logger.info("api_call_initiated=true, api_messages_count=%d, est_tokens=%d, source=%s", 
+                   len(api_messages), _estimate_tokens(str(api_messages)), source)
+        
         stream = client.chat.completions.create(
             model=selected_model,
             messages=api_messages,
@@ -518,7 +655,21 @@ if user_input:
                 )
 
         # Remove the cursor and display the final clean text.
-        placeholder.markdown(full_text)
+        # Log warning if response is empty and use warning message as content
+        if not full_text or not full_text.strip():
+            logger.warning("empty_response=true, source=%s, user_input=%r, context_available=%s", 
+                         source, user_input[:100], context_text is not None)
+            warning_message = (
+                "⚠️ Received an empty response from the model. This could mean:\n"
+                "- The model encountered an issue\n"
+                "- No relevant context was found (try different keywords)\n"
+                "- Try rephrasing your question"
+            )
+            placeholder.warning(warning_message)
+            full_text = warning_message  # Save warning as content so it persists
+        else:
+            placeholder.markdown(full_text)
+        
         if source == "files":
             st.caption(f"📁 Answered from your uploaded files · `{selected_model}`")
         elif source == "web":

@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Make the project root importable so rag_utils can be imported from pages/.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from rag_utils_langchain import index_documents_langchain as index_documents, get_index_stats
+from rag_utils_langchain import index_documents_langchain as index_documents, get_index_stats, get_collection_diagnostics
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="DropBox", page_icon="📁", menu_items={})
@@ -138,6 +138,20 @@ with st.sidebar:
                     unsafe_allow_html=True,
                 )
                 st.divider()
+    
+    # ── ChromaDB Diagnostics ───────────────────────────────────────────────────
+    st.divider()
+    st.subheader("🔍 ChromaDB Status")
+    diag = get_collection_diagnostics()
+    
+    if diag["status"] == "healthy":
+        st.success(f"✅ Ready for search ({diag['total_chunks']} chunks indexed)")
+        if diag['files_indexed']:
+            st.caption(f"Files: {', '.join(sorted(diag['files_indexed']))}")
+    elif diag["status"] == "empty":
+        st.warning("⚠️ No documents indexed yet\nUpload files above to enable DropBox Context")
+    else:
+        st.error(f"❌ Error: {diag.get('error', 'Unknown error')}")
 
 
 # ── Page header ────────────────────────────────────────────────────────────────

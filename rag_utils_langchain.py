@@ -117,6 +117,37 @@ def _get_usage_collection():
     return client.get_or_create_collection(name=USAGE_COLLECTION_NAME)
 
 
+def get_collection_diagnostics() -> dict:
+    """
+    Return diagnostic information about the ChromaDB collection.
+    Useful for debugging why searches return empty results.
+    """
+    try:
+        collection = _get_collection()
+        count = collection.count()
+        
+        # Get sample metadata to see what files are indexed
+        sample_meta = collection.get(include=["metadatas"], limit=10)
+        files_indexed = set()
+        for meta in sample_meta.get("metadatas", []):
+            if meta and "filename" in meta:
+                files_indexed.add(meta["filename"])
+        
+        return {
+            "total_chunks": count,
+            "files_indexed": list(files_indexed),
+            "status": "healthy" if count > 0 else "empty"
+        }
+    except Exception as e:
+        logger.error("Failed to get collection diagnostics: %s", str(e))
+        return {
+            "total_chunks": 0,
+            "files_indexed": [],
+            "status": "error",
+            "error": str(e)
+        }
+
+
 # ── Usage history ─────────────────────────────────────────────────────────────
 def load_usage_history() -> list[dict]:
     """
@@ -403,33 +434,55 @@ def get_index_stats() -> list[dict]:
 def search_documents_langchain(
     query: str,
     k: int = 4,
-    threshold: float = 0.7,
+    threshold: float = 0.5,
 ) -> list[str] | None:
     """
     Search indexed documents using ChromaDB's built-in local embedding.
 
     Returns a list of relevant text chunks or None if nothing is found.
     threshold: maximum cosine distance (0 = identical, 1 = orthogonal).
+    Lower values (0.3-0.5) work better for semantic search.
     """
     logger.info("query=%r, k=%s, threshold=%s", query, k, threshold)
     collection = _get_collection()
     count = collection.count()
     if count == 0:
+        logger.warning("No documents indexed in ChromaDB collection")
         return None
 
     try:
+        logger.debug("Querying ChromaDB collection with %d total documents", count)
         results = collection.query(
             query_texts=[query],
             n_results=min(k, count),
         )
-        distances = results["distances"][0]
-        documents = results["documents"][0]
+        
+        if not results or not results.get("documents"):
+            logger.warning("Query returned no results")
+            return None
+            
+        distances = results["distances"][0] if results["distances"] else []
+        documents = results["documents"][0] if results["documents"] else []
+        
+        logger.debug("Query returned %d results, distances: %s", len(documents), distances)
+        
+        # Filter by threshold, but if nothing passes, return top results anyway
         relevant = [
             doc for doc, dist in zip(documents, distances)
             if dist <= threshold
         ]
-        return relevant if relevant else None
-    except Exception:
+        
+        if relevant:
+            logger.info("Found %d relevant documents above threshold", len(relevant))
+            return relevant
+        else:
+            # Fallback: if threshold filters everything, return top k results
+            # This ensures we always provide context when DropBox mode is active
+            logger.warning("No documents passed threshold (%.2f), returning top %d results anyway", threshold, min(k, len(documents)))
+            return documents if documents else None
+            
+    except Exception as e:
+        logger.error("Search failed with exception: %s", str(e), exc_info=True)
         return None
 
 
@@ -460,10 +513,10 @@ def search_web_langchain(query: str) -> str | None:
 
 # ── Backward Compatibility ────────────────────────────────────────────────────
 # Keep the old function names for drop-in compatibility
-def index_documents(uploads_dir: str, force_files: set[str] | None = None):
+def index_documents(uploads_dir: str, force_files: set[str] | None = None, only_files: set[str] | None = None):
     """Legacy wrapper — use index_documents_langchain() directly."""
-    logger.info("uploads_dir=%s, force_files=%s", uploads_dir, force_files)
-    return index_documents_langchain(uploads_dir, force_files)
+    logger.info("uploads_dir=%s, force_files=%s, only_files=%s", uploads_dir, force_files, only_files)
+    return index_documents_langchain(uploads_dir, force_files, only_files)
 
 
 def get_all_chunks() -> list[str] | None:
