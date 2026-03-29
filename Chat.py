@@ -468,11 +468,10 @@ with st.sidebar:
         else:
             dropbox_context_enabled = _db_on
 
-        # Clear button: wipes conversation history and resets the system prompt
+        # Clear button: wipes conversation history only, leaves system prompt unchanged
         if st.button("🗑️ Clear context", use_container_width=True):
             logger.info("conversation_cleared=true")
             st.session_state.messages = []
-            st.session_state.system_prompt_reset = _DEFAULT_SYSTEM_PROMPT
             st.session_state.msg_new_value = ""
             _save_persistent_settings()
             st.rerun()
