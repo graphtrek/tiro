@@ -167,7 +167,7 @@ def _load_persistent_settings():
     default_settings = {
         "selected_model": MODELS[0],
         "system_prompt": "You are a helpful assistant.",
-        "dropbox_context_enabled": False,
+        "dropbox_context_enabled": True,
         "msg_area": "",
     }
     try:
@@ -333,7 +333,7 @@ _DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 # Everything indented inside "with st.sidebar:" is rendered in the left panel.
 with st.sidebar:
-    st.title("⚙️ Settings")
+    st.subheader("⚙️ Settings")
 
     # The selectbox label shows the tasks supported by the currently selected model.
     # We read from session_state so it updates immediately when the user switches.
@@ -367,7 +367,7 @@ with st.sidebar:
     if "system_prompt_reset" in st.session_state:
         st.session_state.system_prompt = st.session_state.pop("system_prompt_reset")
     if "system_prompt" not in st.session_state:
-        st.session_state.system_prompt = _INTERNET_SYSTEM_PROMPT  # Default to internet prompt
+        st.session_state.system_prompt = _DROPBOX_SYSTEM_PROMPT  # Default to DropBox prompt
     system_prompt = st.text_area(
         "System prompt",
         key="system_prompt",
@@ -411,17 +411,21 @@ with st.sidebar:
     _total_in  = sum(e["input_tokens"]  for e in _history)
     _total_out = sum(e["output_tokens"] for e in _history)
 
-    st.subheader("Last response tokens")
-    if _last:
-        st.caption(_last["timestamp"].strftime("%Y-%m-%d %H:%M:%S"))
-    col1, col2 = st.columns(2)
-    col1.metric("Input",  _last["input_tokens"]  if _last else "—")
-    col2.metric("Output", _last["output_tokens"] if _last else "—")
-
-    st.subheader("Cumulative tokens")
-    col3, col4 = st.columns(2)
-    col3.metric("Input",  _total_in  if _history else "—")
-    col4.metric("Output", _total_out if _history else "—")
+    _ts = _last["timestamp"].strftime("%Y-%m-%d %H:%M:%S") if _last else ""
+    _li = _last["input_tokens"]  if _last else "—"
+    _lo = _last["output_tokens"] if _last else "—"
+    _ci = _total_in  if _history else "—"
+    _co = _total_out if _history else "—"
+    st.markdown(
+        f"""<div style="font-size:0.85rem;line-height:1.7;color:inherit">
+        <b>Last response tokens</b><br>
+        {f'{_ts}<br>' if _ts else ""}
+        In&nbsp;<b>{_li}</b> &nbsp;·&nbsp; Out&nbsp;<b>{_lo}</b><br><br>
+        <b>Cumulative tokens</b><br>
+        In&nbsp;<b>{_ci}</b> &nbsp;·&nbsp; Out&nbsp;<b>{_co}</b>
+        </div>""",
+        unsafe_allow_html=True,
+    )
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.title("💬 Graphtrek AI Chat")
