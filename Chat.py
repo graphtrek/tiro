@@ -40,6 +40,9 @@ if not _LOGGING_CONFIGURED:
     logging.getLogger("duckduckgo_search").setLevel(logging.DEBUG)
     logging.getLogger("urllib3").setLevel(logging.DEBUG)
     logging.getLogger("langchain_community").setLevel(logging.DEBUG)
+    
+    # Suppress ONNX runtime warning about providers not being explicitly set
+    logging.getLogger("onnxruntime").setLevel(logging.ERROR)
     _LOGGING_CONFIGURED = True
 else:
     logger = logging.getLogger(__name__)

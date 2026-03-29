@@ -52,6 +52,9 @@ if not _LOGGING_CONFIGURED:
     logging.getLogger("langchain").setLevel(logging.DEBUG)
     logging.getLogger("langchain_community").setLevel(logging.DEBUG)
     # logging.getLogger("chromadb").setLevel(logging.DEBUG)
+    
+    # Suppress ONNX runtime warning about providers not being explicitly set
+    logging.getLogger("onnxruntime").setLevel(logging.ERROR)
     _LOGGING_CONFIGURED = True
 else:
     logger = logging.getLogger(__name__)
