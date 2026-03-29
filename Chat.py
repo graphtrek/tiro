@@ -483,12 +483,12 @@ with st.sidebar:
         _co = _total_out if _history else "—"
 
         st.markdown(
-            f"""<div style="font-size:0.85rem;line-height:1.7;color:inherit">
-            <b>Last response tokens</b><br>
-            {f'{_ts}<br>' if _ts else ""}
-            In&nbsp;<b>{_li}</b> &nbsp;·&nbsp; Out&nbsp;<b>{_lo}</b><br><br>
-            <b>Cumulative tokens</b><br>
-            In&nbsp;<b>{_ci}</b> &nbsp;·&nbsp; Out&nbsp;<b>{_co}</b>
+            f"""<div style="font-size:1rem;line-height:1.7;padding-bottom:1rem;">
+            <span style="color:#a78bfa;font-weight:bold">Last response tokens</span><br>
+            {f'<span style="color:#94a3b8">{_ts}</span><br>' if _ts else ""}
+            <span style="color:#6ee7b7">In</span>&nbsp;<b style="color:#34d399">{_li}</b> &nbsp;·&nbsp; <span style="color:#fca5a5">Out</span>&nbsp;<b style="color:#f87171">{_lo}</b><br>
+            <span style="color:#a78bfa;font-weight:bold">Cumulative tokens</span><br>
+            <span style="color:#6ee7b7">In</span>&nbsp;<b style="color:#34d399">{_ci}</b> &nbsp;·&nbsp; <span style="color:#fca5a5">Out</span>&nbsp;<b style="color:#f87171">{_co}</b>
             </div>""",
             unsafe_allow_html=True,
         )
