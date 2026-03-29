@@ -438,11 +438,12 @@ def search_documents_langchain(
     query: str,
     k: int = 4,
     threshold: float = 0.5,
-) -> list[str] | None:
+) -> tuple[list[str] | None, list[str] | None]:
     """
     Search indexed documents using ChromaDB's built-in local embedding.
 
-    Returns a list of relevant text chunks or None if nothing is found.
+    Returns (chunks, filenames) where chunks is a list of relevant text chunks
+    and filenames is a list of unique source filenames, or (None, None) if nothing found.
     threshold: maximum cosine distance (0 = identical, 1 = orthogonal).
     Lower values (0.3-0.5) work better for semantic search.
     """
@@ -451,42 +452,48 @@ def search_documents_langchain(
     count = collection.count()
     if count == 0:
         logger.warning("No documents indexed in ChromaDB collection")
-        return None
+        return None, None
 
     try:
         logger.debug("Querying ChromaDB collection with %d total documents", count)
         results = collection.query(
             query_texts=[query],
             n_results=min(k, count),
+            include=["documents", "distances", "metadatas"],
         )
-        
+
         if not results or not results.get("documents"):
             logger.warning("Query returned no results")
-            return None
-            
+            return None, None
+
         distances = results["distances"][0] if results["distances"] else []
         documents = results["documents"][0] if results["documents"] else []
-        
+        metadatas = results["metadatas"][0] if results.get("metadatas") else []
+
         logger.debug("Query returned %d results, distances: %s", len(documents), distances)
-        
+
         # Filter by threshold, but if nothing passes, return top results anyway
-        relevant = [
-            doc for doc, dist in zip(documents, distances)
+        relevant_pairs = [
+            (doc, meta) for doc, dist, meta in zip(documents, distances, metadatas or [{}] * len(documents))
             if dist <= threshold
         ]
-        
-        if relevant:
-            logger.info("Found %d relevant documents above threshold", len(relevant))
-            return relevant
+
+        if relevant_pairs:
+            logger.info("Found %d relevant documents above threshold", len(relevant_pairs))
+            chunks = [p[0] for p in relevant_pairs]
+            filenames = list(dict.fromkeys(p[1].get("filename") for p in relevant_pairs if p[1] and p[1].get("filename")))
         else:
             # Fallback: if threshold filters everything, return top k results
             # This ensures we always provide context when DropBox mode is active
             logger.warning("No documents passed threshold (%.2f), returning top %d results anyway", threshold, min(k, len(documents)))
-            return documents if documents else None
-            
+            chunks = documents if documents else None
+            filenames = list(dict.fromkeys(m.get("filename") for m in (metadatas or []) if m and m.get("filename")))
+
+        return chunks, filenames if filenames else None
+
     except Exception as e:
         logger.error("Search failed with exception: %s", str(e), exc_info=True)
-        return None
+        return None, None
 
 
 def search_web_langchain(query: str) -> tuple[str | None, list[dict] | None]:

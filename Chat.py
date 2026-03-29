@@ -447,6 +447,9 @@ for msg in st.session_state.messages:
             _mdl_tag = f" · `{_mdl}`" if _mdl else ""
             if _src == "files":
                 st.caption(f"📁 Answered from your uploaded files{_mdl_tag}")
+                _dropbox_sources = msg.get("dropbox_sources")
+                if _dropbox_sources:
+                    st.caption("Sources: " + " · ".join(f"`{f}`" for f in _dropbox_sources))
             elif _src == "web":
                 st.caption(f"🌐 Answered from internet search{_mdl_tag}")
                 _sources = msg.get("web_sources")
@@ -533,6 +536,7 @@ if user_input:
             st.rerun()
     
     # Check if user mentioned one or more specific files
+    dropbox_sources = None
     file_sections = []  # list of labelled strings, one per matched file
     if os.path.isdir(UPLOAD_DIR):
         for _fname in sorted(os.listdir(UPLOAD_DIR)):
@@ -559,16 +563,21 @@ if user_input:
             )
             doc_chunks = file_sections  # one entry per file, already joined
             source = "files"
+            dropbox_sources = [
+                _fname for _fname in sorted(os.listdir(UPLOAD_DIR))
+                if os.path.isfile(os.path.join(UPLOAD_DIR, _fname)) and _fname.lower() in user_input.lower()
+            ]
     
     # If no specific file mentioned and DropBox context is active,
     # use ChromaDB semantic search
     if not doc_chunks and st.session_state.get("dropbox_context_enabled", False):
         logger.info("DropBox context active - attempting semantic search on ChromaDB")
         try:
-            retrieved = search_documents_langchain(user_input, k=4)
+            retrieved, retrieved_filenames = search_documents_langchain(user_input, k=4)
             if retrieved:
                 doc_chunks = retrieved
                 source = "files"
+                dropbox_sources = retrieved_filenames
                 logger.info("DropBox context search successful, retrieved %d chunks", len(doc_chunks))
             else:
                 logger.warning("DropBox context search returned no results for query: %r", user_input[:100])
@@ -732,6 +741,8 @@ if user_input:
         
         if source == "files":
             st.caption(f"📁 Answered from your uploaded files · `{selected_model}`")
+            if dropbox_sources:
+                st.caption("Sources: " + " · ".join(f"`{f}`" for f in dropbox_sources))
         elif source == "web":
             st.caption(f"🌐 Answered from internet search · `{selected_model}`")
             if web_sources:
@@ -748,6 +759,8 @@ if user_input:
     _msg = {"role": "assistant", "content": full_text, "source": source, "model": selected_model}
     if web_sources:
         _msg["web_sources"] = web_sources
+    if dropbox_sources:
+        _msg["dropbox_sources"] = dropbox_sources
     st.session_state.messages.append(_msg)
 
     # Force Streamlit to re-run the script so the updated sidebar token
