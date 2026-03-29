@@ -300,6 +300,8 @@ def _inject_css():
         "section[data-testid='stSidebar'] textarea { font-size: 0.7rem; line-height: 1.2; }"
         "section[data-testid='stSidebar'] .stToggle label p { font-size: 0.78rem !important; }"
         "section[data-testid='stSidebar'] .stButton button { font-size: 0.78rem !important; }"
+        "section[data-testid='stSidebar'] .stExpander summary { font-size: 0.85rem !important; }"
+        "section[data-testid='stSidebar'] .stExpander [data-testid='stExpanderDetails'] { padding: 0.25rem 0.5rem; }"
         "</style>",
         unsafe_allow_html=True,
     )
@@ -335,26 +337,12 @@ _DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 # Everything indented inside "with st.sidebar:" is rendered in the left panel.
 with st.sidebar:
-    st.subheader("⚙️ Settings")
 
-    # The selectbox label shows the tasks supported by the currently selected model.
-    # We read from session_state so it updates immediately when the user switches.
-    _tasks = MODEL_LABELS.get(st.session_state.get("selected_model", MODELS[0]), "Chat & Code")
-    selected_model = st.selectbox(
-        f"Model: {_tasks}",
-        MODELS,
-        key="selected_model",
-    )
-    if st.session_state.get("selected_model") != st.session_state.get("_prev_model"):
-        logger.info("model_selected=%s", selected_model)
-        st.session_state._prev_model = st.session_state.get("selected_model")
-        _save_persistent_settings()
-
-    # Dynamically update system prompt display based on DropBox Context toggle state
-    # Check if the toggle state has changed and update the displayed prompt accordingly
+    # ── Pre-render logic (must run before any widget) ──────────────────────────
+    # Dynamically update system prompt display based on DropBox Context toggle state.
+    # This must precede the System Prompt expander since it writes to session_state.system_prompt.
     _current_dropbox_state = st.session_state.get("dropbox_context_enabled", False)
     _prev_dropbox_state_for_prompt = st.session_state.get("_dropbox_state_for_prompt", False)
-    
     if _current_dropbox_state != _prev_dropbox_state_for_prompt:
         if _current_dropbox_state:
             st.session_state.system_prompt = _DROPBOX_SYSTEM_PROMPT
@@ -362,72 +350,77 @@ with st.sidebar:
             st.session_state.system_prompt = _INTERNET_SYSTEM_PROMPT
         st.session_state._dropbox_state_for_prompt = _current_dropbox_state
 
-    # st.text_area is a multi-line text box. The system prompt instructs the AI
-    # how to behave before the user's first message.
     # Apply any pending reset (from the clear button) BEFORE the widget is
     # instantiated — Streamlit forbids changing widget-bound keys after render.
     if "system_prompt_reset" in st.session_state:
         st.session_state.system_prompt = st.session_state.pop("system_prompt_reset")
     if "system_prompt" not in st.session_state:
-        st.session_state.system_prompt = _DROPBOX_SYSTEM_PROMPT  # Default to DropBox prompt
-    system_prompt = st.text_area(
-        "System prompt",
-        key="system_prompt",
-        height=120,
-    )
-    # Save system prompt changes to disk
-    if system_prompt != st.session_state.get("_prev_system_prompt"):
-        st.session_state._prev_system_prompt = system_prompt
-        _save_persistent_settings()
+        st.session_state.system_prompt = _DROPBOX_SYSTEM_PROMPT
 
-    # Toggle for enabling/disabling DropBox context (ChromaDB).
-    # When active: use only DropBox/ChromaDB documents, no internet search.
-    dropbox_context_enabled = st.toggle(
-        "🌐 DropBox Context",
-        key="dropbox_context_enabled"
-    )
-    if dropbox_context_enabled != st.session_state.get("_prev_dropbox_context"):
-        logger.info("dropbox_context_toggled=%s", dropbox_context_enabled)
-        st.session_state._prev_dropbox_context = dropbox_context_enabled
-        _save_persistent_settings()
+    # ── Model ──────────────────────────────────────────────────────────────────
+    with st.expander("🤖 Model", expanded=True):
+        _tasks = MODEL_LABELS.get(st.session_state.get("selected_model", MODELS[0]), "Chat & Code")
+        selected_model = st.selectbox(
+            f"Tasks: {_tasks}",
+            MODELS,
+            key="selected_model",
+        )
+        if st.session_state.get("selected_model") != st.session_state.get("_prev_model"):
+            logger.info("model_selected=%s", selected_model)
+            st.session_state._prev_model = st.session_state.get("selected_model")
+            _save_persistent_settings()
 
-    # When this button is clicked, we reset all conversation data AND the system
-    # prompt (model memory) back to defaults, then rerun to refresh the UI.
-    if st.button("🗑️ Clear conversation", use_container_width=True):
-        logger.info("conversation_cleared=true")
-        st.session_state.messages = []
-        st.session_state.system_prompt_reset = _DEFAULT_SYSTEM_PROMPT
-        st.session_state.msg_new_value = ""
-        _save_persistent_settings()
-        st.rerun()
+    # ── System Prompt ──────────────────────────────────────────────────────────
+    with st.expander("📝 System Prompt", expanded=False):
+        system_prompt = st.text_area(
+            "System prompt",
+            key="system_prompt",
+            height=120,
+        )
+        if system_prompt != st.session_state.get("_prev_system_prompt"):
+            st.session_state._prev_system_prompt = system_prompt
+            _save_persistent_settings()
 
-    # st.divider() draws a horizontal line to visually separate sections.
-    st.divider()
+    # ── Context ────────────────────────────────────────────────────────────────
+    with st.expander("🌐 Context", expanded=True):
+        dropbox_context_enabled = st.toggle(
+            "DropBox Context",
+            key="dropbox_context_enabled"
+        )
+        if dropbox_context_enabled != st.session_state.get("_prev_dropbox_context"):
+            logger.info("dropbox_context_toggled=%s", dropbox_context_enabled)
+            st.session_state._prev_dropbox_context = dropbox_context_enabled
+            _save_persistent_settings()
+        if st.button("🗑️ Clear context", use_container_width=True):
+            logger.info("conversation_cleared=true")
+            st.session_state.messages = []
+            st.session_state.system_prompt_reset = _DEFAULT_SYSTEM_PROMPT
+            st.session_state.msg_new_value = ""
+            _save_persistent_settings()
+            st.rerun()
 
-    # ── Token usage metrics ────────────────────────────────────────────────────
-    # st.metric renders a labelled number widget (large value + label).
-    # We show "—" when no data is available yet.
+    # ── Token Usage ────────────────────────────────────────────────────────────
+    with st.expander("📊 Token Usage", expanded=False):
+        _history = st.session_state.usage_history
+        _last    = _history[-1] if _history else None
+        _total_in  = sum(e["input_tokens"]  for e in _history)
+        _total_out = sum(e["output_tokens"] for e in _history)
 
-    _history = st.session_state.usage_history
-    _last    = _history[-1] if _history else None
-    _total_in  = sum(e["input_tokens"]  for e in _history)
-    _total_out = sum(e["output_tokens"] for e in _history)
-
-    _ts = _last["timestamp"].strftime("%Y-%m-%d %H:%M:%S") if _last else ""
-    _li = _last["input_tokens"]  if _last else "—"
-    _lo = _last["output_tokens"] if _last else "—"
-    _ci = _total_in  if _history else "—"
-    _co = _total_out if _history else "—"
-    st.markdown(
-        f"""<div style="font-size:0.85rem;line-height:1.7;color:inherit">
-        <b>Last response tokens</b><br>
-        {f'{_ts}<br>' if _ts else ""}
-        In&nbsp;<b>{_li}</b> &nbsp;·&nbsp; Out&nbsp;<b>{_lo}</b><br><br>
-        <b>Cumulative tokens</b><br>
-        In&nbsp;<b>{_ci}</b> &nbsp;·&nbsp; Out&nbsp;<b>{_co}</b>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+        _ts = _last["timestamp"].strftime("%Y-%m-%d %H:%M:%S") if _last else ""
+        _li = _last["input_tokens"]  if _last else "—"
+        _lo = _last["output_tokens"] if _last else "—"
+        _ci = _total_in  if _history else "—"
+        _co = _total_out if _history else "—"
+        st.markdown(
+            f"""<div style="font-size:0.85rem;line-height:1.7;color:inherit">
+            <b>Last response tokens</b><br>
+            {f'{_ts}<br>' if _ts else ""}
+            In&nbsp;<b>{_li}</b> &nbsp;·&nbsp; Out&nbsp;<b>{_lo}</b><br><br>
+            <b>Cumulative tokens</b><br>
+            In&nbsp;<b>{_ci}</b> &nbsp;·&nbsp; Out&nbsp;<b>{_co}</b>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.title("💬 Graphtrek AI Chat")
@@ -478,7 +471,7 @@ with col_files:
     if st.button("📁 Files", use_container_width=True):
         files_modal()
 with col_clear:
-    if st.button("🗑️ Clear text area", use_container_width=True, help="Clear text area"):
+    if st.button("🗑️ Clear chat", use_container_width=True, help="Clear chat"):
         st.session_state.msg_new_value = ""
         _save_persistent_settings()
         st.rerun()
