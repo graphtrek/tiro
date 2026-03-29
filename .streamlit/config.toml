@@ -2,6 +2,7 @@
 headless = true
 address = "0.0.0.0"
 port = 8501
+maxUploadSize = 50
 # Allow requests from the reverse-proxy host
 enableCORS = false
 enableXsrfProtection = false
