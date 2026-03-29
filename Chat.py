@@ -467,17 +467,17 @@ if st.session_state.get("msg_area") != st.session_state.get("_prev_msg_area"):
     st.session_state._prev_msg_area = st.session_state.get("msg_area")
     _save_persistent_settings()
 
-col_send, col_clear, col_files = st.columns([3, 1, 1])
+col_send, col_clear, col_files = st.columns([2, 2, 2])
 with col_files:
     if st.button("📁 Files", use_container_width=True):
         files_modal()
 with col_clear:
-    if st.button("🗑️", use_container_width=True, help="Clear text area"):
+    if st.button("🗑️ Clear text area", use_container_width=True, help="Clear text area"):
         st.session_state.msg_new_value = ""
         _save_persistent_settings()
         st.rerun()
 with col_send:
-    send_clicked = st.button("📤 Küldés", use_container_width=True, type="primary")
+    send_clicked = st.button("📤 Send message", use_container_width=True, type="primary")
 
 user_input = None
 if send_clicked and st.session_state.get("msg_area", "").strip():
