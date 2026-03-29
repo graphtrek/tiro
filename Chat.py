@@ -520,15 +520,33 @@ if user_input:
             st.session_state.messages.append({"role": "assistant", "content": "📁 DropBox Context is active but no files uploaded. Please upload files in the DropBox page.", "source": "system", "model": selected_model})
             st.rerun()
     
-    # Check if user mentioned a specific file
+    # Check if user mentioned one or more specific files
+    file_sections = []  # list of labelled strings, one per matched file
     if os.path.isdir(UPLOAD_DIR):
         for _fname in sorted(os.listdir(UPLOAD_DIR)):
             fpath = os.path.join(UPLOAD_DIR, _fname)
             if os.path.isfile(fpath) and _fname.lower() in user_input.lower():
-                doc_chunks = get_file_chunks(_fname)
-                logger.info("file_context_retrieved=%s, chunks_count=%s", _fname, len(doc_chunks) if doc_chunks else 0)
-                source = "files"
-                break
+                file_chunks = get_file_chunks(_fname)
+                if file_chunks:
+                    chunk_count = len(file_chunks)
+                    token_count = sum(_estimate_tokens(c) for c in file_chunks)
+                    logger.info(
+                        "FILE CONTEXT | file=%-40s | chunks=%4d | tokens=%6d",
+                        _fname, chunk_count, token_count,
+                    )
+                    section = f"=== FILE: {_fname} ===\n" + "\n\n".join(file_chunks)
+                    file_sections.append(section)
+                else:
+                    logger.warning("FILE CONTEXT | file=%-40s | no chunks found in index", _fname)
+        if file_sections:
+            total_chunks = sum(s.count("\n\n") + 1 for s in file_sections)
+            total_tokens = sum(_estimate_tokens(s) for s in file_sections)
+            logger.info(
+                "FILE CONTEXT | TOTAL files=%d | chunks≈%d | tokens=%d",
+                len(file_sections), total_chunks, total_tokens,
+            )
+            doc_chunks = file_sections  # one entry per file, already joined
+            source = "files"
     
     # If no specific file mentioned and DropBox context is active,
     # use ChromaDB semantic search
@@ -559,9 +577,7 @@ if user_input:
     context_parts = []
     if doc_chunks:
         if isinstance(doc_chunks, list):
-            # Limit doc chunks to top 3 most relevant
-            limited_chunks = doc_chunks[:3]
-            context_parts.append("\n\n".join(limited_chunks))
+            context_parts.append("\n\n".join(doc_chunks))
         else:
             context_parts.append(str(doc_chunks))
     
@@ -573,6 +589,13 @@ if user_input:
     
     context_text = "\n\n".join(context_parts) if context_parts else None
 
+    # Per-file sections are already labelled; ensure each file is represented
+    # even when trim kicks in by splitting the budget equally across files.
+    if file_sections:
+        per_file_budget = 50_000 // max(len(file_sections), 1)
+        trimmed_sections = [_trim_context(s, max_tokens=per_file_budget) for s in file_sections]
+        context_text = "\n\n".join(trimmed_sections + ([_trim_context(web_results, max_tokens=4000)] if web_results else []))
+
     # 3) Build the full message list to send to the API.
     #    Augment the system prompt with the retrieved context (if any) so the
     #    model can ground its answer in the user's files or a live web search.
@@ -581,8 +604,9 @@ if user_input:
     else:
         augmented_system_prompt = _INTERNET_SYSTEM_PROMPT
     if context_text:
-        # Trim context to 8000 tokens to leave room for conversation history
-        trimmed_context = _trim_context(context_text, max_tokens=8000)
+        # Allow up to 50 000 tokens for context (model window is 262 144;
+        # conversation history + system prompt + reply fit in the remainder)
+        trimmed_context = _trim_context(context_text, max_tokens=50_000)
         augmented_system_prompt += (
             "\n\nUse the following context to answer the user's question:\n\n"
             + trimmed_context
@@ -618,44 +642,50 @@ if user_input:
         # stream=True sends the response in small chunks instead of waiting
         # for the full reply. stream_options asks for token counts in the
         # final chunk.
-        logger.info("api_call_initiated=true, api_messages_count=%d, est_tokens=%d, source=%s", 
-                   len(api_messages), _estimate_tokens(str(api_messages)), source)
-        
-        stream = client.chat.completions.create(
-            model=selected_model,
-            messages=api_messages,
-            max_tokens=2048,
-            temperature=0.4,   # higher = more creative / random answers
-            top_p=0.95,         # nucleus sampling: consider only top 95% probable tokens
-            stream=True,
-            stream_options={"include_usage": True},
-        )
+        _est = _estimate_tokens(str(api_messages))
+        logger.info("api_call_initiated=true, api_messages_count=%d, est_tokens=%d, source=%s",
+                   len(api_messages), _est, source)
 
-        # Each iteration receives one small chunk (a few tokens) from the API.
-        for chunk in stream:
-            # chunk.choices contains the new token(s). We guard against an
-            # empty choices list (which happens on the final usage-only chunk).
-            if chunk.choices and chunk.choices[0].delta.content:
-                full_text += chunk.choices[0].delta.content
-                # Show a blinking-cursor character "▌" while typing is in progress,
-                # then overwrite the placeholder with the updated text.
-                placeholder.markdown(full_text + "▌")
+        try:
+            stream = client.chat.completions.create(
+                model=selected_model,
+                messages=api_messages,
+                max_tokens=4096,
+                temperature=0.4,   # higher = more creative / random answers
+                top_p=0.95,         # nucleus sampling: consider only top 95% probable tokens
+                stream=True,
+                stream_options={"include_usage": True},
+            )
 
-            # The very last chunk has no new tokens but carries usage statistics.
-            if chunk.usage:
-                entry = {
-                    "input_tokens":  chunk.usage.prompt_tokens,
-                    "output_tokens": chunk.usage.completion_tokens,
-                    "timestamp":     datetime.now(),
-                }
-                logger.info("response_completed=true, input_tokens=%s, output_tokens=%s, source=%s", 
-                           entry["input_tokens"], entry["output_tokens"], source)
-                st.session_state.usage_history.append(entry)
-                save_usage_entry(
-                    entry["input_tokens"],
-                    entry["output_tokens"],
-                    entry["timestamp"],
-                )
+            # Each iteration receives one small chunk (a few tokens) from the API.
+            for chunk in stream:
+                # chunk.choices contains the new token(s). We guard against an
+                # empty choices list (which happens on the final usage-only chunk).
+                if chunk.choices and chunk.choices[0].delta.content:
+                    full_text += chunk.choices[0].delta.content
+                    # Show a blinking-cursor character "▌" while typing is in progress,
+                    # then overwrite the placeholder with the updated text.
+                    placeholder.markdown(full_text + "▌")
+
+                # The very last chunk has no new tokens but carries usage statistics.
+                if chunk.usage:
+                    entry = {
+                        "input_tokens":  chunk.usage.prompt_tokens,
+                        "output_tokens": chunk.usage.completion_tokens,
+                        "timestamp":     datetime.now(),
+                    }
+                    logger.info("response_completed=true, input_tokens=%s, output_tokens=%s, source=%s",
+                               entry["input_tokens"], entry["output_tokens"], source)
+                    st.session_state.usage_history.append(entry)
+                    save_usage_entry(
+                        entry["input_tokens"],
+                        entry["output_tokens"],
+                        entry["timestamp"],
+                    )
+        except Exception as api_err:
+            logger.error("api_call_failed=%s, est_tokens=%d", str(api_err), _est, exc_info=True)
+            full_text = f"⚠️ API error: {api_err}"
+            placeholder.warning(full_text)
 
         # Remove the cursor and display the final clean text.
         # Log warning if response is empty and use warning message as content
