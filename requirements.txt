@@ -1,9 +1,11 @@
 streamlit==1.55.0
 openai==2.30.0
 python-dotenv==1.2.2
+requests
 chromadb
 pypdf
 python-docx
+docx2txt
 openpyxl
 duckduckgo-search
 ddgs
@@ -11,4 +13,5 @@ langchain
 langchain-openai
 langchain-chroma
 langchain-community
+langchain-text-splitters
 tiktoken

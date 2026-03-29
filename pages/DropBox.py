@@ -38,12 +38,13 @@ with st.sidebar:
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
-ALLOWED_TYPES = ["docx", "xlsx", "pdf", "txt"]
+ALLOWED_TYPES = ["docx", "xlsx", "pdf", "txt", "md"]
 ALLOWED_MIME = [
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/pdf",
     "text/plain",
+    "text/markdown",
 ]
 
 SORT_COLS = ["name", "ext", "size_bytes", "uploaded"]
@@ -173,7 +174,7 @@ with st.sidebar:
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.title("📁 DropBox")
-st.caption("Supported formats: DOCX · XLSX · PDF · TXT")
+st.caption("Supported formats: DOCX · XLSX · PDF · TXT · MD")
 
 # ── File uploader ──────────────────────────────────────────────────────────────
 uploaded_files = st.file_uploader(
@@ -307,11 +308,14 @@ else:
         c1, c2, c3, c4, c5, c6 = st.columns([4, 1.5, 1.5, 2, 1, 1])
         _si = _stats_lookup.get(rec["name"])
         if _si:
+            _elapsed = _si.get('elapsed_seconds')
+            _elapsed_str = f" &nbsp;·&nbsp; ⏱ {_elapsed}s" if _elapsed is not None else ""
             _tip_lines = (
                 f"Pages: {_fmt_num(_si.get('pages', 0))}"
                 f" &nbsp;·&nbsp; Chunks: {_fmt_num(_si.get('chunks', 0))}"
                 f"<br>≈ Tokens: {_fmt_num(_si.get('tokens_approx', 0))}"
                 f" &nbsp;·&nbsp; Indexed: {_si.get('indexed_at', '')[:16]}"
+                f"{_elapsed_str}"
             )
             c1.markdown(
                 f"<style>"

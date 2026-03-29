@@ -352,6 +352,9 @@ def _inject_css():
         # ── Compact sidebar controls ──────────────────────────────────────────
         "section[data-testid='stSidebar'] textarea { font-size: 0.7rem; line-height: 1.2; }"
 "section[data-testid='stSidebar'] .stButton button { font-size: 0.78rem !important; padding: 0.25rem 0.5rem !important; line-height: 1.4 !important; min-height: unset !important; }"
+        "section[data-testid='stSidebar'] [data-testid='stExpanderDetails'] .stButton button { justify-content: flex-start !important; text-align: left !important; }"
+        "section[data-testid='stSidebar'] [data-testid='stExpanderDetails'] .stButton button p { text-align: left !important; }"
+        "section[data-testid='stSidebar'] [data-testid='stExpanderDetails'] .stButton button div { justify-content: flex-start !important; text-align: left !important; }"
         "section[data-testid='stSidebar'] .stExpander summary { font-size: 0.85rem !important; }"
         "section[data-testid='stSidebar'] .stExpander [data-testid='stExpanderDetails'] { padding: 0.25rem 0.5rem; }"
         "</style>",

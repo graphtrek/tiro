@@ -13,6 +13,7 @@ Public API:
 """
 
 import logging
+import time
 import os
 from datetime import datetime, timezone
 
@@ -91,7 +92,7 @@ USAGE_COLLECTION_NAME = "usage_history"   # per-conversation token usage log
 CHUNK_SIZE    = 1500  # characters per chunk
 CHUNK_OVERLAP = 150   # overlap keeps context across chunk boundaries
 
-SUPPORTED_EXTS = {".pdf", ".docx", ".txt"}
+SUPPORTED_EXTS = {".pdf", ".docx", ".xlsx", ".txt", ".md"}
 
 
 # ── ChromaDB client helpers ────────────────────────────────────────────────────
@@ -230,7 +231,7 @@ def _count_pages(path: str, ext: str) -> int:
         if ext == ".docx":
             from docx import Document
             return max(len(Document(path).paragraphs) // 10, 1)
-        if ext == ".txt":
+        if ext in (".txt", ".md"):
             with open(path, "r", encoding="utf-8", errors="ignore") as fh:
                 lines = sum(1 for _ in fh)
             return max(lines // 50, 1)
@@ -253,7 +254,7 @@ def _load_document(file_path: str):
             return PyPDFLoader(file_path).load()
         elif ext == ".docx":
             return Docx2txtLoader(file_path).load()
-        elif ext == ".txt":
+        elif ext in (".txt", ".md"):
             return TextLoader(file_path, encoding="utf-8").load()
     except Exception as e:
         logger.error("Error loading %s: %s", file_path, e)
@@ -377,6 +378,7 @@ def index_documents_langchain(
         if fname in indexed:
             collection.delete(where={"filename": fname})
 
+        index_start = time.monotonic()
         docs = _load_document(fpath)
         if not docs:
             results[fname] = "no_text"
@@ -408,22 +410,24 @@ def index_documents_langchain(
             )
 
         # Store lightweight per-file stats (pages, char count, approximate tokens).
-        total_text    = "\n".join(doc.page_content for doc in docs)
-        chars         = len(total_text)
-        tokens_approx = chars // 4          # rough estimate: ~4 chars per token
-        pages         = _count_pages(fpath, ext)
-        indexed_at    = datetime.now(timezone.utc).isoformat()
+        total_text       = "\n".join(doc.page_content for doc in docs)
+        chars            = len(total_text)
+        tokens_approx    = chars // 4          # rough estimate: ~4 chars per token
+        pages            = _count_pages(fpath, ext)
+        indexed_at       = datetime.now(timezone.utc).isoformat()
+        elapsed_seconds  = round(time.monotonic() - index_start, 3)
 
         stats_collection.upsert(
             ids=[fname],
             documents=[fname],
             metadatas=[{
-                "filename":     fname,
-                "pages":        pages,
-                "chunks":       len(chunks),
-                "chars":        chars,
-                "tokens_approx": tokens_approx,
-                "indexed_at":   indexed_at,
+                "filename":        fname,
+                "pages":           pages,
+                "chunks":          len(chunks),
+                "chars":           chars,
+                "tokens_approx":   tokens_approx,
+                "indexed_at":      indexed_at,
+                "elapsed_seconds": elapsed_seconds,
             }],
         )
 
