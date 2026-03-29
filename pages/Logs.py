@@ -20,6 +20,11 @@ st.markdown(
     "section[data-testid='stSidebar'] .stToggle label p { font-size: 0.78rem !important; }"
     "section[data-testid='stSidebar'] .stButton button { font-size: 0.78rem !important; }"
     "section[data-testid='stSidebar'] .stExpander summary { font-size: 0.85rem !important; }"
+    "section[data-testid='stSidebar'] h2 { font-size: 1rem !important; }"
+    "section[data-testid='stSidebar'] pre { font-size: 0.85rem !important; }"
+    "section[data-testid='stSidebar'] .stMultiSelect span[data-baseweb='tag'] { font-size: 0.7rem !important; padding: 0.1rem 0.35rem !important; }"
+    "section[data-testid='stSidebar'] .stMultiSelect [data-testid='stWidgetLabel'] p { font-size: 0.78rem !important; }"
+    "section[data-testid='stSidebar'] .stMultiSelect [data-baseweb='select'] { font-size: 0.78rem !important; }"
     ".log-container { background-color: #0d1117; color: #c9d1d9; padding: 0.8rem; border-radius: 0.4rem; font-family: 'Courier New', monospace; overflow-x: auto; font-size: 0.75rem; line-height: 1.4; }"
     ".log-line { margin: 0.2rem 0; padding: 0.15rem 0.4rem; border-radius: 0.2rem; }"
     ".log-debug { background-color: #1f2937; color: #60a5fa; font-weight: 500; }"
@@ -72,6 +77,16 @@ if not log_lines:
 # ── Sidebar filters ────────────────────────────────────────────────────────────
 st.sidebar.header("⚙️ Filters")
 
+# Max lines to display (tail)
+max_lines = st.sidebar.number_input(
+    "Max lines (most recent)",
+    min_value=100,
+    max_value=10000,
+    value=1000,
+    step=100,
+    help="Limit display to the last N lines for performance"
+)
+
 # Log level filter
 log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 selected_levels = st.sidebar.multiselect(
@@ -90,24 +105,29 @@ search_term = st.sidebar.text_input(
 
 # Show file info
 file_stats = os.stat(_LOG_FILE)
-st.sidebar.markdown("---")
-st.sidebar.subheader("📊 Log File Info")
-st.sidebar.text(f"File size: {file_stats.st_size / 1024:.1f} KB")
-st.sidebar.text(f"Last modified: {datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')}")
-st.sidebar.text(f"Total lines: {len(log_lines)}")
+with st.sidebar.expander("📊 Log File Info"):
+    st.markdown(
+        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>📦 File size:</span> <span style='color:#f0f6fc;font-weight:600;'>{file_stats.st_size / 1024:.1f} KB</span></p>"
+        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>🕒 Last modified:</span> <span style='color:#f0f6fc;font-weight:600;'>{datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')}</span></p>"
+        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>📄 Total lines:</span> <span style='color:#4ade80;font-weight:600;'>{len(log_lines)}</span></p>",
+        unsafe_allow_html=True,
+    )
 
 # ── Filter logs ────────────────────────────────────────────────────────────────
+# Tail the log lines first for performance
+tail_lines = log_lines[-int(max_lines):]
+
 filtered_lines = []
 
-for line in log_lines:
+for line in tail_lines:
     # Check log level filter
     level_match = any(level in line for level in selected_levels)
-    
+
     # Check search term filter
     search_match = True
     if search_term:
         search_match = search_term.lower() in line.lower()
-    
+
     if level_match and search_match:
         filtered_lines.append(line)
 
@@ -140,11 +160,17 @@ else:
         if search_term:
             st.caption("💡 Switch to **Formatted** mode to see search highlights.")
     else:
-        # Display as formatted text with color coding
-        st.markdown('<div class="log-container">', unsafe_allow_html=True)
-        
+        # Display as formatted text with color coding — build all HTML in one pass
+        html_parts = ['<div class="log-container">']
+
+        safe_term_pattern = None
+        if search_term:
+            safe_term_pattern = re.compile(
+                re.escape(search_term.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")),
+                flags=re.IGNORECASE,
+            )
+
         for line in filtered_lines:
-            # Determine log level and color
             if "DEBUG" in line:
                 color_class = "log-debug"
             elif "INFO" in line:
@@ -157,35 +183,25 @@ else:
                 color_class = "log-error"
             else:
                 color_class = ""
-            
-            # Escape HTML special characters
+
             safe_line = (
                 line.replace("&", "&amp;")
                     .replace("<", "&lt;")
                     .replace(">", "&gt;")
             )
-            
-            # Highlight search term
-            if search_term:
-                safe_term = re.escape(
-                    search_term.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                )
-                safe_line = re.sub(
-                    safe_term,
+
+            if safe_term_pattern:
+                safe_line = safe_term_pattern.sub(
                     lambda m: f'<span class="log-highlight">{m.group(0)}</span>',
                     safe_line,
-                    flags=re.IGNORECASE,
                 )
-            
-            st.markdown(
-                f'<div class="log-line {color_class}">{safe_line}</div>',
-                unsafe_allow_html=True
-            )
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+
+            html_parts.append(f'<div class="log-line {color_class}">{safe_line}</div>')
+
+        html_parts.append('</div>')
+        st.markdown("".join(html_parts), unsafe_allow_html=True)
 
 # ── Download option ───────────────────────────────────────────────────────────
-st.sidebar.markdown("---")
 if st.sidebar.button("📥 Download Filtered Logs"):
     if filtered_lines:
         st.sidebar.download_button(
