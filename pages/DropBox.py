@@ -103,11 +103,11 @@ def _fmt_num(n: int) -> str:
 
 
 with st.sidebar:
-    st.title("📊 Index statisztikák")
+    st.title("📊 Index Statistics")
     stats = get_index_stats()
 
     if not stats:
-        st.info("Még nincs indexelt fájl.")
+        st.info("No files indexed yet.")
     else:
         total_files  = len(stats)
         total_pages  = sum(s.get("pages", 0) for s in stats)
@@ -122,30 +122,12 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
         col1, col2 = st.columns(2)
-        col1.metric("📄 Fájlok",   _fmt_num(total_files))
-        col2.metric("📑 Oldalak",  _fmt_num(total_pages))
+        col1.metric("📄 Files",    _fmt_num(total_files))
+        col2.metric("📑 Pages",    _fmt_num(total_pages))
         col3, col4 = st.columns(2)
-        col3.metric("🧩 Chunkok",  _fmt_num(total_chunks))
-        col4.metric("🔢 ≈ Tokenek", _fmt_num(total_tokens))
+        col3.metric("🧩 Chunks",   _fmt_num(total_chunks))
+        col4.metric("🔢 ≈ Tokens", _fmt_num(total_tokens))
 
-        with st.expander("📄 Fájlonkénti részletek"):
-            for s in sorted(stats, key=lambda x: x.get("filename", "")):
-                fname   = s.get("filename", "?")
-                pages   = s.get("pages", 0)
-                chunks  = s.get("chunks", 0)
-                tokens  = s.get("tokens_approx", 0)
-                indexed = s.get("indexed_at", "")[:16]  # date + time (YYYY-MM-DD HH:MM)
-
-                st.markdown(
-                    f"<div style='font-size:0.78rem;line-height:1.5'>"
-                    f"<b>{fname}</b><br>"
-                    f"Oldalak: {_fmt_num(pages)} · Chunkok: {_fmt_num(chunks)} · "
-                    f"≈ Tokenek: {_fmt_num(tokens)} · Indexelve: {indexed}"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-                st.divider()
-    
     # ── ChromaDB Diagnostics ───────────────────────────────────────────────────
     st.divider()
     st.subheader("🔍 ChromaDB Status")
@@ -153,8 +135,6 @@ with st.sidebar:
     
     if diag["status"] == "healthy":
         st.success(f"✅ Ready for search ({diag['total_chunks']} chunks indexed)")
-        if diag['files_indexed']:
-            st.caption(f"Files: {', '.join(sorted(diag['files_indexed']))}")
     elif diag["status"] == "empty":
         st.warning("⚠️ No documents indexed yet\nUpload files above to enable DropBox Context")
     else:
@@ -215,6 +195,13 @@ if uploaded_files:
 # ── File table ─────────────────────────────────────────────────────────────────
 records = load_file_records()
 
+# Build index-stats lookup keyed by filename for hover tooltips
+_stats_lookup: dict[str, dict] = {}
+_all_stats = get_index_stats()
+if _all_stats:
+    for _s in _all_stats:
+        _stats_lookup[_s.get("filename", "")] = _s
+
 st.divider()
 
 if not records:
@@ -254,7 +241,32 @@ else:
     cell = "<span style='font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block'>{}</span>"
     for rec in records:
         c1, c2, c3, c4, c5 = st.columns([4, 1.5, 1.5, 2, 1])
-        c1.html(cell.format(rec["name"]))
+        _si = _stats_lookup.get(rec["name"])
+        if _si:
+            _tip_lines = (
+                f"Pages: {_fmt_num(_si.get('pages', 0))}"
+                f" &nbsp;·&nbsp; Chunks: {_fmt_num(_si.get('chunks', 0))}"
+                f"<br>≈ Tokens: {_fmt_num(_si.get('tokens_approx', 0))}"
+                f" &nbsp;·&nbsp; Indexed: {_si.get('indexed_at', '')[:16]}"
+            )
+            c1.markdown(
+                f"<style>"
+                f".ftip{{position:relative;display:inline-block;cursor:default;max-width:100%}}"
+                f".ftip .ftip-box{{visibility:hidden;opacity:0;background:#2b2b2b;color:#f0f0f0;"
+                f"border-radius:6px;padding:7px 11px;position:absolute;z-index:9999;bottom:130%;"
+                f"left:0;white-space:nowrap;font-size:0.75rem;line-height:1.8;"
+                f"box-shadow:0 2px 8px rgba(0,0,0,.4);transition:opacity .15s}}"
+                f".ftip:hover .ftip-box{{visibility:visible;opacity:1}}"
+                f"</style>"
+                f"<div class='ftip'>"
+                f"<span style='font-size:0.8rem;white-space:nowrap;overflow:hidden;"
+                f"text-overflow:ellipsis;display:block'>{rec['name']}</span>"
+                f"<div class='ftip-box'>{_tip_lines}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            c1.html(cell.format(rec["name"]))
         c2.html(cell.format(rec["ext"]))
         c3.html(cell.format(rec["size"]))
         c4.html(cell.format(rec["uploaded"]))
