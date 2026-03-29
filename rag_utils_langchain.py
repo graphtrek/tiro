@@ -88,8 +88,8 @@ STATS_COLLECTION_NAME = "index_stats"     # one entry per indexed file (pages, t
 USAGE_COLLECTION_NAME = "usage_history"   # per-conversation token usage log
 
 # Text splitting — controls granularity of indexed chunks.
-CHUNK_SIZE    = 500   # characters per chunk
-CHUNK_OVERLAP = 50    # overlap keeps context across chunk boundaries
+CHUNK_SIZE    = 1500  # characters per chunk
+CHUNK_OVERLAP = 150   # overlap keeps context across chunk boundaries
 
 SUPPORTED_EXTS = {".pdf", ".docx", ".txt"}
 
