@@ -302,6 +302,7 @@ def _inject_css():
         "section[data-testid='stSidebar'] .stButton button { font-size: 0.78rem !important; }"
         "section[data-testid='stSidebar'] .stExpander summary { font-size: 0.85rem !important; }"
         "section[data-testid='stSidebar'] .stExpander [data-testid='stExpanderDetails'] { padding: 0.25rem 0.5rem; }"
+        "[data-testid='stSidebarNav'] { display: none; }"
         "</style>",
         unsafe_allow_html=True,
     )
@@ -337,6 +338,12 @@ _DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 # Everything indented inside "with st.sidebar:" is rendered in the left panel.
 with st.sidebar:
+
+    # ── Navigation dropdown ────────────────────────────────────────────────────
+    _PAGES = {"💬 Chat": "Chat.py", "📁 DropBox": "pages/DropBox.py", "📋 Logs": "pages/Logs.py"}
+    _nav = st.selectbox("Page", list(_PAGES.keys()), index=0, label_visibility="collapsed")
+    if _nav != "💬 Chat":
+        st.switch_page(_PAGES[_nav])
 
     # ── Pre-render logic (must run before any widget) ──────────────────────────
     # Dynamically update system prompt display based on DropBox Context toggle state.

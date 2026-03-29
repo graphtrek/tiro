@@ -14,9 +14,12 @@ st.markdown(
     "[data-testid='stAppDeployButton'] { display: none; }"
     "footer { display: none; }"
     ".stMenuVersionCopyButton { display: none; }"
-    "html, body, [class*='css'] { font-size: 14px; }"
+    "html, body, [class*='css'] { font-size: 18px; }"
     ".stMarkdown p, .stMarkdown li { font-size: 0.9rem; }"
-    "[data-testid='stSidebarNav'] a { font-size: 0.85rem; }"
+    "[data-testid='stSidebarNav'] { display: none; }"
+    "section[data-testid='stSidebar'] .stToggle label p { font-size: 0.78rem !important; }"
+    "section[data-testid='stSidebar'] .stButton button { font-size: 0.78rem !important; }"
+    "section[data-testid='stSidebar'] .stExpander summary { font-size: 0.85rem !important; }"
     ".log-container { background-color: #0d1117; color: #c9d1d9; padding: 0.8rem; border-radius: 0.4rem; font-family: 'Courier New', monospace; overflow-x: auto; font-size: 0.75rem; line-height: 1.4; }"
     ".log-line { margin: 0.2rem 0; padding: 0.15rem 0.4rem; border-radius: 0.2rem; }"
     ".log-debug { background-color: #1f2937; color: #60a5fa; font-weight: 500; }"
@@ -28,6 +31,13 @@ st.markdown(
     "</style>",
     unsafe_allow_html=True,
 )
+
+# ── Navigation dropdown ────────────────────────────────────────────────────────
+with st.sidebar:
+    _PAGES = {"💬 Chat": "Chat.py", "📁 DropBox": "pages/DropBox.py", "📋 Logs": "pages/Logs.py"}
+    _nav = st.selectbox("Page", list(_PAGES.keys()), index=2, label_visibility="collapsed")
+    if _nav != "📋 Logs":
+        st.switch_page(_PAGES[_nav])
 
 # ── Page title ─────────────────────────────────────────────────────────────────
 st.title("📋 Log Viewer")

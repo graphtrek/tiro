@@ -20,11 +20,18 @@ st.markdown(
     ".stMenuVersionCopyButton { display: none; }"
     "html, body, [class*='css'] { font-size: 18px; }"
     ".stMarkdown p, .stMarkdown li { font-size: 1.1rem; }"
-    "[data-testid='stSidebarNav'] a { font-size: 1.05rem; }"
+    "[data-testid='stSidebarNav'] { display: none; }"
     ".file-table-area button { font-size: 0.78rem !important; white-space: nowrap !important; overflow: hidden; padding: 0.15rem 0.4rem !important; }"
     "</style>",
     unsafe_allow_html=True,
 )
+
+# ── Navigation dropdown ────────────────────────────────────────────────────────
+with st.sidebar:
+    _PAGES = {"💬 Chat": "Chat.py", "📁 DropBox": "pages/DropBox.py", "📋 Logs": "pages/Logs.py"}
+    _nav = st.selectbox("Page", list(_PAGES.keys()), index=1, label_visibility="collapsed")
+    if _nav != "📁 DropBox":
+        st.switch_page(_PAGES[_nav])
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
