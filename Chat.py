@@ -298,6 +298,8 @@ def _inject_css():
         ".stChatMessage p { font-size: 1.1rem; }"
         "[data-testid='stSidebarNav'] a { font-size: 1.05rem; }"
         "section[data-testid='stSidebar'] textarea { font-size: 0.7rem; line-height: 1.2; }"
+        "section[data-testid='stSidebar'] .stToggle label p { font-size: 0.78rem !important; }"
+        "section[data-testid='stSidebar'] .stButton button { font-size: 0.78rem !important; }"
         "</style>",
         unsafe_allow_html=True,
     )
