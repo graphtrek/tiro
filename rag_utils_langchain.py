@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 # Guard ensures handlers are registered only once even if the module is reloaded.
 _LOGGING_CONFIGURED = False
 _ROOT = os.path.dirname(os.path.abspath(__file__))
-_LOG_FILE = os.path.join(_ROOT, "kage-ai.log")
+_LOG_FILE = os.path.join(_ROOT, "ai.log")
 
 if not _LOGGING_CONFIGURED:
     logger = logging.getLogger(__name__)

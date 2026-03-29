@@ -13,4 +13,4 @@ __pycache__/
 .vscode/
 uploads/*
 chroma_db/*
-kage-ai.log
+ai.log

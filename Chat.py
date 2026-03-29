@@ -1,5 +1,5 @@
 # =============================================================================
-# Chat.py — Main Streamlit chat interface for Graphtrek AI
+# Chat.py — Main Streamlit chat interface for NothingGetsOutAI
 #
 # Streamlit re-runs this entire script from top to bottom on every user
 # interaction. All state that must survive between clicks is stored in
@@ -39,7 +39,7 @@ from rag_utils_langchain import (
 # The `if not logger.handlers` guard prevents duplicate log handlers when
 # Streamlit re-runs the script on every user interaction.
 _ROOT     = os.path.dirname(os.path.abspath(__file__))
-_LOG_FILE = os.path.join(_ROOT, "kage-ai.log")
+_LOG_FILE = os.path.join(_ROOT, "ai.log")
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -72,7 +72,7 @@ if not logger.handlers:
 
 # ── Page configuration ────────────────────────────────────────────────────────
 # st.set_page_config must be the very first Streamlit call in the script.
-st.set_page_config(page_title="Graphtrek AI Chat", page_icon="💬", menu_items={})
+st.set_page_config(page_title="Nothing Gets Out AI", page_icon="💬", menu_items={})
 logger.info("Chat.py app started")
 
 # ── Environment variables ─────────────────────────────────────────────────────
@@ -503,7 +503,7 @@ with st.sidebar:
 
 
 # ── Page header ────────────────────────────────────────────────────────────────
-st.title("💬 Graphtrek AI Chat")
+st.title("💬 Nothing Gets Out AI")
 st.caption(f"Model: `{selected_model}`")
 
 

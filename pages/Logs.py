@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 # ── Page config ────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Logs", page_icon="📋", menu_items={})
+st.set_page_config(page_title="Logs", page_icon="📋", layout="wide", menu_items={})
 
 # ── CSS (matches main app style) ───────────────────────────────────────────────
 st.markdown(
@@ -48,10 +48,10 @@ with st.sidebar:
 st.title("📋 Log Viewer")
 
 # ── Get log file path ──────────────────────────────────────────────────────────
-# When running inside Docker the log file is mounted from the host at /app/kage-ai.log
+# When running inside Docker the log file is mounted from the host at /app/ai.log
 _is_docker = os.path.exists("/.dockerenv")
-_LOG_FILE = "/app/kage-ai.log" if _is_docker else os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "kage-ai.log"
+_LOG_FILE = "/app/ai.log" if _is_docker else os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ai.log"
 )
 
 # ── Check if log file exists ───────────────────────────────────────────────────
@@ -146,14 +146,13 @@ with col3:
         st.metric("Errors/Critical", 0)
 
 # ── Display logs ───────────────────────────────────────────────────────────────
-st.subheader("📝 Log Messages")
+_hdr_col, _radio_col = st.columns([3, 2])
+_hdr_col.subheader("📝 Log Messages")
+display_mode = _radio_col.radio("Display mode", options=["Formatted", "Code"], horizontal=True, index=1, label_visibility="collapsed")
 
 if not filtered_lines:
     st.info("ℹ️ No logs match the current filters.")
 else:
-    # Option to show as code or formatted
-    display_mode = st.radio("Display mode", options=["Formatted", "Code"], horizontal=True, index=1)
-    
     if display_mode == "Code":
         # Display as a code block (easier to copy)
         st.code("\n".join(filtered_lines), language="log")

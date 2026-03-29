@@ -25,4 +25,4 @@ services:
       # Persist ChromaDB embeddings so files are not re-indexed on every restart
       - ./chroma_db:/app/chroma_db
       # Persist log file on the host so it survives container restarts
-      - ./kage-ai.log:/app/kage-ai.log
+      - ./ai.log:/app/ai.log
