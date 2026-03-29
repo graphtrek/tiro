@@ -8,6 +8,6 @@ enableXsrfProtection = false
 
 [browser]
 # Tell Streamlit the public URL so it generates correct asset/WS links
-serverAddress = "chat.graphtrek.co"
+serverAddress = "ai.graphtrek.co"
 serverPort = 443
 gatherUsageStats = false
