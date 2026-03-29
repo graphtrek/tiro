@@ -449,6 +449,12 @@ for msg in st.session_state.messages:
                 st.caption(f"📁 Answered from your uploaded files{_mdl_tag}")
             elif _src == "web":
                 st.caption(f"🌐 Answered from internet search{_mdl_tag}")
+                _sources = msg.get("web_sources")
+                if _sources:
+                    _links = " · ".join(
+                        f"[{s['title'][:50]}]({s['link']})" for s in _sources
+                    )
+                    st.caption(f"Sources: {_links}")
             else:
                 st.caption(f"🤖 Answered by model{_mdl_tag}")
 
@@ -571,13 +577,19 @@ if user_input:
 
     # Web search — only when DropBox context is inactive
     web_results = None
+    web_sources = None
+    web_search_failed = False
     if not st.session_state.get("dropbox_context_enabled", False):
         try:
-            web_results = search_web_langchain(user_input)
+            web_results, web_sources = search_web_langchain(user_input)
             if web_results:
                 logger.info("web_search_completed=true, result_length=%s", len(str(web_results)))
+            else:
+                logger.warning("web_search_returned_empty=true")
+                web_search_failed = True
         except Exception as e:
             logger.info("web_search_failed=%s", str(e))
+            web_search_failed = True
     
     # Combine doc chunks and web results, trimming to fit token budget
     context_parts = []
@@ -617,6 +629,13 @@ if user_input:
             "\n\nUse the following context to answer the user's question:\n\n"
             + trimmed_context
         )
+    elif not st.session_state.get("dropbox_context_enabled", False):
+        # Web search failed or returned no results — fall back to training knowledge
+        augmented_system_prompt += (
+            "\n\nNote: No web search results are available for this query. "
+            "Answer based on your training knowledge and clearly indicate that "
+            "this information may not reflect the most recent state."
+        )
     
     # Build conversation history with sliding window to avoid token overflow
     # Keep more recent messages, drop older ones if needed
@@ -641,6 +660,8 @@ if user_input:
 
     # 4) Stream the AI response token by token.
     with st.chat_message("assistant"):
+        if web_search_failed:
+            st.info("⚠️ Web search unavailable — answering from training knowledge.", icon="🔌")
         # st.empty() creates a placeholder we can update on every new token.
         placeholder = st.empty()
         full_text = ""  # accumulates the complete reply as tokens arrive
@@ -713,13 +734,21 @@ if user_input:
             st.caption(f"📁 Answered from your uploaded files · `{selected_model}`")
         elif source == "web":
             st.caption(f"🌐 Answered from internet search · `{selected_model}`")
+            if web_sources:
+                links = " · ".join(
+                    f"[{s['title'][:50]}]({s['link']})" for s in web_sources
+                )
+                st.caption(f"Sources: {links}")
         else:
             st.caption(f"🤖 Answered by model · `{selected_model}`")
 
     # 5) Save the completed assistant reply so it becomes part of the next
     #    request's conversation history (multi-turn memory).
     #    'source' is stored so the label is preserved when history is re-rendered.
-    st.session_state.messages.append({"role": "assistant", "content": full_text, "source": source, "model": selected_model})
+    _msg = {"role": "assistant", "content": full_text, "source": source, "model": selected_model}
+    if web_sources:
+        _msg["web_sources"] = web_sources
+    st.session_state.messages.append(_msg)
 
     # Force Streamlit to re-run the script so the updated sidebar token
     # metrics are reflected immediately.

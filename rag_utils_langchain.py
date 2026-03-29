@@ -66,7 +66,7 @@ from langchain_community.document_loaders import (
 )
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma          # used only by get_langchain_vectorstore()
-from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.tools import DuckDuckGoSearchRun, DuckDuckGoSearchResults
 import chromadb
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
@@ -489,29 +489,41 @@ def search_documents_langchain(
         return None
 
 
-def search_web_langchain(query: str) -> str | None:
+def search_web_langchain(query: str) -> tuple[str | None, list[dict] | None]:
     """
     Search the web using LangChain's DuckDuckGo tool.
-    
-    Args:
-        query: Search query
-    
+
     Returns:
-        Formatted search results or None if search fails.
+        (text_for_context, sources) where sources is a list of
+        {"title": str, "link": str} dicts, or (None, None) on failure.
     """
     logger.info("[WEB SEARCH] Starting search: query=%r", query)
     try:
-        tool = DuckDuckGoSearchRun()
-        results = tool.run(query)
-        response = results if results else None
-        if response:
-            logger.info("[WEB SEARCH] Results received (%d chars): %s", len(response), response[:500])
-        else:
+        tool = DuckDuckGoSearchResults(output_format="list", num_results=5)
+        raw: list[dict] = tool.run(query)
+        if not raw:
             logger.warning("[WEB SEARCH] No results returned for query=%r", query)
-        return response
+            return None, None
+
+        # Build plain-text context from snippets
+        text_parts = []
+        sources = []
+        for item in raw:
+            snippet = item.get("snippet", "")
+            title   = item.get("title", "")
+            link    = item.get("link", "")
+            if snippet:
+                text_parts.append(f"{title}\n{snippet}")
+            if link:
+                sources.append({"title": title or link, "link": link})
+
+        text = "\n\n".join(text_parts) if text_parts else None
+        logger.info("[WEB SEARCH] Results received: %d items, %d chars",
+                    len(raw), len(text) if text else 0)
+        return text, sources if sources else None
     except Exception as e:
         logger.error("[WEB SEARCH] Search failed: exception=%s", str(e))
-        return None
+        return None, None
 
 
 # ── Backward Compatibility ────────────────────────────────────────────────────
