@@ -451,6 +451,18 @@ def index_documents_langchain(
     return results
 
 
+def delete_file_from_index(filename: str) -> None:
+    """Delete all chunks and stats for *filename* from ChromaDB."""
+    logger.info("delete_file_from_index filename=%s", filename)
+    collection       = _get_collection()
+    stats_collection = _get_stats_collection()
+    collection.delete(where={"filename": filename})
+    try:
+        stats_collection.delete(ids=[filename])
+    except Exception:
+        pass
+
+
 def get_index_stats() -> list[dict]:
     """Return per-file indexing statistics (pages, chunks, chars, tokens, indexed_at)."""
     logger.info("no params")

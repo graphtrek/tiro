@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Make the project root importable so rag_utils can be imported from pages/.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from rag_utils_langchain import index_documents_langchain as index_documents, get_index_stats, get_collection_diagnostics
+from rag_utils_langchain import index_documents_langchain as index_documents, get_index_stats, get_collection_diagnostics, delete_file_from_index
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="DropBox", page_icon="📁", menu_items={})
@@ -94,6 +94,16 @@ def set_sort(col: str) -> None:
     else:
         st.session_state.sort_col = col
         st.session_state.sort_asc = True
+
+
+def delete_file(path: str, filename: str) -> None:
+    """Remove a file from disk and from ChromaDB, then refresh."""
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    delete_file_from_index(filename)
+    st.session_state["_delete_msg"] = f"Deleted: {filename}"
 
 
 # ── Sidebar — indexing statistics ─────────────────────────────────────────────
@@ -228,19 +238,24 @@ else:
 
     st.caption(f"{len(records)} file(s) found")
 
+    # Show delete confirmation message if set
+    if "_delete_msg" in st.session_state:
+        st.success(st.session_state.pop("_delete_msg"))
+
     # ── Header row with sort buttons ───────────────────────────────────────────
-    h1, h2, h3, h4, h5 = st.columns([4, 1.5, 1.5, 2, 1])
+    h1, h2, h3, h4, h5, h6 = st.columns([4, 1.5, 1.5, 2, 1, 1])
     h1.button(f"File name{arrow('name')}",     key="sh_name",     on_click=set_sort, args=("name",),       use_container_width=True)
     h2.button(f"Type{arrow('ext')}",           key="sh_ext",      on_click=set_sort, args=("ext",),        use_container_width=True)
     h3.button(f"Size{arrow('size_bytes')}",    key="sh_size",     on_click=set_sort, args=("size_bytes",), use_container_width=True)
     h4.button(f"Uploaded{arrow('uploaded')}",  key="sh_uploaded", on_click=set_sort, args=("uploaded",),   use_container_width=True)
     h5.html("<span style='font-size:0.85rem'>⬇</span>")
+    h6.html("<span style='font-size:0.85rem'>🗑</span>")
     st.divider()
 
     # ── Data rows ──────────────────────────────────────────────────────────────
     cell = "<span style='font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block'>{}</span>"
     for rec in records:
-        c1, c2, c3, c4, c5 = st.columns([4, 1.5, 1.5, 2, 1])
+        c1, c2, c3, c4, c5, c6 = st.columns([4, 1.5, 1.5, 2, 1, 1])
         _si = _stats_lookup.get(rec["name"])
         if _si:
             _tip_lines = (
@@ -277,4 +292,11 @@ else:
                 file_name=rec["name"],
                 key=f"dl_{rec['name']}",
             )
+        c6.button(
+            label="🗑",
+            key=f"del_{rec['name']}",
+            on_click=delete_file,
+            args=(rec["path"], rec["name"]),
+            help=f"Delete {rec['name']} from disk and index",
+        )
 
