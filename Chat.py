@@ -351,8 +351,7 @@ def _inject_css():
         "[data-testid='stSidebarNav'] a { font-size: 1.05rem; }"
         # ── Compact sidebar controls ──────────────────────────────────────────
         "section[data-testid='stSidebar'] textarea { font-size: 0.7rem; line-height: 1.2; }"
-        "section[data-testid='stSidebar'] .stToggle label p { font-size: 0.78rem !important; }"
-        "section[data-testid='stSidebar'] .stButton button { font-size: 0.78rem !important; }"
+"section[data-testid='stSidebar'] .stButton button { font-size: 0.78rem !important; padding: 0.25rem 0.5rem !important; line-height: 1.4 !important; min-height: unset !important; }"
         "section[data-testid='stSidebar'] .stExpander summary { font-size: 0.85rem !important; }"
         "section[data-testid='stSidebar'] .stExpander [data-testid='stExpanderDetails'] { padding: 0.25rem 0.5rem; }"
         "</style>",
@@ -453,12 +452,21 @@ with st.sidebar:
 
     # ── Context expander ───────────────────────────────────────────────────────
     with st.expander("🌐 Context", expanded=True):
-        # Toggle: when ON, the assistant searches the uploaded documents instead of the web
-        dropbox_context_enabled = st.toggle("DropBox Context", key="dropbox_context_enabled")
-        if dropbox_context_enabled != st.session_state.get("_prev_dropbox_context"):
+        # Toggle rendered as a full-width button so it matches the Clear context button style.
+        # Primary = active (blue), secondary = inactive (grey).
+        _db_on = st.session_state.get("dropbox_context_enabled", False)
+        _db_label = ("✅ DropBox Context: ON" if _db_on else "📁 DropBox Context: OFF")
+        if st.button(_db_label, use_container_width=True,
+                     type="primary" if _db_on else "secondary",
+                     key="dropbox_context_btn"):
+            dropbox_context_enabled = not _db_on
+            st.session_state.dropbox_context_enabled = dropbox_context_enabled
             logger.info("dropbox_context_toggled=%s", dropbox_context_enabled)
             st.session_state._prev_dropbox_context = dropbox_context_enabled
             _save_persistent_settings()
+            st.rerun()
+        else:
+            dropbox_context_enabled = _db_on
 
         # Clear button: wipes conversation history and resets the system prompt
         if st.button("🗑️ Clear context", use_container_width=True):
