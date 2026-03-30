@@ -85,16 +85,14 @@ UPLOAD_DIR = os.path.join(_ROOT, "uploads")  # Local folder for user-uploaded fi
 
 # Models available in the sidebar dropdown
 MODELS = [
-    "devstral-2-123b-instruct-2512",
-    "qwen3.5-397b-a17b",
     "mistral-small-3.2-24b-instruct-2506",
+    "qwen3-coder-30b-a3b-instruct",
 ]
 
 # Human-readable capability label shown next to each model name in the sidebar
 MODEL_LABELS = {
-    "devstral-2-123b-instruct-2512":       "Chat & Code",
-    "qwen3.5-397b-a17b":                   "Chat & Code",
-    "mistral-small-3.2-24b-instruct-2506": "Chat & Vision",
+    "mistral-small-3.2-24b-instruct-2506":  "Chat & Vision",
+    "qwen3-coder-30b-a3b-instruct": "Chat & Code",
 }
 
 
@@ -275,6 +273,12 @@ if "system_prompt" not in st.session_state:
 
 if "dropbox_context_enabled" not in st.session_state:
     st.session_state.dropbox_context_enabled = _persistent["dropbox_context_enabled"]
+
+if "_processing" not in st.session_state:
+    st.session_state._processing = False
+
+if "_pending_message" not in st.session_state:
+    st.session_state._pending_message = None
 
 
 # ── Files modal ───────────────────────────────────────────────────────────────
@@ -505,7 +509,7 @@ with st.sidebar:
 
 
 # ── Page header ────────────────────────────────────────────────────────────────
-st.title("💬 Nothing Gets Out AI")
+st.markdown("<h3 style='margin-bottom:0'>💬 Nothing Gets Out AI</h3>", unsafe_allow_html=True)
 st.caption(f"Model: `{selected_model}`")
 
 
@@ -576,15 +580,20 @@ with col_clear:
         st.rerun()
 
 with col_send:
-    send_clicked = st.button("📤 Send message", use_container_width=True, type="primary")
+    send_clicked = st.button("📤 Send message", use_container_width=True, type="primary", disabled=st.session_state._processing)
 
 
 # ── Message handling ───────────────────────────────────────────────────────────
 user_input = None
 if send_clicked and st.session_state.get("msg_area", "").strip():
-    user_input = st.session_state.msg_area.strip()
+    st.session_state._pending_message = st.session_state.msg_area.strip()
+    st.session_state._processing = True
     st.session_state.msg_new_value = ""  # Clear input on next rerun (before widget renders)
     _save_persistent_settings()
+    st.rerun()
+
+if st.session_state._processing and st.session_state._pending_message:
+    user_input = st.session_state._pending_message
 
 if user_input:
     # 1) Save the user's message to history and display it immediately
@@ -631,6 +640,8 @@ if user_input:
                 "source": "system",
                 "model": selected_model,
             })
+            st.session_state._processing = False
+            st.session_state._pending_message = None
             st.rerun()
 
     # 2a) Check if the user mentioned a specific filename in their message.
@@ -869,6 +880,8 @@ if user_input:
     if dropbox_sources:
         _msg["dropbox_sources"] = dropbox_sources
     st.session_state.messages.append(_msg)
+    st.session_state._processing = False
+    st.session_state._pending_message = None
 
     # Trigger a rerun so the sidebar token metrics update immediately
     st.rerun()
