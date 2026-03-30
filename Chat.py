@@ -407,7 +407,7 @@ with st.sidebar:
 
     # ── Navigation dropdown ────────────────────────────────────────────────────
     # Replace Streamlit's auto-generated nav links with a compact selectbox
-    _PAGES = {"💬 Chat": "Chat.py", "📁 DropBox": "pages/DropBox.py", "📋 Logs": "pages/Logs.py"}
+    _PAGES = {"💬 Chat": "Chat.py", "📁 DropBox": "pages/DropBox.py", "📋 Logs": "pages/Logs.py", "ℹ️ Névjegy": "pages/About.py"}
     _nav = st.selectbox("Page", list(_PAGES.keys()), index=0, label_visibility="collapsed")
     if _nav != "💬 Chat":
         st.switch_page(_PAGES[_nav])

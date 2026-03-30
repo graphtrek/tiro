@@ -39,7 +39,7 @@ st.markdown(
 
 # ── Navigation dropdown ────────────────────────────────────────────────────────
 with st.sidebar:
-    _PAGES = {"💬 Chat": "Chat.py", "📁 DropBox": "pages/DropBox.py", "📋 Logs": "pages/Logs.py"}
+    _PAGES = {"💬 Chat": "Chat.py", "📁 DropBox": "pages/DropBox.py", "📋 Logs": "pages/Logs.py", "ℹ️ Névjegy": "pages/About.py"}
     _nav = st.selectbox("Page", list(_PAGES.keys()), index=2, label_visibility="collapsed")
     if _nav != "📋 Logs":
         st.switch_page(_PAGES[_nav])
