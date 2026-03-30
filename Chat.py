@@ -61,6 +61,7 @@ if not logger.handlers:
     _file_h.setLevel(logging.INFO)
     _file_h.setFormatter(_log_fmt)
     logger.addHandler(_file_h)
+    logger.propagate = False  # root logger also has a FileHandler; prevent duplicate writes
 
     # Verbose debug logging for the web-search stack
     logging.getLogger("duckduckgo_search").setLevel(logging.DEBUG)
@@ -139,9 +140,9 @@ def _get_langchain_llm(model_name: str):
     """LangChain ChatOpenAI wrapper — used by RAG retrieval chains."""
     return ChatOpenAI(
         model=model_name,
-        temperature=0.4,
-        top_p=0.95,
-        max_tokens=2048,
+        temperature=0.5,
+        top_p=0.8,
+        max_tokens=32768,
         openai_api_base=BASE_URL,
         openai_api_key=API_KEY,
         streaming=False,  # Streaming is handled by the direct OpenAI client below
@@ -795,12 +796,15 @@ if user_input:
         )
 
         try:
+            if selected_model.startswith("qwen"):
+                model_params = dict(temperature=0.7, top_p=0.8, presence_penalty=0)
+            else:  # mistral
+                model_params = dict(temperature=0.15, top_p=1, presence_penalty=0)
             stream = client.chat.completions.create(
                 model=selected_model,
                 messages=api_messages,
                 max_tokens=4096,
-                temperature=0.4,   # Higher = more creative; 0.4 balances accuracy and variety
-                top_p=0.95,        # Nucleus sampling: consider only the top 95% probable tokens
+                **model_params,
                 stream=True,
                 stream_options={"include_usage": True},  # Request token counts in final chunk
             )

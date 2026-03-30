@@ -92,7 +92,7 @@ log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 selected_levels = st.sidebar.multiselect(
     "Log Level",
     options=log_levels,
-    default=log_levels,
+    default=[l for l in log_levels if l != "DEBUG"],
     help="Select which log levels to display"
 )
 
@@ -120,8 +120,8 @@ tail_lines = log_lines[-int(max_lines):]
 filtered_lines = []
 
 for line in tail_lines:
-    # Check log level filter
-    level_match = any(level in line for level in selected_levels)
+    # Check log level filter — match | LEVEL | to avoid false positives in message text
+    level_match = any(f"| {level} |" in line for level in selected_levels)
 
     # Check search term filter
     search_match = True
@@ -140,7 +140,7 @@ with col2:
 with col3:
     if filtered_lines:
         # Count errors and warnings
-        error_count = sum(1 for line in filtered_lines if any(lvl in line for lvl in ["ERROR", "CRITICAL"]))
+        error_count = sum(1 for line in filtered_lines if any(f"| {lvl} |" in line for lvl in ["ERROR", "CRITICAL"]))
         st.metric("Errors/Critical", error_count)
     else:
         st.metric("Errors/Critical", 0)
@@ -170,15 +170,15 @@ else:
             )
 
         for line in filtered_lines:
-            if "DEBUG" in line:
+            if "| DEBUG |" in line:
                 color_class = "log-debug"
-            elif "INFO" in line:
+            elif "| INFO |" in line:
                 color_class = "log-info"
-            elif "WARNING" in line:
+            elif "| WARNING |" in line:
                 color_class = "log-warning"
-            elif "CRITICAL" in line:
+            elif "| CRITICAL |" in line:
                 color_class = "log-critical"
-            elif "ERROR" in line:
+            elif "| ERROR |" in line:
                 color_class = "log-error"
             else:
                 color_class = ""
