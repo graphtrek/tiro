@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 # ── Page config ────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Logs", page_icon="📋", layout="wide", menu_items={})
+st.set_page_config(page_title="Naplók", page_icon="📋", layout="wide", menu_items={})
 
 # ── CSS (matches main app style) ───────────────────────────────────────────────
 st.markdown(
@@ -45,7 +45,7 @@ with st.sidebar:
         st.switch_page(_PAGES[_nav])
 
 # ── Page title ─────────────────────────────────────────────────────────────────
-st.title("📋 Log Viewer")
+st.title("📋 Naplónéző")
 
 # ── Get log file path ──────────────────────────────────────────────────────────
 # When running inside Docker the log file is mounted from the host at /app/ai.log
@@ -56,7 +56,7 @@ _LOG_FILE = "/app/ai.log" if _is_docker else os.path.join(
 
 # ── Check if log file exists ───────────────────────────────────────────────────
 if not os.path.exists(_LOG_FILE):
-    st.warning("📭 No log file found yet. The log file will be created when the application runs.")
+    st.warning("📭 Még nem található naplófájl. A naplófájl az alkalmazás futtatásakor jön létre.")
     st.stop()
 
 # ── Read log file ──────────────────────────────────────────────────────────────
@@ -64,52 +64,52 @@ try:
     with open(_LOG_FILE, "r", encoding="utf-8") as f:
         log_content = f.read()
 except Exception as e:
-    st.error(f"❌ Error reading log file: {e}")
+    st.error(f"❌ Hiba a naplófájl olvasásakor: {e}")
     st.stop()
 
 # ── Parse log lines ────────────────────────────────────────────────────────────
 log_lines = log_content.strip().split("\n") if log_content.strip() else []
 
 if not log_lines:
-    st.info("ℹ️ The log file is empty.")
+    st.info("ℹ️ A naplófájl üres.")
     st.stop()
 
 # ── Sidebar filters ────────────────────────────────────────────────────────────
-st.sidebar.header("⚙️ Filters")
+st.sidebar.header("⚙️ Szűrők")
 
 # Max lines to display (tail)
 max_lines = st.sidebar.number_input(
-    "Max lines (most recent)",
+    "Max sorok (legutóbbiak)",
     min_value=100,
     max_value=10000,
     value=1000,
     step=100,
-    help="Limit display to the last N lines for performance"
+    help="Az utolsó N sor megjelenítése teljesítmény-optimalizálás céljából"
 )
 
 # Log level filter
 log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 selected_levels = st.sidebar.multiselect(
-    "Log Level",
+    "Naplószint",
     options=log_levels,
     default=[l for l in log_levels if l != "DEBUG"],
-    help="Select which log levels to display"
+    help="Válaszd ki a megjelenítendő naplószinteket"
 )
 
 # Search filter
 search_term = st.sidebar.text_input(
-    "Search in logs",
-    placeholder="e.g., function name or error message",
-    help="Filter logs by keyword"
+    "Keresés a naplóban",
+    placeholder="pl. függvénynév vagy hibaüzenet",
+    help="Naplók szűrése kulcsszó alapján"
 )
 
 # Show file info
 file_stats = os.stat(_LOG_FILE)
-with st.sidebar.expander("📊 Log File Info"):
+with st.sidebar.expander("📊 Naplófájl adatok"):
     st.markdown(
-        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>📦 File size:</span> <span style='color:#f0f6fc;font-weight:600;'>{file_stats.st_size / 1024:.1f} KB</span></p>"
-        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>🕒 Last modified:</span> <span style='color:#f0f6fc;font-weight:600;'>{datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')}</span></p>"
-        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>📄 Total lines:</span> <span style='color:#4ade80;font-weight:600;'>{len(log_lines)}</span></p>",
+        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>📦 Fájlméret:</span> <span style='color:#f0f6fc;font-weight:600;'>{file_stats.st_size / 1024:.1f} KB</span></p>"
+        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>🕒 Utoljára módosítva:</span> <span style='color:#f0f6fc;font-weight:600;'>{datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')}</span></p>"
+        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>📄 Összes sor:</span> <span style='color:#4ade80;font-weight:600;'>{len(log_lines)}</span></p>",
         unsafe_allow_html=True,
     )
 
@@ -134,30 +134,30 @@ for line in tail_lines:
 # ── Display stats ──────────────────────────────────────────────────────────────
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.metric("Total Lines", len(log_lines))
+    st.metric("Összes sor", len(log_lines))
 with col2:
-    st.metric("Filtered Lines", len(filtered_lines))
+    st.metric("Szűrt sorok", len(filtered_lines))
 with col3:
     if filtered_lines:
         # Count errors and warnings
         error_count = sum(1 for line in filtered_lines if any(f"| {lvl} |" in line for lvl in ["ERROR", "CRITICAL"]))
-        st.metric("Errors/Critical", error_count)
+        st.metric("Hibák/Kritikus", error_count)
     else:
-        st.metric("Errors/Critical", 0)
+        st.metric("Hibák/Kritikus", 0)
 
 # ── Display logs ───────────────────────────────────────────────────────────────
 _hdr_col, _radio_col = st.columns([3, 2])
-_hdr_col.subheader("📝 Log Messages")
-display_mode = _radio_col.radio("Display mode", options=["Formatted", "Code"], horizontal=True, index=1, label_visibility="collapsed")
+_hdr_col.subheader("📝 Naplóüzenetek")
+display_mode = _radio_col.radio("Megjelenítési mód", options=["Formázott", "Kód"], horizontal=True, index=1, label_visibility="collapsed")
 
 if not filtered_lines:
-    st.info("ℹ️ No logs match the current filters.")
+    st.info("ℹ️ Nincs a szűrőknek megfelelő naplóbejegyzés.")
 else:
-    if display_mode == "Code":
+    if display_mode == "Kód":
         # Display as a code block (easier to copy)
         st.code("\n".join(filtered_lines), language="log")
         if search_term:
-            st.caption("💡 Switch to **Formatted** mode to see search highlights.")
+            st.caption("💡 Válts **Formázott** módra a keresési kiemelések megtekintéséhez.")
     else:
         # Display as formatted text with color coding — build all HTML in one pass
         html_parts = ['<div class="log-container">']
@@ -201,13 +201,13 @@ else:
         st.markdown("".join(html_parts), unsafe_allow_html=True)
 
 # ── Download option ───────────────────────────────────────────────────────────
-if st.sidebar.button("📥 Download Filtered Logs"):
+if st.sidebar.button("📥 Szűrt naplók letöltése"):
     if filtered_lines:
         st.sidebar.download_button(
-            label="Download as .txt",
+            label="Letöltés .txt formátumban",
             data="\n".join(filtered_lines),
             file_name=f"logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
             mime="text/plain"
         )
     else:
-        st.sidebar.warning("No logs to download with current filters.")
+        st.sidebar.warning("Nincs letölthető napló a jelenlegi szűrőkkel.")

@@ -160,7 +160,7 @@ st.markdown("""
 |---|---|
 | **AI modellek** | Mistral, Qwen és más nyílt forráskódú modellek |
 | **Dokumentumkeresés** | PDF, Word, Excel, Markdown és más formátumok |
-| **Webes keresés** | Opcionálisan engedélyezhető (DuckDuckGo) |
+| **Webes keresés** | Opcionálisan engedélyezhető |
 | **Auditnapló** | Minden lekérdezés és esemény naplózva (Logs oldal) |
 | **Telepítési mód** | On-premise — ügyfél saját szervere vagy privát cloud |
 | **Felhasználói felület** | Böngészőalapú, telepítés nélkül használható |

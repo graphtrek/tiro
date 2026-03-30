@@ -124,7 +124,7 @@ def delete_file(path: str, filename: str) -> None:
     except FileNotFoundError:
         pass
     delete_file_from_index(filename)
-    st.session_state["_delete_msg"] = f"Deleted: {filename}"
+    st.session_state["_delete_msg"] = f"Törölve: {filename}"
 
 
 # ── Sidebar — indexing statistics ─────────────────────────────────────────────
@@ -134,11 +134,11 @@ def _fmt_num(n: int) -> str:
 
 
 with st.sidebar:
-    st.title("📊 Index Statistics")
+    st.title("📊 Index statisztikák")
     stats = get_index_stats()
 
     if not stats:
-        st.info("No files indexed yet.")
+        st.info("Még nincs indexelt fájl.")
     else:
         total_files  = len(stats)
         total_pages  = sum(s.get("pages", 0) for s in stats)
@@ -153,35 +153,34 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
         col1, col2 = st.columns(2)
-        col1.metric("📄 Files",    _fmt_num(total_files))
-        col2.metric("📑 Pages",    _fmt_num(total_pages))
+        col1.metric("📄 Fájlok",   _fmt_num(total_files))
+        col2.metric("📑 Oldalak",  _fmt_num(total_pages))
         col3, col4 = st.columns(2)
-        col3.metric("🧩 Chunks",   _fmt_num(total_chunks))
-        col4.metric("🔢 ≈ Tokens", _fmt_num(total_tokens))
+        col3.metric("🧩 Darabok",  _fmt_num(total_chunks))
+        col4.metric("🔢 ≈ Tokenek", _fmt_num(total_tokens))
 
     # ── ChromaDB Diagnostics ───────────────────────────────────────────────────
     st.divider()
-    st.subheader("🔍 ChromaDB Status")
+    st.subheader("🔍 ChromaDB állapot")
     diag = get_collection_diagnostics()
-    
+
     if diag["status"] == "healthy":
-        st.success(f"✅ Ready for search ({diag['total_chunks']} chunks indexed)")
+        st.success(f"✅ Keresésre kész ({diag['total_chunks']} darab indexelve)")
     elif diag["status"] == "empty":
-        st.warning("⚠️ No documents indexed yet\nUpload files above to enable DropBox Context")
+        st.warning("⚠️ Még nincs indexelt dokumentum\nTöltsd fel a fájlokat fent a DropBox kontextus engedélyezéséhez")
     else:
-        st.error(f"❌ Error: {diag.get('error', 'Unknown error')}")
+        st.error(f"❌ Hiba: {diag.get('error', 'Ismeretlen hiba')}")
 
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.title("📁 DropBox")
-st.caption("Supported formats: DOCX · XLSX · PDF · TXT · MD")
+st.caption("Támogatott formátumok: DOCX · XLSX · PDF · TXT · MD")
 
 # ── File uploader ──────────────────────────────────────────────────────────────
 uploaded_files = st.file_uploader(
-    "Choose one or more files",
+    "Válassz egy vagy több fájlt (DOCX · XLSX · PDF · TXT · MD)",
     type=ALLOWED_TYPES,
     accept_multiple_files=True,
-    label_visibility="collapsed",
     key="file_uploader",
 )
 
@@ -203,9 +202,9 @@ if uploaded_files:
             st.session_state.processed_file_ids.add(uf.file_id)
 
         if saved:
-            st.success(f"Saved: {', '.join(saved)}")
+            st.success(f"Mentve: {', '.join(saved)}")
         if replaced:
-            st.info(f"Replaced: {', '.join(replaced)}")
+            st.info(f"Felülírva: {', '.join(replaced)}")
 
         # Launch indexing in a background thread so the user is not blocked.
         task_id = str(uuid.uuid4())
@@ -231,8 +230,8 @@ if _task_id:
         if _task["status"] == "running":
             _all_files = _task["saved"] + _task["replaced"]
             st.info(
-                f"⏳ Indexing **{', '.join(_all_files)}** in the background… "
-                "You can navigate to other pages — this will finish automatically."
+                f"⏳ **{', '.join(_all_files)}** indexelése folyamatban a háttérben… "
+                "Navigálhatsz más oldalakra — az indexelés automatikusan befejeződik."
             )
             time.sleep(1.5)
             st.rerun()
@@ -242,13 +241,13 @@ if _task_id:
                 failed = [f for f, s in _task["results"].items() if s != "ok"]
                 if failed:
                     st.warning(
-                        f"⚠️ Could not extract text from: {', '.join(failed)}. "
-                        "These files may be scanned/image-based and cannot be indexed for search."
+                        f"⚠️ Nem sikerült szöveget kinyerni a következőkből: {', '.join(failed)}. "
+                        "Ezek a fájlok szkennelt/képalapú dokumentumok lehetnek, és nem indexelhetők kereséshez."
                     )
                 else:
-                    st.success("✅ Indexing complete.")
+                    st.success("✅ Indexelés kész.")
             else:
-                st.error(f"❌ Indexing failed: {_task['error']}")
+                st.error(f"❌ Indexelés sikertelen: {_task['error']}")
             _get_task_registry().pop(_task_id, None)
             del st.session_state["indexing_task_id"]
 
@@ -265,12 +264,12 @@ if _all_stats:
 st.divider()
 
 if not records:
-    st.info("No files uploaded yet. Use the uploader above to add files.")
+    st.info("Még nincs feltöltött fájl. Használd a fenti feltöltőt fájlok hozzáadásához.")
 else:
     # ── Search bar ─────────────────────────────────────────────────────────────
     search = st.text_input(
-        "🔍 Search by file name or type",
-        placeholder="e.g. report or PDF",
+        "🔍 Keresés fájlnév vagy típus alapján",
+        placeholder="pl. riport vagy PDF",
         label_visibility="collapsed",
     )
 
@@ -286,7 +285,7 @@ else:
 
     arrow = lambda c: (" ▲" if asc else " ▼") if st.session_state.sort_col == c else ""
 
-    st.caption(f"{len(records)} file(s) found")
+    st.caption(f"{len(records)} fájl találva")
 
     # Show delete confirmation message if set
     if "_delete_msg" in st.session_state:
@@ -294,10 +293,10 @@ else:
 
     # ── Header row with sort buttons ───────────────────────────────────────────
     h1, h2, h3, h4, h5, h6 = st.columns([4, 1.5, 1.5, 2, 1, 1])
-    h1.button(f"File name{arrow('name')}",     key="sh_name",     on_click=set_sort, args=("name",),       use_container_width=True)
-    h2.button(f"Type{arrow('ext')}",           key="sh_ext",      on_click=set_sort, args=("ext",),        use_container_width=True)
-    h3.button(f"Size{arrow('size_bytes')}",    key="sh_size",     on_click=set_sort, args=("size_bytes",), use_container_width=True)
-    h4.button(f"Uploaded{arrow('uploaded')}",  key="sh_uploaded", on_click=set_sort, args=("uploaded",),   use_container_width=True)
+    h1.button(f"Fájlnév{arrow('name')}",        key="sh_name",     on_click=set_sort, args=("name",),       use_container_width=True)
+    h2.button(f"Típus{arrow('ext')}",          key="sh_ext",      on_click=set_sort, args=("ext",),        use_container_width=True)
+    h3.button(f"Méret{arrow('size_bytes')}",   key="sh_size",     on_click=set_sort, args=("size_bytes",), use_container_width=True)
+    h4.button(f"Feltöltve{arrow('uploaded')}", key="sh_uploaded", on_click=set_sort, args=("uploaded",),   use_container_width=True)
     h5.html("<span style='font-size:0.85rem'>⬇</span>")
     h6.html("<span style='font-size:0.85rem'>🗑</span>")
     st.divider()
@@ -311,10 +310,10 @@ else:
             _elapsed = _si.get('elapsed_seconds')
             _elapsed_str = f" &nbsp;·&nbsp; ⏱ {_elapsed}s" if _elapsed is not None else ""
             _tip_lines = (
-                f"Pages: {_fmt_num(_si.get('pages', 0))}"
-                f" &nbsp;·&nbsp; Chunks: {_fmt_num(_si.get('chunks', 0))}"
-                f"<br>≈ Tokens: {_fmt_num(_si.get('tokens_approx', 0))}"
-                f" &nbsp;·&nbsp; Indexed: {_si.get('indexed_at', '')[:16]}"
+                f"Oldalak: {_fmt_num(_si.get('pages', 0))}"
+                f" &nbsp;·&nbsp; Darabok: {_fmt_num(_si.get('chunks', 0))}"
+                f"<br>≈ Tokenek: {_fmt_num(_si.get('tokens_approx', 0))}"
+                f" &nbsp;·&nbsp; Indexelve: {_si.get('indexed_at', '')[:16]}"
                 f"{_elapsed_str}"
             )
             c1.markdown(
@@ -350,6 +349,6 @@ else:
             key=f"del_{rec['name']}",
             on_click=delete_file,
             args=(rec["path"], rec["name"]),
-            help=f"Delete {rec['name']} from disk and index",
+            help=f"{rec['name']} törlése lemezről és indexből",
         )
 

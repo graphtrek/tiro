@@ -92,8 +92,8 @@ MODELS = [
 
 # Human-readable capability label shown next to each model name in the sidebar
 MODEL_LABELS = {
-    "mistral-small-3.2-24b-instruct-2506":  "Chat & Vision",
-    "qwen3-coder-30b-a3b-instruct": "Chat & Code",
+    "mistral-small-3.2-24b-instruct-2506":  "Chat és látás",
+    "qwen3-coder-30b-a3b-instruct": "Chat és kód",
 }
 
 
@@ -184,7 +184,7 @@ def _load_persistent_settings() -> dict:
     """
     defaults = {
         "selected_model":          MODELS[0],
-        "system_prompt":           "You are a helpful assistant.",
+        "system_prompt":           "Te egy hasznos asszisztens vagy.",
         "dropbox_context_enabled": True,
         "msg_area":                "",
     }
@@ -200,6 +200,9 @@ def _load_persistent_settings() -> dict:
                 saved["dropbox_context_enabled"] = (
                     saved["dropbox_context_enabled"].lower() in ("true", "1", "yes")
                 )
+            # Migrate old English system prompts to Hungarian default
+            if saved.get("system_prompt", "").startswith("You are"):
+                saved["system_prompt"] = "Te egy hasznos asszisztens vagy."
             return {**defaults, **saved}
     except Exception as e:
         logger.warning("Failed to load persistent settings: %s", e)
@@ -210,7 +213,7 @@ def _save_persistent_settings():
     """Write current session-state settings to ChromaDB for persistence."""
     settings = {
         "selected_model":  st.session_state.get("selected_model", MODELS[0]),
-        "system_prompt":   st.session_state.get("system_prompt", "You are a helpful assistant."),
+        "system_prompt":   st.session_state.get("system_prompt", "Te egy hasznos asszisztens vagy."),
         # ChromaDB metadata values must be str/int/float — store bool as string
         "dropbox_context_enabled": str(
             st.session_state.get("dropbox_context_enabled", False)
@@ -275,6 +278,9 @@ if "system_prompt" not in st.session_state:
 if "dropbox_context_enabled" not in st.session_state:
     st.session_state.dropbox_context_enabled = _persistent["dropbox_context_enabled"]
 
+if "_dropbox_state_for_prompt" not in st.session_state:
+    st.session_state._dropbox_state_for_prompt = _persistent["dropbox_context_enabled"]
+
 if "_processing" not in st.session_state:
     st.session_state._processing = False
 
@@ -285,7 +291,7 @@ if "_pending_message" not in st.session_state:
 # ── Files modal ───────────────────────────────────────────────────────────────
 # @st.dialog renders a pop-up overlay. Clicking a filename appends it to the
 # chat input, enables DropBox context, and closes the modal via st.rerun().
-@st.dialog("📁 Files")
+@st.dialog("📁 Fájlok")
 def files_modal():
     """
     Pop-up dialog that lists every file in the uploads folder.
@@ -300,8 +306,8 @@ def files_modal():
     )
     if not files:
         st.warning(
-            "📁 **No files uploaded**\n\n"
-            "Please go to the **DropBox** page to upload your files (PDF, DOCX, TXT, XLSX)."
+            "📁 **Nincs feltöltött fájl**\n\n"
+            "Kérlek, menj a **DropBox** oldalra, és töltsd fel a fájljaidat (PDF, DOCX, TXT, XLSX)."
         )
         return
 
@@ -375,30 +381,30 @@ _inject_css()
 # DropBox Context on/off. The user can still override them in the sidebar.
 
 _DROPBOX_SYSTEM_PROMPT = (
-    "You are my personal assistant specialized in managing and understanding documents stored in my Dropbox.\n\n"
-    "Your role is to:\n"
-    "- Retrieve, organize, and summarize documents based on my requests\n"
-    "- Maintain context across multiple files and conversations\n"
-    "- Extract key information, insights, and action items\n"
-    "- Answer questions using only the relevant document context when available\n"
-    "- Be concise, accurate, and structured in responses\n\n"
-    "If information is missing or unclear, ask clarifying questions before proceeding.\n"
-    "Always prioritize relevance, privacy, and correctness."
+    "Te az én személyes asszisztensem vagy, aki specializálódott a DropBox-ban tárolt dokumentumok kezelésére és megértésére.\n\n"
+    "A feladataid:\n"
+    "- Dokumentumok lekérése, rendszerezése és összefoglalása az igényeim alapján\n"
+    "- Kontextus fenntartása több fájl és párbeszéd között\n"
+    "- Kulcsinformációk, felismerések és teendők kiemelése\n"
+    "- Kérdések megválaszolása kizárólag a releváns dokumentumkontextus alapján, ha elérhető\n"
+    "- Tömör, pontos és strukturált válaszok adása\n\n"
+    "Ha az információ hiányos vagy nem egyértelmű, kérj pontosítást a folytatás előtt.\n"
+    "Mindig a relevanciát, az adatvédelmet és a pontosságot helyezd előtérbe."
 )
 
 _INTERNET_SYSTEM_PROMPT = (
-    "You are my personal assistant specialized in understanding and analyzing information from the Internet.\n\n"
-    "Your role is to:\n"
-    "- Search, retrieve, and summarize relevant online information\n"
-    "- Evaluate sources for credibility and accuracy\n"
-    "- Provide clear, concise, and structured answers\n"
-    "- Synthesize insights from multiple sources when needed\n"
-    "- Highlight uncertainty or conflicting information\n\n"
-    "Always prioritize relevance, reliability, and up-to-date information. "
-    "Ask clarifying questions if the request is ambiguous."
+    "Te az én személyes asszisztensem vagy, aki specializálódott az internetről származó információk megértésére és elemzésére.\n\n"
+    "A feladataid:\n"
+    "- Releváns online információk keresése, lekérése és összefoglalása\n"
+    "- Források megbízhatóságának és pontosságának értékelése\n"
+    "- Világos, tömör és strukturált válaszok adása\n"
+    "- Felismerések szintézise több forrásból, ha szükséges\n"
+    "- Bizonytalanság vagy ellentmondásos információ kiemelése\n\n"
+    "Mindig a relevanciát, a megbízhatóságot és a naprakész információt helyezd előtérbe. "
+    "Ha a kérés nem egyértelmű, kérj pontosítást."
 )
 
-_DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
+_DEFAULT_SYSTEM_PROMPT = "Te egy hasznos asszisztens vagy."
 
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
@@ -412,17 +418,18 @@ with st.sidebar:
     if _nav != "💬 Chat":
         st.switch_page(_PAGES[_nav])
 
-    # ── Pre-render: sync system prompt with DropBox context toggle ─────────────
-    # This block MUST run before any widget is rendered. It writes to
-    # session_state.system_prompt, which is consumed by the text_area widget
-    # defined below. Streamlit forbids updating widget-bound keys after render.
-    _current_dropbox  = st.session_state.get("dropbox_context_enabled", False)
-    _prev_dropbox     = st.session_state.get("_dropbox_state_for_prompt", False)
+    # ── Auto-switch system prompt with DropBox toggle (only if not user-customized) ──
+    # If the current prompt is one of the known auto-prompts, switch it when the
+    # toggle changes. If the user wrote a custom prompt, leave it untouched.
+    _current_dropbox = st.session_state.get("dropbox_context_enabled", False)
+    _prev_dropbox    = st.session_state.get("_dropbox_state_for_prompt", _current_dropbox)
     if _current_dropbox != _prev_dropbox:
-        # Auto-switch to the appropriate system prompt when the toggle changes
-        st.session_state.system_prompt = (
-            _DROPBOX_SYSTEM_PROMPT if _current_dropbox else _INTERNET_SYSTEM_PROMPT
-        )
+        _current_prompt = st.session_state.get("system_prompt", "")
+        _auto_prompts   = {_DROPBOX_SYSTEM_PROMPT, _INTERNET_SYSTEM_PROMPT, _DEFAULT_SYSTEM_PROMPT, "Te egy hasznos asszisztens vagy."}
+        if _current_prompt in _auto_prompts:
+            st.session_state.system_prompt = (
+                _DROPBOX_SYSTEM_PROMPT if _current_dropbox else _INTERNET_SYSTEM_PROMPT
+            )
         st.session_state._dropbox_state_for_prompt = _current_dropbox
 
     # Apply any pending reset (triggered by the "Clear context" button) before
@@ -433,10 +440,10 @@ with st.sidebar:
         st.session_state.system_prompt = _DROPBOX_SYSTEM_PROMPT
 
     # ── Model expander ─────────────────────────────────────────────────────────
-    with st.expander("🤖 Model", expanded=True):
-        _tasks = MODEL_LABELS.get(st.session_state.get("selected_model", MODELS[0]), "Chat & Code")
+    with st.expander("🤖 Modell", expanded=True):
+        _tasks = MODEL_LABELS.get(st.session_state.get("selected_model", MODELS[0]), "Chat és kód")
         selected_model = st.selectbox(
-            f"Tasks: {_tasks}",
+            f"Feladatok: {_tasks}",
             MODELS,
             key="selected_model",
         )
@@ -447,9 +454,9 @@ with st.sidebar:
             _save_persistent_settings()
 
     # ── System prompt expander ─────────────────────────────────────────────────
-    with st.expander("📝 System Prompt", expanded=False):
+    with st.expander("📝 Rendszerutasítás", expanded=False):
         system_prompt = st.text_area(
-            "System prompt",
+            "Rendszerutasítás",
             key="system_prompt",
             height=120,
         )
@@ -459,11 +466,11 @@ with st.sidebar:
             _save_persistent_settings()
 
     # ── Context expander ───────────────────────────────────────────────────────
-    with st.expander("🌐 Context", expanded=True):
+    with st.expander("🌐 Kontextus", expanded=True):
         # Toggle rendered as a full-width button so it matches the Clear context button style.
         # Primary = active (blue), secondary = inactive (grey).
         _db_on = st.session_state.get("dropbox_context_enabled", False)
-        _db_label = ("✅ DropBox Context: ON" if _db_on else "📁 DropBox Context: OFF")
+        _db_label = ("✅ DropBox kontextus: BE" if _db_on else "📁 DropBox kontextus: KI")
         if st.button(_db_label, use_container_width=True,
                      type="primary" if _db_on else "secondary",
                      key="dropbox_context_btn"):
@@ -477,7 +484,7 @@ with st.sidebar:
             dropbox_context_enabled = _db_on
 
         # Clear button: wipes conversation history only, leaves system prompt unchanged
-        if st.button("🗑️ Clear context", use_container_width=True):
+        if st.button("🗑️ Kontextus törlése", use_container_width=True):
             logger.info("conversation_cleared=true")
             st.session_state.messages = []
             st.session_state.msg_new_value = ""
@@ -485,7 +492,7 @@ with st.sidebar:
             st.rerun()
 
     # ── Token usage expander ───────────────────────────────────────────────────
-    with st.expander("📊 Token Usage", expanded=False):
+    with st.expander("📊 Token használat", expanded=False):
         _history   = st.session_state.usage_history
         _last      = _history[-1] if _history else None
         _total_in  = sum(e["input_tokens"]  for e in _history)
@@ -499,11 +506,11 @@ with st.sidebar:
 
         st.markdown(
             f"""<div style="font-size:1rem;line-height:1.7;padding-bottom:1rem;">
-            <span style="color:#a78bfa;font-weight:bold">Last response tokens</span><br>
+            <span style="color:#a78bfa;font-weight:bold">Utolsó válasz tokenek</span><br>
             {f'<span style="color:#94a3b8">{_ts}</span><br>' if _ts else ""}
-            <span style="color:#6ee7b7">In</span>&nbsp;<b style="color:#34d399">{_li}</b> &nbsp;·&nbsp; <span style="color:#fca5a5">Out</span>&nbsp;<b style="color:#f87171">{_lo}</b><br>
-            <span style="color:#a78bfa;font-weight:bold">Cumulative tokens</span><br>
-            <span style="color:#6ee7b7">In</span>&nbsp;<b style="color:#34d399">{_ci}</b> &nbsp;·&nbsp; <span style="color:#fca5a5">Out</span>&nbsp;<b style="color:#f87171">{_co}</b>
+            <span style="color:#6ee7b7">Be</span>&nbsp;<b style="color:#34d399">{_li}</b> &nbsp;·&nbsp; <span style="color:#fca5a5">Ki</span>&nbsp;<b style="color:#f87171">{_lo}</b><br>
+            <span style="color:#a78bfa;font-weight:bold">Összesített tokenek</span><br>
+            <span style="color:#6ee7b7">Be</span>&nbsp;<b style="color:#34d399">{_ci}</b> &nbsp;·&nbsp; <span style="color:#fca5a5">Ki</span>&nbsp;<b style="color:#f87171">{_co}</b>
             </div>""",
             unsafe_allow_html=True,
         )
@@ -511,7 +518,7 @@ with st.sidebar:
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.markdown("<h3 style='margin-bottom:0'>💬 Nothing Gets Out AI</h3>", unsafe_allow_html=True)
-st.caption(f"Model: `{selected_model}`")
+st.caption(f"Modell: `{selected_model}`")
 
 
 # ── Render existing messages ───────────────────────────────────────────────────
@@ -529,20 +536,20 @@ for msg in st.session_state.messages:
             _mdl_tag = f" · `{_mdl}`" if _mdl else ""
 
             if _src == "files":
-                st.caption(f"📁 Answered from your uploaded files{_mdl_tag}")
+                st.caption(f"📁 A feltöltött fájlokból válaszolt{_mdl_tag}")
                 _dropbox_sources = msg.get("dropbox_sources")
                 if _dropbox_sources:
-                    st.caption("Sources: " + " · ".join(f"`{f}`" for f in _dropbox_sources))
+                    st.caption("Források: " + " · ".join(f"`{f}`" for f in _dropbox_sources))
             elif _src == "web":
-                st.caption(f"🌐 Answered from internet search{_mdl_tag}")
+                st.caption(f"🌐 Internetes keresésből válaszolt{_mdl_tag}")
                 _sources = msg.get("web_sources")
                 if _sources:
                     _links = " · ".join(
                         f"[{s['title'][:50]}]({s['link']})" for s in _sources
                     )
-                    st.caption(f"Sources: {_links}")
+                    st.caption(f"Források: {_links}")
             else:
-                st.caption(f"🤖 Answered by model{_mdl_tag}")
+                st.caption(f"🤖 A modell válaszolt{_mdl_tag}")
 
 
 # ── Chat input ─────────────────────────────────────────────────────────────────
@@ -559,7 +566,7 @@ st.text_area(
     key="msg_area",
     height=80,
     label_visibility="collapsed",
-    placeholder="Send a message…",
+    placeholder="Üzenet küldése…",
 )
 
 # Persist the draft whenever the user types (so it survives a page refresh)
@@ -571,17 +578,17 @@ if st.session_state.get("msg_area") != st.session_state.get("_prev_msg_area"):
 col_send, col_clear, col_files = st.columns([2, 2, 2])
 
 with col_files:
-    if st.button("📁 Files", use_container_width=True):
+    if st.button("📁 Fájlok", use_container_width=True):
         files_modal()
 
 with col_clear:
-    if st.button("🗑️ Clear chat", use_container_width=True, help="Clear chat"):
+    if st.button("🗑️ Chat törlése", use_container_width=True, help="Chat törlése"):
         st.session_state.msg_new_value = ""
         _save_persistent_settings()
         st.rerun()
 
 with col_send:
-    send_clicked = st.button("📤 Send message", use_container_width=True, type="primary", disabled=st.session_state._processing)
+    send_clicked = st.button("📤 Küldés", use_container_width=True, type="primary", disabled=st.session_state._processing)
 
 
 # ── Message handling ───────────────────────────────────────────────────────────
@@ -626,18 +633,18 @@ if user_input:
             logger.warning("dropbox_context_enabled_but_no_files=true")
             with st.chat_message("assistant"):
                 st.warning(
-                    "📁 **DropBox Context is active but no files uploaded**\n\n"
-                    "Please upload files in the **DropBox** page to enable semantic search on your documents.\n\n"
-                    "Steps:\n"
-                    "1. Go to **📁 DropBox** page\n"
-                    "2. Upload your files (PDF, DOCX, TXT, XLSX)\n"
-                    "3. Wait for indexing to complete\n"
-                    "4. Return here and ask your question"
+                    "📁 **A DropBox kontextus aktív, de nincs feltöltött fájl**\n\n"
+                    "Kérlek, töltsd fel a fájljaidat a **DropBox** oldalon a szemantikus keresés engedélyezéséhez.\n\n"
+                    "Lépések:\n"
+                    "1. Menj a **📁 DropBox** oldalra\n"
+                    "2. Töltsd fel a fájljaidat (PDF, DOCX, TXT, XLSX)\n"
+                    "3. Várd meg az indexelés befejezését\n"
+                    "4. Térj vissza ide és tedd fel a kérdésedet"
                 )
                 st.caption(f"🤖 · `{selected_model}`")
             st.session_state.messages.append({
                 "role": "assistant",
-                "content": "📁 DropBox Context is active but no files uploaded. Please upload files in the DropBox page.",
+                "content": "📁 A DropBox kontextus aktív, de nincs feltöltött fájl. Kérlek, töltsd fel a fájljaidat a DropBox oldalon.",
                 "source": "system",
                 "model": selected_model,
             })
@@ -755,15 +762,15 @@ if user_input:
     if context_text:
         trimmed_context = _trim_context(context_text, max_tokens=50_000)
         augmented_system_prompt += (
-            "\n\nUse the following context to answer the user's question:\n\n"
+            "\n\nA következő kontextus alapján válaszolj a felhasználó kérdésére:\n\n"
             + trimmed_context
         )
     elif not st.session_state.get("dropbox_context_enabled", False):
         # Web search was skipped or returned nothing — tell the model explicitly
         augmented_system_prompt += (
-            "\n\nNote: No web search results are available for this query. "
-            "Answer based on your training knowledge and clearly indicate that "
-            "this information may not reflect the most recent state."
+            "\n\nMegjegyzés: Ehhez a kérdéshez nem áll rendelkezésre webes keresési eredmény. "
+            "Válaszolj a betanítási ismereteid alapján, és jelezd egyértelműen, hogy "
+            "az információ esetleg nem tükrözi a legfrissebb állapotot."
         )
 
     # Sliding-window conversation history: keep at most the last 40 messages
@@ -783,7 +790,7 @@ if user_input:
     # 5) Stream the AI response token by token ─────────────────────────────────
     with st.chat_message("assistant"):
         if web_search_failed:
-            st.info("⚠️ Web search unavailable — answering from training knowledge.", icon="🔌")
+            st.info("⚠️ Webes keresés nem elérhető — a betanítási tudás alapján válaszolok.", icon="🔌")
 
         # st.empty() creates a placeholder we overwrite on every new token
         placeholder = st.empty()
@@ -846,10 +853,10 @@ if user_input:
                 source, user_input[:100], context_text is not None,
             )
             warning_message = (
-                "⚠️ Received an empty response from the model. This could mean:\n"
-                "- The model encountered an issue\n"
-                "- No relevant context was found (try different keywords)\n"
-                "- Try rephrasing your question"
+                "⚠️ A modell üres választ küldött. Lehetséges okok:\n"
+                "- A modell hibába ütközött\n"
+                "- Nem találtunk releváns kontextust (próbálj más kulcsszavakat)\n"
+                "- Próbáld meg másképp megfogalmazni a kérdésedet"
             )
             placeholder.warning(warning_message)
             full_text = warning_message  # Persist warning so it re-renders on the next run
@@ -858,16 +865,16 @@ if user_input:
 
         # Display source attribution below the reply
         if source == "files":
-            st.caption(f"📁 Answered from your uploaded files · `{selected_model}`")
+            st.caption(f"📁 A feltöltött fájlokból válaszolt · `{selected_model}`")
             if dropbox_sources:
-                st.caption("Sources: " + " · ".join(f"`{f}`" for f in dropbox_sources))
+                st.caption("Források: " + " · ".join(f"`{f}`" for f in dropbox_sources))
         elif source == "web":
-            st.caption(f"🌐 Answered from internet search · `{selected_model}`")
+            st.caption(f"🌐 Internetes keresésből válaszolt · `{selected_model}`")
             if web_sources:
                 links = " · ".join(f"[{s['title'][:50]}]({s['link']})" for s in web_sources)
-                st.caption(f"Sources: {links}")
+                st.caption(f"Források: {links}")
         else:
-            st.caption(f"🤖 Answered by model · `{selected_model}`")
+            st.caption(f"🤖 A modell válaszolt · `{selected_model}`")
 
     # 6) Persist the completed reply ───────────────────────────────────────────
     # Appending to messages makes it part of the next request's conversation
