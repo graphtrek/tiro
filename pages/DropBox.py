@@ -174,11 +174,11 @@ with st.sidebar:
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.title("📁 DropBox")
-st.caption("Támogatott formátumok: DOCX · XLSX · PDF · TXT · MD")
+st.caption("Támogatott formátumok: DOCX · XLSX · PDF · TXT · MD · Max. fájlméret: 1 MB")
 
 # ── File uploader ──────────────────────────────────────────────────────────────
 uploaded_files = st.file_uploader(
-    "Válassz egy vagy több fájlt (DOCX · XLSX · PDF · TXT · MD)",
+    "Válassz egy vagy több fájlt (DOCX · XLSX · PDF · TXT · MD) · Max. 1 MB",
     type=ALLOWED_TYPES,
     accept_multiple_files=True,
     key="file_uploader",
