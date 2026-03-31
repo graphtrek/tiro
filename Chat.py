@@ -11,6 +11,7 @@ import warnings
 warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality")
 
 # ── Standard library ──────────────────────────────────────────────────────────
+import base64
 import logging
 import os
 import threading
@@ -96,6 +97,36 @@ MODEL_LABELS = {
     "qwen3-coder-30b-a3b-instruct": "Chat és kód",
 }
 
+# Models that support image input (vision)
+VISION_MODELS = {"mistral-small-3.2-24b-instruct-2506"}
+
+# ── System prompts ────────────────────────────────────────────────────────────
+# Pre-defined prompts that are swapped in automatically when the user toggles
+# DropBox Context on/off. The user can still override them in the sidebar.
+
+_DROPBOX_SYSTEM_PROMPT = (
+    "Te az én személyes asszisztensem vagy, aki specializálódott a DropBox-ban tárolt dokumentumok kezelésére és megértésére.\n\n"
+    "A feladataid:\n"
+    "- Dokumentumok lekérése, rendszerezése és összefoglalása az igényeim alapján\n"
+    "- Kontextus fenntartása több fájl és párbeszéd között\n"
+    "- Kulcsinformációk, felismerések és teendők kiemelése\n"
+    "- Kérdések megválaszolása kizárólag a releváns dokumentumkontextus alapján, ha elérhető\n"
+    "- Tömör, pontos és strukturált válaszok adása\n\n"
+    "Ha az információ hiányos vagy nem egyértelmű, kérj pontosítást a folytatás előtt.\n"
+    "Mindig a relevanciát, az adatvédelmet és a pontosságot helyezd előtérbe."
+)
+
+_INTERNET_SYSTEM_PROMPT = (
+    "Te az én személyes asszisztensem vagy, aki specializálódott az internetről származó információk megértésére és elemzésére.\n\n"
+    "A feladataid:\n"
+    "- Releváns online információk keresése, lekérése és összefoglalása\n"
+    "- Források megbízhatóságának és pontosságának értékelése\n"
+    "- Világos, tömör és strukturált válaszok adása\n"
+    "- Felismerések szintézise több forrásból, ha szükséges\n"
+    "- Bizonytalanság vagy ellentmondásos információ kiemelése\n\n"
+    "Mindig a relevanciát, a megbízhatóságot és a naprakész információt helyezd előtérbe. "
+    "Ha a kérés nem egyértelmű, kérj pontosítást."
+)
 
 # ── Token counting utilities ──────────────────────────────────────────────────
 
@@ -129,6 +160,17 @@ def _trim_context(context_text: str, max_tokens: int = 8000) -> str:
 
     # If even the first chunk was too big, hard-truncate it by character count
     return "\n\n".join(trimmed) if trimmed else chunks[0][: max_tokens * 4]
+
+
+def _to_api_msg(msg: dict) -> dict:
+    """Convert a stored message dict to OpenAI API format, adding image content if present."""
+    content = msg["content"]
+    if msg.get("image_b64"):
+        content = [
+            {"type": "text", "text": msg["content"]},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{msg['image_b64']}"}},
+        ]
+    return {"role": msg["role"], "content": content}
 
 
 # ── LLM clients ───────────────────────────────────────────────────────────────
@@ -184,7 +226,7 @@ def _load_persistent_settings() -> dict:
     """
     defaults = {
         "selected_model":          MODELS[0],
-        "system_prompt":           "Te egy hasznos asszisztens vagy.",
+        "system_prompt":           _DROPBOX_SYSTEM_PROMPT,
         "dropbox_context_enabled": True,
         "msg_area":                "",
     }
@@ -200,9 +242,6 @@ def _load_persistent_settings() -> dict:
                 saved["dropbox_context_enabled"] = (
                     saved["dropbox_context_enabled"].lower() in ("true", "1", "yes")
                 )
-            # Migrate old English system prompts to Hungarian default
-            if saved.get("system_prompt", "").startswith("You are"):
-                saved["system_prompt"] = "Te egy hasznos asszisztens vagy."
             return {**defaults, **saved}
     except Exception as e:
         logger.warning("Failed to load persistent settings: %s", e)
@@ -213,7 +252,7 @@ def _save_persistent_settings():
     """Write current session-state settings to ChromaDB for persistence."""
     settings = {
         "selected_model":  st.session_state.get("selected_model", MODELS[0]),
-        "system_prompt":   st.session_state.get("system_prompt", "Te egy hasznos asszisztens vagy."),
+        "system_prompt":   st.session_state.get("system_prompt", _DROPBOX_SYSTEM_PROMPT),
         # ChromaDB metadata values must be str/int/float — store bool as string
         "dropbox_context_enabled": str(
             st.session_state.get("dropbox_context_enabled", False)
@@ -286,6 +325,12 @@ if "_processing" not in st.session_state:
 
 if "_pending_message" not in st.session_state:
     st.session_state._pending_message = None
+
+if "_pending_image" not in st.session_state:
+    st.session_state._pending_image = None
+
+if "_img_uploader_rev" not in st.session_state:
+    st.session_state._img_uploader_rev = 0
 
 
 # ── Files modal ───────────────────────────────────────────────────────────────
@@ -376,37 +421,6 @@ def _inject_css():
 _inject_css()
 
 
-# ── System prompts ────────────────────────────────────────────────────────────
-# Pre-defined prompts that are swapped in automatically when the user toggles
-# DropBox Context on/off. The user can still override them in the sidebar.
-
-_DROPBOX_SYSTEM_PROMPT = (
-    "Te az én személyes asszisztensem vagy, aki specializálódott a DropBox-ban tárolt dokumentumok kezelésére és megértésére.\n\n"
-    "A feladataid:\n"
-    "- Dokumentumok lekérése, rendszerezése és összefoglalása az igényeim alapján\n"
-    "- Kontextus fenntartása több fájl és párbeszéd között\n"
-    "- Kulcsinformációk, felismerések és teendők kiemelése\n"
-    "- Kérdések megválaszolása kizárólag a releváns dokumentumkontextus alapján, ha elérhető\n"
-    "- Tömör, pontos és strukturált válaszok adása\n\n"
-    "Ha az információ hiányos vagy nem egyértelmű, kérj pontosítást a folytatás előtt.\n"
-    "Mindig a relevanciát, az adatvédelmet és a pontosságot helyezd előtérbe."
-)
-
-_INTERNET_SYSTEM_PROMPT = (
-    "Te az én személyes asszisztensem vagy, aki specializálódott az internetről származó információk megértésére és elemzésére.\n\n"
-    "A feladataid:\n"
-    "- Releváns online információk keresése, lekérése és összefoglalása\n"
-    "- Források megbízhatóságának és pontosságának értékelése\n"
-    "- Világos, tömör és strukturált válaszok adása\n"
-    "- Felismerések szintézise több forrásból, ha szükséges\n"
-    "- Bizonytalanság vagy ellentmondásos információ kiemelése\n\n"
-    "Mindig a relevanciát, a megbízhatóságot és a naprakész információt helyezd előtérbe. "
-    "Ha a kérés nem egyértelmű, kérj pontosítást."
-)
-
-_DEFAULT_SYSTEM_PROMPT = "Te egy hasznos asszisztens vagy."
-
-
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 # Everything inside `with st.sidebar:` is rendered in the left panel.
 with st.sidebar:
@@ -419,18 +433,17 @@ with st.sidebar:
         st.switch_page(_PAGES[_nav])
 
     # ── Auto-switch system prompt with DropBox toggle (only if not user-customized) ──
-    # If the current prompt is one of the known auto-prompts, switch it when the
-    # toggle changes. If the user wrote a custom prompt, leave it untouched.
+    # If the current prompt is one of the known auto-prompts, keep it in sync with
+    # the DropBox toggle — both on toggle-change and on every load (so the generic
+    # default never appears). If the user wrote a custom prompt, leave it untouched.
     _current_dropbox = st.session_state.get("dropbox_context_enabled", False)
     _prev_dropbox    = st.session_state.get("_dropbox_state_for_prompt", _current_dropbox)
-    if _current_dropbox != _prev_dropbox:
-        _current_prompt = st.session_state.get("system_prompt", "")
-        _auto_prompts   = {_DROPBOX_SYSTEM_PROMPT, _INTERNET_SYSTEM_PROMPT, _DEFAULT_SYSTEM_PROMPT, "Te egy hasznos asszisztens vagy."}
-        if _current_prompt in _auto_prompts:
-            st.session_state.system_prompt = (
-                _DROPBOX_SYSTEM_PROMPT if _current_dropbox else _INTERNET_SYSTEM_PROMPT
-            )
-        st.session_state._dropbox_state_for_prompt = _current_dropbox
+    _auto_prompts    = {_DROPBOX_SYSTEM_PROMPT, _INTERNET_SYSTEM_PROMPT, "Te egy hasznos asszisztens vagy."}
+    _current_prompt  = st.session_state.get("system_prompt", "")
+    _expected_prompt = _DROPBOX_SYSTEM_PROMPT if _current_dropbox else _INTERNET_SYSTEM_PROMPT
+    if _current_prompt in _auto_prompts and _current_prompt != _expected_prompt:
+        st.session_state.system_prompt = _expected_prompt
+    st.session_state._dropbox_state_for_prompt = _current_dropbox
 
     # Apply any pending reset (triggered by the "Clear context" button) before
     # the text_area widget is instantiated
@@ -527,6 +540,8 @@ st.caption(f"Modell: `{selected_model}`")
 # st.chat_message("assistant") → left-aligned AI bubble
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
+        if msg.get("image_b64"):
+            st.image(base64.b64decode(msg["image_b64"]), width=400, caption=msg.get("image_name", ""))
         st.markdown(msg["content"])
 
         # Show a source caption below each assistant reply
@@ -574,6 +589,32 @@ if st.session_state.get("msg_area") != st.session_state.get("_prev_msg_area"):
     st.session_state._prev_msg_area = st.session_state.get("msg_area")
     _save_persistent_settings()
 
+# ── Image attachment (vision models only) ─────────────────────────────────────
+if selected_model in VISION_MODELS:
+    _jpeg_files = []
+    if os.path.isdir(UPLOAD_DIR):
+        _jpeg_files = sorted(
+            f for f in os.listdir(UPLOAD_DIR)
+            if os.path.isfile(os.path.join(UPLOAD_DIR, f))
+            and os.path.splitext(f)[1].lower() in {".jpg", ".jpeg"}
+        )
+    if _jpeg_files:
+        _img_options = ["— nincs —"] + _jpeg_files
+        _img_sel = st.selectbox(
+            "📷 Kép a DropBox-ból (opcionális)",
+            _img_options,
+            key=f"chat_img_select_{st.session_state._img_uploader_rev}",
+        )
+        if _img_sel and _img_sel != "— nincs —" and not st.session_state._processing:
+            _img_path = os.path.join(UPLOAD_DIR, _img_sel)
+            with open(_img_path, "rb") as _fh:
+                st.session_state._pending_image = {
+                    "name": _img_sel,
+                    "b64": base64.b64encode(_fh.read()).decode(),
+                }
+        elif _img_sel == "— nincs —" and not st.session_state._processing:
+            st.session_state._pending_image = None
+
 # ── Action buttons (Send / Clear / Files) ─────────────────────────────────────
 col_send, col_clear, col_files = st.columns([2, 2, 2])
 
@@ -606,8 +647,16 @@ if st.session_state._processing and st.session_state._pending_message:
 if user_input:
     # 1) Save the user's message to history and display it immediately
     logger.info("user_message=%r, model=%s", user_input[:100], selected_model)
-    st.session_state.messages.append({"role": "user", "content": user_input})
+    _user_msg = {"role": "user", "content": user_input}
+    _img = st.session_state.get("_pending_image")
+    if _img:
+        _user_msg["image_b64"]  = _img["b64"]
+        _user_msg["image_name"] = _img["name"]
+        logger.info("image_attached=true, name=%s", _img["name"])
+    st.session_state.messages.append(_user_msg)
     with st.chat_message("user"):
+        if _img:
+            st.image(base64.b64decode(_img["b64"]), width=400, caption=_img["name"])
         st.markdown(user_input)
 
     # 2) Determine context source ──────────────────────────────────────────────
@@ -779,13 +828,13 @@ if user_input:
     if len(conversation_msgs) > 40:
         conversation_msgs = conversation_msgs[-40:]
 
-    api_messages = [{"role": "system", "content": augmented_system_prompt}] + conversation_msgs
+    api_messages = [{"role": "system", "content": augmented_system_prompt}] + [_to_api_msg(m) for m in conversation_msgs]
 
     # Final safety check: if we are still over budget, cut down to 20 messages
     max_input_tokens = 245_000  # Conservative limit (model max 262 144 − reply buffer)
     if _estimate_tokens(str(api_messages)) > max_input_tokens - 1_000:
         logger.warning("Token budget exceeded, trimming to last 20 messages")
-        api_messages = [api_messages[0]] + conversation_msgs[-20:]
+        api_messages = [api_messages[0]] + [_to_api_msg(m) for m in conversation_msgs[-20:]]
 
     # 5) Stream the AI response token by token ─────────────────────────────────
     with st.chat_message("assistant"):
@@ -893,6 +942,9 @@ if user_input:
     st.session_state.messages.append(_msg)
     st.session_state._processing = False
     st.session_state._pending_message = None
+    if st.session_state.get("_pending_image"):
+        st.session_state._pending_image = None
+        st.session_state._img_uploader_rev += 1  # Reset the file uploader widget
 
     # Trigger a rerun so the sidebar token metrics update immediately
     st.rerun()

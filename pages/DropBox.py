@@ -38,13 +38,14 @@ with st.sidebar:
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")
-ALLOWED_TYPES = ["docx", "xlsx", "pdf", "txt", "md"]
+ALLOWED_TYPES = ["docx", "xlsx", "pdf", "txt", "md", "jpg", "jpeg"]
 ALLOWED_MIME = [
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/pdf",
     "text/plain",
     "text/markdown",
+    "image/jpeg",
 ]
 
 SORT_COLS = ["name", "ext", "size_bytes", "uploaded"]
@@ -174,11 +175,11 @@ with st.sidebar:
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.title("📁 DropBox")
-st.caption("Támogatott formátumok: DOCX · XLSX · PDF · TXT · MD · Max. fájlméret: 1 MB")
+st.caption("Támogatott formátumok: DOCX · XLSX · PDF · TXT · MD · JPEG · Max. fájlméret: 1 MB")
 
 # ── File uploader ──────────────────────────────────────────────────────────────
 uploaded_files = st.file_uploader(
-    "Válassz egy vagy több fájlt (DOCX · XLSX · PDF · TXT · MD) · Max. 1 MB",
+    "Válassz egy vagy több fájlt (DOCX · XLSX · PDF · TXT · MD · JPEG) · Max. 1 MB",
     type=ALLOWED_TYPES,
     accept_multiple_files=True,
     key="file_uploader",
