@@ -346,8 +346,11 @@ def files_modal():
       2. Turns on DropBox context automatically (so the file gets searched).
       3. Saves settings and triggers a rerun to close the dialog.
     """
+    _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff"}
     files = sorted(
-        f for f in os.listdir(UPLOAD_DIR) if os.path.isfile(os.path.join(UPLOAD_DIR, f))
+        f for f in os.listdir(UPLOAD_DIR)
+        if os.path.isfile(os.path.join(UPLOAD_DIR, f))
+        and os.path.splitext(f)[1].lower() not in _IMAGE_EXTS
     )
     if not files:
         st.warning(
@@ -589,8 +592,8 @@ if st.session_state.get("msg_area") != st.session_state.get("_prev_msg_area"):
     st.session_state._prev_msg_area = st.session_state.get("msg_area")
     _save_persistent_settings()
 
-# ── Image attachment (vision models only) ─────────────────────────────────────
-if selected_model in VISION_MODELS:
+# ── Image attachment (vision models only, DropBox must be enabled) ────────────
+if st.session_state.get("dropbox_context_enabled", False) and selected_model in VISION_MODELS:
     _jpeg_files = []
     if os.path.isdir(UPLOAD_DIR):
         _jpeg_files = sorted(
@@ -616,11 +619,14 @@ if selected_model in VISION_MODELS:
             st.session_state._pending_image = None
 
 # ── Action buttons (Send / Clear / Files) ─────────────────────────────────────
-col_send, col_clear, col_files = st.columns([2, 2, 2])
-
-with col_files:
-    if st.button("📁 Fájlok", use_container_width=True):
-        files_modal()
+_dropbox_on = st.session_state.get("dropbox_context_enabled", False)
+if _dropbox_on:
+    col_send, col_clear, col_files = st.columns([2, 2, 2])
+    with col_files:
+        if st.button("📁 Fájlok", use_container_width=True):
+            files_modal()
+else:
+    col_send, col_clear = st.columns([2, 2])
 
 with col_clear:
     if st.button("🗑️ Chat törlése", use_container_width=True, help="Chat törlése"):
