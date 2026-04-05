@@ -32,6 +32,18 @@ Az asszisztens teljes hozzáféréssel rendelkezik a csatlakoztatott Gmail-fiók
 
 A műveleteket az LLM koordinálja automatikus eszközhívás-láncolattal, egészen addig, amíg a feladatot be nem fejezi.
 
+#### Google Drive mód
+Az asszisztens MCP-n keresztül hozzáfér a csatlakoztatott Google Drive-hoz. Természetes nyelven adott utasítások alapján képes:
+- fájlokat és mappákat listázni, keresni,
+- fájl metaadatait lekérdezni (méret, módosítás dátuma, megosztás),
+- fájlok szöveges tartalmát olvasni (Google Docs, Sheets, sima szöveg, CSV),
+- új fájlt feltölteni vagy mappát létrehozni,
+- fájlt áthelyezni, másolni,
+- fájlt a kukába helyezni,
+- fájlt megosztani egy Google-fiókkal (olvasó / szerkesztő / megjegyzés).
+
+A Drive-integráció kizárólag MCP szerveren keresztül érhető el — VS Code GitHub Copilot Agentből hívható közvetlenül.
+
 ---
 
 ### Képfeldolgozás (Vision)
@@ -52,9 +64,14 @@ Beépített, valós idejű log megjelenítő, amely szűrhető naplózási szint
 
 ---
 
-### MCP szerver (VS Code Copilot Agent integráció)
+### MCP szerverek (VS Code Copilot Agent integráció)
 
-A Gmail-eszközök MCP (Model Context Protocol) szerveren keresztül is elérhetők, így VS Code GitHub Copilot Agentből közvetlenül hívhatók. Ez lehetővé teszi a fejlesztőknek, hogy kódírás közben is kezeljék a postaládájukat az IDE-ből.
+A Gmail- és Google Drive-eszközök MCP (Model Context Protocol) szerveren keresztül is elérhetők, így VS Code GitHub Copilot Agentből közvetlenül hívhatók. Ez lehetővé teszi a fejlesztőknek, hogy kódírás közben is kezeljék a postaládájukat és a Drive-tartalmat az IDE-ből.
+
+| MCP szerver | Eszközök száma | Indítófájl |
+|---|---|---|
+| `gmail` | 9 | `helpers/gmail_mcp_server.py` |
+| `gdrive` | 9 | `helpers/drive_mcp_server.py` |
 
 ---
 
@@ -68,6 +85,7 @@ A Gmail-eszközök MCP (Model Context Protocol) szerveren keresztül is elérhet
 | **[OpenAI SDK](https://github.com/openai/openai-python)** | 2.30 | LLM API kliens |
 | **[DuckDuckGo Search](https://pypi.org/project/duckduckgo-search/)** | legújabb | Webes keresés |
 | **[Gmail API](https://developers.google.com/gmail/api)** | v1 | E-mail integráció |
+| **[Google Drive API](https://developers.google.com/drive/api)** | v3 | Fájlkezelés, megosztás |
 | **[FastMCP](https://github.com/jlowin/fastmcp)** | legújabb | MCP szerver |
 | **[Docker](https://www.docker.com)** | legújabb | Konténerizáció |
 
@@ -98,8 +116,11 @@ Privátszféra-barát keresőmotor-integráció, amely nem igényel API kulcsot 
 ### [Gmail API](https://developers.google.com/gmail/api) (Google)
 A Google hivatalos REST API-ja Gmail-műveletek végrehajtásához. Az alkalmazás OAuth2 protokollon keresztül kap felhatalmazást, és a `gmail.modify` jogosultsági hatókörrel rendelkezik. A hozzáférési token helyileg tárolódik (`token.json`).
 
+### [Google Drive API](https://developers.google.com/drive/api) v3 (Google)
+A Google hivatalos REST API-ja Drive-fájlok kezeléséhez. Az alkalmazás OAuth2 protokollon hitelesít, és a `drive` (teljes hozzáférés) hatókörrel rendelkezik. A token a Gmail-tokennel közös `token.json` fájlban tárolódik — az `auth_drive.py` egyszeri futtatása kombinált (`gmail.modify` + `drive`) scope-okkal frissíti azt, így mindkét service egyszerre használható. A Drive-integráció kizárólag MCP-n keresztül érhető el (nincs Streamlit UI).
+
 ### [FastMCP](https://github.com/jlowin/fastmcp)
-A Model Context Protocol (MCP) Python implementációja. Az alkalmazás a Gmail-eszközöket MCP szerveren keresztül is kiteéri `stdio` transzporton, így azok közvetlenül elérhetők VS Code GitHub Copilot Agent-ből is.
+A Model Context Protocol (MCP) Python implementációja. Az alkalmazás két MCP szervert regisztrál `stdio` transzporton: `gmail` (Gmail-műveletek) és `gdrive` (Drive-műveletek). Mindkettő közvetlenül elérhető VS Code GitHub Copilot Agent-ből.
 
 ### [Docker](https://www.docker.com) és [Docker Compose](https://docs.docker.com/compose/)
 Az alkalmazás Docker konténerben fut `python:3.12-slim` alapképre építve. Az ONNX embedding modell a build során a konténer-image-be kerül, így az első indítás is azonnali. A `docker-compose.yml` kezeli a volume-csatolásokat (feltöltések, vektoros adatbázis, naplók, OAuth tokenek).
@@ -122,8 +143,12 @@ Chat.py  ── Streamlit belépési pont
 ├── helpers/rag_utils_langchain.py   Dokumentum-indexelés, ChromaDB keresés, webkeresés, token-napló
 │
 ├── helpers/gmail_utils.py       Gmail API hívások (lista, olvasás, küldés, válasz, cimke, törlés)
-├── helpers/auth_gmail.py        Egyszeri OAuth2 hozzájárulás-kérő segédprogram
+├── helpers/auth_gmail.py        Egyszeri OAuth2 hozzájárulás-kérő segédprogram (gmail.modify)
 ├── helpers/gmail_mcp_server.py  FastMCP szerver: Gmail eszközök MCP-n keresztül
+│
+├── helpers/drive_utils.py       Drive API hívások (lista, olvasás, feltöltés, mozgatás, megosztás)
+├── helpers/auth_drive.py        Egyszeri OAuth2 hozzájárulás-kérő segédprogram (gmail.modify + drive)
+├── helpers/drive_mcp_server.py  FastMCP szerver: Drive eszközök MCP-n keresztül
 │
 ├── pages/DropBox.py             Fájl feltöltés + index kezelő UI
 ├── pages/Logs.py                Napló néző UI

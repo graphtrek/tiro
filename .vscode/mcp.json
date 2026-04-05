@@ -4,6 +4,11 @@
       "type": "stdio",
       "command": "${workspaceFolder}/.venv/bin/python",
       "args": ["${workspaceFolder}/helpers/gmail_mcp_server.py"]
+    },
+    "gdrive": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": ["${workspaceFolder}/helpers/drive_mcp_server.py"]
     }
   }
 }
