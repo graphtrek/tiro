@@ -92,11 +92,11 @@ class ChatUI:
         _inject_css_once()
 
     @staticmethod
-    def render_sidebar() -> tuple[str, bool, bool, bool]:
+    def render_sidebar() -> tuple[str, bool, bool, bool, bool]:
         """
         Render the full sidebar.
 
-        Returns (selected_model, dropbox_context_enabled, gmail_context_enabled, drive_context_enabled).
+        Returns (selected_model, internet_context_enabled, dropbox_context_enabled, gmail_context_enabled, drive_context_enabled).
         """
         with st.sidebar:
             # Navigation
@@ -135,6 +135,21 @@ class ChatUI:
 
             # Context expander
             with st.expander("🌐 Kontextus", expanded=True):
+                _in_on    = st.session_state.get("internet_context_enabled", True)
+                _in_label = "✅ Internet kontextus: BE" if _in_on else "🌐 Internet kontextus: KI"
+                if st.button(_in_label, use_container_width=True,
+                             type="primary" if _in_on else "secondary",
+                             key="internet_context_btn"):
+                    new_val = not _in_on
+                    st.session_state.internet_context_enabled = new_val
+                    if new_val:
+                        st.session_state.dropbox_context_enabled = False
+                        st.session_state.gmail_context_enabled   = False
+                        st.session_state.drive_context_enabled   = False
+                    logger.info("internet_context_toggled=%s", new_val)
+                    SettingsManager.save()
+                    st.rerun()
+
                 _db_on    = st.session_state.get("dropbox_context_enabled", False)
                 _db_label = "✅ DropBox kontextus: BE" if _db_on else "📁 DropBox kontextus: KI"
                 if st.button(_db_label, use_container_width=True,
@@ -143,8 +158,9 @@ class ChatUI:
                     new_val = not _db_on
                     st.session_state.dropbox_context_enabled = new_val
                     if new_val:
-                        st.session_state.gmail_context_enabled = False
-                        st.session_state.drive_context_enabled = False
+                        st.session_state.internet_context_enabled = False
+                        st.session_state.gmail_context_enabled   = False
+                        st.session_state.drive_context_enabled   = False
                     logger.info("dropbox_context_toggled=%s", new_val)
                     SettingsManager.save()
                     st.rerun()
@@ -157,8 +173,9 @@ class ChatUI:
                     new_val = not _gm_on
                     st.session_state.gmail_context_enabled = new_val
                     if new_val:
-                        st.session_state.dropbox_context_enabled = False
-                        st.session_state.drive_context_enabled = False
+                        st.session_state.internet_context_enabled = False
+                        st.session_state.dropbox_context_enabled  = False
+                        st.session_state.drive_context_enabled    = False
                     logger.info("gmail_context_toggled=%s", new_val)
                     SettingsManager.save()
                     st.rerun()
@@ -171,8 +188,9 @@ class ChatUI:
                     new_val = not _dr_on
                     st.session_state.drive_context_enabled = new_val
                     if new_val:
-                        st.session_state.dropbox_context_enabled = False
-                        st.session_state.gmail_context_enabled = False
+                        st.session_state.internet_context_enabled = False
+                        st.session_state.dropbox_context_enabled  = False
+                        st.session_state.gmail_context_enabled    = False
                     logger.info("drive_context_toggled=%s", new_val)
                     SettingsManager.save()
                     st.rerun()
@@ -208,6 +226,7 @@ class ChatUI:
 
         return (
             st.session_state.get("selected_model", AppConfig.MODELS[0]),
+            st.session_state.get("internet_context_enabled", True),
             st.session_state.get("dropbox_context_enabled", False),
             st.session_state.get("gmail_context_enabled", False),
             st.session_state.get("drive_context_enabled", False),

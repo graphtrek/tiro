@@ -101,6 +101,9 @@ if "system_prompt" not in st.session_state:
         _persistent["drive_context_enabled"],
     )
 
+if "internet_context_enabled" not in st.session_state:
+    st.session_state.internet_context_enabled = _persistent["internet_context_enabled"]
+
 if "dropbox_context_enabled" not in st.session_state:
     st.session_state.dropbox_context_enabled = _persistent["dropbox_context_enabled"]
 
@@ -125,7 +128,7 @@ if "_img_uploader_rev" not in st.session_state:
 # ── Render UI ─────────────────────────────────────────────────────────────────
 ChatUI.inject_css()
 
-selected_model, dropbox_on, gmail_on, drive_on = ChatUI.render_sidebar()
+selected_model, internet_on, dropbox_on, gmail_on, drive_on = ChatUI.render_sidebar()
 
 st.markdown("<h3 style='margin-bottom:0'>💬 Nothing Gets Out AI</h3>", unsafe_allow_html=True)
 st.caption(f"Modell: {AppConfig.get_model_label(selected_model)}")
@@ -206,7 +209,7 @@ if st.session_state._processing and st.session_state._pending_message:
 
     web_results = web_sources = None
     web_search_failed = False
-    if not dropbox_on:
+    if internet_on:
         web_results, web_sources, web_search_failed = ContextBuilder.build_web_context(user_input)
 
     api_messages, source = ContextBuilder.assemble_api_messages(

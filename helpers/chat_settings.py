@@ -28,11 +28,12 @@ class SettingsManager:
         stored model name is no longer in the available MODELS list.
         """
         defaults = {
-            "selected_model":          AppConfig.MODELS[0],
-            "dropbox_context_enabled": True,
-            "gmail_context_enabled":   False,
-            "drive_context_enabled":   False,
-            "msg_area":                "",
+            "selected_model":           AppConfig.MODELS[0],
+            "internet_context_enabled": True,
+            "dropbox_context_enabled":  False,
+            "gmail_context_enabled":    False,
+            "drive_context_enabled":    False,
+            "msg_area":                 "",
         }
         try:
             result = SettingsManager._get_collection().get(ids=["chat_settings"])
@@ -41,7 +42,7 @@ class SettingsManager:
                 if saved.get("selected_model") not in AppConfig.MODELS:
                     saved["selected_model"] = AppConfig.MODELS[0]
                 # ChromaDB stores all values as strings; convert back to bool
-                for key in ("dropbox_context_enabled", "gmail_context_enabled", "drive_context_enabled"):
+                for key in ("internet_context_enabled", "dropbox_context_enabled", "gmail_context_enabled", "drive_context_enabled"):
                     if key in saved:
                         saved[key] = saved[key].lower() in ("true", "1", "yes")
                 return {**defaults, **saved}
@@ -54,6 +55,9 @@ class SettingsManager:
         """Write current session-state settings to ChromaDB for persistence."""
         settings = {
             "selected_model": st.session_state.get("selected_model", AppConfig.MODELS[0]),
+            "internet_context_enabled": str(
+                st.session_state.get("internet_context_enabled", True)
+            ).lower(),
             "dropbox_context_enabled": str(
                 st.session_state.get("dropbox_context_enabled", False)
             ).lower(),
