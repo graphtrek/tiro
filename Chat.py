@@ -94,11 +94,15 @@ MODELS = [
     "qwen3-coder-30b-a3b-instruct",
 ]
 
-# Human-readable capability label shown next to each model name in the sidebar
+# Human-readable labels used everywhere in the UI for model selection/captions
 MODEL_LABELS = {
-    "mistral-small-3.2-24b-instruct-2506":  "Chat és látás",
+    "mistral-small-3.2-24b-instruct-2506":  "Chat és képelemzés",
     "qwen3-coder-30b-a3b-instruct": "Chat és kód",
 }
+
+
+def _get_model_label(model_name: str) -> str:
+    return MODEL_LABELS.get(model_name, model_name)
 
 # Models that support image input (vision)
 VISION_MODELS = {"mistral-small-3.2-24b-instruct-2506"}
@@ -606,11 +610,12 @@ with st.sidebar:
 
     # ── Model expander ─────────────────────────────────────────────────────────
     with st.expander("🤖 Modell", expanded=True):
-        _tasks = MODEL_LABELS.get(st.session_state.get("selected_model", MODELS[0]), "Chat és kód")
+        _tasks = _get_model_label(st.session_state.get("selected_model", MODELS[0]))
         selected_model = st.selectbox(
-            f"Feladatok: {_tasks}",
+            "",
             MODELS,
             key="selected_model",
+            format_func=_get_model_label,
         )
         # Persist whenever the user picks a different model
         if st.session_state.get("selected_model") != st.session_state.get("_prev_model"):
@@ -700,7 +705,7 @@ with st.sidebar:
 
 # ── Page header ────────────────────────────────────────────────────────────────
 st.markdown("<h3 style='margin-bottom:0'>💬 Nothing Gets Out AI</h3>", unsafe_allow_html=True)
-st.caption(f"Modell: `{selected_model}`")
+st.caption(f"Modell: {_get_model_label(selected_model)}")
 
 
 # ── Render existing messages ───────────────────────────────────────────────────
@@ -717,7 +722,7 @@ for msg in st.session_state.messages:
         if msg["role"] == "assistant":
             _src     = msg.get("source")
             _mdl     = msg.get("model", "")
-            _mdl_tag = f" · `{_mdl}`" if _mdl else ""
+            _mdl_tag = f" · {_get_model_label(_mdl)}" if _mdl else ""
 
             if _src == "files":
                 st.caption(f"📁 A feltöltött fájlokból válaszolt{_mdl_tag}")
@@ -940,7 +945,7 @@ if user_input:
             if not full_text.strip():
                 full_text = "⚠️ A modell üres választ küldött."
             placeholder.markdown(full_text)
-            st.caption(f"📧 Gmail-ből válaszolt · `{selected_model}`")
+            st.caption(f"📧 Gmail-ből válaszolt · {_get_model_label(selected_model)}")
 
         st.session_state.messages.append({
             "role":    "assistant",
@@ -979,7 +984,7 @@ if user_input:
                     "3. Várd meg az indexelés befejezését\n"
                     "4. Térj vissza ide és tedd fel a kérdésedet"
                 )
-                st.caption(f"🤖 · `{selected_model}`")
+                st.caption(f"🤖 · {_get_model_label(selected_model)}")
             st.session_state.messages.append({
                 "role": "assistant",
                 "content": "📁 A DropBox kontextus aktív, de nincs feltöltött fájl. Kérlek, töltsd fel a fájljaidat a DropBox oldalon.",
@@ -1203,16 +1208,16 @@ if user_input:
 
         # Display source attribution below the reply
         if source == "files":
-            st.caption(f"📁 A feltöltött fájlokból válaszolt · `{selected_model}`")
+            st.caption(f"📁 A feltöltött fájlokból válaszolt · {_get_model_label(selected_model)}")
             if dropbox_sources:
                 st.caption("Források: " + " · ".join(f"`{f}`" for f in dropbox_sources))
         elif source == "web":
-            st.caption(f"🌐 Internetes keresésből válaszolt · `{selected_model}`")
+            st.caption(f"🌐 Internetes keresésből válaszolt · {_get_model_label(selected_model)}")
             if web_sources:
                 links = " · ".join(f"[{s['title'][:50]}]({s['link']})" for s in web_sources)
                 st.caption(f"Források: {links}")
         else:
-            st.caption(f"🤖 A modell válaszolt · `{selected_model}`")
+            st.caption(f"🤖 A modell válaszolt · {_get_model_label(selected_model)}")
 
     # 6) Persist the completed reply ───────────────────────────────────────────
     # Appending to messages makes it part of the next request's conversation
