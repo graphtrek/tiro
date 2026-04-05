@@ -4,9 +4,13 @@ create token.json. After that, Chat.py and gmail_mcp_server.py will
 authenticate silently using the saved token.
 
 Usage:
-    python auth_gmail.py
+    python helpers/auth_gmail.py
 """
-import gmail_utils
+import os
+import sys
+# Allow running as a standalone script from the project root
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from helpers import gmail_utils
 
 print("Opening browser for Gmail OAuth2 authorization...")
 gmail_utils.get_gmail_service()

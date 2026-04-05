@@ -10,9 +10,13 @@
 # VS Code registers this via .vscode/mcp.json (stdio transport).
 # =============================================================================
 
-from mcp.server.fastmcp import FastMCP
+import os
+import sys
+# Allow running as a standalone script from the project root
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import gmail_utils
+from mcp.server.fastmcp import FastMCP
+from helpers import gmail_utils
 
 mcp = FastMCP("gmail")
 

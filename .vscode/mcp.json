@@ -3,7 +3,7 @@
     "gmail": {
       "type": "stdio",
       "command": "${workspaceFolder}/.venv/bin/python",
-      "args": ["${workspaceFolder}/gmail_mcp_server.py"]
+      "args": ["${workspaceFolder}/helpers/gmail_mcp_server.py"]
     }
   }
 }

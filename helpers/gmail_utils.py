@@ -30,7 +30,8 @@ from googleapiclient.errors import HttpError
 # gmail.modify: read, compose, send, label, trash — no permanent delete
 _SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
-_ROOT            = os.path.dirname(os.path.abspath(__file__))
+# Credentials and token files live in the project root, one level above helpers/
+_ROOT             = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _CREDENTIALS_FILE = os.path.join(_ROOT, "credentials.json")
 _TOKEN_FILE       = os.path.join(_ROOT, "token.json")
 

@@ -21,7 +21,8 @@ from datetime import datetime, timezone
 # ── Logging setup ──────────────────────────────────────────────────────────────
 # Guard ensures handlers are registered only once even if the module is reloaded.
 _LOGGING_CONFIGURED = False
-_ROOT = os.path.dirname(os.path.abspath(__file__))
+# Log file and chroma_db live in the project root, one level above helpers/
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LOG_FILE = os.path.join(_ROOT, "ai.log")
 
 if not _LOGGING_CONFIGURED:
