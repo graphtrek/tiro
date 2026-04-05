@@ -64,7 +64,7 @@ def _inject_css_once() -> None:
         ".stMarkdown p, .stMarkdown li { font-size: 1.1rem; }"
         ".stChatMessage p { font-size: 1.1rem; }"
         "[data-testid='stSidebarNav'] a { font-size: 1.05rem; }"
-        "section[data-testid='stSidebar'] textarea { font-size: 0.7rem; line-height: 1.2; }"
+        "section[data-testid='stSidebar'] textarea { font-size: 0.9rem; line-height: 1.4; }"
         "section[data-testid='stSidebar'] .stButton button { font-size: 0.78rem !important; padding: 0.25rem 0.5rem !important; line-height: 1.4 !important; min-height: unset !important; }"
         "section[data-testid='stSidebar'] [data-testid='stExpanderDetails'] .stButton button { justify-content: flex-start !important; text-align: left !important; }"
         "section[data-testid='stSidebar'] [data-testid='stExpanderDetails'] .stButton button p { text-align: left !important; }"
@@ -116,7 +116,7 @@ class ChatUI:
             )
 
             # Model expander
-            with st.expander("🤖 Modell", expanded=True):
+            with st.expander("🤖 Modell", expanded=False):
                 st.selectbox(
                     "",
                     AppConfig.MODELS,
@@ -130,15 +130,17 @@ class ChatUI:
 
             # System prompt expander (read-only display)
             with st.expander("📝 Rendszerutasítás", expanded=False):
+                _prompt_text = st.session_state.system_prompt
+                _prompt_height = max(120, _prompt_text.count('\n') * 26 + 60)
                 st.text_area(
                     "Rendszerutasítás",
-                    value=st.session_state.system_prompt,
-                    height=120,
+                    value=_prompt_text,
+                    height=_prompt_height,
                     disabled=True,
                 )
 
             # Context expander
-            with st.expander("🌐 Kontextus", expanded=True):
+            with st.expander("🌐 Kontextus", expanded=False):
                 _in_on    = st.session_state.get("internet_context_enabled", True)
                 _in_label = "✅ Internet kontextus: BE" if _in_on else "🌐 Internet kontextus: KI"
                 if st.button(_in_label, use_container_width=True,
