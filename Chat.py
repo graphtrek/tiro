@@ -236,8 +236,7 @@ GMAIL_TOOLS = [
 ]
 
 # ── System prompts ────────────────────────────────────────────────────────────
-# Pre-defined prompts that are swapped in automatically when the user toggles
-# DropBox Context on/off. The user can still override them in the sidebar.
+# Pre-defined prompts that are shown and used automatically by context mode.
 
 _DROPBOX_SYSTEM_PROMPT = (
     "Te az én személyes asszisztensem vagy, aki specializálódott a DropBox-ban tárolt dokumentumok kezelésére és megértésére.\n\n"
@@ -273,6 +272,15 @@ _GMAIL_SYSTEM_PROMPT = (
     "Mindig pontosan hajtsd végre a kért műveletet, és törekedj a tömör, strukturált visszajelzésre.\n"
     "Ha egy művelet visszafordíthatatlan (pl. törlés), előbb kérj megerősítést."
 )
+
+
+def _get_default_system_prompt(dropbox_enabled: bool, gmail_enabled: bool) -> str:
+    """Return the built-in system prompt for the currently active context mode."""
+    if gmail_enabled:
+        return _GMAIL_SYSTEM_PROMPT
+    if dropbox_enabled:
+        return _DROPBOX_SYSTEM_PROMPT
+    return _INTERNET_SYSTEM_PROMPT
 
 # ── Token counting utilities ──────────────────────────────────────────────────
 
@@ -349,7 +357,7 @@ client = _get_openai_client()
 
 
 # ── Persistent settings (ChromaDB) ────────────────────────────────────────────
-# User preferences (model, system prompt, context toggle…) are stored in a
+# User preferences (model, context toggles, draft message) are stored in a
 # ChromaDB collection so they survive browser refreshes and server restarts.
 
 _CHROMA_DIR               = os.path.join(_ROOT, "chroma_db")
@@ -372,7 +380,6 @@ def _load_persistent_settings() -> dict:
     """
     defaults = {
         "selected_model":          MODELS[0],
-        "system_prompt":           _DROPBOX_SYSTEM_PROMPT,
         "dropbox_context_enabled": True,
         "gmail_context_enabled":   False,
         "msg_area":                "",
@@ -403,7 +410,6 @@ def _save_persistent_settings():
     """Write current session-state settings to ChromaDB for persistence."""
     settings = {
         "selected_model":  st.session_state.get("selected_model", MODELS[0]),
-        "system_prompt":   st.session_state.get("system_prompt", _DROPBOX_SYSTEM_PROMPT),
         # ChromaDB metadata values must be str/int/float — store bool as string
         "dropbox_context_enabled": str(
             st.session_state.get("dropbox_context_enabled", False)
@@ -466,16 +472,16 @@ if "selected_model" not in st.session_state:
     st.session_state.selected_model = _persistent["selected_model"]
 
 if "system_prompt" not in st.session_state:
-    st.session_state.system_prompt = _persistent["system_prompt"]
+    st.session_state.system_prompt = _get_default_system_prompt(
+        _persistent["dropbox_context_enabled"],
+        _persistent["gmail_context_enabled"],
+    )
 
 if "dropbox_context_enabled" not in st.session_state:
     st.session_state.dropbox_context_enabled = _persistent["dropbox_context_enabled"]
 
 if "gmail_context_enabled" not in st.session_state:
     st.session_state.gmail_context_enabled = _persistent["gmail_context_enabled"]
-
-if "_dropbox_state_for_prompt" not in st.session_state:
-    st.session_state._dropbox_state_for_prompt = _persistent["dropbox_context_enabled"]
 
 if "_processing" not in st.session_state:
     st.session_state._processing = False
@@ -592,25 +598,11 @@ with st.sidebar:
     if _nav != "💬 Chat":
         st.switch_page(_PAGES[_nav])
 
-    # ── Auto-switch system prompt with DropBox toggle (only if not user-customized) ──
-    # If the current prompt is one of the known auto-prompts, keep it in sync with
-    # the DropBox toggle — both on toggle-change and on every load (so the generic
-    # default never appears). If the user wrote a custom prompt, leave it untouched.
-    _current_dropbox = st.session_state.get("dropbox_context_enabled", False)
-    _prev_dropbox    = st.session_state.get("_dropbox_state_for_prompt", _current_dropbox)
-    _auto_prompts    = {_DROPBOX_SYSTEM_PROMPT, _INTERNET_SYSTEM_PROMPT, _GMAIL_SYSTEM_PROMPT, "Te egy hasznos asszisztens vagy."}
-    _current_prompt  = st.session_state.get("system_prompt", "")
-    _expected_prompt = _DROPBOX_SYSTEM_PROMPT if _current_dropbox else _INTERNET_SYSTEM_PROMPT
-    if _current_prompt in _auto_prompts and _current_prompt != _expected_prompt:
-        st.session_state.system_prompt = _expected_prompt
-    st.session_state._dropbox_state_for_prompt = _current_dropbox
-
-    # Apply any pending reset (triggered by the "Clear context" button) before
-    # the text_area widget is instantiated
-    if "system_prompt_reset" in st.session_state:
-        st.session_state.system_prompt = st.session_state.pop("system_prompt_reset")
-    if "system_prompt" not in st.session_state:
-        st.session_state.system_prompt = _DROPBOX_SYSTEM_PROMPT
+    # Always show the built-in default prompt for the currently selected mode.
+    st.session_state.system_prompt = _get_default_system_prompt(
+        st.session_state.get("dropbox_context_enabled", False),
+        st.session_state.get("gmail_context_enabled", False),
+    )
 
     # ── Model expander ─────────────────────────────────────────────────────────
     with st.expander("🤖 Modell", expanded=True):
@@ -628,15 +620,12 @@ with st.sidebar:
 
     # ── System prompt expander ─────────────────────────────────────────────────
     with st.expander("📝 Rendszerutasítás", expanded=False):
-        system_prompt = st.text_area(
+        st.text_area(
             "Rendszerutasítás",
-            key="system_prompt",
+            value=st.session_state.system_prompt,
             height=120,
+            disabled=True,
         )
-        # Persist whenever the user edits the system prompt
-        if system_prompt != st.session_state.get("_prev_system_prompt"):
-            st.session_state._prev_system_prompt = system_prompt
-            _save_persistent_settings()
 
     # ── Context expander ───────────────────────────────────────────────────────
     with st.expander("🌐 Kontextus", expanded=True):
