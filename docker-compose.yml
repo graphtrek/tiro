@@ -26,3 +26,8 @@ services:
       - ./chroma_db:/app/chroma_db
       # Persist log file on the host so it survives container restarts
       - ./ai.log:/app/ai.log
+      # Gmail OAuth2 credentials — place these files on the host before starting
+      # credentials.json: read-only (never changes)
+      # token.json: writable so the container can auto-refresh the access token
+      - ./credentials.json:/app/credentials.json:ro
+      - ./token.json:/app/token.json

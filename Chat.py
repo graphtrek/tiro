@@ -12,6 +12,7 @@ warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality")
 
 # ── Standard library ──────────────────────────────────────────────────────────
 import base64
+import json
 import logging
 import os
 import threading
@@ -25,6 +26,8 @@ from langchain_openai import ChatOpenAI
 from openai import OpenAI
 
 # ── Local utilities ───────────────────────────────────────────────────────────
+import gmail_utils
+
 from rag_utils_langchain import (
     index_documents_langchain,
     search_documents_langchain,
@@ -100,6 +103,138 @@ MODEL_LABELS = {
 # Models that support image input (vision)
 VISION_MODELS = {"mistral-small-3.2-24b-instruct-2506"}
 
+# ── Gmail tool definitions (OpenAI function-calling format) ───────────────────
+GMAIL_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "list_emails",
+            "description": "Search Gmail and return a list of message summaries (id, subject, from, date, snippet).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query":       {"type": "string",  "description": "Gmail search query, e.g. 'is:unread', 'from:boss@example.com'"},
+                    "max_results": {"type": "integer", "description": "Number of messages to return (1-50)"},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_email",
+            "description": "Fetch the full content (subject, from, to, date, body) of a single email by its ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "Gmail message ID from list_emails"},
+                },
+                "required": ["message_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_email",
+            "description": "Compose and send a new email.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "to":      {"type": "string", "description": "Recipient address(es), comma-separated"},
+                    "subject": {"type": "string", "description": "Subject line"},
+                    "body":    {"type": "string", "description": "Plain-text message body"},
+                    "cc":      {"type": "string", "description": "CC address(es), comma-separated (optional)"},
+                    "bcc":     {"type": "string", "description": "BCC address(es), comma-separated (optional)"},
+                },
+                "required": ["to", "subject", "body"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "reply_to_email",
+            "description": "Reply to an existing email, staying in the same thread.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "Gmail message ID of the email to reply to"},
+                    "body":       {"type": "string", "description": "Plain-text reply body"},
+                },
+                "required": ["message_id", "body"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_labels",
+            "description": "Return all Gmail labels for the authenticated account.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "label_email",
+            "description": "Add and/or remove labels on an email (e.g. add STARRED, remove UNREAD).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_id":    {"type": "string", "description": "Gmail message ID"},
+                    "add_labels":    {"type": "array",  "items": {"type": "string"}, "description": "Label IDs to add"},
+                    "remove_labels": {"type": "array",  "items": {"type": "string"}, "description": "Label IDs to remove"},
+                },
+                "required": ["message_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "trash_email",
+            "description": "Move an email to the Trash.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "Gmail message ID"},
+                },
+                "required": ["message_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mark_as_read",
+            "description": "Mark an email as read (removes the UNREAD label).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "Gmail message ID"},
+                },
+                "required": ["message_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mark_as_unread",
+            "description": "Mark an email as unread (adds the UNREAD label).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "Gmail message ID"},
+                },
+                "required": ["message_id"],
+            },
+        },
+    },
+]
+
 # ── System prompts ────────────────────────────────────────────────────────────
 # Pre-defined prompts that are swapped in automatically when the user toggles
 # DropBox Context on/off. The user can still override them in the sidebar.
@@ -126,6 +261,17 @@ _INTERNET_SYSTEM_PROMPT = (
     "- Bizonytalanság vagy ellentmondásos információ kiemelése\n\n"
     "Mindig a relevanciát, a megbízhatóságot és a naprakész információt helyezd előtérbe. "
     "Ha a kérés nem egyértelmű, kérj pontosítást."
+)
+
+_GMAIL_SYSTEM_PROMPT = (
+    "Te az én személyes Gmail asszisztensem vagy.\n\n"
+    "A feladataid:\n"
+    "- E-mailek listázása, olvasása, küldése és megválaszolása\n"
+    "- Levelek rendszerezése: címkézés, archiválás, kukába helyezés\n"
+    "- Olvasott/olvasatlan állapot kezelése\n"
+    "- Több lépéses feladatok végrehajtása, ha szükséges (pl. keresés + megválaszolás)\n\n"
+    "Mindig pontosan hajtsd végre a kért műveletet, és törekedj a tömör, strukturált visszajelzésre.\n"
+    "Ha egy művelet visszafordíthatatlan (pl. törlés), előbb kérj megerősítést."
 )
 
 # ── Token counting utilities ──────────────────────────────────────────────────
@@ -228,6 +374,7 @@ def _load_persistent_settings() -> dict:
         "selected_model":          MODELS[0],
         "system_prompt":           _DROPBOX_SYSTEM_PROMPT,
         "dropbox_context_enabled": True,
+        "gmail_context_enabled":   False,
         "msg_area":                "",
     }
     try:
@@ -241,6 +388,10 @@ def _load_persistent_settings() -> dict:
             if "dropbox_context_enabled" in saved:
                 saved["dropbox_context_enabled"] = (
                     saved["dropbox_context_enabled"].lower() in ("true", "1", "yes")
+                )
+            if "gmail_context_enabled" in saved:
+                saved["gmail_context_enabled"] = (
+                    saved["gmail_context_enabled"].lower() in ("true", "1", "yes")
                 )
             return {**defaults, **saved}
     except Exception as e:
@@ -256,6 +407,9 @@ def _save_persistent_settings():
         # ChromaDB metadata values must be str/int/float — store bool as string
         "dropbox_context_enabled": str(
             st.session_state.get("dropbox_context_enabled", False)
+        ).lower(),
+        "gmail_context_enabled": str(
+            st.session_state.get("gmail_context_enabled", False)
         ).lower(),
         "msg_area": st.session_state.get("msg_area", ""),
     }
@@ -316,6 +470,9 @@ if "system_prompt" not in st.session_state:
 
 if "dropbox_context_enabled" not in st.session_state:
     st.session_state.dropbox_context_enabled = _persistent["dropbox_context_enabled"]
+
+if "gmail_context_enabled" not in st.session_state:
+    st.session_state.gmail_context_enabled = _persistent["gmail_context_enabled"]
 
 if "_dropbox_state_for_prompt" not in st.session_state:
     st.session_state._dropbox_state_for_prompt = _persistent["dropbox_context_enabled"]
@@ -441,7 +598,7 @@ with st.sidebar:
     # default never appears). If the user wrote a custom prompt, leave it untouched.
     _current_dropbox = st.session_state.get("dropbox_context_enabled", False)
     _prev_dropbox    = st.session_state.get("_dropbox_state_for_prompt", _current_dropbox)
-    _auto_prompts    = {_DROPBOX_SYSTEM_PROMPT, _INTERNET_SYSTEM_PROMPT, "Te egy hasznos asszisztens vagy."}
+    _auto_prompts    = {_DROPBOX_SYSTEM_PROMPT, _INTERNET_SYSTEM_PROMPT, _GMAIL_SYSTEM_PROMPT, "Te egy hasznos asszisztens vagy."}
     _current_prompt  = st.session_state.get("system_prompt", "")
     _expected_prompt = _DROPBOX_SYSTEM_PROMPT if _current_dropbox else _INTERNET_SYSTEM_PROMPT
     if _current_prompt in _auto_prompts and _current_prompt != _expected_prompt:
@@ -492,12 +649,32 @@ with st.sidebar:
                      key="dropbox_context_btn"):
             dropbox_context_enabled = not _db_on
             st.session_state.dropbox_context_enabled = dropbox_context_enabled
+            if dropbox_context_enabled:
+                # Turning DropBox ON: turn Gmail OFF
+                st.session_state.gmail_context_enabled = False
             logger.info("dropbox_context_toggled=%s", dropbox_context_enabled)
             st.session_state._prev_dropbox_context = dropbox_context_enabled
             _save_persistent_settings()
             st.rerun()
         else:
             dropbox_context_enabled = _db_on
+
+        _gm_on = st.session_state.get("gmail_context_enabled", False)
+        _gm_label = ("✅ Gmail kontextus: BE" if _gm_on else "📧 Gmail kontextus: KI")
+        if st.button(_gm_label, use_container_width=True,
+                     type="primary" if _gm_on else "secondary",
+                     key="gmail_context_btn"):
+            gmail_context_enabled = not _gm_on
+            st.session_state.gmail_context_enabled = gmail_context_enabled
+            if gmail_context_enabled:
+                # Turning Gmail ON: turn DropBox OFF
+                st.session_state.dropbox_context_enabled = False
+                dropbox_context_enabled = False
+            logger.info("gmail_context_toggled=%s", gmail_context_enabled)
+            _save_persistent_settings()
+            st.rerun()
+        else:
+            gmail_context_enabled = _gm_on
 
         # Clear button: wipes conversation history only, leaves system prompt unchanged
         if st.button("🗑️ Kontextus törlése", use_container_width=True):
@@ -566,6 +743,8 @@ for msg in st.session_state.messages:
                         f"[{s['title'][:50]}]({s['link']})" for s in _sources
                     )
                     st.caption(f"Források: {_links}")
+            elif _src == "gmail":
+                st.caption(f"📧 Gmail-ből válaszolt{_mdl_tag}")
             else:
                 st.caption(f"🤖 A modell válaszolt{_mdl_tag}")
 
@@ -668,6 +847,121 @@ if user_input:
     # 2) Determine context source ──────────────────────────────────────────────
     doc_chunks = None
     source     = "model"  # default: answer from training knowledge
+
+    # 2-GMAIL) Gmail mode: tool-calling loop ───────────────────────────────────
+    if st.session_state.get("gmail_context_enabled", False):
+        logger.info("gmail_context_enabled=true, starting tool-calling loop")
+
+        source         = "gmail"
+        gmail_messages = [{"role": "system", "content": _GMAIL_SYSTEM_PROMPT}] + [
+            _to_api_msg(m) for m in (
+                st.session_state.messages[-40:] if len(st.session_state.messages) > 40
+                else st.session_state.messages
+            )
+        ]
+
+        full_text  = ""
+        tool_error = False
+
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            placeholder.markdown("⏳ Gmail feldolgozás…")
+
+            _MAX_TOOL_ROUNDS = 10
+            for _round in range(_MAX_TOOL_ROUNDS):
+                try:
+                    response = client.chat.completions.create(
+                        model=selected_model,
+                        messages=gmail_messages,
+                        tools=GMAIL_TOOLS,
+                        tool_choice="auto",
+                        max_tokens=4096,
+                        temperature=0.2,
+                        stream=False,
+                    )
+                except Exception as _api_err:
+                    logger.error("gmail_api_call_failed=%s", _api_err, exc_info=True)
+                    full_text  = f"⚠️ API hiba: {_api_err}"
+                    tool_error = True
+                    break
+
+                choice      = response.choices[0]
+                finish      = choice.finish_reason
+                assist_msg  = choice.message
+
+                # Accumulate usage on every round (only the last response carries totals)
+                if response.usage:
+                    entry = {
+                        "input_tokens":  response.usage.prompt_tokens,
+                        "output_tokens": response.usage.completion_tokens,
+                        "timestamp":     datetime.now(),
+                    }
+                    st.session_state.usage_history.append(entry)
+                    save_usage_entry(entry["input_tokens"], entry["output_tokens"], entry["timestamp"])
+
+                if finish == "tool_calls" and assist_msg.tool_calls:
+                    # Append the assistant's tool-call request to the message list
+                    gmail_messages.append(assist_msg.to_dict() if hasattr(assist_msg, "to_dict") else {
+                        "role":       "assistant",
+                        "content":    assist_msg.content or "",
+                        "tool_calls": [
+                            {
+                                "id":       tc.id,
+                                "type":     "function",
+                                "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                            }
+                            for tc in assist_msg.tool_calls
+                        ],
+                    })
+
+                    for tc in assist_msg.tool_calls:
+                        fn_name = tc.function.name
+                        try:
+                            fn_args = json.loads(tc.function.arguments)
+                        except json.JSONDecodeError:
+                            fn_args = {}
+
+                        placeholder.markdown(f"🔧 **Végrehajtás:** `{fn_name}`…")
+                        logger.info("gmail_tool_call=%s args=%r", fn_name, fn_args)
+
+                        gmail_fn = getattr(gmail_utils, fn_name, None)
+                        if gmail_fn is None:
+                            tool_result = {"error": f"Unknown tool: {fn_name}"}
+                        else:
+                            try:
+                                tool_result = gmail_fn(**fn_args)
+                            except Exception as _tool_err:
+                                logger.error("gmail_tool_error=%s fn=%s", _tool_err, fn_name, exc_info=True)
+                                tool_result = {"error": str(_tool_err)}
+
+                        gmail_messages.append({
+                            "role":         "tool",
+                            "tool_call_id": tc.id,
+                            "content":      json.dumps(tool_result, ensure_ascii=False),
+                        })
+                else:
+                    # Model is done — extract final text
+                    full_text = assist_msg.content or ""
+                    break
+            else:
+                # Exceeded max rounds
+                full_text  = "⚠️ A Gmail-eszköz túllépte a maximális lépésszámot. Kérlek próbáld újra."
+                tool_error = True
+
+            if not full_text.strip():
+                full_text = "⚠️ A modell üres választ küldött."
+            placeholder.markdown(full_text)
+            st.caption(f"📧 Gmail-ből válaszolt · `{selected_model}`")
+
+        st.session_state.messages.append({
+            "role":    "assistant",
+            "content": full_text,
+            "source":  "gmail",
+            "model":   selected_model,
+        })
+        st.session_state._processing = False
+        st.session_state._pending_message = None
+        st.rerun()
 
     logger.info(
         "dropbox_context_enabled=%s, user_input=%r",

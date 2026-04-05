@@ -24,6 +24,8 @@ ef(['warmup']) \
 COPY Chat.py .
 COPY rag_utils.py .
 COPY rag_utils_langchain.py .
+COPY gmail_utils.py .
+COPY gmail_mcp_server.py .
 COPY pages/ pages/
 
 # Ensure uploads directory exists

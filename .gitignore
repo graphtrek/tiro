@@ -10,7 +10,10 @@ __pycache__/
 *.pyo
 
 # VS Code
-.vscode/
 uploads/*
 chroma_db/*
 ai.log
+
+# Gmail OAuth credentials — never commit
+credentials.json
+token.json
