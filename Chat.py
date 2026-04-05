@@ -37,7 +37,7 @@ from helpers.chat_config   import AppConfig, get_openai_client, load_usage_histo
 from helpers.chat_prompts  import SystemPrompts
 from helpers.chat_settings import SettingsManager
 from helpers.chat_context  import ContextBuilder
-from helpers.chat_handlers import GmailHandler, StreamHandler
+from helpers.chat_handlers import GmailHandler, DriveHandler, StreamHandler
 from helpers.chat_ui       import ChatUI
 from helpers.rag_utils_langchain import index_documents_langchain
 
@@ -98,6 +98,7 @@ if "system_prompt" not in st.session_state:
     st.session_state.system_prompt = SystemPrompts.get_default(
         _persistent["dropbox_context_enabled"],
         _persistent["gmail_context_enabled"],
+        _persistent["drive_context_enabled"],
     )
 
 if "dropbox_context_enabled" not in st.session_state:
@@ -105,6 +106,9 @@ if "dropbox_context_enabled" not in st.session_state:
 
 if "gmail_context_enabled" not in st.session_state:
     st.session_state.gmail_context_enabled = _persistent["gmail_context_enabled"]
+
+if "drive_context_enabled" not in st.session_state:
+    st.session_state.drive_context_enabled = _persistent["drive_context_enabled"]
 
 if "_processing" not in st.session_state:
     st.session_state._processing = False
@@ -121,7 +125,7 @@ if "_img_uploader_rev" not in st.session_state:
 # ── Render UI ─────────────────────────────────────────────────────────────────
 ChatUI.inject_css()
 
-selected_model, dropbox_on, gmail_on = ChatUI.render_sidebar()
+selected_model, dropbox_on, gmail_on, drive_on = ChatUI.render_sidebar()
 
 st.markdown("<h3 style='margin-bottom:0'>💬 Nothing Gets Out AI</h3>", unsafe_allow_html=True)
 st.caption(f"Modell: {AppConfig.get_model_label(selected_model)}")
@@ -160,6 +164,11 @@ if st.session_state._processing and st.session_state._pending_message:
     if gmail_on:
         logger.info("gmail_context_enabled=true, starting tool-calling loop")
         GmailHandler.handle(client, selected_model)
+
+    # Drive mode: tool-calling loop
+    if drive_on:
+        logger.info("drive_context_enabled=true, starting tool-calling loop")
+        DriveHandler.handle(client, selected_model)
 
     # DropBox guard: warn if no files are uploaded
     if dropbox_on:

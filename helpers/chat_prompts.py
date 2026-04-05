@@ -36,9 +36,26 @@ class SystemPrompts:
         "Ha egy művelet visszafordíthatatlan (pl. törlés), előbb kérj megerősítést."
     )
 
+    DRIVE = (
+        "Te az én személyes Google Drive asszisztensem vagy. "
+        "Rendelkezésedre állnak eszközök a Drive kezeléséhez.\n\n"
+        "Keresési stratégia (kövesd sorban!):\n"
+        "1. Névszerinti keresés: list_files(query=\"name contains \'X\'\", page_size=100)\n"
+        "2. Ha üres volt: list_files(page_size=100), nézd át az összes fájlt\n"
+        "3. Ha még mindig nincs: list_files(query=\"fullText contains \'X\'\", page_size=100)\n"
+        "4. Tartalom: read_file_content(file_id)\n"
+        "5. Ha megvan az adat: adj végső választ, ne hívj több eszközt.\n\n"
+        "Szabályok:\n"
+        "- Soha ne mond hogy nem létezik a fájl, amíg a 3 keresési módot mind meg nem próbáltad.\n"
+        "- list_files hívható üres query-vel is (összes fájlt visszaadja).\n"
+        "- trash_file, share_file előtt kérj megerősítést.\n"
+        "- Tömör, strukturált végső válasz."
+    )
     @staticmethod
-    def get_default(dropbox_enabled: bool, gmail_enabled: bool) -> str:
+    def get_default(dropbox_enabled: bool, gmail_enabled: bool, drive_enabled: bool = False) -> str:
         """Return the built-in system prompt for the currently active context mode."""
+        if drive_enabled:
+            return SystemPrompts.DRIVE
         if gmail_enabled:
             return SystemPrompts.GMAIL
         if dropbox_enabled:

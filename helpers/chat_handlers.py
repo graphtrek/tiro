@@ -6,14 +6,17 @@ import streamlit as st
 
 from helpers.chat_config import AppConfig
 from helpers.chat_gmail_tools import GmailTools
+from helpers.chat_drive_tools import DriveTools
 from helpers.chat_prompts import SystemPrompts
 from helpers.chat_utils import MessageUtils
 from helpers import gmail_utils
+from helpers import drive_utils
 from helpers.rag_utils_langchain import save_usage_entry
 
 logger = logging.getLogger(__name__)
 
 _MAX_TOOL_ROUNDS = 10
+_MAX_DRIVE_TOOL_ROUNDS = 20
 
 
 class GmailHandler:
@@ -128,6 +131,125 @@ class GmailHandler:
             "role":    "assistant",
             "content": full_text,
             "source":  "gmail",
+            "model":   selected_model,
+        })
+        st.session_state._processing      = False
+        st.session_state._pending_message = None
+        st.rerun()
+
+
+class DriveHandler:
+    """Runs the multi-round Google Drive tool-calling loop and streams the final reply."""
+
+    @staticmethod
+    def handle(client, selected_model: str) -> None:
+        """
+        Execute the Drive tool-calling loop for the current turn.
+
+        Reads/writes st.session_state directly (messages, usage_history,
+        _processing, _pending_message). Renders the assistant bubble inline.
+        """
+        messages = st.session_state.messages
+        drive_messages = [{"role": "system", "content": SystemPrompts.DRIVE}] + [
+            MessageUtils.to_api_msg(m) for m in (
+                messages[-40:] if len(messages) > 40 else messages
+            )
+        ]
+
+        full_text  = ""
+        tool_error = False
+
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            placeholder.markdown("⏳ Drive feldolgozás…")
+
+            for _round in range(_MAX_DRIVE_TOOL_ROUNDS):
+                try:
+                    response = client.chat.completions.create(
+                        model=selected_model,
+                        messages=drive_messages,
+                        tools=DriveTools.TOOLS,
+                        tool_choice="auto",
+                        max_tokens=4096,
+                        temperature=0.2,
+                        stream=False,
+                    )
+                except Exception as api_err:
+                    logger.error("drive_api_call_failed=%s", api_err, exc_info=True)
+                    full_text  = f"⚠️ API hiba: {api_err}"
+                    tool_error = True
+                    break
+
+                choice     = response.choices[0]
+                finish     = choice.finish_reason
+                assist_msg = choice.message
+
+                if response.usage:
+                    entry = {
+                        "input_tokens":  response.usage.prompt_tokens,
+                        "output_tokens": response.usage.completion_tokens,
+                        "timestamp":     datetime.now(),
+                    }
+                    st.session_state.usage_history.append(entry)
+                    save_usage_entry(entry["input_tokens"], entry["output_tokens"], entry["timestamp"])
+
+                if finish == "tool_calls" and assist_msg.tool_calls:
+                    drive_messages.append(
+                        assist_msg.to_dict() if hasattr(assist_msg, "to_dict") else {
+                            "role":       "assistant",
+                            "content":    assist_msg.content or "",
+                            "tool_calls": [
+                                {
+                                    "id":       tc.id,
+                                    "type":     "function",
+                                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                                }
+                                for tc in assist_msg.tool_calls
+                            ],
+                        }
+                    )
+
+                    for tc in assist_msg.tool_calls:
+                        fn_name = tc.function.name
+                        try:
+                            fn_args = json.loads(tc.function.arguments)
+                        except json.JSONDecodeError:
+                            fn_args = {}
+
+                        placeholder.markdown(f"🔧 **Végrehajtás:** `{fn_name}`…")
+                        logger.info("drive_tool_call=%s args=%r", fn_name, fn_args)
+
+                        drive_fn = getattr(drive_utils, fn_name, None)
+                        if drive_fn is None:
+                            tool_result = {"error": f"Unknown tool: {fn_name}"}
+                        else:
+                            try:
+                                tool_result = drive_fn(**fn_args)
+                            except Exception as tool_err:
+                                logger.error("drive_tool_error=%s fn=%s", tool_err, fn_name, exc_info=True)
+                                tool_result = {"error": str(tool_err)}
+
+                        drive_messages.append({
+                            "role":         "tool",
+                            "tool_call_id": tc.id,
+                            "content":      json.dumps(tool_result, ensure_ascii=False),
+                        })
+                else:
+                    full_text = assist_msg.content or ""
+                    break
+            else:
+                full_text  = "⚠️ A Drive-eszköz túllépte a maximális lépésszámot. Kérlek próbáld újra."
+                tool_error = True  # noqa: F841
+
+            if not full_text.strip():
+                full_text = "⚠️ A modell üres választ küldött."
+            placeholder.markdown(full_text)
+            st.caption(f"📂 Drive-ból válaszolt · {AppConfig.get_model_label(selected_model)}")
+
+        st.session_state.messages.append({
+            "role":    "assistant",
+            "content": full_text,
+            "source":  "drive",
             "model":   selected_model,
         })
         st.session_state._processing      = False

@@ -92,11 +92,11 @@ class ChatUI:
         _inject_css_once()
 
     @staticmethod
-    def render_sidebar() -> tuple[str, bool, bool]:
+    def render_sidebar() -> tuple[str, bool, bool, bool]:
         """
         Render the full sidebar.
 
-        Returns (selected_model, dropbox_context_enabled, gmail_context_enabled).
+        Returns (selected_model, dropbox_context_enabled, gmail_context_enabled, drive_context_enabled).
         """
         with st.sidebar:
             # Navigation
@@ -108,6 +108,7 @@ class ChatUI:
             st.session_state.system_prompt = SystemPrompts.get_default(
                 st.session_state.get("dropbox_context_enabled", False),
                 st.session_state.get("gmail_context_enabled", False),
+                st.session_state.get("drive_context_enabled", False),
             )
 
             # Model expander
@@ -143,6 +144,7 @@ class ChatUI:
                     st.session_state.dropbox_context_enabled = new_val
                     if new_val:
                         st.session_state.gmail_context_enabled = False
+                        st.session_state.drive_context_enabled = False
                     logger.info("dropbox_context_toggled=%s", new_val)
                     SettingsManager.save()
                     st.rerun()
@@ -156,7 +158,22 @@ class ChatUI:
                     st.session_state.gmail_context_enabled = new_val
                     if new_val:
                         st.session_state.dropbox_context_enabled = False
+                        st.session_state.drive_context_enabled = False
                     logger.info("gmail_context_toggled=%s", new_val)
+                    SettingsManager.save()
+                    st.rerun()
+
+                _dr_on    = st.session_state.get("drive_context_enabled", False)
+                _dr_label = "✅ Drive kontextus: BE" if _dr_on else "📂 Drive kontextus: KI"
+                if st.button(_dr_label, use_container_width=True,
+                             type="primary" if _dr_on else "secondary",
+                             key="drive_context_btn"):
+                    new_val = not _dr_on
+                    st.session_state.drive_context_enabled = new_val
+                    if new_val:
+                        st.session_state.dropbox_context_enabled = False
+                        st.session_state.gmail_context_enabled = False
+                    logger.info("drive_context_toggled=%s", new_val)
                     SettingsManager.save()
                     st.rerun()
 
@@ -193,6 +210,7 @@ class ChatUI:
             st.session_state.get("selected_model", AppConfig.MODELS[0]),
             st.session_state.get("dropbox_context_enabled", False),
             st.session_state.get("gmail_context_enabled", False),
+            st.session_state.get("drive_context_enabled", False),
         )
 
     @staticmethod
@@ -225,6 +243,8 @@ class ChatUI:
                             st.caption(f"Források: {links}")
                     elif src == "gmail":
                         st.caption(f"📧 Gmail-ből válaszolt{mdl_tag}")
+                    elif src == "drive":
+                        st.caption(f"📂 Drive-ból válaszolt{mdl_tag}")
                     else:
                         st.caption(f"🤖 A modell válaszolt{mdl_tag}")
 

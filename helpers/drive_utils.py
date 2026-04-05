@@ -66,8 +66,16 @@ def get_drive_service():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except Exception:
+                # Refresh failed (e.g. invalid_scope — token was issued without
+                # Drive scope).  Delete the stale token and re-run the full
+                # OAuth browser flow to get a token with the combined scopes.
+                os.remove(_TOKEN_FILE)
+                creds = None
+
+        if not creds:
             if not os.path.exists(_CREDENTIALS_FILE):
                 raise FileNotFoundError(
                     "credentials.json not found. Download your OAuth2 Desktop "
@@ -88,7 +96,7 @@ def get_drive_service():
 def list_files(
     query: str = "",
     folder_id: str = "",
-    page_size: int = 20,
+    page_size: int = 50,
 ) -> list[dict]:
     """
     List files in Google Drive, optionally filtered by query or parent folder.
