@@ -71,6 +71,8 @@ def _inject_css_once() -> None:
         "section[data-testid='stSidebar'] [data-testid='stExpanderDetails'] .stButton button div { justify-content: flex-start !important; text-align: left !important; }"
         "section[data-testid='stSidebar'] .stExpander summary { font-size: 0.85rem !important; }"
         "section[data-testid='stSidebar'] .stExpander [data-testid='stExpanderDetails'] { padding: 0.25rem 0.5rem; }"
+        "section[data-testid='stSidebar'] .stMarkdown:has(hr) { margin-top: 0rem !important; margin-bottom: 0.8rem !important; }"
+        "section[data-testid='stSidebar'] hr { margin: 0 !important; }"
         "</style>",
         unsafe_allow_html=True,
     )
@@ -103,6 +105,8 @@ class ChatUI:
             nav = st.selectbox("Page", list(_PAGES.keys()), index=0, label_visibility="collapsed")
             if nav != "💬 Chat":
                 st.switch_page(_PAGES[nav])
+
+            st.markdown("<hr style='border-color:#444'>", unsafe_allow_html=True)
 
             # Always sync the system prompt to the active context mode
             st.session_state.system_prompt = SystemPrompts.get_default(

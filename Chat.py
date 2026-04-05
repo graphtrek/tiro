@@ -131,7 +131,13 @@ ChatUI.inject_css()
 selected_model, internet_on, dropbox_on, gmail_on, drive_on = ChatUI.render_sidebar()
 
 st.markdown("<h3 style='margin-bottom:0'>💬 Nothing Gets Out AI</h3>", unsafe_allow_html=True)
-st.caption(f"Modell: {AppConfig.get_model_label(selected_model)}")
+_ctx_label = (
+    "DropBox" if dropbox_on else
+    "Gmail"   if gmail_on  else
+    "Drive"   if drive_on  else
+    "Internet"
+)
+st.caption(f"{_ctx_label}: {AppConfig.get_model_label(selected_model)}")
 
 ChatUI.render_messages()
 

@@ -135,7 +135,7 @@ def _fmt_num(n: int) -> str:
 
 
 with st.sidebar:
-    st.title("📊 Index statisztikák")
+    st.markdown("<h3 style='margin-bottom:0'>📊 Index statisztikák</h3>", unsafe_allow_html=True)
     stats = get_index_stats()
 
     if not stats:
@@ -174,8 +174,7 @@ with st.sidebar:
 
 
 # ── Page header ────────────────────────────────────────────────────────────────
-st.title("📁 DropBox")
-st.caption("Támogatott formátumok: DOCX · XLSX · PDF · TXT · MD · JPEG · Max. fájlméret: 1 MB")
+st.markdown("<h3 style='margin-bottom:0'>📁 DropBox</h3>", unsafe_allow_html=True)
 
 # ── File uploader ──────────────────────────────────────────────────────────────
 uploaded_files = st.file_uploader(
@@ -269,8 +268,8 @@ if not records:
 else:
     # ── Search bar ─────────────────────────────────────────────────────────────
     search = st.text_input(
-        "🔍 Keresés fájlnév vagy típus alapján",
-        placeholder="pl. riport vagy PDF",
+        "🔍 Keresés",
+        placeholder="Keresés",
         label_visibility="collapsed",
     )
 

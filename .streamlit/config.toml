@@ -12,3 +12,6 @@ enableXsrfProtection = false
 serverAddress = "ai.graphtrek.co"
 serverPort = 443
 gatherUsageStats = false
+
+[theme]
+base = "dark"

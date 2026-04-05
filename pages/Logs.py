@@ -45,7 +45,7 @@ with st.sidebar:
         st.switch_page(_PAGES[_nav])
 
 # ── Page title ─────────────────────────────────────────────────────────────────
-st.title("📋 Naplónéző")
+st.markdown("<h3 style='margin-bottom:0'>📋 Naplónéző</h3>", unsafe_allow_html=True)
 
 # ── Get log file path ──────────────────────────────────────────────────────────
 # When running inside Docker the log file is mounted from the host at /app/ai.log
@@ -107,9 +107,9 @@ search_term = st.sidebar.text_input(
 file_stats = os.stat(_LOG_FILE)
 with st.sidebar.expander("📊 Naplófájl adatok"):
     st.markdown(
-        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>📦 Fájlméret:</span> <span style='color:#f0f6fc;font-weight:600;'>{file_stats.st_size / 1024:.1f} KB</span></p>"
-        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>🕒 Utoljára módosítva:</span> <span style='color:#f0f6fc;font-weight:600;'>{datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')}</span></p>"
-        f"<p style='font-size:0.8rem;margin:0.15rem 0;'><span style='color:#60a5fa;'>📄 Összes sor:</span> <span style='color:#4ade80;font-weight:600;'>{len(log_lines)}</span></p>",
+        f"<p style='font-size:0.8rem;margin:0.15rem 0;'>📦 Fájlméret: <strong>{file_stats.st_size / 1024:.1f} KB</strong></p>"
+        f"<p style='font-size:0.8rem;margin:0.15rem 0;'>🕒 Utoljára módosítva: <strong>{datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')}</strong></p>"
+        f"<p style='font-size:0.8rem;margin:0.15rem 0;'>📄 Összes sor: <strong>{len(log_lines)}</strong></p>",
         unsafe_allow_html=True,
     )
 

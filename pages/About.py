@@ -40,7 +40,7 @@ with st.sidebar:
         st.switch_page(_PAGES[_nav])
 
 # ── Page content ───────────────────────────────────────────────────────────────
-st.title("ℹ️ Miért válassza a Privát AI megoldást?")
+st.markdown("<h3 style='margin-bottom:0'>ℹ️ Miért válassza a Privát AI megoldást?</h3>", unsafe_allow_html=True)
 
 st.markdown(
     "<div class='highlight-box'>"
