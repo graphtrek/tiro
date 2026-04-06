@@ -18,6 +18,37 @@ Rules:
 - Use Pydantic models for request/response bodies where appropriate.
 - Always include a GET /health endpoint that returns {"status": "ok"}.
 - Keep the code clean and production-ready.
+
+Available Google helper modules (PYTHONPATH already includes the project root):
+Use these ONLY when the requirements explicitly call for Google Drive or Gmail functionality.
+
+  Google Drive — `from helpers.drive_utils import get_drive_service`
+    list_files(service, query=None, folder_id=None)          -> list of file dicts
+    read_file_content(service, file_id)                      -> str
+    upload_file(service, name, content_bytes, mime_type, folder_id=None) -> file dict
+    create_folder(service, name, parent_id=None)             -> folder dict
+    trash_file(service, file_id)                             -> None
+    share_file(service, file_id, email, role="reader")       -> None
+
+  Gmail — `from helpers.gmail_utils import get_gmail_service`
+    list_emails(service, query="", max_results=10)           -> list of message dicts
+    read_email(service, message_id)                          -> dict with subject/from/to/body
+    send_email(service, to, subject, body)                   -> None
+    reply_to_email(service, message_id, body)                -> None
+    label_email(service, message_id, label_ids)              -> None
+    mark_as_read(service, message_id)                        -> None
+    mark_as_unread(service, message_id)                      -> None
+
+  Authentication is handled automatically by the helpers — no credentials needed in generated code.
+  Call get_drive_service() / get_gmail_service() once per request handler or at module level.
+
+  Logging — `from helpers.log_utils import log_to_file`
+    log_to_file(source, level, message)
+      source  — short identifier string (use the app/program name)
+      level   — "INFO", "WARNING", or "ERROR"
+      message — free-form string
+    Writes to the shared ai.log file visible in the Logs page.
+    Use this for significant events, errors, and audit trails.
 """
 
 

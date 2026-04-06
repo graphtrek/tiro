@@ -55,7 +55,7 @@ with st.expander("➕ Generate a new program", expanded=True):
             description = st.text_area(
                 "Description",
                 placeholder="What should this API do?",
-                height=100,
+                height=200,
             )
         requirements = st.text_area(
             "Requirements / endpoints",

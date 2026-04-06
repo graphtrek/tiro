@@ -178,11 +178,19 @@ def start_program(program_id: str) -> dict:
     port = manifest["port"]
     log_path = prog_dir / "output.log"
 
+    # Inject the project root into PYTHONPATH so generated programs can import
+    # helpers.drive_utils, helpers.gmail_utils, etc.
+    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{_project_root}:{existing}" if existing else _project_root
+
     proc = subprocess.Popen(
         ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(port)],
         cwd=str(prog_dir),
         stdout=open(log_path, "w"),
         stderr=subprocess.STDOUT,
+        env=env,
     )
 
     manifest["pid"] = proc.pid
