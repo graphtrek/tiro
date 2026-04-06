@@ -18,6 +18,10 @@ Rules:
 - Use Pydantic models for request/response bodies where appropriate.
 - Always include a GET /health endpoint that returns {"status": "ok"}.
 - Keep the code clean and production-ready.
+- ALWAYS import `log_to_file` from `helpers.log_utils` and use it for ALL logging.
+  Do NOT import or use Python's built-in `logging` module.
+  Log INFO at the start and successful end of every endpoint handler.
+  Log ERROR (with the exception message) in every except block.
 
 Available Google helper modules (PYTHONPATH already includes the project root):
 Use these ONLY when the requirements explicitly call for Google Drive or Gmail functionality.
@@ -44,11 +48,10 @@ Use these ONLY when the requirements explicitly call for Google Drive or Gmail f
 
   Logging — `from helpers.log_utils import log_to_file`
     log_to_file(source, level, message)
-      source  — short identifier string (use the app/program name)
+      source  — use the program name passed in the description
       level   — "INFO", "WARNING", or "ERROR"
       message — free-form string
     Writes to the shared ai.log file visible in the Logs page.
-    Use this for significant events, errors, and audit trails.
 """
 
 

@@ -58,6 +58,22 @@ Minden LLM-hívás bemeneti és kimeneti token-száma naplózásra kerül és az
 
 ---
 
+### Dinamikus programgenerátor
+
+A **Programs** oldalon a felhasználó természetes nyelven leírhat egy FastAPI-alapú mikroszolgáltatást, amelyet a Qwen3-Coder modell automatikusan legenerál, lemezre ment és azonnal el is indít. A generált programok hozzáférnek a Gmail- és Google Drive-segédfüggvényekhez, valamint a közös naplózóhoz.
+
+**Generált program életciklusa:**
+- Névmegadás, leírás, követelmények és futtatási mód (service / on_demand) megadása
+- Kódgenerálás Qwen3-Coder-rel → egyedi ID + port kiosztása → `main.py` + `manifest.json` mentése
+- Start / Stop gombokkal indítható és leállítható az uvicorn-alapú szerver
+- Beépített kódszerkesztő: a forráskód közvetlenül szerkeszthető és mentehető a böngészőből
+- Valós idejű log néző az egyes programok kimenetéhez
+
+**Módosítás funkció:**
+Minden generált programhoz elérhető egy **✏️ Modify** gomb, amely előtölti az összes beviteli mezőt (név, leírás, követelmények, mód). Küldéskor az alkalmazás automatikusan eldönti:
+- **Csak a leírás változott** → a program kódja helyben újragenerálódik (azonos ID, port, név megmarad)
+- **Bármi más is változott** (név / követelmények / mód) → új program jön létre
+
 ### Log néző
 
 Beépített, valós idejű log megjelenítő, amely szűrhető naplózási szint, keresési kifejezés és dátumtartomány szerint. Segíti a rendszergazdákat az alkalmazás működésének figyelemmel kísérésében — közvetlenül a böngészőből, terminálhozzáférés nélkül.
@@ -87,6 +103,7 @@ A Gmail- és Google Drive-eszközök MCP (Model Context Protocol) szerveren kere
 | **[Gmail API](https://developers.google.com/gmail/api)** | v1 | E-mail integráció |
 | **[Google Drive API](https://developers.google.com/drive/api)** | v3 | Fájlkezelés, megosztás |
 | **[FastMCP](https://github.com/jlowin/fastmcp)** | legújabb | MCP szerver |
+| **[FastAPI](https://fastapi.tiangolo.com)** | legújabb | Manager API + generált programok |
 | **[Docker](https://www.docker.com)** | legújabb | Konténerizáció |
 
 ---
@@ -150,10 +167,31 @@ Chat.py  ── Streamlit belépési pont
 ├── helpers/auth_drive.py        Egyszeri OAuth2 hozzájárulás-kérő segédprogram (gmail.modify + drive)
 ├── helpers/drive_mcp_server.py  FastMCP szerver: Drive eszközök MCP-n keresztül
 │
+├── manager_api.py               FastAPI Manager API (port 8500) — programgenerálás és életciklus
+├── helpers/program_generator.py Qwen3-Coder alapú kódgenerálás
+├── helpers/program_manager.py   Program létrehozás, indítás, leállítás, törlés, módosítás, logok
+├── generated_programs/          Generált FastAPI programok ({slug}-{id}/main.py + manifest.json)
+│
+├── pages/Programs.py            Dinamikus programgenerátor UI (generálás, módosítás, kódszerkesztő)
 ├── pages/DropBox.py             Fájl feltöltés + index kezelő UI
 ├── pages/Logs.py                Napló néző UI
 └── pages/About.py               Az alkalmazás bemutatása
 ```
+
+### Manager API végpontok
+
+| Metódus | Végpont | Leírás |
+|---|---|---|
+| `POST` | `/programs/generate` | Új program generálása Qwen-nel |
+| `POST` | `/programs/{id}/regenerate` | Program kódjának helybeni újragenerálása (csak leírás változik) |
+| `GET` | `/programs` | Összes program listázása |
+| `GET` | `/programs/{id}` | Egy program részletei |
+| `GET` | `/programs/{id}/code` | Forráskód lekérése |
+| `PUT` | `/programs/{id}/code` | Forráskód frissítése |
+| `POST` | `/programs/{id}/start` | Program indítása |
+| `POST` | `/programs/{id}/stop` | Program leállítása |
+| `DELETE` | `/programs/{id}` | Program törlése |
+| `GET` | `/programs/{id}/logs` | Stdout/stderr napló |
 
 ### ChromaDB kollekciók
 

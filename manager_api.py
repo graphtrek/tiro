@@ -33,6 +33,7 @@ from helpers.program_manager import (
     get_logs,
     get_program,
     list_programs,
+    regenerate_program,
     start_program,
     stop_program,
     update_code,
@@ -62,6 +63,10 @@ class GenerateRequest(BaseModel):
     mode: str = "service"  # "service" | "on_demand"
 
 
+class RegenerateRequest(BaseModel):
+    description: str
+
+
 class UpdateCodeRequest(BaseModel):
     code: str
 
@@ -81,8 +86,24 @@ async def generate(request: GenerateRequest):
         request.name, request.description, request.requirements
     )
     manifest = create_program(
-        request.name, request.description, code, request.mode
+        request.name, request.description, code, request.mode, request.requirements
     )
+    return manifest
+
+
+@app.post("/programs/{program_id}/regenerate")
+async def regenerate(program_id: str, request: RegenerateRequest):
+    """Regenerate code for an existing program in-place (same ID/port)."""
+    prog = get_program(program_id)
+    if not prog:
+        raise HTTPException(status_code=404, detail="Program not found")
+    code = generate_program_code(
+        prog["name"], request.description, prog.get("requirements", "")
+    )
+    try:
+        manifest = regenerate_program(program_id, request.description, code)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Program not found")
     return manifest
 
 

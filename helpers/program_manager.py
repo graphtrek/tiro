@@ -10,6 +10,8 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from helpers.log_utils import log_to_file
+
 GENERATED_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "generated_programs",
@@ -99,6 +101,7 @@ def create_program(
     description: str,
     code: str,
     mode: str = "service",
+    requirements: str = "",
 ) -> dict:
     """Persist a generated program to disk and return its manifest."""
     program_id = uuid.uuid4().hex[:8]
@@ -114,6 +117,7 @@ def create_program(
         "id": program_id,
         "name": name,
         "description": description,
+        "requirements": requirements,
         "port": port,
         "mode": mode,
         "status": "stopped",
@@ -196,6 +200,7 @@ def start_program(program_id: str) -> dict:
     manifest["pid"] = proc.pid
     manifest["status"] = "running"
     _save_manifest(prog_dir, manifest)
+    log_to_file("manager", "INFO", f"Started program '{manifest['name']}' (id={program_id}, port={port}, pid={proc.pid})")
     return manifest
 
 
@@ -218,6 +223,7 @@ def stop_program(program_id: str) -> dict:
     manifest["pid"] = None
     manifest["status"] = "stopped"
     _save_manifest(prog_dir, manifest)
+    log_to_file("manager", "INFO", f"Stopped program '{manifest['name']}' (id={program_id})")
     return manifest
 
 
@@ -242,6 +248,7 @@ def delete_program(program_id: str) -> None:
             pass
 
     shutil.rmtree(prog_dir)
+    log_to_file("manager", "INFO", f"Deleted program (id={program_id})")
 
 
 def get_logs(program_id: str, lines: int = 100) -> str:
@@ -261,3 +268,18 @@ def update_code(program_id: str, code: str) -> None:
     if not prog_dir:
         raise FileNotFoundError(f"Program {program_id} not found")
     (prog_dir / "main.py").write_text(code)
+
+
+def regenerate_program(program_id: str, description: str, new_code: str) -> dict:
+    """Update description and code of an existing program in-place."""
+    prog_dir = _find_prog_dir(program_id)
+    if not prog_dir:
+        raise FileNotFoundError(f"Program {program_id} not found")
+    manifest_path = prog_dir / "manifest.json"
+    with open(manifest_path) as fh:
+        manifest = json.load(fh)
+    manifest["description"] = description
+    (prog_dir / "main.py").write_text(new_code)
+    _save_manifest(prog_dir, manifest)
+    _refresh_status(manifest, prog_dir)
+    return manifest
