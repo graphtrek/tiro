@@ -49,7 +49,7 @@ logger.setLevel(logging.DEBUG)
 
 if not logger.handlers:
     _log_fmt = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)s | %(filename)s | %(funcName)s | %(message)s",
+        fmt="%(asctime)s [%(levelname)s] [%(filename)s] [%(funcName)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     _console = logging.StreamHandler()

@@ -121,7 +121,7 @@ filtered_lines = []
 
 for line in tail_lines:
     # Check log level filter — match | LEVEL | to avoid false positives in message text
-    level_match = any(f"| {level} |" in line for level in selected_levels)
+    level_match = any(f"[{level}]" in line for level in selected_levels)
 
     # Check search term filter
     search_match = True
@@ -140,7 +140,7 @@ with col2:
 with col3:
     if filtered_lines:
         # Count errors and warnings
-        error_count = sum(1 for line in filtered_lines if any(f"| {lvl} |" in line for lvl in ["ERROR", "CRITICAL"]))
+        error_count = sum(1 for line in filtered_lines if any(f"[{lvl}]" in line for lvl in ["ERROR", "CRITICAL"]))
         st.metric("Hibák/Kritikus", error_count)
     else:
         st.metric("Hibák/Kritikus", 0)
@@ -170,15 +170,15 @@ else:
             )
 
         for line in filtered_lines:
-            if "| DEBUG |" in line:
+            if "[DEBUG]" in line:
                 color_class = "log-debug"
-            elif "| INFO |" in line:
+            elif "[INFO]" in line:
                 color_class = "log-info"
-            elif "| WARNING |" in line:
+            elif "[WARNING]" in line:
                 color_class = "log-warning"
-            elif "| CRITICAL |" in line:
+            elif "[CRITICAL]" in line:
                 color_class = "log-critical"
-            elif "| ERROR |" in line:
+            elif "[ERROR]" in line:
                 color_class = "log-error"
             else:
                 color_class = ""

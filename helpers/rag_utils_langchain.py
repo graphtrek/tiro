@@ -30,7 +30,7 @@ if not _LOGGING_CONFIGURED:
     logger.setLevel(logging.DEBUG)
 
     log_format = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)s | %(filename)s | %(funcName)s | %(message)s",
+        fmt="%(asctime)s [%(levelname)s] [%(filename)s] [%(funcName)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 

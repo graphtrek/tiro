@@ -30,7 +30,7 @@ def log_to_file(source: str, level: str, message: str) -> None:
         message: Free-form log message (newlines are replaced with spaces).
     """
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    line = f"{ts} | {level.upper()} | {source} | {message.replace(chr(10), ' ')}\n"
+    line = f"{ts} [{level.upper()}] [{source}] {message.replace(chr(10), ' ')}\n"
     with _lock:
         with open(_LOG_FILE, "a", encoding="utf-8") as fh:
             fh.write(line)
