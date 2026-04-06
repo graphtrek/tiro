@@ -7,6 +7,9 @@ services:
       - "8501:8501"
     env_file:
       - .env
+    environment:
+      # Reach the manager via Docker's internal service DNS, not localhost
+      - MANAGER_API_URL=http://graphtrek-ai-manager:8500
     volumes:
       - ./uploads:/app/uploads
       - ./chroma_db:/app/chroma_db
@@ -25,9 +28,6 @@ services:
       - "8600-8700:8600-8700"
     env_file:
       - .env
-    environment:
-      # Manager API URL used by the Streamlit UI to communicate with this service
-      - MANAGER_API_URL=http://localhost:8500
     volumes:
       # Generated programs are stored on the host for persistence and inspection
       - ./generated_programs:/app/generated_programs
