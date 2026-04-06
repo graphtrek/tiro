@@ -1,33 +1,35 @@
 services:
   graphtrek-ai-chat:
-    # Pull the pre-built image from GitHub Container Registry.
-    # Replace <your-github-username> and <your-repo> with your actual values.
     image: ghcr.io/graphtrek/python-for-ai:latest
-
     container_name: graphtrek-ai-chat
-
     restart: unless-stopped
-
     ports:
-      # Map host port 8501 → container port 8501.
-      # Change the left side to use a different host port, e.g. "80:8501"
       - "8501:8501"
-
-    # Secrets are passed as environment variables at runtime.
-    # On the server: copy .env.example → .env and fill in real values.
-    # The .env file is never baked into the image.
     env_file:
       - .env
-
     volumes:
-      # Persist uploaded files across container restarts
       - ./uploads:/app/uploads
-      # Persist ChromaDB embeddings so files are not re-indexed on every restart
       - ./chroma_db:/app/chroma_db
-      # Persist log file on the host so it survives container restarts
       - ./ai.log:/app/ai.log
-      # Gmail OAuth2 credentials — place these files on the host before starting
-      # credentials.json: read-only (never changes)
-      # token.json: writable so the container can auto-refresh the access token
       - ./credentials.json:/app/credentials.json:ro
       - ./token.json:/app/token.json
+      - ./generated_programs:/app/generated_programs
+
+  graphtrek-ai-manager:
+    image: ghcr.io/graphtrek/python-for-ai:latest
+    container_name: graphtrek-ai-manager
+    restart: unless-stopped
+    # Port 8500 = manager API; 8600-8700 = generated program services
+    ports:
+      - "8500:8500"
+      - "8600-8700:8600-8700"
+    env_file:
+      - .env
+    environment:
+      # Manager API URL used by the Streamlit UI to communicate with this service
+      - MANAGER_API_URL=http://localhost:8500
+    volumes:
+      # Generated programs are stored on the host for persistence and inspection
+      - ./generated_programs:/app/generated_programs
+      - ./ai.log:/app/ai.log
+    command: ["uvicorn", "manager_api:app", "--host", "0.0.0.0", "--port", "8500"]

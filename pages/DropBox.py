@@ -30,11 +30,8 @@ st.markdown(
 )
 
 # ── Navigation dropdown ────────────────────────────────────────────────────────
-with st.sidebar:
-    _PAGES = {"💬 Chat": "Chat.py", "📁 DropBox": "pages/DropBox.py", "📋 Logs": "pages/Logs.py", "ℹ️ Névjegy": "pages/About.py"}
-    _nav = st.selectbox("Page", list(_PAGES.keys()), index=1, label_visibility="collapsed")
-    if _nav != "📁 DropBox":
-        st.switch_page(_PAGES[_nav])
+from helpers.chat_ui import render_page_nav
+render_page_nav("📁 DropBox")
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "uploads")

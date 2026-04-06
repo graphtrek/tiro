@@ -17,3 +17,4 @@ ai.log
 # Gmail OAuth credentials — never commit
 credentials.json
 token.json
+generated_programs/*

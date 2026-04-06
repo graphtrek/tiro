@@ -38,11 +38,11 @@ st.markdown(
 )
 
 # ── Navigation dropdown ────────────────────────────────────────────────────────
-with st.sidebar:
-    _PAGES = {"💬 Chat": "Chat.py", "📁 DropBox": "pages/DropBox.py", "📋 Logs": "pages/Logs.py", "ℹ️ Névjegy": "pages/About.py"}
-    _nav = st.selectbox("Page", list(_PAGES.keys()), index=2, label_visibility="collapsed")
-    if _nav != "📋 Logs":
-        st.switch_page(_PAGES[_nav])
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from helpers.chat_ui import render_page_nav
+render_page_nav("📋 Logs")
 
 # ── Page title ─────────────────────────────────────────────────────────────────
 st.markdown("<h3 style='margin-bottom:0'>📋 Naplónéző</h3>", unsafe_allow_html=True)

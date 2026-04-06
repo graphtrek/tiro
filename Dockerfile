@@ -22,17 +22,18 @@ ef(['warmup']) \
 
 # Copy the application source
 COPY Chat.py .
+COPY manager_api.py .
 COPY helpers/ helpers/
 COPY pages/ pages/
 
-# Ensure uploads directory exists
-RUN mkdir -p /app/uploads
+# Ensure uploads and generated_programs directories exist
+RUN mkdir -p /app/uploads /app/generated_programs
 
 # Copy Streamlit configuration (needed for correct WS URLs behind a reverse proxy)
 COPY .streamlit/ .streamlit/
 
-# Streamlit listens on 8501 by default
-EXPOSE 8501
+# Streamlit on 8501, manager API on 8500, generated programs on 8600-8700
+EXPOSE 8501 8500
 
 # Disable the browser auto-open and set the server address so it binds
 # to all interfaces (required inside a container)

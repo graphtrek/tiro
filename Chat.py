@@ -1,6 +1,8 @@
 # =============================================================================
 # Chat.py — Main Streamlit entry point for NothingGetsOutAI
 #
+# Pages: Chat (default) | About | DropBox | Logs | Programs
+#
 # Streamlit re-runs this entire script from top to bottom on every user
 # interaction. All state that must survive between clicks is stored in
 # st.session_state (a per-tab dictionary Streamlit keeps alive).

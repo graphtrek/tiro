@@ -79,11 +79,30 @@ def _inject_css_once() -> None:
 
 
 _PAGES = {
-    "💬 Chat":    "Chat.py",
-    "📁 DropBox": "pages/DropBox.py",
-    "📋 Logs":    "pages/Logs.py",
-    "ℹ️ Névjegy": "pages/About.py",
+    "💬 Chat":      "Chat.py",
+    "📁 DropBox":   "pages/DropBox.py",
+    "⚙️ Programs":  "pages/Programs.py",
+    "📋 Logs":      "pages/Logs.py",
+    "ℹ️ Névjegy":   "pages/About.py",
 }
+
+
+def render_page_nav(current: str) -> None:
+    """Render the page navigation selectbox in the sidebar.
+
+    Pass the label of the current page (must match a key in _PAGES) so it
+    appears pre-selected. Switching to a different page calls st.switch_page.
+    """
+    _inject_css_once()
+    with st.sidebar:
+        nav = st.selectbox(
+            "Page",
+            list(_PAGES.keys()),
+            index=list(_PAGES.keys()).index(current),
+            label_visibility="collapsed",
+        )
+        if nav != current:
+            st.switch_page(_PAGES[nav])
 
 
 class ChatUI:
@@ -102,9 +121,7 @@ class ChatUI:
         """
         with st.sidebar:
             # Navigation
-            nav = st.selectbox("Page", list(_PAGES.keys()), index=0, label_visibility="collapsed")
-            if nav != "💬 Chat":
-                st.switch_page(_PAGES[nav])
+            render_page_nav("💬 Chat")
 
             st.markdown("<hr style='border-color:#444'>", unsafe_allow_html=True)
 
