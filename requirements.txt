@@ -9,6 +9,7 @@ docx2txt
 openpyxl
 duckduckgo-search
 ddgs
+beautifulsoup4
 langchain
 langchain-openai
 langchain-chroma

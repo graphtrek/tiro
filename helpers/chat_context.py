@@ -3,12 +3,21 @@ import os
 import re
 import streamlit as st
 
+import requests
+
 from helpers.chat_config import AppConfig
 
 _DROPBOX_KEYWORDS = re.compile(
     r"\b(dropbox|uploaded?\s+files?|from\s+uploads?)\b",
     re.IGNORECASE,
 )
+_URL_PATTERN = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
+
+try:
+    from bs4 import BeautifulSoup
+    _BS4_AVAILABLE = True
+except ImportError:
+    _BS4_AVAILABLE = False
 from helpers.chat_prompts import SystemPrompts
 from helpers.chat_utils import MessageUtils
 from helpers.rag_utils_langchain import (
@@ -18,6 +27,36 @@ from helpers.rag_utils_langchain import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_urls(text: str) -> list[str]:
+    return _URL_PATTERN.findall(text)
+
+
+def _fetch_url_content(url: str, max_chars: int = 4000) -> str | None:
+    """Fetch a URL and return its readable text content."""
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; NothingGetsOutAI/1.0)"}
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "")
+        if "text/html" in content_type:
+            if _BS4_AVAILABLE:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                for tag in soup(["script", "style", "nav", "footer", "header"]):
+                    tag.decompose()
+                text = soup.get_text(separator="\n", strip=True)
+            else:
+                text = re.sub(r"<[^>]+>", " ", resp.text)
+                text = re.sub(r"\s+", " ", text).strip()
+        else:
+            text = resp.text
+        if len(text) > max_chars:
+            text = text[:max_chars] + "\n... [truncated]"
+        return text
+    except Exception as e:
+        logger.warning("_fetch_url_content failed for %s: %s", url, e)
+        return None
 
 
 class ContextBuilder:
@@ -92,17 +131,41 @@ class ContextBuilder:
         """
         Returns (web_results_text, web_sources, search_failed).
         Only called when DropBox context is inactive.
+
+        If the user message contains URLs, those are fetched first and treated
+        as the preferred source. DuckDuckGo results are always appended as
+        supplemental context.
         """
+        parts: list[str] = []
+        sources: list[dict] = []
+
+        # 1) Fetch user-provided URLs (preferred)
+        urls = _extract_urls(user_input)
+        for url in urls[:3]:
+            content = _fetch_url_content(url)
+            if content:
+                logger.info("url_fetch_ok=%s, chars=%d", url, len(content))
+                parts.append(f"--- Content from {url} ---\n{content}")
+                sources.append({"title": url, "link": url})
+            else:
+                logger.warning("url_fetch_failed=%s", url)
+
+        # 2) DuckDuckGo supplemental search
         try:
             web_results, web_sources = search_web_langchain(user_input)
             if web_results:
                 logger.info("web_search_completed=true, result_length=%s", len(str(web_results)))
-                return web_results, web_sources, False
-            logger.warning("web_search_returned_empty=true")
-            return None, None, True
+                parts.append(web_results)
+                if web_sources:
+                    sources.extend(web_sources)
+            else:
+                logger.warning("web_search_returned_empty=true")
         except Exception as e:
             logger.info("web_search_failed=%s", e)
-            return None, None, True
+
+        if parts:
+            return "\n\n".join(parts), sources or None, False
+        return None, None, True
 
     @staticmethod
     def assemble_api_messages(

@@ -1,8 +1,21 @@
 import os
 import re
 
+import requests
 from dotenv import load_dotenv
 from openai import OpenAI
+
+try:
+    from ddgs import DDGS
+    _DDGS_AVAILABLE = True
+except ImportError:
+    _DDGS_AVAILABLE = False
+
+try:
+    from bs4 import BeautifulSoup
+    _BS4_AVAILABLE = True
+except ImportError:
+    _BS4_AVAILABLE = False
 
 try:
     from helpers.rag_utils_langchain import search_documents_langchain, get_collection_diagnostics
@@ -65,6 +78,13 @@ it lists files the user has uploaded and provides relevant excerpts from their c
 USE this information to understand the data structure (column names, fields, document format,
 example values) so the generated API correctly reads, parses, or processes those files.
 Files are stored under the `uploads/` directory in the project root.
+
+Web Research Context:
+If the user prompt contains a section starting with "=== Referenced URL Content ===",
+it contains content fetched from URLs the user specified — treat this as the PRIMARY source.
+If the prompt contains a section starting with "=== Web Search Results ===",
+it contains DuckDuckGo search snippets for supplemental context.
+Use both to make the generated code accurate and aligned with the referenced resources.
 """
 
 
@@ -72,6 +92,90 @@ _DROPBOX_KEYWORDS = re.compile(
     r"\b(dropbox|uploaded?\s+files?|from\s+uploads?)\b",
     re.IGNORECASE,
 )
+
+_URL_PATTERN = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
+
+
+def _extract_urls(text: str) -> list[str]:
+    """Return all HTTP/HTTPS URLs found in text."""
+    return _URL_PATTERN.findall(text)
+
+
+def _fetch_url_content(url: str, max_chars: int = 4000) -> str | None:
+    """Fetch a URL and return its text content, stripping HTML if needed."""
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; ProgramGenerator/1.0)"}
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "")
+        if "text/html" in content_type:
+            if _BS4_AVAILABLE:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                for tag in soup(["script", "style", "nav", "footer", "header"]):
+                    tag.decompose()
+                text = soup.get_text(separator="\n", strip=True)
+            else:
+                text = re.sub(r"<[^>]+>", " ", resp.text)
+                text = re.sub(r"\s+", " ", text).strip()
+        else:
+            text = resp.text
+        if len(text) > max_chars:
+            text = text[:max_chars] + "\n... [truncated]"
+        return text
+    except Exception:
+        return None
+
+
+def _web_search_context(query: str, max_results: int = 3) -> str | None:
+    """Run a DuckDuckGo search and return formatted snippets."""
+    if not _DDGS_AVAILABLE:
+        return None
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query[:200], max_results=max_results))
+        if not results:
+            return None
+        lines = ["=== Web Search Results ==="]
+        for i, r in enumerate(results, 1):
+            lines.append(f"[{i}] {r.get('title', '')}")
+            lines.append(f"URL: {r.get('href', '')}")
+            lines.append(r.get("body", ""))
+            lines.append("")
+        lines.append("=== End Web Search Results ===")
+        return "\n".join(lines)
+    except Exception:
+        return None
+
+
+def _get_web_research_context(description: str, requirements: str) -> str | None:
+    """Build a research context block from user-specified URLs and/or a web search.
+
+    User-provided URLs are fetched first and treated as the preferred source.
+    A DuckDuckGo search is always attempted for supplemental context.
+    """
+    combined = description + " " + requirements
+    urls = _extract_urls(combined)
+
+    sections: list[str] = []
+
+    if urls:
+        url_lines = ["=== Referenced URL Content ==="]
+        for url in urls[:3]:
+            content = _fetch_url_content(url)
+            if content:
+                url_lines.append(f"--- Content from {url} ---")
+                url_lines.append(content)
+                url_lines.append("")
+        url_lines.append("=== End Referenced URL Content ===")
+        if len(url_lines) > 2:  # only add if at least one URL yielded content
+            sections.append("\n".join(url_lines))
+
+    search_query = f"{description} {requirements}".strip()
+    search_ctx = _web_search_context(search_query)
+    if search_ctx:
+        sections.append(search_ctx)
+
+    return "\n\n".join(sections) if sections else None
 
 
 def _detect_dropbox_mention(description: str, requirements: str) -> bool:
@@ -138,6 +242,10 @@ def generate_program_code(name: str, description: str, requirements: str) -> str
         context = _get_dropbox_context(description + " " + requirements)
         if context:
             user_prompt += f"\n\n{context}"
+
+    research = _get_web_research_context(description, requirements)
+    if research:
+        user_prompt += f"\n\n{research}"
 
     response = client.chat.completions.create(
         model=QWEN_MODEL,
