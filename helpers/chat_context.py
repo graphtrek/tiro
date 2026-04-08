@@ -21,7 +21,6 @@ except ImportError:
 from helpers.chat_prompts import SystemPrompts
 from helpers.chat_utils import MessageUtils
 from helpers.rag_utils_langchain import (
-    search_documents_langchain,
     search_web_langchain,
     get_file_chunks,
 )
@@ -67,9 +66,9 @@ class ContextBuilder:
         """
         Returns (doc_chunks, dropbox_sources).
 
-        First checks if any uploaded filename is mentioned in the query and loads
-        it in full; otherwise falls back to ChromaDB semantic search when DropBox
-        context is active.
+        If the user mentions a specific filename, loads only that file's chunks.
+        Otherwise, when DropBox context is active, loads ALL files so the model
+        can answer meta-questions (count, list, search across all files).
         """
         upload_dir = AppConfig.UPLOAD_DIR
         doc_chunks      = None
@@ -109,20 +108,51 @@ class ContextBuilder:
             ]
             return doc_chunks, dropbox_sources
 
-        # 2) ChromaDB semantic search when DropBox context is active OR user mentions keywords
+        # 2) All-files DropBox context when active OR user mentions dropbox keywords
         dropbox_mentioned = bool(_DROPBOX_KEYWORDS.search(user_input))
         if st.session_state.get("dropbox_context_enabled", False) or dropbox_mentioned:
-            logger.info("DropBox context active — attempting ChromaDB semantic search")
+            logger.info("DropBox context active — loading all file chunks")
             try:
-                retrieved, retrieved_filenames = search_documents_langchain(user_input, k=4)
-                if retrieved:
-                    doc_chunks      = retrieved
-                    dropbox_sources = retrieved_filenames
-                    logger.info("ChromaDB search succeeded, retrieved %d chunks", len(doc_chunks))
+                all_files = sorted(
+                    f for f in os.listdir(upload_dir)
+                    if os.path.isfile(os.path.join(upload_dir, f))
+                ) if os.path.isdir(upload_dir) else []
+
+                if all_files:
+                    # Always-included file listing (small, never trimmed)
+                    file_list_section = (
+                        f"DropBox contains {len(all_files)} file(s):\n"
+                        + "\n".join(f"- {f}" for f in all_files)
+                    )
+                    content_sections = []
+                    for fname in all_files:
+                        file_chunks = get_file_chunks(fname)
+                        if file_chunks:
+                            chunk_count = len(file_chunks)
+                            token_count = sum(MessageUtils.estimate_tokens(c) for c in file_chunks)
+                            logger.info(
+                                "ALL-FILES | file=%-40s | chunks=%4d | tokens=%6d",
+                                fname, chunk_count, token_count,
+                            )
+                            content_sections.append(
+                                f"=== FILE: {fname} ===\n" + "\n\n".join(file_chunks)
+                            )
+
+                    per_file_budget = 50_000 // max(len(content_sections), 1)
+                    trimmed_content = [
+                        MessageUtils.trim_context(s, max_tokens=per_file_budget)
+                        for s in content_sections
+                    ]
+                    doc_chunks      = [file_list_section] + trimmed_content
+                    dropbox_sources = all_files
+                    logger.info(
+                        "ALL-FILES | total files=%d | content sections=%d",
+                        len(all_files), len(content_sections),
+                    )
                 else:
-                    logger.warning("ChromaDB search returned no results for: %r", user_input[:100])
+                    logger.warning("DropBox context active but upload_dir is empty or missing")
             except Exception as e:
-                logger.error("ChromaDB search failed: %s", e, exc_info=True)
+                logger.error("All-files context load failed: %s", e, exc_info=True)
 
         return doc_chunks, dropbox_sources
 
