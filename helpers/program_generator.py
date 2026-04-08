@@ -1,5 +1,7 @@
+import json
 import os
 import re
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
@@ -71,6 +73,15 @@ Use these ONLY when the requirements explicitly call for Google Drive or Gmail f
       level   — "INFO", "WARNING", or "ERROR"
       message — free-form string
     Writes to the shared ai.log file visible in the Logs page.
+
+Existing Programs Context:
+If the user prompt contains a section starting with "=== Existing Programs ===",
+it lists all programs that have already been generated in this workspace.
+Study their code carefully to:
+- Follow the same coding conventions, error-handling patterns, and import style.
+- Reuse the same helper modules (e.g. get_gmail_service, get_drive_service) in the same way.
+- Avoid functionality or naming conflicts with existing programs.
+- Build on proven patterns rather than reinventing them.
 
 Uploaded File Context (DropBox):
 If the user prompt contains a section starting with "=== Uploaded Files Context ===",
@@ -217,13 +228,76 @@ def _get_dropbox_context(query: str) -> str | None:
         return None
 
 
+_GENERATED_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "generated_programs",
+)
+
+
+def _get_existing_programs_context(exclude_id: str | None = None) -> str | None:
+    """Return a formatted context block describing all previously generated programs.
+
+    Each entry includes the program name, description, requirements, and its
+    full source code so Qwen can learn from and stay consistent with them.
+    """
+    root = Path(_GENERATED_DIR)
+    if not root.exists():
+        return None
+
+    entries: list[str] = []
+    for prog_dir in sorted(root.iterdir()):
+        manifest_path = prog_dir / "manifest.json"
+        code_path = prog_dir / "main.py"
+        if not manifest_path.exists() or not code_path.exists():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        prog_id = manifest.get("id", "")
+        if exclude_id and prog_id == exclude_id:
+            continue
+        name = manifest.get("name", prog_dir.name)
+        description = manifest.get("description", "")
+        requirements = manifest.get("requirements", "")
+        try:
+            code = code_path.read_text()
+        except OSError:
+            code = "(code unavailable)"
+        entry = (
+            f"Program: {name}  (id: {prog_id})\n"
+            f"Description: {description}\n"
+            f"Requirements: {requirements}\n"
+            f"--- main.py ---\n"
+            f"{code}\n"
+            f"--- end main.py ---"
+        )
+        entries.append(entry)
+
+    if not entries:
+        return None
+
+    lines = ["=== Existing Programs ===", ""]
+    for i, entry in enumerate(entries, 1):
+        lines.append(f"[{i}]")
+        lines.append(entry)
+        lines.append("")
+    lines.append("=== End Existing Programs ===")
+    return "\n".join(lines)
+
+
 def _get_client() -> OpenAI:
     base_url = os.environ["SCALEWAY_BASE_URL"]
     api_key = os.environ["SCALEWAY_API_KEY"]
     return OpenAI(base_url=base_url, api_key=api_key)
 
 
-def generate_program_code(name: str, description: str, requirements: str) -> str:
+def generate_program_code(
+    name: str,
+    description: str,
+    requirements: str,
+    exclude_program_id: str | None = None,
+) -> str:
     """Call Scaleway Qwen to generate a FastAPI program.
 
     Returns pure Python source code ready to be saved as main.py.
@@ -237,6 +311,10 @@ def generate_program_code(name: str, description: str, requirements: str) -> str
         f"Requirements: {requirements}\n\n"
         f"Output only the Python source code."
     )
+
+    existing_ctx = _get_existing_programs_context(exclude_id=exclude_program_id)
+    if existing_ctx:
+        user_prompt += f"\n\n{existing_ctx}"
 
     if _detect_dropbox_mention(description, requirements):
         context = _get_dropbox_context(description + " " + requirements)

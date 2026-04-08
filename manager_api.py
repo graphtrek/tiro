@@ -98,7 +98,8 @@ async def regenerate(program_id: str, request: RegenerateRequest):
     if not prog:
         raise HTTPException(status_code=404, detail="Program not found")
     code = generate_program_code(
-        prog["name"], request.description, prog.get("requirements", "")
+        prog["name"], request.description, prog.get("requirements", ""),
+        exclude_program_id=program_id,
     )
     try:
         manifest = regenerate_program(program_id, request.description, code)
