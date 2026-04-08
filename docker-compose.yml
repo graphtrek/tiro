@@ -10,6 +10,7 @@ services:
     environment:
       # Reach the manager via Docker's internal service DNS, not localhost
       - MANAGER_API_URL=http://graphtrek-ai-manager:8500
+      - PROGRAMS_HOST=ai.graphtrek.co
     volumes:
       - ./uploads:/app/uploads
       - ./chroma_db:/app/chroma_db

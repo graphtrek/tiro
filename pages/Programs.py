@@ -10,6 +10,7 @@ import streamlit as st
 from helpers.chat_ui import render_page_nav
 
 MANAGER_URL = os.environ.get("MANAGER_API_URL", "http://localhost:8500")
+PROGRAMS_HOST = os.environ.get("PROGRAMS_HOST", "localhost")
 
 st.set_page_config(page_title="Programs", page_icon="⚙️", layout="wide")
 
@@ -201,8 +202,8 @@ else:
                 st.caption(prog.get("description", ""))
                 if status == "running":
                     st.markdown(
-                        f"[Open API docs →](http://localhost:{port}/docs)"
-                        f" &nbsp; [Health check](http://localhost:{port}/health)"
+                        f"[Open API docs →](http://{PROGRAMS_HOST}:{port}/docs)"
+                        f" &nbsp; [Health check](http://{PROGRAMS_HOST}:{port}/health)"
                     )
             with action_col:
                 btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
