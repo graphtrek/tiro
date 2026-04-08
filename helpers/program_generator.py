@@ -112,7 +112,7 @@ def _extract_urls(text: str) -> list[str]:
     return _URL_PATTERN.findall(text)
 
 
-def _fetch_url_content(url: str, max_chars: int = 4000) -> str | None:
+def _fetch_url_content(url: str, max_chars: int = 32768) -> str | None:
     """Fetch a URL and return its text content, stripping HTML if needed."""
     try:
         headers = {"User-Agent": "Mozilla/5.0 (compatible; ProgramGenerator/1.0)"}

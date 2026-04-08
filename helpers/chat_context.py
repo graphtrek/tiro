@@ -32,7 +32,7 @@ def _extract_urls(text: str) -> list[str]:
     return _URL_PATTERN.findall(text)
 
 
-def _fetch_url_content(url: str, max_chars: int = 4000) -> str | None:
+def _fetch_url_content(url: str, max_chars: int = 32768) -> str | None:
     """Fetch a URL and return its readable text content."""
     try:
         headers = {"User-Agent": "Mozilla/5.0 (compatible; NothingGetsOutAI/1.0)"}
@@ -179,6 +179,7 @@ class ContextBuilder:
                 sources.append({"title": url, "link": url})
             else:
                 logger.warning("url_fetch_failed=%s", url)
+                parts.append(f"--- A {url} weboldal tartalma nem tölthető le (hálózati hiba vagy hozzáféréstiltás). ---")
 
         # 2) DuckDuckGo supplemental search
         try:
@@ -233,10 +234,18 @@ class ContextBuilder:
 
         if context_text:
             trimmed_context = MessageUtils.trim_context(context_text, max_tokens=50_000)
-            system_prompt += (
-                "\n\nA következő kontextus alapján válaszolj a felhasználó kérdésére:\n\n"
-                + trimmed_context
-            )
+            if not dropbox_on:
+                system_prompt += (
+                    "\n\nAz alábbi tartalom automatikusan le lett töltve a szerver által. "
+                    "NE mondd, hogy nem tudsz böngészni — a tartalom már elérhető. "
+                    "Ha egy URL letöltése meghiúsult, ezt egyértelműen jelezd a felhasználónak.\n\n"
+                    + trimmed_context
+                )
+            else:
+                system_prompt += (
+                    "\n\nA következő kontextus alapján válaszolj a felhasználó kérdésére:\n\n"
+                    + trimmed_context
+                )
         elif not dropbox_on and web_search_failed:
             system_prompt += (
                 "\n\nMegjegyzés: Ehhez a kérdéshez nem áll rendelkezésre webes keresési eredmény. "

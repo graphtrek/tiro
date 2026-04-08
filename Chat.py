@@ -219,6 +219,12 @@ if st.session_state._processing and st.session_state._pending_message:
     web_search_failed = False
     if internet_on:
         web_results, web_sources, web_search_failed = ContextBuilder.build_web_context(user_input)
+    elif ("http://" in user_input or "https://" in user_input) and not gmail_on and not drive_on:
+        _ctx_name = "DropBox" if dropbox_on else "Internet"
+        st.warning(
+            f"⚠️ **Internet mód ki van kapcsolva** — az URL tartalma nem lett letöltve. "
+            f"Csak a(z) **{_ctx_name}** kontextus tartalmát veszem figyelembe."
+        )
 
     api_messages, source = ContextBuilder.assemble_api_messages(
         doc_chunks, dropbox_sources, web_results, web_search_failed,
