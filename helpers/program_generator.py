@@ -4,6 +4,12 @@ import re
 from dotenv import load_dotenv
 from openai import OpenAI
 
+try:
+    from helpers.rag_utils_langchain import search_documents_langchain, get_collection_diagnostics
+    _RAG_AVAILABLE = True
+except Exception:
+    _RAG_AVAILABLE = False
+
 load_dotenv()
 
 QWEN_MODEL = "qwen3-coder-30b-a3b-instruct"
@@ -52,7 +58,59 @@ Use these ONLY when the requirements explicitly call for Google Drive or Gmail f
       level   — "INFO", "WARNING", or "ERROR"
       message — free-form string
     Writes to the shared ai.log file visible in the Logs page.
+
+Uploaded File Context (DropBox):
+If the user prompt contains a section starting with "=== Uploaded Files Context ===",
+it lists files the user has uploaded and provides relevant excerpts from their content.
+USE this information to understand the data structure (column names, fields, document format,
+example values) so the generated API correctly reads, parses, or processes those files.
+Files are stored under the `uploads/` directory in the project root.
 """
+
+
+_DROPBOX_KEYWORDS = re.compile(
+    r"\b(dropbox|uploaded?\s+files?|from\s+uploads?)\b",
+    re.IGNORECASE,
+)
+
+
+def _detect_dropbox_mention(description: str, requirements: str) -> bool:
+    combined = description + " " + requirements
+    return bool(_DROPBOX_KEYWORDS.search(combined))
+
+
+def _get_dropbox_context(query: str) -> str | None:
+    if not _RAG_AVAILABLE:
+        return None
+    try:
+        diagnostics = get_collection_diagnostics()
+        files_indexed: list[str] = diagnostics.get("files_indexed", [])
+
+        chunks, filenames = search_documents_langchain(query, k=6)
+        if not chunks:
+            if not files_indexed:
+                return None
+            return (
+                "=== Uploaded Files Context ===\n"
+                f"Available uploaded files: {', '.join(files_indexed)}\n"
+                "(No relevant content chunks found for this query.)\n"
+                "=== End Uploaded Files Context ==="
+            )
+
+        lines = [
+            "=== Uploaded Files Context ===",
+            f"Available uploaded files: {', '.join(files_indexed)}",
+            "",
+            "Relevant content excerpts:",
+        ]
+        for i, (chunk, fname) in enumerate(zip(chunks, filenames), start=1):
+            lines.append(f"[{i}] (source: {fname})")
+            lines.append(chunk.strip())
+            lines.append("")
+        lines.append("=== End Uploaded Files Context ===")
+        return "\n".join(lines)
+    except Exception:
+        return None
 
 
 def _get_client() -> OpenAI:
@@ -75,6 +133,11 @@ def generate_program_code(name: str, description: str, requirements: str) -> str
         f"Requirements: {requirements}\n\n"
         f"Output only the Python source code."
     )
+
+    if _detect_dropbox_mention(description, requirements):
+        context = _get_dropbox_context(description + " " + requirements)
+        if context:
+            user_prompt += f"\n\n{context}"
 
     response = client.chat.completions.create(
         model=QWEN_MODEL,

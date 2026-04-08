@@ -1,8 +1,14 @@
 import logging
 import os
+import re
 import streamlit as st
 
 from helpers.chat_config import AppConfig
+
+_DROPBOX_KEYWORDS = re.compile(
+    r"\b(dropbox|uploaded?\s+files?|from\s+uploads?)\b",
+    re.IGNORECASE,
+)
 from helpers.chat_prompts import SystemPrompts
 from helpers.chat_utils import MessageUtils
 from helpers.rag_utils_langchain import (
@@ -64,8 +70,9 @@ class ContextBuilder:
             ]
             return doc_chunks, dropbox_sources
 
-        # 2) ChromaDB semantic search (only when DropBox context is active)
-        if st.session_state.get("dropbox_context_enabled", False):
+        # 2) ChromaDB semantic search when DropBox context is active OR user mentions keywords
+        dropbox_mentioned = bool(_DROPBOX_KEYWORDS.search(user_input))
+        if st.session_state.get("dropbox_context_enabled", False) or dropbox_mentioned:
             logger.info("DropBox context active — attempting ChromaDB semantic search")
             try:
                 retrieved, retrieved_filenames = search_documents_langchain(user_input, k=4)
