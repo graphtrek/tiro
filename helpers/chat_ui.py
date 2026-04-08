@@ -1,6 +1,7 @@
 import base64
 import logging
 import os
+from datetime import datetime
 
 import streamlit as st
 
@@ -247,6 +248,18 @@ class ChatUI:
                     unsafe_allow_html=True,
                 )
 
+            # Download chat button
+            st.markdown("<hr style='border-color:#444'>", unsafe_allow_html=True)
+            has_messages = bool(st.session_state.get("messages"))
+            st.download_button(
+                label="⬇️ Chat letöltése (.md)",
+                data=ChatUI._build_chat_markdown() if has_messages else "",
+                file_name=f"chat_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.md",
+                mime="text/markdown",
+                use_container_width=True,
+                disabled=not has_messages,
+            )
+
         return (
             st.session_state.get("selected_model", AppConfig.MODELS[0]),
             st.session_state.get("internet_context_enabled", True),
@@ -254,6 +267,27 @@ class ChatUI:
             st.session_state.get("gmail_context_enabled", False),
             st.session_state.get("drive_context_enabled", False),
         )
+
+    @staticmethod
+    def _build_chat_markdown() -> str:
+        """Build a Markdown string of the full conversation."""
+        lines = []
+        lines.append(f"# Chat — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append("")
+        messages = st.session_state.get("messages", [])
+        for i, msg in enumerate(messages):
+            role_label = "👤 User" if msg["role"] == "user" else "🤖 Assistant"
+            lines.append(f"### {role_label}")
+            lines.append("")
+            if msg.get("image_b64"):
+                lines.append(f"*[Attached image: {msg.get('image_name', 'image')}]*")
+                lines.append("")
+            lines.append(msg["content"])
+            if i < len(messages) - 1:
+                lines.append("")
+                lines.append("---")
+                lines.append("")
+        return "\n".join(lines)
 
     @staticmethod
     def render_messages() -> None:
