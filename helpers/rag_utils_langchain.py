@@ -561,14 +561,17 @@ def search_documents_langchain(
         return None, None
 
 
-def search_web_langchain(query: str) -> tuple[str | None, list[dict] | None]:
+def search_web_langchain(query: str) -> tuple[str | None, list[dict] | None, bool]:
     """
     Search the web using LangChain's DuckDuckGo tool (no API key required).
 
     Returns:
-        (context_text, sources) where context_text is a newline-joined string of
-        result snippets and sources is a list of {"title": str, "link": str} dicts.
-        Returns (None, None) on failure or empty results.
+        (context_text, sources, access_blocked) where:
+        - context_text is a newline-joined string of result snippets,
+        - sources is a list of {"title": str, "link": str} dicts,
+        - access_blocked is True when the search engine returned a 4xx/rate-limit error.
+        Returns (None, None, False) on empty results.
+        Returns (None, None, True) when access is blocked.
     """
     logger.info("[WEB SEARCH] query=%r", query)
     try:
@@ -576,7 +579,7 @@ def search_web_langchain(query: str) -> tuple[str | None, list[dict] | None]:
         raw: list[dict] = tool.run(query)
         if not raw:
             logger.warning("[WEB SEARCH] No results for query=%r", query)
-            return None, None
+            return None, None, False
 
         text_parts = []
         sources    = []
@@ -591,11 +594,20 @@ def search_web_langchain(query: str) -> tuple[str | None, list[dict] | None]:
 
         text = "\n\n".join(text_parts) if text_parts else None
         logger.info("[WEB SEARCH] %d results, %d chars", len(raw), len(text) if text else 0)
-        return text, sources if sources else None
+        return text, sources if sources else None, False
 
     except Exception as e:
-        logger.error("[WEB SEARCH] Failed: %s", str(e))
-        return None, None
+        err_msg = str(e).lower()
+        # DuckDuckGo raises RatelimitException or messages containing 202/403/429
+        access_blocked = any(
+            kw in err_msg
+            for kw in ("ratelimit", "202", "403", "429", "blocked", "forbidden", "too many")
+        )
+        if access_blocked:
+            logger.warning("[WEB SEARCH] Access blocked: %s", str(e))
+        else:
+            logger.error("[WEB SEARCH] Failed: %s", str(e))
+        return None, None, access_blocked
 
 
 # ── Backward-compatibility wrappers ───────────────────────────────────────────

@@ -32,12 +32,19 @@ def _extract_urls(text: str) -> list[str]:
     return _URL_PATTERN.findall(text)
 
 
-def _fetch_url_content(url: str, max_chars: int = 32768) -> str | None:
-    """Fetch a URL and return its readable text content."""
+def _fetch_url_content(url: str, max_chars: int = 32768) -> tuple[str | None, int | None]:
+    """Fetch a URL and return (text, error_code).
+
+    Returns (content, None) on success.
+    Returns (None, status_code) on HTTP 4xx/5xx error.
+    Returns (None, None) on network or other error.
+    """
     try:
         headers = {"User-Agent": "Mozilla/5.0 (compatible; NothingGetsOutAI/1.0)"}
         resp = requests.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            logger.warning("_fetch_url_content HTTP %d for %s", resp.status_code, url)
+            return None, resp.status_code
         content_type = resp.headers.get("Content-Type", "")
         if "text/html" in content_type:
             if _BS4_AVAILABLE:
@@ -52,10 +59,14 @@ def _fetch_url_content(url: str, max_chars: int = 32768) -> str | None:
             text = resp.text
         if len(text) > max_chars:
             text = text[:max_chars] + "\n... [truncated]"
-        return text
+        return text, None
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response is not None else None
+        logger.warning("_fetch_url_content HTTP error for %s: %s", url, e)
+        return None, status_code
     except Exception as e:
         logger.warning("_fetch_url_content failed for %s: %s", url, e)
-        return None
+        return None, None
 
 
 class ContextBuilder:
@@ -172,18 +183,34 @@ class ContextBuilder:
         # 1) Fetch user-provided URLs (preferred)
         urls = _extract_urls(user_input)
         for url in urls[:3]:
-            content = _fetch_url_content(url)
+            content, err_code = _fetch_url_content(url)
             if content:
                 logger.info("url_fetch_ok=%s, chars=%d", url, len(content))
                 parts.append(f"--- Content from {url} ---\n{content}")
                 sources.append({"title": url, "link": url})
+            elif err_code is not None and 400 <= err_code < 500:
+                logger.warning("url_fetch_http_%d=%s", err_code, url)
+                st.warning(
+                    f"⚠️ **Hozzáférés megtagadva (HTTP {err_code}):** "
+                    f"A `{url}` oldal letiltotta a hozzáférést. "
+                    f"Az oldal tartalma nem lett figyelembe véve."
+                )
+                parts.append(
+                    f"--- A {url} weboldal letöltése sikertelen: "
+                    f"HTTP {err_code} – a szerver megtagadta a hozzáférést. ---"
+                )
             else:
-                logger.warning("url_fetch_failed=%s", url)
-                parts.append(f"--- A {url} weboldal tartalma nem tölthető le (hálózati hiba vagy hozzáféréstiltás). ---")
+                logger.warning("url_fetch_failed=%s, err_code=%s", url, err_code)
+                parts.append(f"--- A {url} weboldal tartalma nem tölthető le (hálózati hiba). ---")
 
         # 2) DuckDuckGo supplemental search
         try:
-            web_results, web_sources = search_web_langchain(user_input)
+            web_results, web_sources, search_blocked = search_web_langchain(user_input)
+            if search_blocked:
+                st.warning(
+                    "⚠️ **Internetes keresés tiltva:** A keresőmotor megtagadta a hozzáférést "
+                    "(HTTP 403 / rate-limit). A keresési eredmények nem elérhetők."
+                )
             if web_results:
                 logger.info("web_search_completed=true, result_length=%s", len(str(web_results)))
                 parts.append(web_results)
