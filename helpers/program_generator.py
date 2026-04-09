@@ -7,6 +7,8 @@ import requests
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from helpers.log_utils import log_to_file
+
 try:
     from ddgs import DDGS
     _DDGS_AVAILABLE = True
@@ -115,6 +117,7 @@ def _extract_urls(text: str) -> list[str]:
 def _fetch_url_content(url: str, max_chars: int = 32768) -> str | None:
     """Fetch a URL and return its text content, stripping HTML if needed."""
     try:
+        log_to_file("program_generator", "INFO", f"Fetching URL content: {url}")
         headers = {"User-Agent": "Mozilla/5.0 (compatible; ProgramGenerator/1.0)"}
         resp = requests.get(url, headers=headers, timeout=10)
         resp.raise_for_status()
@@ -132,29 +135,40 @@ def _fetch_url_content(url: str, max_chars: int = 32768) -> str | None:
             text = resp.text
         if len(text) > max_chars:
             text = text[:max_chars] + "\n... [truncated]"
+        log_to_file("program_generator", "INFO", f"URL content fetched: {len(text)} chars from {url}\nContent: {text}")
         return text
-    except Exception:
+    except Exception as e:
+        log_to_file("program_generator", "ERROR", f"Failed to fetch {url}: {str(e)}")
         return None
 
 
 def _web_search_context(query: str, max_results: int = 3) -> str | None:
     """Run a DuckDuckGo search and return formatted snippets."""
     if not _DDGS_AVAILABLE:
+        log_to_file("program_generator", "WARNING", "DuckDuckGo not available, skipping web search")
         return None
     try:
+        log_to_file("program_generator", "INFO", f"Performing DuckDuckGo search: '{query[:100]}'")
         with DDGS() as ddgs:
             results = list(ddgs.text(query[:200], max_results=max_results))
         if not results:
+            log_to_file("program_generator", "INFO", "No web search results found")
             return None
+        log_to_file("program_generator", "INFO", f"Found {len(results)} web search results")
         lines = ["=== Web Search Results ==="]
         for i, r in enumerate(results, 1):
-            lines.append(f"[{i}] {r.get('title', '')}")
-            lines.append(f"URL: {r.get('href', '')}")
-            lines.append(r.get("body", ""))
+            title = r.get('title', '')
+            href = r.get('href', '')
+            body = r.get("body", "")
+            lines.append(f"[{i}] {title}")
+            lines.append(f"URL: {href}")
+            lines.append(body)
             lines.append("")
+            log_to_file("program_generator", "INFO", f"Search result {i}: Title='{title}' URL='{href}' Body='{body}'")
         lines.append("=== End Web Search Results ===")
         return "\n".join(lines)
-    except Exception:
+    except Exception as e:
+        log_to_file("program_generator", "ERROR", f"Web search failed: {str(e)}")
         return None
 
 
@@ -170,6 +184,7 @@ def _get_web_research_context(description: str, requirements: str) -> str | None
     sections: list[str] = []
 
     if urls:
+        log_to_file("program_generator", "INFO", f"Found {len(urls)} URL(s) in message: {urls}")
         url_lines = ["=== Referenced URL Content ==="]
         for url in urls[:3]:
             content = _fetch_url_content(url)
@@ -180,13 +195,22 @@ def _get_web_research_context(description: str, requirements: str) -> str | None
         url_lines.append("=== End Referenced URL Content ===")
         if len(url_lines) > 2:  # only add if at least one URL yielded content
             sections.append("\n".join(url_lines))
+            log_to_file("program_generator", "INFO", "Added referenced URL content to research context")
+    else:
+        log_to_file("program_generator", "INFO", "No URLs found in message")
 
     search_query = f"{description} {requirements}".strip()
     search_ctx = _web_search_context(search_query)
     if search_ctx:
         sections.append(search_ctx)
+        log_to_file("program_generator", "INFO", "Added web search results to research context")
 
-    return "\n\n".join(sections) if sections else None
+    if sections:
+        log_to_file("program_generator", "INFO", f"Research context built: {len(sections)} section(s)")
+        return "\n\n".join(sections)
+    else:
+        log_to_file("program_generator", "INFO", "No research context available")
+        return None
 
 
 def _detect_dropbox_mention(description: str, requirements: str) -> bool:
@@ -402,25 +426,35 @@ def plan_program_iteration(
     extra_parts: list[str] = []
 
     # Web research: fetch any URLs in the message + DuckDuckGo search
+    log_to_file("program_generator", "INFO", f"Planning iteration started. User message: {user_message[:100]}...")
     research = _get_web_research_context(user_message, "")
     if research:
+        log_to_file("program_generator", "INFO", f"Web research context length: {len(research)} chars")
         extra_parts.append(research)
+    else:
+        log_to_file("program_generator", "INFO", "No web research context generated")
 
     # Existing programs context (only on the first message to avoid repetition)
     if not conversation_history:
         existing_ctx = _get_existing_programs_context()
         if existing_ctx:
+            log_to_file("program_generator", "INFO", f"Existing programs context added: {len(existing_ctx)} chars")
             extra_parts.append(existing_ctx)
+        else:
+            log_to_file("program_generator", "INFO", "No existing programs context")
 
     if extra_parts:
         augmented_message = user_message + "\n\n" + "\n\n".join(extra_parts)
+        log_to_file("program_generator", "INFO", f"Final augmented message to model: {len(augmented_message)} chars total")
     else:
         augmented_message = user_message
+        log_to_file("program_generator", "INFO", "No augmentation, sending user message as-is to model")
 
     messages = [{"role": "system", "content": _PLAN_SYSTEM_PROMPT}]
     messages.extend(conversation_history)
     messages.append({"role": "user", "content": augmented_message})
 
+    log_to_file("program_generator", "INFO", f"Calling Qwen model with {len(messages)} messages")
     response = client.chat.completions.create(
         model=QWEN_MODEL,
         messages=messages,
