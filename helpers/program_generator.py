@@ -376,6 +376,10 @@ After every user message output ONLY the updated plan in this exact format
 Rules:
 - Update the plan based on every user message; keep sections the user has not changed.
 - If web search results are included in the user message, incorporate the relevant findings.
+- If the user message contains URLs, treat the fetched content from those URLs as the primary
+  source of truth and reflect it in the plan.
+- If an "=== Existing Programs ===" section is included, study the existing programs and ensure
+  the new plan does not duplicate functionality or conflict with them. Note reusable patterns.
 - Keep Requirements / Endpoints concrete and actionable.
 - Do NOT output code, only the plan.
 - Do NOT add extra sections or prose outside the plan.
@@ -389,14 +393,27 @@ def plan_program_iteration(
     """Run one planning iteration with Qwen and return the updated plan text.
 
     ``conversation_history`` is a list of dicts with ``role`` and ``content``
-    keys (OpenAI chat format).  The function appends web-search context to the
-    user message before sending it to the model.
+    keys (OpenAI chat format).  The function appends web-search context (URL
+    fetch + DuckDuckGo) and, on the first message, the existing-programs context
+    to the user message before sending it to the model.
     """
     client = _get_client()
 
+    extra_parts: list[str] = []
+
+    # Web research: fetch any URLs in the message + DuckDuckGo search
     research = _get_web_research_context(user_message, "")
     if research:
-        augmented_message = f"{user_message}\n\n{research}"
+        extra_parts.append(research)
+
+    # Existing programs context (only on the first message to avoid repetition)
+    if not conversation_history:
+        existing_ctx = _get_existing_programs_context()
+        if existing_ctx:
+            extra_parts.append(existing_ctx)
+
+    if extra_parts:
+        augmented_message = user_message + "\n\n" + "\n\n".join(extra_parts)
     else:
         augmented_message = user_message
 

@@ -72,13 +72,24 @@ Minden LLM-hívás bemeneti és kimeneti token-száma naplózásra kerül és az
 
 A **Programs** oldalon a felhasználó természetes nyelven leírhat egy FastAPI-alapú mikroszolgáltatást, amelyet a Qwen3-Coder modell automatikusan legenerál, lemezre ment és azonnal el is indít. A generált programok hozzáférnek a Gmail- és Google Drive-segédfüggvényekhez, valamint a közös naplózóhoz.
 
+Az oldal két fülre van osztva: **📋 Plan** (tervezés) és **➕ Generate** (generálás).
+
+#### 📋 Plan — iteratív tervkészítés web kereséssel
+
+A felhasználó először természetes nyelven leírja, mit szeretne építeni. Minden iteráció során a rendszer:
+1. DuckDuckGo-kereséssel és URL-tartalom-lekéréssel gyűjt releváns webes kontextust
+2. A teljes eddigi conversation history-t és a web-kontextust átadja a Qwen modellnek
+3. Visszaad egy struktúrált tervet (program név, leírás, végpontok, futtatási mód, kutatási jegyzetek)
+
+A terv tetszés szerint finomítható több körös üzenetváltással. Ha a felhasználó elégedett, az **✅ Accept & Implement** gombra kattintva a terv mezői automatikusan kitöltik a Generate formot. A **🗑️ Reset** gomb törli a teljes conversation history-t.
+
 **Generált program életciklusa:**
-- Névmegadás, leírás, követelmények és futtatási mód (service / on_demand) megadása
+- Névmegadás, leírás, követelmények és futtatási mód (service / on_demand) megadása (manuálisan vagy tervből előtöltve)
 - Kódgenerálás Qwen3-Coder-rel → egyedi ID + port kiosztása → `main.py` + `manifest.json` mentése
 - Start / Stop gombokkal indítható és leállítható az uvicorn-alapú szerver
 - Beépített kódszerkesztő: a forráskód közvetlenül szerkeszthető és mentehető a böngészőből
 - Valós idejű log néző az egyes programok kimenetéhez
-- **Letöltés ZIP-ben**: egy kattintással letölthető a teljes program (`main.py` + `manifest.json`) egyetlen `.zip` fájlként
+- **Letöltés ZIP-ben**: Download gomb → letöltés után a **Save ZIP** gomb közvetlenül mellette jelenik meg; egy kattintással letölthető a teljes program (`main.py` + `manifest.json`)
 
 **Módosítás funkció:**
 Minden generált programhoz elérhető egy **✏️ Modify** gomb, amely előtölti az összes beviteli mezőt (név, leírás, követelmények, mód). Küldéskor az alkalmazás automatikusan eldönti:
@@ -179,11 +190,11 @@ Chat.py  ── Streamlit belépési pont
 ├── helpers/drive_mcp_server.py  FastMCP szerver: Drive eszközök MCP-n keresztül
 │
 ├── manager_api.py               FastAPI Manager API (port 8500) — programgenerálás és életciklus
-├── helpers/program_generator.py Qwen3-Coder alapú kódgenerálás
+├── helpers/program_generator.py Qwen3-Coder alapú kódgenerálás + iteratív tervgenerálás (plan_program_iteration)
 ├── helpers/program_manager.py   Program létrehozás, indítás, leállítás, törlés, módosítás, logok
 ├── generated_programs/          Generált FastAPI programok ({slug}-{id}/main.py + manifest.json)
 │
-├── pages/Programs.py            Dinamikus programgenerátor UI (generálás, módosítás, kódszerkesztő)
+├── pages/Programs.py            Dinamikus programgenerátor UI (📋 Plan tervkészítő, ➕ Generate, módosítás, kódszerkesztő)
 ├── pages/DropBox.py             Fájl feltöltés + index kezelő UI
 ├── pages/Logs.py                Napló néző UI
 └── pages/About.py               Az alkalmazás bemutatása

@@ -97,14 +97,17 @@ def _parse_plan(plan_text: str) -> dict:
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
 
-tab_generate, tab_plan = st.tabs(["➕ Generate", "📋 Plan"])
+tab_plan, tab_generate = st.tabs(["📋 Plan", "➕ Generate"])
 
 # ── Plan tab ──────────────────────────────────────────────────────────────────
 
 with tab_plan:
     st.markdown("### 📋 Plan your program iteratively")
     st.caption(
-        "Describe what you want to build. Each iteration runs a web search to enrich the plan. "
+        "Describe what you want to build. "
+        "Every iteration: searches the web (DuckDuckGo), fetches any URLs you paste in, "
+        "and takes your already-generated programs into account — so the new plan stays "
+        "consistent with what you've built. "
         "When happy, click **Accept & Implement** to pre-fill the Generate form."
     )
 
@@ -402,7 +405,7 @@ else:
 
             # Logs + Download row
             logs_key = f"show_logs_{prog_id}"
-            bottom_col1, bottom_col2, bottom_col3 = st.columns([1, 1, 6])
+            bottom_col1, bottom_col2, bottom_col3, bottom_col4 = st.columns([1, 1, 1, 5])
             if bottom_col1.button("Logs", key=f"logs_btn_{prog_id}"):
                 st.session_state[logs_key] = not st.session_state.get(logs_key, False)
 
@@ -416,7 +419,7 @@ else:
                     st.error(f"Download failed: {zip_resp.status_code}")
 
             if st.session_state.get(f"zip_data_{prog_id}"):
-                bottom_col2.download_button(
+                bottom_col3.download_button(
                     label="Save ZIP",
                     data=st.session_state[f"zip_data_{prog_id}"],
                     file_name=f"{prog['name']}.zip",
