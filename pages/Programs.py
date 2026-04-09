@@ -226,6 +226,11 @@ with tab_plan:
 # ── Generate / Modify tab ─────────────────────────────────────────────────────
 
 with tab_generate:
+    # Apply any pending prefill values BEFORE widgets are instantiated
+    for _k in ["gen_name", "gen_description", "gen_requirements", "gen_mode"]:
+        _pk = f"_prefill_{_k}"
+        if _pk in st.session_state:
+            st.session_state[_k] = st.session_state.pop(_pk)
     # Initialize form widget keys with empty defaults if not already set
     for _k, _v in [("gen_name", ""), ("gen_description", ""),
                    ("gen_requirements", ""), ("gen_mode", "service")]:
@@ -402,11 +407,11 @@ else:
                         "requirements": prog.get("requirements", ""),
                         "mode": prog.get("mode", "service"),
                     }
-                    # Pre-fill form widget keys directly
-                    st.session_state["gen_name"] = prog.get("name", "")
-                    st.session_state["gen_description"] = prog.get("description", "")
-                    st.session_state["gen_requirements"] = prog.get("requirements", "")
-                    st.session_state["gen_mode"] = prog.get("mode", "service")
+                    # Stage prefill values; applied before widgets render on next run
+                    st.session_state["_prefill_gen_name"] = prog.get("name", "")
+                    st.session_state["_prefill_gen_description"] = prog.get("description", "")
+                    st.session_state["_prefill_gen_requirements"] = prog.get("requirements", "")
+                    st.session_state["_prefill_gen_mode"] = prog.get("mode", "service")
                     # Restore saved plan if available
                     saved_plan = _load_plan_for_program(prog_id)
                     if saved_plan:
