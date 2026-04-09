@@ -270,8 +270,15 @@ def update_code(program_id: str, code: str) -> None:
     (prog_dir / "main.py").write_text(code)
 
 
-def regenerate_program(program_id: str, description: str, new_code: str) -> dict:
-    """Update description and code of an existing program in-place."""
+def regenerate_program(
+    program_id: str,
+    description: str,
+    new_code: str,
+    name: Optional[str] = None,
+    requirements: Optional[str] = None,
+    mode: Optional[str] = None,
+) -> dict:
+    """Update description, code and optionally name/requirements/mode in-place."""
     prog_dir = _find_prog_dir(program_id)
     if not prog_dir:
         raise FileNotFoundError(f"Program {program_id} not found")
@@ -279,6 +286,16 @@ def regenerate_program(program_id: str, description: str, new_code: str) -> dict
     with open(manifest_path) as fh:
         manifest = json.load(fh)
     manifest["description"] = description
+    if requirements is not None:
+        manifest["requirements"] = requirements
+    if mode is not None:
+        manifest["mode"] = mode
+    if name is not None and name != manifest.get("name"):
+        new_slug = _slugify(name)
+        manifest["name"] = new_slug
+        new_dir = prog_dir.parent / f"{new_slug}-{program_id}"
+        prog_dir.rename(new_dir)
+        prog_dir = new_dir
     (prog_dir / "main.py").write_text(new_code)
     _save_manifest(prog_dir, manifest)
     _refresh_status(manifest, prog_dir)
