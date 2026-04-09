@@ -184,21 +184,25 @@ with tab_plan:
 
     if accept_clicked and st.session_state.get("plan_latest"):
         parsed = _parse_plan(st.session_state["plan_latest"])
-        st.session_state["plan_accepted_fields"] = parsed
-        st.success(
-            f"Plan accepted — switching to **Generate** tab. "
-            f"Program name: `{parsed['name'] or '(unnamed)'}`"
-        )
+        # Write directly into the form widget keys so the values survive reruns
+        st.session_state["gen_name"] = parsed["name"]
+        st.session_state["gen_description"] = parsed["description"]
+        st.session_state["gen_requirements"] = parsed["requirements"]
+        st.session_state["gen_mode"] = parsed["mode"]
+        st.session_state["plan_prefilled"] = True
+        st.rerun()
 
 # ── Generate / Modify tab ─────────────────────────────────────────────────────
 
 with tab_generate:
-    # Pull accepted plan fields if present
-    _accepted = st.session_state.pop("plan_accepted_fields", None)
-    if _accepted:
-        st.info(
-            "Fields pre-filled from the accepted plan. Review and click **Generate**."
-        )
+    # Initialize form widget keys with empty defaults if not already set
+    for _k, _v in [("gen_name", ""), ("gen_description", ""),
+                   ("gen_requirements", ""), ("gen_mode", "service")]:
+        if _k not in st.session_state:
+            st.session_state[_k] = _v
+
+    if st.session_state.pop("plan_prefilled", False):
+        st.info("Fields pre-filled from the accepted plan. Review and click **Generate**.")
 
     modify_id = st.session_state.get("modify_id")
     modify_orig = st.session_state.get("modify_orig", {})
@@ -208,14 +212,15 @@ with tab_generate:
     else:
         expander_label = "➕ Generate a new program"
 
-    # Determine default form values (accepted plan > modify_orig > empty)
-    _defaults = _accepted or modify_orig
-
     with st.expander(expander_label, expanded=True):
         if modify_id:
             if st.button("Cancel", key="cancel_modify"):
                 del st.session_state["modify_id"]
                 del st.session_state["modify_orig"]
+                st.session_state["gen_name"] = ""
+                st.session_state["gen_description"] = ""
+                st.session_state["gen_requirements"] = ""
+                st.session_state["gen_mode"] = "service"
                 st.rerun()
 
         with st.form("generate_form"):
@@ -223,28 +228,24 @@ with tab_generate:
             with col1:
                 prog_name = st.text_input(
                     "Program name",
-                    value=_defaults.get("name", ""),
+                    key="gen_name",
                     placeholder="e.g. currency-converter",
                 )
                 mode = st.selectbox(
                     "Execution mode",
                     ["service", "on_demand"],
-                    index=["service", "on_demand"].index(
-                        _defaults.get("mode", "service")
-                        if _defaults.get("mode", "service") in ("service", "on_demand")
-                        else "service"
-                    ),
+                    key="gen_mode",
                 )
             with col2:
                 description = st.text_area(
                     "Description",
-                    value=_defaults.get("description", ""),
+                    key="gen_description",
                     placeholder="What should this API do?",
                     height=200,
                 )
             requirements = st.text_area(
                 "Requirements / endpoints",
-                value=_defaults.get("requirements", ""),
+                key="gen_requirements",
                 placeholder=(
                     "e.g.\n"
                     "- GET /convert?from=USD&to=EUR&amount=100 → returns converted amount\n"
@@ -382,6 +383,11 @@ else:
                         "requirements": prog.get("requirements", ""),
                         "mode": prog.get("mode", "service"),
                     }
+                    # Pre-fill form widget keys directly
+                    st.session_state["gen_name"] = prog.get("name", "")
+                    st.session_state["gen_description"] = prog.get("description", "")
+                    st.session_state["gen_requirements"] = prog.get("requirements", "")
+                    st.session_state["gen_mode"] = prog.get("mode", "service")
                     st.rerun()
 
             # Code viewer / editor
