@@ -141,6 +141,13 @@ with tab_plan:
     if st.session_state.pop("plan_restored", False):
         st.success("♻️ Plan visszatöltve a mentett fájlból.")
 
+    if st.session_state.pop("plan_accepted", False):
+        modify_pending = st.session_state.get("modify_id")
+        if modify_pending:
+            st.success("✅ Plan elfogadva! Váltson a **➕ Generate** tabra és kattintson a **Regenerate / Generate** gombra.")
+        else:
+            st.success("✅ Plan elfogadva! Váltson a **➕ Generate** tabra és kattintson a **Generate** gombra.")
+
     # Show conversation history
     if plan_conv:
         for msg in plan_conv:
@@ -213,6 +220,7 @@ with tab_plan:
         st.session_state["gen_mode"] = parsed["mode"]
         st.session_state["plan_prefilled"] = True
         st.session_state["pending_plan_save"] = st.session_state["plan_latest"]
+        st.session_state["plan_accepted"] = True
         st.rerun()
 
 # ── Generate / Modify tab ─────────────────────────────────────────────────────
@@ -306,6 +314,15 @@ with tab_generate:
                     del st.session_state["modify_id"]
                     del st.session_state["modify_orig"]
                     st.rerun()
+                else:
+                    # Regenerate failed (e.g. program was deleted) — fall back to new program
+                    st.warning(
+                        "A program nem található (lehet, hogy törölve lett). "
+                        "Kattintson mégegyszer a gombra új programként való létrehozáshoz."
+                    )
+                    del st.session_state["modify_id"]
+                    if "modify_orig" in st.session_state:
+                        del st.session_state["modify_orig"]
             else:
                 with st.spinner("Generating program with Qwen…"):
                     result = _api(
