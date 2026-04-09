@@ -65,6 +65,9 @@ class GenerateRequest(BaseModel):
 
 class RegenerateRequest(BaseModel):
     description: str
+    name: Optional[str] = None
+    requirements: Optional[str] = None
+    mode: Optional[str] = None
 
 
 class UpdateCodeRequest(BaseModel):
@@ -97,12 +100,21 @@ async def regenerate(program_id: str, request: RegenerateRequest):
     prog = get_program(program_id)
     if not prog:
         raise HTTPException(status_code=404, detail="Program not found")
+    effective_name = request.name or prog["name"]
+    effective_requirements = request.requirements if request.requirements is not None else prog.get("requirements", "")
     code = generate_program_code(
-        prog["name"], request.description, prog.get("requirements", ""),
+        effective_name, request.description, effective_requirements,
         exclude_program_id=program_id,
     )
     try:
-        manifest = regenerate_program(program_id, request.description, code)
+        manifest = regenerate_program(
+            program_id,
+            request.description,
+            code,
+            name=request.name,
+            requirements=request.requirements,
+            mode=request.mode,
+        )
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Program not found")
     return manifest

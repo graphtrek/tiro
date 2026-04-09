@@ -6,10 +6,29 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from pathlib import Path
+
 import requests
 import streamlit as st
 from helpers.chat_ui import render_page_nav
 from helpers.program_generator import plan_program_iteration
+
+_GENERATED_DIR = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "generated_programs"
+
+
+def _save_plan_for_program(program_id: str, plan_text: str) -> None:
+    matches = list(_GENERATED_DIR.glob(f"*-{program_id}"))
+    if matches:
+        (matches[0] / "plan.md").write_text(plan_text, encoding="utf-8")
+
+
+def _load_plan_for_program(program_id: str) -> str | None:
+    matches = list(_GENERATED_DIR.glob(f"*-{program_id}"))
+    if matches:
+        plan_path = matches[0] / "plan.md"
+        if plan_path.exists():
+            return plan_path.read_text(encoding="utf-8")
+    return None
 
 MANAGER_URL = os.environ.get("MANAGER_API_URL", "http://localhost:8500")
 PROGRAMS_HOST = os.environ.get("PROGRAMS_HOST", "localhost")
@@ -119,6 +138,9 @@ with tab_plan:
 
     plan_conv: list[dict] = st.session_state["plan_conversation"]
 
+    if st.session_state.pop("plan_restored", False):
+        st.success("♻️ Plan visszatöltve a mentett fájlból.")
+
     # Show conversation history
     if plan_conv:
         for msg in plan_conv:
@@ -190,6 +212,7 @@ with tab_plan:
         st.session_state["gen_requirements"] = parsed["requirements"]
         st.session_state["gen_mode"] = parsed["mode"]
         st.session_state["plan_prefilled"] = True
+        st.session_state["pending_plan_save"] = st.session_state["plan_latest"]
         st.rerun()
 
 # ── Generate / Modify tab ─────────────────────────────────────────────────────
@@ -260,53 +283,29 @@ with tab_generate:
             if not prog_name or not description or not requirements:
                 st.warning("Please fill in all fields.")
             elif modify_id:
-                # Check what changed vs original
-                desc_changed = description != modify_orig.get("description", "")
-                other_changed = (
-                    prog_name != modify_orig.get("name", "")
-                    or requirements != modify_orig.get("requirements", "")
-                    or mode != modify_orig.get("mode", "service")
-                )
-
-                if other_changed:
-                    # Name / requirements / mode changed → create new program
-                    with st.spinner("Generating new program with Qwen…"):
-                        result = _api(
-                            "POST",
-                            "/programs/generate",
-                            json={
-                                "name": prog_name,
-                                "description": description,
-                                "requirements": requirements,
-                                "mode": mode,
-                            },
-                        )
-                    if result:
-                        st.success(
-                            f"Program **{result['name']}** created — ID `{result['id']}`, "
-                            f"port **{result['port']}**"
-                        )
-                        del st.session_state["modify_id"]
-                        del st.session_state["modify_orig"]
-                        st.rerun()
-                elif desc_changed:
-                    # Only description changed → regenerate in-place
-                    with st.spinner("Regenerating program with Qwen…"):
-                        result = _api(
-                            "POST",
-                            f"/programs/{modify_id}/regenerate",
-                            json={"description": description},
-                        )
-                    if result:
-                        st.success(
-                            f"Program **{result['name']}** regenerated in-place — "
-                            f"ID `{result['id']}`, port **{result['port']}**"
-                        )
-                        del st.session_state["modify_id"]
-                        del st.session_state["modify_orig"]
-                        st.rerun()
-                else:
-                    st.info("No changes detected.")
+                # Always regenerate in-place (same ID/port), update all fields
+                with st.spinner("Regenerating program with Qwen…"):
+                    result = _api(
+                        "POST",
+                        f"/programs/{modify_id}/regenerate",
+                        json={
+                            "description": description,
+                            "name": prog_name,
+                            "requirements": requirements,
+                            "mode": mode,
+                        },
+                    )
+                if result:
+                    pending_plan = st.session_state.pop("pending_plan_save", None)
+                    if pending_plan:
+                        _save_plan_for_program(result["id"], pending_plan)
+                    st.success(
+                        f"Program **{result['name']}** regenerated in-place — "
+                        f"ID `{result['id']}`, port **{result['port']}**"
+                    )
+                    del st.session_state["modify_id"]
+                    del st.session_state["modify_orig"]
+                    st.rerun()
             else:
                 with st.spinner("Generating program with Qwen…"):
                     result = _api(
@@ -320,6 +319,9 @@ with tab_generate:
                         },
                     )
                 if result:
+                    pending_plan = st.session_state.pop("pending_plan_save", None)
+                    if pending_plan:
+                        _save_plan_for_program(result["id"], pending_plan)
                     st.success(
                         f"Program **{result['name']}** created — ID `{result['id']}`, "
                         f"port **{result['port']}**"
@@ -388,6 +390,14 @@ else:
                     st.session_state["gen_description"] = prog.get("description", "")
                     st.session_state["gen_requirements"] = prog.get("requirements", "")
                     st.session_state["gen_mode"] = prog.get("mode", "service")
+                    # Restore saved plan if available
+                    saved_plan = _load_plan_for_program(prog_id)
+                    if saved_plan:
+                        st.session_state["plan_conversation"] = [
+                            {"role": "assistant", "content": saved_plan}
+                        ]
+                        st.session_state["plan_latest"] = saved_plan
+                        st.session_state["plan_restored"] = True
                     st.rerun()
 
             # Code viewer / editor
