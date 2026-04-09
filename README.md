@@ -16,11 +16,17 @@ Az alkalmazás teljesen on-premise üzemel: nincs felhőbe küldött adat, nincs
 
 ### Chat módok
 
+> **Kontextus-szigetelés:** Minden mód kizárólag a saját kontextus-forrásához fér hozzá. A modell csak azt „látja", amit az adott mód biztosít — más módok adatai teljesen el vannak zárva előle. DropBox módban nincs internet-hozzáférés; Internet módban nincs dokumentum-index; Gmail módban nincs Drive-hozzáférés és fordítva.
+
 #### Internet mód
 Az asszisztens minden kérdés megválaszolásakor valós idejű webes keresést végez (DuckDuckGo), majd az aktuális találatokat beépíti a kontextusba, mielőtt az LLM-hez továbbítja a kérdést. Az eredmény naprakész, internetre támaszkodó válasz — felhasználói API kulcs vagy előfizetés nélkül.
 
+> **Kontextus forrása:** kizárólag a DuckDuckGo keresési találatok. A modell nem fér hozzá feltöltött dokumentumokhoz, e-mailekhez vagy Drive-tartalmakhoz.
+
 #### DropBox mód
 A felhasználó PDF, DOCX, XLSX, TXT és Markdown fájlokat tölthet fel. Az alkalmazás ezeket feldolgozza, szöveg-darabokra bontja, és szemantikus vektoros indexbe szervezi. Kérdés feltevésekor a rendszer a leginkább releváns dokumentum-részleteket keresi ki, és azokat nyújtja kontextusként az LLM-nek — így a vállalati tudásbázis közvetlenül elérhető az AI számára.
+
+> **Kontextus forrása:** kizárólag a feltöltött és indexelt dokumentumok (ChromaDB vektoros keresés). A modell nem végez webes keresést, és nem fér hozzá e-mailekhez vagy Drive-tartalmakhoz.
 
 #### Gmail mód
 Az asszisztens teljes hozzáféréssel rendelkezik a csatlakoztatott Gmail-fiókhoz. Természetes nyelven adott utasítások alapján képes:
@@ -31,6 +37,8 @@ Az asszisztens teljes hozzáféréssel rendelkezik a csatlakoztatott Gmail-fiók
 - e-maileket a kukába helyezni.
 
 A műveleteket az LLM koordinálja automatikus eszközhívás-láncolattal, egészen addig, amíg a feladatot be nem fejezi.
+
+> **Kontextus forrása:** kizárólag a Gmail API által visszaadott e-mail adatok. A modell nem végez webes keresést, nem olvas dokumentumokat, és nem fér hozzá Google Drive-tartalmakhoz.
 
 #### Google Drive mód
 Az asszisztens hozzáfér a csatlakoztatott Google Drive-hoz. Természetes nyelven adott utasítások alapján képes:
@@ -43,6 +51,8 @@ Az asszisztens hozzáfér a csatlakoztatott Google Drive-hoz. Természetes nyelv
 - fájlt megosztani egy Google-fiókkal (olvasó / szerkesztő / megjegyzés).
 
 A Drive-integráció közvetlenül elérhető a chat felületen (oldalsáv → Drive kontextus), és MCP szerveren keresztül VS Code GitHub Copilot Agentből is hívható.
+
+> **Kontextus forrása:** kizárólag a Google Drive API által visszaadott fájl- és mappaadatok. A modell nem végez webes keresést, nem olvas DropBox dokumentumokat, és nem fér hozzá Gmail-tartalmakhoz.
 
 ---
 
@@ -68,6 +78,7 @@ A **Programs** oldalon a felhasználó természetes nyelven leírhat egy FastAPI
 - Start / Stop gombokkal indítható és leállítható az uvicorn-alapú szerver
 - Beépített kódszerkesztő: a forráskód közvetlenül szerkeszthető és mentehető a böngészőből
 - Valós idejű log néző az egyes programok kimenetéhez
+- **Letöltés ZIP-ben**: egy kattintással letölthető a teljes program (`main.py` + `manifest.json`) egyetlen `.zip` fájlként
 
 **Módosítás funkció:**
 Minden generált programhoz elérhető egy **✏️ Modify** gomb, amely előtölti az összes beviteli mezőt (név, leírás, követelmények, mód). Küldéskor az alkalmazás automatikusan eldönti:
@@ -192,6 +203,7 @@ Chat.py  ── Streamlit belépési pont
 | `POST` | `/programs/{id}/stop` | Program leállítása |
 | `DELETE` | `/programs/{id}` | Program törlése |
 | `GET` | `/programs/{id}/logs` | Stdout/stderr napló |
+| `GET` | `/programs/{id}/download` | Program fájlok letöltése ZIP-ben |
 
 ### ChromaDB kollekciók
 

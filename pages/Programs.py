@@ -256,10 +256,29 @@ else:
                         if res:
                             st.success("Code updated. Restart the program to apply changes.")
 
-            # Logs viewer
+            # Logs + Download row
             logs_key = f"show_logs_{prog_id}"
-            if st.button("Logs", key=f"logs_btn_{prog_id}"):
+            bottom_col1, bottom_col2, bottom_col3 = st.columns([1, 1, 6])
+            if bottom_col1.button("Logs", key=f"logs_btn_{prog_id}"):
                 st.session_state[logs_key] = not st.session_state.get(logs_key, False)
+
+            if bottom_col2.button("Download", key=f"download_btn_{prog_id}"):
+                zip_resp = requests.get(
+                    f"{MANAGER_URL}/programs/{prog_id}/download", timeout=30
+                )
+                if zip_resp.ok:
+                    st.session_state[f"zip_data_{prog_id}"] = zip_resp.content
+                else:
+                    st.error(f"Download failed: {zip_resp.status_code}")
+
+            if st.session_state.get(f"zip_data_{prog_id}"):
+                bottom_col2.download_button(
+                    label="Save ZIP",
+                    data=st.session_state[f"zip_data_{prog_id}"],
+                    file_name=f"{prog['name']}.zip",
+                    mime="application/zip",
+                    key=f"save_zip_{prog_id}",
+                )
 
             if st.session_state.get(logs_key):
                 logs_data = _api("GET", f"/programs/{prog_id}/logs", params={"lines": 200})

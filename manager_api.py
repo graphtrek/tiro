@@ -171,3 +171,34 @@ async def delete(program_id: str):
 @app.get("/programs/{program_id}/logs")
 async def logs(program_id: str, lines: int = 100):
     return {"logs": get_logs(program_id, lines)}
+
+
+@app.get("/programs/{program_id}/download")
+async def download(program_id: str):
+    """Return all program files as a ZIP archive."""
+    import io
+    import zipfile
+
+    from fastapi.responses import StreamingResponse
+
+    from helpers.program_manager import _find_prog_dir
+
+    prog_dir = _find_prog_dir(program_id)
+    if not prog_dir:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    program = get_program(program_id)
+    zip_name = f"{program['name']}.zip" if program else f"{program_id}.zip"
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for file_path in sorted(prog_dir.iterdir()):
+            if file_path.is_file():
+                zf.write(file_path, arcname=file_path.name)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={zip_name}"},
+    )
