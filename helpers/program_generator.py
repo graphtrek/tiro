@@ -345,3 +345,70 @@ def _strip_code_fences(text: str) -> str:
     text = re.sub(r"^```(?:python)?\n?", "", text)
     text = re.sub(r"\n?```$", "", text)
     return text.strip()
+
+
+# ── Plan generation ───────────────────────────────────────────────────────────
+
+_PLAN_SYSTEM_PROMPT = """\
+You are a senior software architect helping a developer plan a FastAPI microservice.
+Your task is to iteratively refine a structured plan through conversation.
+
+After every user message output ONLY the updated plan in this exact format
+(use these headings verbatim, keep the content concise):
+
+## Program Name
+<a short kebab-case slug, e.g. currency-converter>
+
+## Description
+<one or two sentences describing what the service does>
+
+## Requirements / Endpoints
+<bullet list of endpoints and behaviour, e.g.:>
+- GET /convert?from=USD&to=EUR&amount=100 → returns {result: float}
+- GET /health → returns {status: "ok"}
+
+## Execution Mode
+<either "service" (long-running) or "on_demand" (one-shot)>
+
+## Research Notes
+<brief summary of relevant findings from web search or URLs; omit section if none>
+
+Rules:
+- Update the plan based on every user message; keep sections the user has not changed.
+- If web search results are included in the user message, incorporate the relevant findings.
+- Keep Requirements / Endpoints concrete and actionable.
+- Do NOT output code, only the plan.
+- Do NOT add extra sections or prose outside the plan.
+"""
+
+
+def plan_program_iteration(
+    user_message: str,
+    conversation_history: list[dict],
+) -> str:
+    """Run one planning iteration with Qwen and return the updated plan text.
+
+    ``conversation_history`` is a list of dicts with ``role`` and ``content``
+    keys (OpenAI chat format).  The function appends web-search context to the
+    user message before sending it to the model.
+    """
+    client = _get_client()
+
+    research = _get_web_research_context(user_message, "")
+    if research:
+        augmented_message = f"{user_message}\n\n{research}"
+    else:
+        augmented_message = user_message
+
+    messages = [{"role": "system", "content": _PLAN_SYSTEM_PROMPT}]
+    messages.extend(conversation_history)
+    messages.append({"role": "user", "content": augmented_message})
+
+    response = client.chat.completions.create(
+        model=QWEN_MODEL,
+        messages=messages,
+        temperature=0.4,
+        max_tokens=2048,
+    )
+
+    return (response.choices[0].message.content or "").strip()

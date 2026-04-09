@@ -1,6 +1,7 @@
 """Programs page — generate and manage dynamic FastAPI programs via Qwen."""
 
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -8,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import requests
 import streamlit as st
 from helpers.chat_ui import render_page_nav
+from helpers.program_generator import plan_program_iteration
 
 MANAGER_URL = os.environ.get("MANAGER_API_URL", "http://localhost:8500")
 PROGRAMS_HOST = os.environ.get("PROGRAMS_HOST", "localhost")
@@ -56,73 +58,253 @@ def _status_badge(status: str) -> str:
     return "🟢" if status == "running" else "🔴"
 
 
-# ── Generate form ─────────────────────────────────────────────────────────────
+def _parse_plan(plan_text: str) -> dict:
+    """Extract fields from a structured plan produced by the LLM.
 
-# ── Generate / Modify form ───────────────────────────────────────────────────
+    Returns a dict with keys: name, description, requirements, mode.
+    Any section that is missing falls back to an empty string.
+    """
+    heading_re = re.compile(r"^##\s+(.+)$", re.MULTILINE)
+    headings = list(heading_re.finditer(plan_text))
+    sections: dict[str, str] = {}
+    for i, match in enumerate(headings):
+        title = match.group(1).strip()
+        start = match.end()
+        end = headings[i + 1].start() if i + 1 < len(headings) else len(plan_text)
+        sections[title.lower()] = plan_text[start:end].strip()
 
-modify_id = st.session_state.get("modify_id")
-modify_orig = st.session_state.get("modify_orig", {})
+    def _get(*keys: str) -> str:
+        for k in keys:
+            for sec_key, val in sections.items():
+                if k in sec_key:
+                    return val
+        return ""
 
-if modify_id:
-    expander_label = f"✏️ Modify: {modify_orig.get('name', modify_id)}"
-else:
-    expander_label = "➕ Generate a new program"
+    raw_name = _get("program name", "name")
+    # Normalise to kebab-case slug (keep only alphanumeric + hyphen)
+    slug = re.sub(r"[^a-z0-9]+", "-", raw_name.lower()).strip("-") if raw_name else ""
 
-with st.expander(expander_label, expanded=True):
-    if modify_id:
-        if st.button("Cancel", key="cancel_modify"):
-            del st.session_state["modify_id"]
-            del st.session_state["modify_orig"]
+    mode_raw = _get("execution mode", "mode").lower()
+    mode = "on_demand" if "on_demand" in mode_raw or "on demand" in mode_raw else "service"
+
+    return {
+        "name": slug,
+        "description": _get("description"),
+        "requirements": _get("requirements", "endpoints"),
+        "mode": mode,
+    }
+
+
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+
+tab_generate, tab_plan = st.tabs(["➕ Generate", "📋 Plan"])
+
+# ── Plan tab ──────────────────────────────────────────────────────────────────
+
+with tab_plan:
+    st.markdown("### 📋 Plan your program iteratively")
+    st.caption(
+        "Describe what you want to build. Each iteration runs a web search to enrich the plan. "
+        "When happy, click **Accept & Implement** to pre-fill the Generate form."
+    )
+
+    # Init session state
+    if "plan_conversation" not in st.session_state:
+        st.session_state["plan_conversation"] = []  # list[dict] role/content
+    if "plan_latest" not in st.session_state:
+        st.session_state["plan_latest"] = ""
+
+    plan_conv: list[dict] = st.session_state["plan_conversation"]
+
+    # Show conversation history
+    if plan_conv:
+        for msg in plan_conv:
+            if msg["role"] == "user":
+                # Strip the appended web-search block before displaying
+                display_text = msg["content"].split("\n\n=== Referenced URL Content")[0]
+                display_text = display_text.split("\n\n=== Web Search Results")[0]
+                with st.chat_message("user"):
+                    st.markdown(display_text)
+            else:
+                with st.chat_message("assistant"):
+                    st.markdown(msg["content"])
+
+    # Input row
+    is_first = len(plan_conv) == 0
+    placeholder_text = (
+        "Describe what you want to build…"
+        if is_first
+        else "Refine the plan (e.g. add an endpoint, change the mode, ask a question)…"
+    )
+    plan_input = st.text_area(
+        "Your message",
+        placeholder=placeholder_text,
+        height=120,
+        key="plan_input_area",
+        label_visibility="collapsed",
+    )
+
+    btn_col1, btn_col2, btn_col3 = st.columns([2, 2, 6])
+    search_clicked = btn_col1.button("🔍 Search & Plan", type="primary", key="plan_search_btn")
+    reset_clicked = btn_col2.button("🗑️ Reset", key="plan_reset_btn")
+    accept_clicked = btn_col3.button(
+        "✅ Accept & Implement",
+        key="plan_accept_btn",
+        disabled=not st.session_state.get("plan_latest", ""),
+    )
+
+    if reset_clicked:
+        st.session_state["plan_conversation"] = []
+        st.session_state["plan_latest"] = ""
+        st.rerun()
+
+    if search_clicked:
+        if not plan_input.strip():
+            st.warning("Please enter a description or refinement before searching.")
+        else:
+            with st.spinner("Searching the web and planning with Qwen… this may take a moment."):
+                try:
+                    # Build history without the raw augmented messages (clean roles only)
+                    clean_history = plan_conv  # already role/content dicts
+                    plan_text = plan_program_iteration(plan_input.strip(), clean_history)
+                    # Store in conversation
+                    st.session_state["plan_conversation"].append(
+                        {"role": "user", "content": plan_input.strip()}
+                    )
+                    st.session_state["plan_conversation"].append(
+                        {"role": "assistant", "content": plan_text}
+                    )
+                    st.session_state["plan_latest"] = plan_text
+                except Exception as exc:
+                    st.error(f"Planning failed: {exc}")
             st.rerun()
 
-    with st.form("generate_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            prog_name = st.text_input(
-                "Program name",
-                value=modify_orig.get("name", ""),
-                placeholder="e.g. currency-converter",
-            )
-            mode = st.selectbox(
-                "Execution mode",
-                ["service", "on_demand"],
-                index=["service", "on_demand"].index(modify_orig.get("mode", "service")),
-            )
-        with col2:
-            description = st.text_area(
-                "Description",
-                value=modify_orig.get("description", ""),
-                placeholder="What should this API do?",
-                height=200,
-            )
-        requirements = st.text_area(
-            "Requirements / endpoints",
-            value=modify_orig.get("requirements", ""),
-            placeholder=(
-                "e.g.\n"
-                "- GET /convert?from=USD&to=EUR&amount=100 → returns converted amount\n"
-                "- Use an in-memory exchange rate table"
-            ),
-            height=120,
+    if accept_clicked and st.session_state.get("plan_latest"):
+        parsed = _parse_plan(st.session_state["plan_latest"])
+        st.session_state["plan_accepted_fields"] = parsed
+        st.success(
+            f"Plan accepted — switching to **Generate** tab. "
+            f"Program name: `{parsed['name'] or '(unnamed)'}`"
         )
-        btn_label = "Regenerate / Generate" if modify_id else "Generate"
-        submitted = st.form_submit_button(btn_label, type="primary")
 
-    if submitted:
-        if not prog_name or not description or not requirements:
-            st.warning("Please fill in all fields.")
-        elif modify_id:
-            # Check what changed vs original
-            desc_changed = description != modify_orig.get("description", "")
-            other_changed = (
-                prog_name != modify_orig.get("name", "")
-                or requirements != modify_orig.get("requirements", "")
-                or mode != modify_orig.get("mode", "service")
+# ── Generate / Modify tab ─────────────────────────────────────────────────────
+
+with tab_generate:
+    # Pull accepted plan fields if present
+    _accepted = st.session_state.pop("plan_accepted_fields", None)
+    if _accepted:
+        st.info(
+            "Fields pre-filled from the accepted plan. Review and click **Generate**."
+        )
+
+    modify_id = st.session_state.get("modify_id")
+    modify_orig = st.session_state.get("modify_orig", {})
+
+    if modify_id:
+        expander_label = f"✏️ Modify: {modify_orig.get('name', modify_id)}"
+    else:
+        expander_label = "➕ Generate a new program"
+
+    # Determine default form values (accepted plan > modify_orig > empty)
+    _defaults = _accepted or modify_orig
+
+    with st.expander(expander_label, expanded=True):
+        if modify_id:
+            if st.button("Cancel", key="cancel_modify"):
+                del st.session_state["modify_id"]
+                del st.session_state["modify_orig"]
+                st.rerun()
+
+        with st.form("generate_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                prog_name = st.text_input(
+                    "Program name",
+                    value=_defaults.get("name", ""),
+                    placeholder="e.g. currency-converter",
+                )
+                mode = st.selectbox(
+                    "Execution mode",
+                    ["service", "on_demand"],
+                    index=["service", "on_demand"].index(
+                        _defaults.get("mode", "service")
+                        if _defaults.get("mode", "service") in ("service", "on_demand")
+                        else "service"
+                    ),
+                )
+            with col2:
+                description = st.text_area(
+                    "Description",
+                    value=_defaults.get("description", ""),
+                    placeholder="What should this API do?",
+                    height=200,
+                )
+            requirements = st.text_area(
+                "Requirements / endpoints",
+                value=_defaults.get("requirements", ""),
+                placeholder=(
+                    "e.g.\n"
+                    "- GET /convert?from=USD&to=EUR&amount=100 → returns converted amount\n"
+                    "- Use an in-memory exchange rate table"
+                ),
+                height=120,
             )
+            btn_label = "Regenerate / Generate" if modify_id else "Generate"
+            submitted = st.form_submit_button(btn_label, type="primary")
 
-            if other_changed:
-                # Name / requirements / mode changed → create new program
-                with st.spinner("Generating new program with Qwen…"):
+        if submitted:
+            if not prog_name or not description or not requirements:
+                st.warning("Please fill in all fields.")
+            elif modify_id:
+                # Check what changed vs original
+                desc_changed = description != modify_orig.get("description", "")
+                other_changed = (
+                    prog_name != modify_orig.get("name", "")
+                    or requirements != modify_orig.get("requirements", "")
+                    or mode != modify_orig.get("mode", "service")
+                )
+
+                if other_changed:
+                    # Name / requirements / mode changed → create new program
+                    with st.spinner("Generating new program with Qwen…"):
+                        result = _api(
+                            "POST",
+                            "/programs/generate",
+                            json={
+                                "name": prog_name,
+                                "description": description,
+                                "requirements": requirements,
+                                "mode": mode,
+                            },
+                        )
+                    if result:
+                        st.success(
+                            f"Program **{result['name']}** created — ID `{result['id']}`, "
+                            f"port **{result['port']}**"
+                        )
+                        del st.session_state["modify_id"]
+                        del st.session_state["modify_orig"]
+                        st.rerun()
+                elif desc_changed:
+                    # Only description changed → regenerate in-place
+                    with st.spinner("Regenerating program with Qwen…"):
+                        result = _api(
+                            "POST",
+                            f"/programs/{modify_id}/regenerate",
+                            json={"description": description},
+                        )
+                    if result:
+                        st.success(
+                            f"Program **{result['name']}** regenerated in-place — "
+                            f"ID `{result['id']}`, port **{result['port']}**"
+                        )
+                        del st.session_state["modify_id"]
+                        del st.session_state["modify_orig"]
+                        st.rerun()
+                else:
+                    st.info("No changes detected.")
+            else:
+                with st.spinner("Generating program with Qwen…"):
                     result = _api(
                         "POST",
                         "/programs/generate",
@@ -138,45 +320,7 @@ with st.expander(expander_label, expanded=True):
                         f"Program **{result['name']}** created — ID `{result['id']}`, "
                         f"port **{result['port']}**"
                     )
-                    del st.session_state["modify_id"]
-                    del st.session_state["modify_orig"]
                     st.rerun()
-            elif desc_changed:
-                # Only description changed → regenerate in-place
-                with st.spinner("Regenerating program with Qwen…"):
-                    result = _api(
-                        "POST",
-                        f"/programs/{modify_id}/regenerate",
-                        json={"description": description},
-                    )
-                if result:
-                    st.success(
-                        f"Program **{result['name']}** regenerated in-place — "
-                        f"ID `{result['id']}`, port **{result['port']}**"
-                    )
-                    del st.session_state["modify_id"]
-                    del st.session_state["modify_orig"]
-                    st.rerun()
-            else:
-                st.info("No changes detected.")
-        else:
-            with st.spinner("Generating program with Qwen…"):
-                result = _api(
-                    "POST",
-                    "/programs/generate",
-                    json={
-                        "name": prog_name,
-                        "description": description,
-                        "requirements": requirements,
-                        "mode": mode,
-                    },
-                )
-            if result:
-                st.success(
-                    f"Program **{result['name']}** created — ID `{result['id']}`, "
-                    f"port **{result['port']}**"
-                )
-                st.rerun()
 
 # ── Program list ──────────────────────────────────────────────────────────────
 
