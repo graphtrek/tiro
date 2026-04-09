@@ -33,7 +33,7 @@ Az asszisztens teljes hozzáféréssel rendelkezik a csatlakoztatott Gmail-fiók
 A műveleteket az LLM koordinálja automatikus eszközhívás-láncolattal, egészen addig, amíg a feladatot be nem fejezi.
 
 #### Google Drive mód
-Az asszisztens MCP-n keresztül hozzáfér a csatlakoztatott Google Drive-hoz. Természetes nyelven adott utasítások alapján képes:
+Az asszisztens hozzáfér a csatlakoztatott Google Drive-hoz. Természetes nyelven adott utasítások alapján képes:
 - fájlokat és mappákat listázni, keresni,
 - fájl metaadatait lekérdezni (méret, módosítás dátuma, megosztás),
 - fájlok szöveges tartalmát olvasni (Google Docs, Sheets, sima szöveg, CSV),
@@ -42,7 +42,7 @@ Az asszisztens MCP-n keresztül hozzáfér a csatlakoztatott Google Drive-hoz. T
 - fájlt a kukába helyezni,
 - fájlt megosztani egy Google-fiókkal (olvasó / szerkesztő / megjegyzés).
 
-A Drive-integráció kizárólag MCP szerveren keresztül érhető el — VS Code GitHub Copilot Agentből hívható közvetlenül.
+A Drive-integráció közvetlenül elérhető a chat felületen (oldalsáv → Drive kontextus), és MCP szerveren keresztül VS Code GitHub Copilot Agentből is hívható.
 
 ---
 
@@ -134,7 +134,7 @@ Privátszféra-barát keresőmotor-integráció, amely nem igényel API kulcsot 
 A Google hivatalos REST API-ja Gmail-műveletek végrehajtásához. Az alkalmazás OAuth2 protokollon keresztül kap felhatalmazást, és a `gmail.modify` jogosultsági hatókörrel rendelkezik. A hozzáférési token helyileg tárolódik (`token.json`).
 
 ### [Google Drive API](https://developers.google.com/drive/api) v3 (Google)
-A Google hivatalos REST API-ja Drive-fájlok kezeléséhez. Az alkalmazás OAuth2 protokollon hitelesít, és a `drive` (teljes hozzáférés) hatókörrel rendelkezik. A token a Gmail-tokennel közös `token.json` fájlban tárolódik — az `auth_drive.py` egyszeri futtatása kombinált (`gmail.modify` + `drive`) scope-okkal frissíti azt, így mindkét service egyszerre használható. A Drive-integráció kizárólag MCP-n keresztül érhető el (nincs Streamlit UI).
+A Google hivatalos REST API-ja Drive-fájlok kezeléséhez. Az alkalmazás OAuth2 protokollon hitelesít, és a `drive` (teljes hozzáférés) hatókörrel rendelkezik. A token a Gmail-tokennel közös `token.json` fájlban tárolódik — az `auth_drive.py` egyszeri futtatása kombinált (`gmail.modify` + `drive`) scope-okkal frissíti azt, így mindkét service egyszerre használható. A Drive-integráció elérhető közvetlenül a Streamlit chat felületről és MCP szerveren keresztül is.
 
 ### [FastMCP](https://github.com/jlowin/fastmcp)
 A Model Context Protocol (MCP) Python implementációja. Az alkalmazás két MCP szervert regisztrál `stdio` transzporton: `gmail` (Gmail-műveletek) és `gdrive` (Drive-műveletek). Mindkettő közvetlenül elérhető VS Code GitHub Copilot Agent-ből.
