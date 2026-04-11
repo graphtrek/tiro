@@ -16,6 +16,12 @@ This workspace contains multiple Python projects developing AI-powered applicati
    - Gmail, Google Drive, web search integrations
    - See [nothing-gets-out/README.md](nothing-gets-out/README.md) for detailed documentation
 
+2. **tutorials** — Learning resources for AI model integration
+   - Local model setup with LM Studio
+   - Cloud inference with Scaleway API
+   - OpenAI SDK examples
+   - See [tutorials/README.md](tutorials/README.md) for detailed documentation
+
 ---
 
 ## Technology Stack
@@ -93,6 +99,12 @@ uvicorn manager_api:app --host 0.0.0.0 --port 8500
 python-for-ai/                          # Workspace root
 ├── README.md                           # This file (workspace overview)
 ├── python-for-ai.code-workspace        # VSCode workspace config
+│
+├── tutorials/                          # Tutorials for AI model integration
+│   ├── README.md                       # Tutorial documentation
+│   ├── requirements.txt                # Shared dependencies
+│   ├── 01_call_local_lmstudio_model    # Tutorial: Local LM Studio
+│   └── 02_call_scaleway_model          # Tutorial: Cloud inference (Scaleway)
 │
 └── nothing-gets-out/                   # Project: "Nothing Gets Out" (GDPR-compliant on-premise AI)
     ├── README.md                       # Project-specific documentation
