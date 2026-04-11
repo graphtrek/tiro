@@ -1,230 +1,201 @@
-# Nothing Gets Out AI
+# python-for-ai Workspace
 
-> **GDPR-konform, on-premise AI asszisztens vállalkozások számára**
-
-Minden adat a saját szerveren marad — csevegések, feltöltött dokumentumok és e-mailek soha nem hagyják el a vállalat infrastruktúráját. Biztonságos alternatíva a ChatGPT, Gemini és Copilot felhőalapú szolgáltatásokkal szemben.
+Multi-project workspace for Python-based AI applications.
 
 ---
 
-## Üzleti funkcionalitás
+## Overview
 
-### Adatvédelem és GDPR-megfelelőség
+This workspace contains multiple Python projects developing AI-powered applications with various integrations and deployment strategies.
 
-Az alkalmazás teljesen on-premise üzemel: nincs felhőbe küldött adat, nincs külső naplózás, nincs harmadik fél általi adatgyűjtés. Az összes dokumentum, e-mail és beszélgetési előzmény kizárólag a vállalat saját szerverén tárolódik. Az LLM inferencia is egy dedikált, izolált végponton (Scaleway) fut.
+### Projects
 
----
-
-### Chat módok
-
-> **Kontextus-szigetelés:** Minden mód kizárólag a saját kontextus-forrásához fér hozzá. A modell csak azt „látja", amit az adott mód biztosít — más módok adatai teljesen el vannak zárva előle. DropBox módban nincs internet-hozzáférés; Internet módban nincs dokumentum-index; Gmail módban nincs Drive-hozzáférés és fordítva.
-
-#### Internet mód
-Az asszisztens minden kérdés megválaszolásakor valós idejű webes keresést végez (DuckDuckGo), majd az aktuális találatokat beépíti a kontextusba, mielőtt az LLM-hez továbbítja a kérdést. Az eredmény naprakész, internetre támaszkodó válasz — felhasználói API kulcs vagy előfizetés nélkül.
-
-> **Kontextus forrása:** kizárólag a DuckDuckGo keresési találatok. A modell nem fér hozzá feltöltött dokumentumokhoz, e-mailekhez vagy Drive-tartalmakhoz.
-
-#### DropBox mód
-A felhasználó PDF, DOCX, XLSX, TXT és Markdown fájlokat tölthet fel. Az alkalmazás ezeket feldolgozza, szöveg-darabokra bontja, és szemantikus vektoros indexbe szervezi. Kérdés feltevésekor a rendszer a leginkább releváns dokumentum-részleteket keresi ki, és azokat nyújtja kontextusként az LLM-nek — így a vállalati tudásbázis közvetlenül elérhető az AI számára.
-
-> **Kontextus forrása:** kizárólag a feltöltött és indexelt dokumentumok (ChromaDB vektoros keresés). A modell nem végez webes keresést, és nem fér hozzá e-mailekhez vagy Drive-tartalmakhoz.
-
-#### Gmail mód
-Az asszisztens teljes hozzáféréssel rendelkezik a csatlakoztatott Gmail-fiókhoz. Természetes nyelven adott utasítások alapján képes:
-- e-maileket listázni, megnyitni, keresni,
-- új üzenetet írni és elküldeni,
-- e-mailre válaszolni,
-- üzeneteket cimkézni, olvasottnak jelölni,
-- e-maileket a kukába helyezni.
-
-A műveleteket az LLM koordinálja automatikus eszközhívás-láncolattal, egészen addig, amíg a feladatot be nem fejezi.
-
-> **Kontextus forrása:** kizárólag a Gmail API által visszaadott e-mail adatok. A modell nem végez webes keresést, nem olvas dokumentumokat, és nem fér hozzá Google Drive-tartalmakhoz.
-
-#### Google Drive mód
-Az asszisztens hozzáfér a csatlakoztatott Google Drive-hoz. Természetes nyelven adott utasítások alapján képes:
-- fájlokat és mappákat listázni, keresni,
-- fájl metaadatait lekérdezni (méret, módosítás dátuma, megosztás),
-- fájlok szöveges tartalmát olvasni (Google Docs, Sheets, sima szöveg, CSV),
-- új fájlt feltölteni vagy mappát létrehozni,
-- fájlt áthelyezni, másolni,
-- fájlt a kukába helyezni,
-- fájlt megosztani egy Google-fiókkal (olvasó / szerkesztő / megjegyzés).
-
-A Drive-integráció közvetlenül elérhető a chat felületen (oldalsáv → Drive kontextus), és MCP szerveren keresztül VS Code GitHub Copilot Agentből is hívható.
-
-> **Kontextus forrása:** kizárólag a Google Drive API által visszaadott fájl- és mappaadatok. A modell nem végez webes keresést, nem olvas DropBox dokumentumokat, és nem fér hozzá Gmail-tartalmakhoz.
+1. **nothing-gets-out** — GDPR-compliant, on-premise AI assistant
+   - Secure local storage, no cloud data transmission
+   - Streamlit UI + FastAPI backend
+   - Gmail, Google Drive, web search integrations
+   - See [nothing-gets-out/README.md](nothing-gets-out/README.md) for detailed documentation
 
 ---
 
-### Képfeldolgozás (Vision)
+## Technology Stack
 
-A Mistral modell multimodális képességeinek köszönhetően képek csatolhatók a chat üzenetekhez. Az asszisztens elemzi, leírja, összehasonlítja az uploadolt képeket, és válaszokat ad rájuk a szöveges kéréssel együtt.
+This workspace is built on Python and modern AI/web frameworks:
 
----
-
-### Token-használat követése
-
-Minden LLM-hívás bemeneti és kimeneti token-száma naplózásra kerül és az oldalsávban megjelenik. Ez lehetővé teszi a vállalat számára, hogy nyomon kövesse az AI-használat mértékét és költségeit.
-
----
-
-### Dinamikus programgenerátor
-
-A **Programs** oldalon a felhasználó természetes nyelven leírhat egy FastAPI-alapú mikroszolgáltatást, amelyet a Qwen3-Coder modell automatikusan legenerál, lemezre ment és azonnal el is indít. A generált programok hozzáférnek a Gmail- és Google Drive-segédfüggvényekhez, valamint a közös naplózóhoz.
-
-Az oldal két fülre van osztva: **📋 Plan** (tervezés) és **➕ Generate** (generálás).
-
-#### 📋 Plan — iteratív tervkészítés web kereséssel
-
-A felhasználó először természetes nyelven leírja, mit szeretne építeni. Minden iteráció során a rendszer:
-1. DuckDuckGo-kereséssel és URL-tartalom-lekéréssel gyűjt releváns webes kontextust
-2. A teljes eddigi conversation history-t és a web-kontextust átadja a Qwen modellnek
-3. Visszaad egy struktúrált tervet (program név, leírás, végpontok, futtatási mód, kutatási jegyzetek)
-
-A terv tetszés szerint finomítható több körös üzenetváltással. Ha a felhasználó elégedett, az **✅ Accept & Implement** gombra kattintva a terv mezői automatikusan kitöltik a Generate formot. A **🗑️ Reset** gomb törli a teljes conversation history-t.
-
-**Generált program életciklusa:**
-- Névmegadás, leírás, követelmények és futtatási mód (service / on_demand) megadása (manuálisan vagy tervből előtöltve)
-- Kódgenerálás Qwen3-Coder-rel → egyedi ID + port kiosztása → `main.py` + `manifest.json` mentése
-- Start / Stop gombokkal indítható és leállítható az uvicorn-alapú szerver
-- Beépített kódszerkesztő: a forráskód közvetlenül szerkeszthető és mentehető a böngészőből
-- Valós idejű log néző az egyes programok kimenetéhez
-- **Letöltés ZIP-ben**: Download gomb → letöltés után a **Save ZIP** gomb közvetlenül mellette jelenik meg; egy kattintással letölthető a teljes program (`main.py` + `manifest.json`)
-
-**Módosítás funkció:**
-Minden generált programhoz elérhető egy **✏️ Modify** gomb, amely előtölti az összes beviteli mezőt (név, leírás, követelmények, mód). Küldéskor az alkalmazás automatikusan eldönti:
-- **Csak a leírás változott** → a program kódja helyben újragenerálódik (azonos ID, port, név megmarad)
-- **Bármi más is változott** (név / követelmények / mód) → új program jön létre
-
-### Log néző
-
-Beépített, valós idejű log megjelenítő, amely szűrhető naplózási szint, keresési kifejezés és dátumtartomány szerint. Segíti a rendszergazdákat az alkalmazás működésének figyelemmel kísérésében — közvetlenül a böngészőből, terminálhozzáférés nélkül.
-
----
-
-### MCP szerverek (VS Code Copilot Agent integráció)
-
-A Gmail- és Google Drive-eszközök MCP (Model Context Protocol) szerveren keresztül is elérhetők, így VS Code GitHub Copilot Agentből közvetlenül hívhatók. Ez lehetővé teszi a fejlesztőknek, hogy kódírás közben is kezeljék a postaládájukat és a Drive-tartalmat az IDE-ből.
-
-| MCP szerver | Eszközök száma | Indítófájl |
-|---|---|---|
-| `gmail` | 9 | `helpers/gmail_mcp_server.py` |
-| `gdrive` | 9 | `helpers/drive_mcp_server.py` |
-
----
-
-## Technológiai stack
-
-| Technológia | Verzió | Szerepe |
-|---|---|---|
-| **[Streamlit](https://streamlit.io)** | 1.55 | Frontend / UI |
-| **[LangChain](https://www.langchain.com)** | legújabb | LLM pipeline, RAG workflow |
-| **[ChromaDB](https://www.trychroma.com)** | legújabb | Vektoros adatbázis |
-| **[OpenAI SDK](https://github.com/openai/openai-python)** | 2.30 | LLM API kliens |
-| **[DuckDuckGo Search](https://pypi.org/project/duckduckgo-search/)** | legújabb | Webes keresés |
-| **[Gmail API](https://developers.google.com/gmail/api)** | v1 | E-mail integráció |
-| **[Google Drive API](https://developers.google.com/drive/api)** | v3 | Fájlkezelés, megosztás |
-| **[FastMCP](https://github.com/jlowin/fastmcp)** | legújabb | MCP szerver |
-| **[FastAPI](https://fastapi.tiangolo.com)** | legújabb | Manager API + generált programok |
-| **[Docker](https://www.docker.com)** | legújabb | Konténerizáció |
-
----
-
-### [Streamlit](https://streamlit.io)
-Python-alapú webes alkalmazás-keretrendszer, amely lehetővé teszi interaktív adatvizualizációs és AI alkalmazások gyors fejlesztését kizárólag Python kóddal. Natívan támogatja a session state kezelést, oldalnavigációt és valós idejű UI frissítéseket.
-
-### [LangChain](https://www.langchain.com)
-Nyílt forráskódú keretrendszer LLM-alapú alkalmazások felépítéséhez. Az alkalmazásban dokumentum-betöltésre (PDF, DOCX, XLSX, TXT, MD), szöveg-darabolásra (`RecursiveCharacterTextSplitter`), ChromaDB integrációra és webes keresésre (`DuckDuckGoSearchResults`) használjuk. A RAG pipeline teljes egészében LangChain komponensekre épül.
-
-### [ChromaDB](https://www.trychroma.com)
-Nyílt forráskódú, helyi vektoros adatbázis szemantikus kereséshez. Az alkalmazás négy kollekcióban tárol adatot: dokumentum-indexek (`dropbox_docs`), indexelési metaadatok (`index_stats`), token-használati napló (`usage_history`) és felhasználói beállítások (`chat_settings`). Az embedding modell: ONNX MiniLM-L6-v2, amely a Docker image-be van beépítve a gyors indulás érdekében.
-
-### [OpenAI SDK](https://github.com/openai/openai-python) ([Scaleway](https://www.scaleway.com/en/generative-apis/) inference)
-Az OpenAI Python SDK-t Scaleway saját inferencia végpontjára irányítja egy egyedi `BASE_URL` és `API_KEY` segítségével. Ez lehetővé teszi az OpenAI-kompatibilis API használatát anélkül, hogy az adatok az OpenAI szervereire kerülnének.
-
-#### Használt modellek
-
-| Modell | Képességek |
+| Technology | Purpose |
 |---|---|
-| `mistral-small-3.2-24b-instruct-2506` | Chat, kód, képelemzés (vision), streaming |
-| `qwen3-coder-30b-a3b-instruct` | Chat, kódgenerálás, streaming |
-
-### [DuckDuckGo Search](https://pypi.org/project/duckduckgo-search/)
-Privátszféra-barát keresőmotor-integráció, amely nem igényel API kulcsot vagy regisztrációt. Az Internet módban minden felhasználói kérdéshez automatikusan webes keresést végez, és az eredményeket injektálja az LLM kontextusába.
-
-### [Gmail API](https://developers.google.com/gmail/api) (Google)
-A Google hivatalos REST API-ja Gmail-műveletek végrehajtásához. Az alkalmazás OAuth2 protokollon keresztül kap felhatalmazást, és a `gmail.modify` jogosultsági hatókörrel rendelkezik. A hozzáférési token helyileg tárolódik (`token.json`).
-
-### [Google Drive API](https://developers.google.com/drive/api) v3 (Google)
-A Google hivatalos REST API-ja Drive-fájlok kezeléséhez. Az alkalmazás OAuth2 protokollon hitelesít, és a `drive` (teljes hozzáférés) hatókörrel rendelkezik. A token a Gmail-tokennel közös `token.json` fájlban tárolódik — az `auth_drive.py` egyszeri futtatása kombinált (`gmail.modify` + `drive`) scope-okkal frissíti azt, így mindkét service egyszerre használható. A Drive-integráció elérhető közvetlenül a Streamlit chat felületről és MCP szerveren keresztül is.
-
-### [FastMCP](https://github.com/jlowin/fastmcp)
-A Model Context Protocol (MCP) Python implementációja. Az alkalmazás két MCP szervert regisztrál `stdio` transzporton: `gmail` (Gmail-műveletek) és `gdrive` (Drive-műveletek). Mindkettő közvetlenül elérhető VS Code GitHub Copilot Agent-ből.
-
-### [Docker](https://www.docker.com) és [Docker Compose](https://docs.docker.com/compose/)
-Az alkalmazás Docker konténerben fut `python:3.12-slim` alapképre építve. Az ONNX embedding modell a build során a konténer-image-be kerül, így az első indítás is azonnali. A `docker-compose.yml` kezeli a volume-csatolásokat (feltöltések, vektoros adatbázis, naplók, OAuth tokenek).
+| **Python 3.12** | Core language (slim Docker image) |
+| **[Streamlit](https://streamlit.io)** | Interactive web UI |
+| **[FastAPI](https://fastapi.tiangolo.com)** | REST API backend & program generation |
+| **[LangChain](https://www.langchain.com)** | LLM pipelines & RAG workflows |
+| **[ChromaDB](https://www.trychroma.com)** | Vector database for semantic search |
+| **[Docker & Docker Compose](https://www.docker.com)** | Containerization & orchestration |
+| **Google APIs** | Gmail, Google Drive integrations |
+| **OpenAI SDK** | LLM API client (via Scaleway inference) |
 
 ---
 
-## Architektúra
+## Quick Start: Running Projects from Terminal
 
-```
-Chat.py  ── Streamlit belépési pont
-│
-├── helpers/chat_config.py       Konfiguráció, OpenAI és LangChain kliensek
-├── helpers/chat_prompts.py      Rendszer-promptok (DropBox / Internet / Gmail módhoz)
-├── helpers/chat_settings.py     Beállítások mentése/betöltése ChromaDB-ből
-├── helpers/chat_context.py      Kontextusépítés: RAG keresés + webkeresés + üzenet-összeállítás
-├── helpers/chat_handlers.py     Gmail eszközhívás-láncolat, token-stream kezelő
-├── helpers/chat_ui.py           Streamlit UI komponensek
-├── helpers/chat_utils.py        Token-becslés, kontextus-nyirbálás, üzenet-formázás
-│
-├── helpers/rag_utils_langchain.py   Dokumentum-indexelés, ChromaDB keresés, webkeresés, token-napló
-│
-├── helpers/gmail_utils.py       Gmail API hívások (lista, olvasás, küldés, válasz, cimke, törlés)
-├── helpers/auth_gmail.py        Egyszeri OAuth2 hozzájárulás-kérő segédprogram (gmail.modify)
-├── helpers/gmail_mcp_server.py  FastMCP szerver: Gmail eszközök MCP-n keresztül
-│
-├── helpers/drive_utils.py       Drive API hívások (lista, olvasás, feltöltés, mozgatás, megosztás)
-├── helpers/auth_drive.py        Egyszeri OAuth2 hozzájárulás-kérő segédprogram (gmail.modify + drive)
-├── helpers/drive_mcp_server.py  FastMCP szerver: Drive eszközök MCP-n keresztül
-│
-├── manager_api.py               FastAPI Manager API (port 8500) — programgenerálás és életciklus
-├── helpers/program_generator.py Qwen3-Coder alapú kódgenerálás + iteratív tervgenerálás (plan_program_iteration)
-├── helpers/program_manager.py   Program létrehozás, indítás, leállítás, törlés, módosítás, logok
-├── generated_programs/          Generált FastAPI programok ({slug}-{id}/main.py + manifest.json)
-│
-├── pages/Programs.py            Dinamikus programgenerátor UI (📋 Plan tervkészítő, ➕ Generate, módosítás, kódszerkesztő)
-├── pages/DropBox.py             Fájl feltöltés + index kezelő UI
-├── pages/Logs.py                Napló néző UI
-└── pages/About.py               Az alkalmazás bemutatása
+### Prerequisites
+
+- Python 3.12+
+- Docker & Docker Compose (optional, for containerized deployment)
+- Virtual environment (`.venv/` in each project folder)
+
+### nothing-gets-out Project
+
+**Option 1: Docker Compose (Recommended)**
+
+```bash
+cd nothing-gets-out
+docker-compose up
 ```
 
-### Manager API végpontok
+Access:
+- Chat UI: http://localhost:8501
+- Manager API docs: http://localhost:8500/docs
 
-| Metódus | Végpont | Leírás |
-|---|---|---|
-| `POST` | `/programs/generate` | Új program generálása Qwen-nel |
-| `POST` | `/programs/{id}/regenerate` | Program kódjának helybeni újragenerálása (csak leírás változik) |
-| `GET` | `/programs` | Összes program listázása |
-| `GET` | `/programs/{id}` | Egy program részletei |
-| `GET` | `/programs/{id}/code` | Forráskód lekérése |
-| `PUT` | `/programs/{id}/code` | Forráskód frissítése |
-| `POST` | `/programs/{id}/start` | Program indítása |
-| `POST` | `/programs/{id}/stop` | Program leállítása |
-| `DELETE` | `/programs/{id}` | Program törlése |
-| `GET` | `/programs/{id}/logs` | Stdout/stderr napló |
-| `GET` | `/programs/{id}/download` | Program fájlok letöltése ZIP-ben |
+**Option 2: Docker Build**
 
-### ChromaDB kollekciók
+```bash
+cd nothing-gets-out
+docker build -f Dockerfile -t python-for-ai .
+docker run -p 8501:8501 -p 8500:8500 python-for-ai
+```
 
-| Kollekció | Tartalom |
-|---|---|
-| `dropbox_docs` | Dokumentum-darabolatok és vektoros embeddingjük (RAG) |
-| `index_stats` | Fájlonkénti indexelési metaadatok |
-| `usage_history` | LLM hívásonkénti token-használat |
-| `chat_settings` | Felhasználói beállítások (modell, chat mód) |
+**Option 3: Local Development**
+
+```bash
+cd nothing-gets-out
+
+# Activate virtual environment
+source .venv/bin/activate  # macOS/Linux
+# or: .venv\Scripts\activate  # Windows
+
+# Install dependencies (first time only)
+pip install -r requirements.txt
+
+# Terminal 1: Run Streamlit Chat UI
+streamlit run Chat.py
+# Access at: http://localhost:8501
+
+# Terminal 2: Run FastAPI Manager API
+uvicorn manager_api:app --host 0.0.0.0 --port 8500
+# Access API docs at: http://localhost:8500/docs
+```
 
 ---
 
-*Nothing Gets Out AI — Mert ami a cégen belül marad, az marad is.*
+## Workspace Structure
+
+```
+python-for-ai/                          # Workspace root
+├── README.md                           # This file (workspace overview)
+├── python-for-ai.code-workspace        # VSCode workspace config
+│
+└── nothing-gets-out/                   # Project: "Nothing Gets Out" (GDPR-compliant on-premise AI)
+    ├── README.md                       # Project-specific documentation
+    ├── Dockerfile                      # Build config for this project
+    ├── docker-compose.yml              # Services for this project
+    ├── .gitignore                      # Git ignore rules for this project
+    ├── ai.log                          # Project logs
+    │
+    ├── Chat.py                         # Streamlit entry point
+    ├── manager_api.py                  # FastAPI manager service
+    ├── requirements.txt                # Python dependencies
+    ├── .env                            # Environment variables
+    │
+    ├── helpers/                        # Application modules
+    ├── pages/                          # Streamlit multi-page UI
+    ├── .streamlit/                     # Streamlit configuration
+    │
+    ├── credentials.json                # OAuth2 credentials (not committed)
+    ├── token.json                      # OAuth2 tokens (not committed)
+    ├── chroma_db/                      # Vector database storage
+    ├── uploads/                        # User file uploads
+    ├── generated_programs/             # Dynamically generated FastAPI programs
+    │
+    ├── .venv/                          # Python virtual environment
+    ├── .vscode/                        # VS Code configuration (project-specific)
+    ├── .github/                        # GitHub workflows for this project
+    ├── __pycache__/                    # Python bytecode cache
+    └── docs/                           # Project documentation
+```
+
+---
+
+## Adding a New Project
+
+1. **Create project folder:**
+   ```bash
+   mkdir new-project
+   mkdir -p new-project/{helpers,pages}
+   ```
+
+2. **Copy essentials from existing project:**
+   ```bash
+   cp nothing-gets-out/requirements.txt new-project/
+   cp nothing-gets-out/.env new-project/.env.example
+   cp -r nothing-gets-out/.streamlit new-project/
+   ```
+
+3. **Create project files:**
+   - `new-project/Dockerfile` (adapt from [nothing-gets-out/Dockerfile](nothing-gets-out/Dockerfile))
+   - `new-project/docker-compose.yml` (adapt from [nothing-gets-out/docker-compose.yml](nothing-gets-out/docker-compose.yml))
+   - `new-project/.gitignore` (copy from [nothing-gets-out/.gitignore](nothing-gets-out/.gitignore))
+   - `new-project/README.md` (project-specific docs)
+
+4. **Update VSCode workspace** ([python-for-ai.code-workspace](python-for-ai.code-workspace)):
+   ```json
+   {
+     "folders": [
+       {"path": "nothing-gets-out"},
+       {"path": "new-project"}
+     ],
+     "settings": {}
+   }
+   ```
+
+5. **Deploy:**
+   ```bash
+   cd new-project
+   docker-compose up
+   ```
+
+---
+
+## Python Virtual Environment Setup
+
+Each project contains its own `.venv/` virtual environment.
+
+### Create a new virtual environment for a project:
+
+```bash
+cd project-name
+python3 -m venv .venv
+```
+
+### Activate the virtual environment:
+
+**macOS/Linux:**
+```bash
+source project-name/.venv/bin/activate
+```
+
+**Windows:**
+```bash
+project-name\.venv\Scripts\activate
+```
+
+### Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Deactivate:
+
+```bash
+deactivate
+```

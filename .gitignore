@@ -1,18 +1,42 @@
-# Virtual environment
-.venv/
+# Virtual environments (moved to nothing-gets-out/)
+nothing-gets-out/.venv/
+venv/
+env/
+ENV/
 
-# Environment variables — never commit secrets
-.env
+# IDE & Editor (moved to nothing-gets-out/)
+nothing-gets-out/.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
-# Python cache
-__pycache__/
+# Python cache (moved to nothing-gets-out/)
+nothing-gets-out/__pycache__/
 *.pyc
 *.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
 
-# VS Code
-uploads/*
-chroma_db/*
-ai.log
+# General logs
+*.log
+
+# Environment (workspace-level)
+.env
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# GitHub workflows (moved to nothing-gets-out/)
+nothing-gets-out/.github/
+
+# Documentation (moved to nothing-gets-out/)
+nothing-gets-out/docs/
 
 # Gmail OAuth credentials — never commit
 credentials.json
