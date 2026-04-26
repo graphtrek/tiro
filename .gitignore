@@ -35,9 +35,6 @@ Thumbs.db
 # GitHub workflows (moved to nothing-gets-out/)
 nothing-gets-out/.github/
 
-# Documentation (moved to nothing-gets-out/)
-nothing-gets-out/docs/
-
 # Gmail OAuth credentials — never commit
 credentials.json
 token.json
