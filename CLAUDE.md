@@ -65,39 +65,56 @@ Copy `.env.example` to `.env` and fill in values. Key variables:
 - **Streamlit UI** (`Chat.py`, `pages/`) — chat frontend, file uploads, settings, logs
 - **FastAPI backend** (`manager_api.py`) — program lifecycle management (create/start/stop dynamically-generated FastAPI microservices)
 
+### Package layout (`packages/`)
+
+The `helpers/` directory has been replaced by `packages/` with Java-style sub-packages:
+
+| Package | Files | Responsibility |
+|---|---|---|
+| `packages/config/` | `app_config.py` | AppConfig, OpenAI client factories, env loading |
+| `packages/auth/` | `streamlit_auth.py`, `gmail_auth.py`, `drive_auth.py` | Streamlit login, Google OAuth scripts |
+| `packages/chat/` | `context.py`, `handlers.py`, `prompts.py`, `settings.py`, `ui.py`, `utils.py` | Chat modes, tool-call loops, prompt routing, UI |
+| `packages/tools/` | `gmail_tools.py`, `drive_tools.py`, `postgres_tools.py` | OpenAI function-calling tool definitions |
+| `packages/google/` | `gmail_service.py`, `drive_service.py` | Gmail and Drive API wrappers |
+| `packages/database/` | `postgres_service.py`, `exchange_rate_cache.py` | PostgreSQL access, exchange-rate cache |
+| `packages/rag/` | `langchain_rag.py` | LangChain + ChromaDB RAG pipeline |
+| `packages/mcp/` | `gmail_server.py`, `drive_server.py`, `postgres_server.py` | FastMCP servers for VS Code Copilot |
+| `packages/program/` | `generator.py`, `manager.py` | Dynamic FastAPI program generation and lifecycle |
+| `packages/observability/` | `log_utils.py` | Structured file logging |
+
 ### Chat modes & context isolation
-Five modes, each with its own tool set and context builder (`helpers/chat_context.py`):
+Five modes, each with its own tool set and context builder (`packages/chat/context.py`):
 - **Internet** — DuckDuckGo web search
 - **DropBox** — RAG over uploaded files (ChromaDB vector store)
 - **Gmail** — Gmail API tool calls (read, search, send)
 - **Drive** — Google Drive API tool calls
 - **PostgreSQL** — SQL generation and execution against a configured DB
 
-Mode-specific tool definitions live in `helpers/chat_*_tools.py`. Handlers for executing those tools live in `helpers/chat_handlers.py`.
+Mode-specific tool definitions live in `packages/tools/`. Handlers for executing those tools live in `packages/chat/handlers.py`.
 
 ### LLM integration
 Uses the OpenAI SDK pointed at Scaleway's inference endpoint. Two model slots:
 - Chat model (Mistral) for all conversation and tool-use
-- Coder model (Qwen) for `program_generator.py` — generates full FastAPI programs from natural language
+- Coder model (Qwen) for `packages/program/generator.py` — generates full FastAPI programs from natural language
 
-Client factories are in `helpers/chat_config.py` (`AppConfig`).
+Client factories are in `packages/config/app_config.py` (`AppConfig`).
 
 ### RAG pipeline
-`helpers/rag_utils_langchain.py` — LangChain + ChromaDB with ONNX embeddings. Documents (PDF, DOCX, XLSX, TXT) are indexed on upload via the DropBox page. Vector DB stored in `chroma_db/`.
+`packages/rag/langchain_rag.py` — LangChain + ChromaDB with ONNX embeddings. Documents (PDF, DOCX, XLSX, TXT) are indexed on upload via the DropBox page. Vector DB stored in `chroma_db/`.
 
 ### MCP servers
 Three standalone FastMCP servers that expose tools to VS Code Copilot Agent:
-- `helpers/gmail_mcp_server.py`
-- `helpers/drive_mcp_server.py`
-- `helpers/postgres_mcp_server.py`
+- `packages/mcp/gmail_server.py`
+- `packages/mcp/drive_server.py`
+- `packages/mcp/postgres_server.py`
 
 ### Dynamic program manager
-`helpers/program_generator.py` — uses Qwen to generate FastAPI microservices from a user prompt. `helpers/program_manager.py` handles subprocess lifecycle. Generated programs land in `generated_programs/`. `manager_api.py` exposes REST endpoints to manage them.
+`packages/program/generator.py` — uses Qwen to generate FastAPI microservices from a user prompt. `packages/program/manager.py` handles subprocess lifecycle. Generated programs land in `generated_programs/`. `manager_api.py` exposes REST endpoints to manage them.
 
 ### Persistence
-- **ChromaDB** (`chroma_db/`) — vector embeddings and persisted user settings (`helpers/chat_settings.py`)
+- **ChromaDB** (`chroma_db/`) — vector embeddings and persisted user settings (`packages/chat/settings.py`)
 - **uploads/** — user-uploaded documents
-- **ai.log** — application log (`helpers/log_utils.py`)
+- **ai.log** — application log (`packages/observability/log_utils.py`)
 
 ## CI/CD
 
