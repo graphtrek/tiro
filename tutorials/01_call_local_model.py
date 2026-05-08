@@ -15,7 +15,7 @@ client = OpenAI(base_url=base_url, api_key=api_key)
 
 # Create a chat completion
 completion = client.chat.completions.create(
-    model="gemma4:e2b",
+    model="qwen3.5:0.8b",
     messages=[
         {"role": "system", "content": "You are my helpful assistant."},
         {"role": "user", "content": "How are you today?"},
