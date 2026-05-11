@@ -39,3 +39,7 @@ nothing-gets-out/.github/
 credentials.json
 token.json
 generated_programs/*
+
+# ChromaDB and vector store caches
+chroma_db/
+tutorials/chroma_db/

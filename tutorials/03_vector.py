@@ -50,10 +50,10 @@ TUTORIALS_DIR = Path(__file__).parent.resolve()
 SOURCE_DOCS_DIR = TUTORIALS_DIR.parent / "nothing-gets-out" / "docs" / "prompt"
 
 # Output ChromaDB folder
-CHROMA_DB_DIR = TUTORIALS_DIR / "chroma_db_tutorial"
+CHROMA_DB_DIR = TUTORIALS_DIR / "chroma_db"
 
 # Metadata file to track indexed files and their modification times
-METADATA_FILE = CHROMA_DB_DIR / "index_metadata.json"
+METADATA_FILE = TUTORIALS_DIR / "03_vector_index_metadata.json"
 
 # ChromaDB collection name
 COLLECTION_NAME = "prompt_docs"
