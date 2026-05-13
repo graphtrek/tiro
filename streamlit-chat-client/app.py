@@ -14,13 +14,15 @@ from datetime import datetime
 from typing import Generator, Optional
 from dotenv import load_dotenv
 
+# Setup logging first
+logger = logging.getLogger(__name__)
+
 try:
     import pandas as pd
     import plotly.express as px
     PANDAS_AVAILABLE = True
 except ImportError as e:
     PANDAS_AVAILABLE = False
-    logger = logging.getLogger(__name__)
     logger.warning(f"[IMPORT_WARNING] pandas/plotly not available: {e}")
 
 # Load environment variables
@@ -73,9 +75,53 @@ def init_session_state():
         st.session_state.messages = []
 
 
+def filter_sensitive_columns(headers: list[str], data: list[list]) -> tuple[list[str], list[list]]:
+    """
+    Filter out sensitive columns (key, id, password variants).
+    
+    Args:
+        headers: Column names
+        data: Data rows
+        
+    Returns:
+        Tuple of (filtered_headers, filtered_data)
+    """
+    # Columns to exclude (case-insensitive)
+    exclude_patterns = ['key', 'id', 'password', '_key', '_id']
+    
+    # Find indices to keep
+    keep_indices = []
+    filtered_headers = []
+    
+    for idx, header in enumerate(headers):
+        header_lower = header.lower()
+        # Keep column if it doesn't match any exclude pattern
+        should_exclude = any(
+            pattern in header_lower or header_lower.endswith(pattern)
+            for pattern in exclude_patterns
+        )
+        
+        if not should_exclude:
+            keep_indices.append(idx)
+            filtered_headers.append(header)
+            logger.debug(f"[FILTER] Keeping column: {header}")
+        else:
+            logger.debug(f"[FILTER] Excluding column: {header}")
+    
+    # Filter data
+    filtered_data = []
+    for row in data:
+        filtered_row = [row[i] for i in keep_indices if i < len(row)]
+        filtered_data.append(filtered_row)
+    
+    logger.info(f"[FILTER] Filtered {len(headers)} columns → {len(filtered_headers)} columns")
+    return filtered_headers, filtered_data
+
+
 def extract_markdown_tables(text: str) -> list[dict]:
     """
     Extract markdown tables from text and convert to DataFrames.
+    Excludes sensitive columns (key, id, password).
     
     Args:
         text: Text containing markdown tables
@@ -118,8 +164,15 @@ def extract_markdown_tables(text: str) -> list[dict]:
                         data.append(values)
             
             if data and headers:
+                # Filter sensitive columns
+                filtered_headers, filtered_data = filter_sensitive_columns(headers, data)
+                
+                if not filtered_headers:
+                    logger.warning(f"[TABLE] All columns filtered out (sensitive data), skipping table {idx+1}")
+                    continue
+                
                 # Create DataFrame
-                df = pd.DataFrame(data, columns=headers)
+                df = pd.DataFrame(filtered_data, columns=filtered_headers)
                 
                 # Try to convert numeric columns
                 for col in df.columns:
@@ -129,12 +182,12 @@ def extract_markdown_tables(text: str) -> list[dict]:
                         pass
                 
                 tables.append({
-                    'name': f'Table {len(tables) + 1}',
+                    'name': f'📋 Table {len(tables) + 1}',
                     'df': df,
-                    'headers': headers,
-                    'data': data
+                    'headers': filtered_headers,
+                    'data': filtered_data
                 })
-                logger.info(f"[TABLE] Extracted table with {len(data)} rows, {len(headers)} columns")
+                logger.info(f"[TABLE] Extracted table with {len(filtered_data)} rows, {len(filtered_headers)} columns (after filtering)")
         except Exception as e:
             logger.debug(f"[TABLE_PARSE_ERROR] {str(e)}")
             continue
@@ -145,7 +198,7 @@ def extract_markdown_tables(text: str) -> list[dict]:
 
 def visualize_tables(tables: list[dict]):
     """
-    Create and display charts for extracted tables.
+    Display tables in tabular format with optional charts.
     
     Args:
         tables: List of table dicts with 'df' key
@@ -160,30 +213,23 @@ def visualize_tables(tables: list[dict]):
     
     logger.info(f"[VISUALIZE] Starting visualization for {len(tables)} tables")
     st.markdown("---")
-    st.subheader("📊 Data Visualizations")
+    st.subheader("📊 SQL Results")
     
     for idx, table_info in enumerate(tables):
         try:
             df = table_info['df']
             logger.debug(f"[VISUALIZE] Table {idx+1}: {df.shape}")
             
-            # Skip tables with less than 2 rows
-            if len(df) < 2:
-                logger.debug(f"[VISUALIZE] Table {idx+1} has {len(df)} rows, skipping visualization")
-                continue
+            # Always show table first
+            st.markdown(f"### {table_info['name']} ({len(df)} rows × {len(df.columns)} columns)")
+            st.dataframe(df, use_container_width=True, hide_index=True)
             
             # Try to auto-detect chart type based on data
             numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
             non_numeric_cols = df.select_dtypes(exclude=['number']).columns.tolist()
             
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.write(f"**{table_info['name']}**")
-                st.dataframe(df, use_container_width=True)
-            
-            with col2:
-                # Create chart based on available columns
+            # Create charts only if we have 2+ rows and relevant columns
+            if len(df) >= 2:
                 if len(numeric_cols) >= 1 and len(non_numeric_cols) >= 1:
                     # Bar chart: categorical vs numeric
                     try:
@@ -222,9 +268,10 @@ def visualize_tables(tables: list[dict]):
                         logger.info(f"[VISUALIZE] Single column chart created for table {idx+1}")
                     except Exception as e:
                         logger.warning(f"[VISUALIZE_ERROR] Single column chart failed: {str(e)}")
-                else:
-                    st.info("No numeric columns for visualization")
-                    logger.debug(f"[VISUALIZE] No numeric columns in table {idx+1}")
+            else:
+                logger.debug(f"[VISUALIZE] Table {idx+1} has {len(df)} rows, skipping chart (need ≥2 rows)")
+            
+            st.markdown("")
         except Exception as e:
             logger.error(f"[VISUALIZE_ERROR] Failed to visualize table {idx+1}: {str(e)}")
             continue
