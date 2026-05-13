@@ -9,9 +9,19 @@ import json
 import uuid
 import os
 import logging
+import re
 from datetime import datetime
-from typing import Generator
+from typing import Generator, Optional
 from dotenv import load_dotenv
+
+try:
+    import pandas as pd
+    import plotly.express as px
+    PANDAS_AVAILABLE = True
+except ImportError as e:
+    PANDAS_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"[IMPORT_WARNING] pandas/plotly not available: {e}")
 
 # Load environment variables
 load_dotenv()
@@ -61,6 +71,165 @@ def init_session_state():
         logger.info(f"[INIT] New session_id={st.session_state.session_id}")
     if "messages" not in st.session_state:
         st.session_state.messages = []
+
+
+def extract_markdown_tables(text: str) -> list[dict]:
+    """
+    Extract markdown tables from text and convert to DataFrames.
+    
+    Args:
+        text: Text containing markdown tables
+        
+    Returns:
+        List of dicts with 'name' and 'df' keys
+    """
+    if not PANDAS_AVAILABLE:
+        logger.warning("[EXTRACT_TABLES] pandas not available, skipping table extraction")
+        return []
+    
+    tables = []
+    # Pattern to match markdown tables: | ... | ... |
+    # Tables should have at least 2 rows (header + separator + data)
+    table_pattern = r'(\|[^\n]+\|\n\|[-:| ]+\|[^\n]*\n(?:\|[^\n]+\|\n?)+)'
+    
+    matches = re.finditer(table_pattern, text)
+    logger.debug(f"[EXTRACT_TABLES] Found {len(list(re.finditer(table_pattern, text)))} table patterns")
+    
+    matches = re.finditer(table_pattern, text)  # Re-iterate since we consumed it
+    for idx, match in enumerate(matches):
+        table_text = match.group(1)
+        try:
+            # Parse markdown table
+            lines = table_text.strip().split('\n')
+            if len(lines) < 3:
+                continue
+            
+            # Extract header
+            header_line = lines[0]
+            headers = [h.strip() for h in header_line.split('|')[1:-1]]
+            
+            # Skip separator line (lines[1])
+            # Extract data rows
+            data = []
+            for line in lines[2:]:
+                if line.strip():
+                    values = [v.strip() for v in line.split('|')[1:-1]]
+                    if len(values) == len(headers):
+                        data.append(values)
+            
+            if data and headers:
+                # Create DataFrame
+                df = pd.DataFrame(data, columns=headers)
+                
+                # Try to convert numeric columns
+                for col in df.columns:
+                    try:
+                        df[col] = pd.to_numeric(df[col])
+                    except (ValueError, TypeError):
+                        pass
+                
+                tables.append({
+                    'name': f'Table {len(tables) + 1}',
+                    'df': df,
+                    'headers': headers,
+                    'data': data
+                })
+                logger.info(f"[TABLE] Extracted table with {len(data)} rows, {len(headers)} columns")
+        except Exception as e:
+            logger.debug(f"[TABLE_PARSE_ERROR] {str(e)}")
+            continue
+    
+    logger.info(f"[EXTRACT_TABLES] Total tables extracted: {len(tables)}")
+    return tables
+
+
+def visualize_tables(tables: list[dict]):
+    """
+    Create and display charts for extracted tables.
+    
+    Args:
+        tables: List of table dicts with 'df' key
+    """
+    if not tables:
+        logger.debug("[VISUALIZE] No tables to visualize")
+        return
+    
+    if not PANDAS_AVAILABLE:
+        logger.warning("[VISUALIZE] pandas/plotly not available, skipping visualization")
+        return
+    
+    logger.info(f"[VISUALIZE] Starting visualization for {len(tables)} tables")
+    st.markdown("---")
+    st.subheader("📊 Data Visualizations")
+    
+    for idx, table_info in enumerate(tables):
+        try:
+            df = table_info['df']
+            logger.debug(f"[VISUALIZE] Table {idx+1}: {df.shape}")
+            
+            # Skip tables with less than 2 rows
+            if len(df) < 2:
+                logger.debug(f"[VISUALIZE] Table {idx+1} has {len(df)} rows, skipping visualization")
+                continue
+            
+            # Try to auto-detect chart type based on data
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+            non_numeric_cols = df.select_dtypes(exclude=['number']).columns.tolist()
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write(f"**{table_info['name']}**")
+                st.dataframe(df, use_container_width=True)
+            
+            with col2:
+                # Create chart based on available columns
+                if len(numeric_cols) >= 1 and len(non_numeric_cols) >= 1:
+                    # Bar chart: categorical vs numeric
+                    try:
+                        fig = px.bar(
+                            df, 
+                            x=non_numeric_cols[0], 
+                            y=numeric_cols[0],
+                            title=f"{non_numeric_cols[0]} vs {numeric_cols[0]}"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        logger.info(f"[VISUALIZE] Bar chart created for table {idx+1}")
+                    except Exception as e:
+                        logger.warning(f"[VISUALIZE_ERROR] Bar chart failed: {str(e)}")
+                elif len(numeric_cols) >= 2:
+                    # Scatter plot: two numeric columns
+                    try:
+                        fig = px.scatter(
+                            df, 
+                            x=numeric_cols[0], 
+                            y=numeric_cols[1],
+                            title=f"{numeric_cols[0]} vs {numeric_cols[1]}"
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        logger.info(f"[VISUALIZE] Scatter chart created for table {idx+1}")
+                    except Exception as e:
+                        logger.warning(f"[VISUALIZE_ERROR] Scatter chart failed: {str(e)}")
+                elif len(numeric_cols) == 1:
+                    # Simple bar chart with index
+                    try:
+                        fig = px.bar(
+                            df, 
+                            y=numeric_cols[0],
+                            title=numeric_cols[0]
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        logger.info(f"[VISUALIZE] Single column chart created for table {idx+1}")
+                    except Exception as e:
+                        logger.warning(f"[VISUALIZE_ERROR] Single column chart failed: {str(e)}")
+                else:
+                    st.info("No numeric columns for visualization")
+                    logger.debug(f"[VISUALIZE] No numeric columns in table {idx+1}")
+        except Exception as e:
+            logger.error(f"[VISUALIZE_ERROR] Failed to visualize table {idx+1}: {str(e)}")
+            continue
+    
+    logger.info(f"[VISUALIZE] Completed visualization for {len(tables)} tables")
 
 
 def stream_chat_response(message: str) -> Generator[str, None, None]:
@@ -238,9 +407,16 @@ def main():
                 "timestamp": timestamp,
             })
             logger.info(f"[ASSISTANT] {full_response[:100]}")
-        
-        # Rerun to show updated chat
-        st.rerun()
+            
+            # Extract and visualize tables
+            logger.info(f"[RESPONSE] Extracting tables from response ({len(full_response)} chars)")
+            tables = extract_markdown_tables(full_response)
+            logger.info(f"[RESPONSE] Found {len(tables)} tables")
+            if tables:
+                logger.info(f"[RESPONSE] Calling visualize_tables()")
+                visualize_tables(tables)
+            else:
+                logger.debug(f"[RESPONSE] No tables found in response")
 
 
 if __name__ == "__main__":

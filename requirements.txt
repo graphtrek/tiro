@@ -1,7 +1,8 @@
-streamlit==1.55.0
-openai==2.30.0
-python-dotenv==1.2.2
+streamlit
 requests
+python-dotenv
+pandas
+plotly
 chromadb
 pypdf
 python-docx
@@ -24,5 +25,3 @@ fastapi
 uvicorn[standard]
 psutil
 psycopg2-binary
-plotly
-pandas
