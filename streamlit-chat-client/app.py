@@ -340,6 +340,15 @@ def stream_chat_response(message: str) -> Generator[str, None, None]:
                 if text:
                     chunk_count += 1
                     yield text
+            elif event_type == "sql":
+                # SQL query executed — format and emit
+                sql = event_data.get("sql", "")
+                tool = event_data.get("tool", "unknown")
+                if sql:
+                    # Format as markdown code block
+                    sql_block = f"\n\n**🔍 SQL ({tool}):**\n```sql\n{sql}\n```"
+                    yield sql_block
+                    logger.info(f"[SQL] {tool}: {sql[:80]}...")
             elif event_type == "tool_call":
                 # Tool execution starting — log only, don't pollute response
                 tool_name = event_data.get("tool", "unknown")
