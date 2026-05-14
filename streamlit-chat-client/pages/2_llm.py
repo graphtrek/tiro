@@ -37,6 +37,76 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def extract_content_and_reasoning(response_obj):
+    """Extract content and reasoning from LLM response.
+    
+    Returns tuple: (content, reasoning, metadata)
+    """
+    if not isinstance(response_obj, dict):
+        return None, None, None
+    
+    # Extract content from choices[0].message.content
+    content = None
+    if "choices" in response_obj and len(response_obj["choices"]) > 0:
+        choice = response_obj["choices"][0]
+        if "message" in choice and "content" in choice["message"]:
+            content = choice["message"]["content"]
+    
+    # Extract reasoning if it exists (OpenAI o1 models)
+    reasoning = None
+    if "choices" in response_obj and len(response_obj["choices"]) > 0:
+        choice = response_obj["choices"][0]
+        if "message" in choice and "reasoning" in choice["message"]:
+            reasoning = choice["message"]["reasoning"]
+    
+    return content, reasoning, response_obj
+
+
+def display_response(response_obj):
+    """Display response JSON first, then formatted content/reasoning below."""
+    if response_obj is None:
+        st.error("❌ Failed to get response")
+        return
+    
+    if isinstance(response_obj, str):
+        st.code(response_obj, language="json")
+        return
+    
+    if not isinstance(response_obj, dict):
+        st.json(response_obj)
+        return
+    
+    # Handle wrapper response format: { "response": {...}, "elapsed_ms": ... }
+    actual_response = response_obj
+    if "response" in response_obj and isinstance(response_obj["response"], dict):
+        actual_response = response_obj["response"]
+    
+    # Display the full JSON response
+    st.json(response_obj)
+    
+    # Extract and display content in collapsable section
+    content = None
+    if "choices" in actual_response and len(actual_response["choices"]) > 0:
+        choice = actual_response["choices"][0]
+        if "message" in choice and "content" in choice["message"]:
+            content = choice["message"]["content"]
+    
+    if content:
+        with st.expander("📝 Content", expanded=False):
+            st.markdown(content)
+    
+    # Extract and display reasoning in collapsable section
+    reasoning = None
+    if "choices" in actual_response and len(actual_response["choices"]) > 0:
+        choice = actual_response["choices"][0]
+        if "message" in choice and "reasoning" in choice["message"]:
+            reasoning = choice["message"]["reasoning"]
+    
+    if reasoning:
+        with st.expander("🧠 Reasoning", expanded=False):
+            st.markdown(reasoning)
+
+
 def init_session_state():
     """Initialize Streamlit session state."""
     if "llm_messages" not in st.session_state:
@@ -83,15 +153,7 @@ def main():
         # Display history
         if st.session_state.llm_messages:
             for i, resp in enumerate(st.session_state.llm_responses):
-                if resp is None:
-                    st.error("❌ Failed to get response")
-                elif isinstance(resp, dict):
-                    st.json(resp)
-                elif isinstance(resp, str):
-                    st.code(resp, language="json")
-                else:
-                    st.code(str(resp), language="json")
-                
+                display_response(resp)
                 st.divider()
         else:
             st.info("💡 No responses yet. Send a prompt to get started.")
