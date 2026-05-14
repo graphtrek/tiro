@@ -349,6 +349,22 @@ def stream_chat_response(message: str) -> Generator[str, None, None]:
                     sql_block = f"\n\n**🔍 SQL ({tool}):**\n```sql\n{sql}\n```"
                     yield sql_block
                     logger.info(f"[SQL] {tool}: {sql[:80]}...")
+            elif event_type == "sql_result":
+                # SQL result with pre-formatted table — stream progressively
+                kan_id = event_data.get("kan_id", "")
+                query_num = event_data.get("query_num", "?")
+                table = event_data.get("table", "")
+                rows = event_data.get("rows", 0)
+                
+                # Format result with header and pre-formatted table
+                if kan_id:
+                    result_header = f"\n\n**📊 {kan_id} — Query {query_num}** ({rows} rows)"
+                else:
+                    result_header = f"\n\n**📊 Query Result** ({rows} rows)"
+                    
+                if table:
+                    yield result_header + "\n" + table
+                    logger.info(f"[SQL_RESULT] {kan_id} query {query_num}: {rows} rows")
             elif event_type == "tool_call":
                 # Tool execution starting — log only, don't pollute response
                 tool_name = event_data.get("tool", "unknown")
