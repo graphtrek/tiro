@@ -16,6 +16,9 @@ langchain-openai
 langchain-chroma
 langchain-community
 langchain-text-splitters
+langchain-core
+langchain-ollama
+langgraph
 tiktoken
 mcp[cli]
 google-api-python-client
