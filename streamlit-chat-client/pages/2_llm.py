@@ -1,5 +1,5 @@
 """
-LLM Page - Direct LLM endpoint for testing.
+LLM Page - Direct LLM response endpoint (no tools, no multi-step reasoning).
 """
 
 import streamlit as st
@@ -18,13 +18,13 @@ load_dotenv()
 
 # Configuration
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8600")
-LLM_ENDPOINT = f"{BASE_URL}/llm-response"
+AGENT_ENDPOINT = f"{BASE_URL}/llm-response"
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "300"))  # 5 minutes default
 
 # Page configuration
 st.set_page_config(
-    page_title="LLM Endpoint",
-    page_icon="🤖",
+    page_title="LLM Response",
+    page_icon="✨",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -33,78 +33,60 @@ st.set_page_config(
 st.markdown("""
 <style>
     .stChatMessage { max-width: 100%; }
+    .response-field { 
+        border-left: 4px solid #0066cc; 
+        padding: 12px; 
+        margin: 8px 0;
+        background-color: #f0f7ff;
+        border-radius: 4px;
+    }
+    .response-label {
+        font-weight: bold;
+        color: #0066cc;
+        margin-bottom: 8px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 
-def extract_content_and_reasoning(response_obj):
-    """Extract content and reasoning from LLM response.
-    
-    Returns tuple: (content, reasoning, metadata)
-    """
-    if not isinstance(response_obj, dict):
-        return None, None, None
-    
-    # Extract content from choices[0].message.content
-    content = None
-    if "choices" in response_obj and len(response_obj["choices"]) > 0:
-        choice = response_obj["choices"][0]
-        if "message" in choice and "content" in choice["message"]:
-            content = choice["message"]["content"]
-    
-    # Extract reasoning if it exists (OpenAI o1 models)
-    reasoning = None
-    if "choices" in response_obj and len(response_obj["choices"]) > 0:
-        choice = response_obj["choices"][0]
-        if "message" in choice and "reasoning" in choice["message"]:
-            reasoning = choice["message"]["reasoning"]
-    
-    return content, reasoning, response_obj
-
-
-def display_response(response_obj):
-    """Display response JSON first, then formatted content/reasoning below."""
+def display_llm_response(response_obj):
+    """Display LLM response."""
     if response_obj is None:
         st.error("❌ Failed to get response")
         return
     
     if isinstance(response_obj, str):
-        st.code(response_obj, language="json")
+        st.error(response_obj)
         return
     
     if not isinstance(response_obj, dict):
         st.json(response_obj)
         return
     
-    # Handle wrapper response format: { "response": {...}, "elapsed_ms": ... }
-    actual_response = response_obj
-    if "response" in response_obj and isinstance(response_obj["response"], dict):
-        actual_response = response_obj["response"]
+    # Display elapsed time
+    st.metric("⏱️ Response Time (ms)", response_obj.get("elapsed_ms", 0))
     
-    # Display the full JSON response
-    st.json(response_obj)
+    st.divider()
     
-    # Extract and display content in collapsable section
-    content = None
-    if "choices" in actual_response and len(actual_response["choices"]) > 0:
-        choice = actual_response["choices"][0]
-        if "message" in choice and "content" in choice["message"]:
-            content = choice["message"]["content"]
+    # Display response content
+    response_data = response_obj.get("response", {})
     
-    if content:
-        with st.expander("📝 Content", expanded=False):
+    # Extract message content from response
+    if isinstance(response_data, dict):
+        try:
+            content = response_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            st.markdown("### 🎯 Response")
             st.markdown(content)
+        except (IndexError, KeyError, TypeError):
+            st.markdown("### 🎯 Response")
+            st.json(response_data)
+    else:
+        st.markdown("### 🎯 Response")
+        st.markdown(str(response_data))
     
-    # Extract and display reasoning in collapsable section
-    reasoning = None
-    if "choices" in actual_response and len(actual_response["choices"]) > 0:
-        choice = actual_response["choices"][0]
-        if "message" in choice and "reasoning" in choice["message"]:
-            reasoning = choice["message"]["reasoning"]
-    
-    if reasoning:
-        with st.expander("🧠 Reasoning", expanded=False):
-            st.markdown(reasoning)
+    # Show full response JSON in expander
+    with st.expander("📊 Full Response Object", expanded=False):
+        st.json(response_obj)
 
 
 def init_session_state():
@@ -116,33 +98,12 @@ def init_session_state():
 
 
 def main():
-    """Main LLM page logic."""
+    """Main LLM response page logic."""
     init_session_state()
     
     # Header
-    st.title("🤖 LLM Response")
-    st.markdown("Direct access to /llm-response endpoint")
-    
-    # Show endpoint configuration
-    with st.expander("⚙️ Configuration", expanded=False):
-        st.code(f"Endpoint: {LLM_ENDPOINT}\nTimeout: {REQUEST_TIMEOUT}s", language="text")
-        
-        # Connection test button
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            if st.button("🔌 Test Connection", key="test_llm"):
-                with st.spinner("Testing connection..."):
-                    try:
-                        response = requests.get(
-                            BASE_URL,
-                            timeout=5,
-                        )
-                        st.success(f"✅ Server is reachable (status: {response.status_code})")
-                    except requests.exceptions.ConnectionError:
-                        st.error(f"❌ Cannot connect to {BASE_URL}")
-                        st.info("Make sure the moneypenny-agent server is running on port 8600")
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
+    st.title("✨ LLM Response")
+    st.markdown("Simple one-shot LLM call with system prompt")
     
     st.markdown("---")
     
@@ -153,7 +114,8 @@ def main():
         # Display history
         if st.session_state.llm_messages:
             for i, resp in enumerate(st.session_state.llm_responses):
-                display_response(resp)
+                st.markdown(f"#### Response {i+1}")
+                display_llm_response(resp)
                 st.divider()
         else:
             st.info("💡 No responses yet. Send a prompt to get started.")
@@ -162,9 +124,9 @@ def main():
     st.markdown("---")
     
     user_input = st.text_input(
-        "Your prompt:",
-        placeholder="Type your prompt here...",
-        key="llm_user_input",
+        "Your question:",
+        placeholder="Ask me anything...",
+        key="agent_user_input",
     )
     
     col1, col2 = st.columns([4, 1])
@@ -180,72 +142,73 @@ def main():
     if send_button and user_input.strip():
         # Add to history
         st.session_state.llm_messages.append(user_input)
-        logger.info(f"[LLM_REQUEST] Calling {LLM_ENDPOINT} with prompt: {user_input[:100]}")
+        logger.info(f"[LLM_REQUEST] Calling {AGENT_ENDPOINT} with prompt: {user_input[:100]}")
         
-        # Show loading state
-        with st.spinner(f"Calling {LLM_ENDPOINT}..."):
+        try:
+            payload = {
+                "message": user_input,
+            }
+            logger.info(f"[LLM_REQUEST] Payload: {payload}")
+            
+            response = requests.post(
+                AGENT_ENDPOINT,
+                json=payload,
+                timeout=REQUEST_TIMEOUT,
+            )
+            response.raise_for_status()
+            
+            logger.info(f"[LLM_SUCCESS] status={response.status_code}")
+            
+            # Parse response
             try:
-                payload = {"message": user_input}
-                logger.info(f"[LLM_REQUEST] Payload: {payload}")
-                
-                response = requests.post(
-                    LLM_ENDPOINT,
-                    json=payload,
-                    timeout=REQUEST_TIMEOUT,
-                )
-                response.raise_for_status()
-                
-                logger.info(f"[LLM_SUCCESS] status={response.status_code}")
-                
-                # Parse response
-                try:
-                    json_response = response.json()
-                    st.session_state.llm_responses.append(json_response)
-                    logger.info(f"[LLM_RESPONSE] {json.dumps(json_response)[:100]}")
-                except json.JSONDecodeError:
-                    # Response is not JSON, store as-is
-                    st.session_state.llm_responses.append(response.text)
-                    logger.warning(f"[LLM_NON_JSON] {response.text[:100]}")
-                
-                st.rerun()
-                
-            except requests.exceptions.ConnectionError as e:
-                error_msg = f"❌ Cannot connect to {LLM_ENDPOINT}"
-                logger.error(f"[ERROR] ConnectionError: {error_msg}")
-                st.session_state.llm_responses.append(None)
-                st.error(error_msg)
-                st.info("Make sure the moneypenny-agent server is running:\n```bash\ncd nothing-gets-out && uvicorn manager_api:app --port 8600\n```")
-                st.rerun()
-            except requests.exceptions.Timeout:
-                error_msg = f"❌ Request timeout (>{REQUEST_TIMEOUT}s)"
-                logger.error(f"[ERROR] Timeout: {error_msg}")
-                st.session_state.llm_responses.append(None)
-                st.error(error_msg)
-                st.info("The endpoint is taking too long to respond. Check if the server is processing a heavy request.")
-                st.rerun()
-            except requests.exceptions.HTTPError as e:
-                error_msg = f"❌ HTTP {e.response.status_code}"
-                details = e.response.text[:500]
-                logger.error(f"[ERROR] HTTPError: {error_msg} - {details}")
-                st.session_state.llm_responses.append(None)
-                st.error(error_msg)
-                with st.expander("📋 Error Details"):
-                    st.code(details, language="json")
-                st.rerun()
-            except Exception as e:
-                error_msg = f"❌ Error: {str(e)}"
-                logger.error(f"[ERROR] {error_msg}")
-                st.session_state.llm_responses.append(None)
-                st.error(error_msg)
-                with st.expander("📋 Full Error"):
-                    st.code(str(e), language="text")
-                st.rerun()
+                json_response = response.json()
+                st.session_state.llm_responses.append(json_response)
+                logger.info(f"[LLM_RESPONSE] elapsed_ms={json_response.get('elapsed_ms')}")
+            except json.JSONDecodeError:
+                # Response is not JSON, store as-is
+                st.session_state.llm_responses.append(response.text)
+                logger.warning(f"[LLM_NON_JSON] {response.text[:100]}")
+            
+            st.rerun()
+            
+        except requests.exceptions.ConnectionError as e:
+            error_msg = f"❌ Cannot connect to {AGENT_ENDPOINT}"
+            logger.error(f"[ERROR] ConnectionError: {error_msg}")
+            st.session_state.llm_responses.append(None)
+            st.error(error_msg)
+            st.info("Make sure the moneypenny-agent server is running:\n```bash\ncd moneypenny-agent && uvicorn main:app --port 8600\n```")
+            st.rerun()
+        except requests.exceptions.Timeout:
+            error_msg = f"❌ Request timeout (>{REQUEST_TIMEOUT}s)"
+            logger.error(f"[ERROR] Timeout: {error_msg}")
+            st.session_state.llm_responses.append(None)
+            st.error(error_msg)
+            st.info("The LLM is taking too long to respond. This might mean:\n- Server is overloaded\n- Network is slow")
+            st.rerun()
+        except requests.exceptions.HTTPError as e:
+            error_msg = f"❌ HTTP {e.response.status_code}"
+            details = e.response.text[:500]
+            logger.error(f"[ERROR] HTTPError: {error_msg} - {details}")
+            st.session_state.llm_responses.append(None)
+            st.error(error_msg)
+            with st.expander("📋 Error Details"):
+                st.code(details, language="json")
+            st.rerun()
+        except Exception as e:
+            error_msg = f"❌ Error: {str(e)}"
+            logger.error(f"[ERROR] {error_msg}")
+            st.session_state.llm_responses.append(None)
+            st.error(error_msg)
+            with st.expander("📋 Full Error"):
+                st.code(str(e), language="text")
+            st.rerun()
 
 
 if __name__ == "__main__":
     logger.info("=" * 80)
-    logger.info("🤖 LLM Page Started")
-    logger.info(f"   Endpoint: {LLM_ENDPOINT}")
+    logger.info("✨ LLM Response Page Started")
+    logger.info(f"   Endpoint: {AGENT_ENDPOINT}")
     logger.info(f"   Timeout: {REQUEST_TIMEOUT}s")
+    logger.info("   Mode: Simple one-shot (no multi-step)")
     logger.info("=" * 80)
     main()
