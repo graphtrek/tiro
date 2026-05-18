@@ -58,6 +58,9 @@ def main():
     for msg in st.session_state.wiki_messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"], unsafe_allow_html=True)
+            if msg.get("full_result"):
+                with st.expander("🔍 View Full Result"):
+                    st.json(msg["full_result"])
             if msg.get("elapsed_ms"):
                 st.caption(f"⏱️ {msg['elapsed_ms']:.0f} ms")
 
@@ -82,16 +85,21 @@ def main():
 
                     data = response.json()
                     answer = data.get("response", "")
+                    full_result = data.get("full_result")
                     elapsed_ms = data.get("elapsed_ms", 0)
 
                     logger.info(f"[WIKI_SUCCESS] session={data.get('session_id')} | ⏱️ {elapsed_ms:.0f}ms")
 
                     st.markdown(answer, unsafe_allow_html=True)
+                    if full_result:
+                        with st.expander("🔍 View Full Result"):
+                            st.json(full_result)
                     st.caption(f"⏱️ {elapsed_ms:.0f} ms")
 
                     st.session_state.wiki_messages.append({
                         "role": "assistant",
                         "content": answer,
+                        "full_result": full_result,
                         "elapsed_ms": elapsed_ms,
                     })
 
