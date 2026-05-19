@@ -27,7 +27,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    .stChatMessage { max-width: 100%; }
+      .stChatMessage { max-width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -45,13 +45,6 @@ def main():
     st.title("📖 Wiki Agent")
     st.caption("Query your Moneypenny Obsidian knowledge base.")
 
-    # Clear button
-    if st.button("🗑️ Clear conversation"):
-        st.session_state.wiki_messages = []
-        st.session_state.wiki_session_id = uuid.uuid4().hex[:12]
-        logger.info("[WIKI_CLEAR] Conversation cleared, new session started")
-        st.rerun()
-
     st.divider()
 
     # Render chat history
@@ -64,72 +57,98 @@ def main():
             if msg.get("elapsed_ms"):
                 st.caption(f"⏱️ {msg['elapsed_ms']:.0f} ms")
 
-    # Chat input
-    if prompt := st.chat_input("Ask a question about your wiki"):
-        # Show user message immediately
-        st.session_state.wiki_messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    # Chat input via form (Enter-to-send + explicit buttons)
+    with st.form("wiki_chat"):
+        user_input = st.text_input(
+            "Ask a question about your wiki:",
+            placeholder="Type your question here and press Enter...",
+            key="wiki_user_input",
+        )
 
-        logger.info(f"[WIKI_REQUEST] session={st.session_state.wiki_session_id} | {WIKI_ENDPOINT} | msg={prompt[:100]}")
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            sent = st.form_submit_button("Send", use_container_width=True)
+        with col2:
+            clear = st.form_submit_button("Clear", use_container_width=True)
 
-        with st.chat_message("assistant"):
-            with st.spinner("Searching wiki…"):
-                try:
-                    payload = {
-                        "message": prompt,
-                        "session_id": st.session_state.wiki_session_id,
-                    }
-                    response = requests.post(WIKI_ENDPOINT, json=payload, timeout=REQUEST_TIMEOUT)
-                    response.raise_for_status()
+        if clear:
+            st.session_state.wiki_messages = []
+            st.session_state.wiki_session_id = uuid.uuid4().hex[:12]
+            logger.info("[WIKI_CLEAR] Conversation cleared, new session started")
+            st.rerun()
 
-                    data = response.json()
-                    answer = data.get("response", "")
-                    full_result = data.get("full_result")
-                    elapsed_ms = data.get("elapsed_ms", 0)
+        if sent and user_input.strip():
+            prompt = user_input
+            # Show user message immediately
+            st.session_state.wiki_messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-                    logger.info(f"[WIKI_SUCCESS] session={data.get('session_id')} | ⏱️ {elapsed_ms:.0f}ms")
+            logger.info(f"[WIKI_REQUEST] session={st.session_state.wiki_session_id} | {WIKI_ENDPOINT} | msg={prompt[:100]}")
 
-                    st.markdown(answer, unsafe_allow_html=True)
-                    if full_result:
-                        with st.expander("🔍 View Full Result"):
-                            st.json(full_result)
-                    st.caption(f"⏱️ {elapsed_ms:.0f} ms")
+            with st.chat_message("assistant"):
+                with st.spinner("Searching wiki…"):
+                    try:
+                        payload = {
+                            "message": prompt,
+                            "session_id": st.session_state.wiki_session_id,
+                        }
+                        response = requests.post(WIKI_ENDPOINT, json=payload, timeout=REQUEST_TIMEOUT)
+                        response.raise_for_status()
 
-                    st.session_state.wiki_messages.append({
-                        "role": "assistant",
-                        "content": answer,
-                        "full_result": full_result,
-                        "elapsed_ms": elapsed_ms,
-                    })
+                        data = response.json()
+                        answer = data.get("response", "")
+                        full_result = data.get("full_result")
+                        elapsed_ms = data.get("elapsed_ms", 0)
 
-                except requests.exceptions.ConnectionError:
-                    error_msg = f"❌ Cannot connect to {WIKI_ENDPOINT}"
-                    logger.error(f"[WIKI_ERROR] ConnectionError: {error_msg}")
-                    st.error(error_msg)
-                    st.info("Make sure the moneypenny-agent server is running:\n```bash\ncd moneypenny-agent && uvicorn main:app --port 8600\n```")
-                    st.session_state.wiki_messages.append({"role": "assistant", "content": error_msg})
+                        logger.info(f"[WIKI_SUCCESS] session={data.get('session_id')} | ⏱️ {elapsed_ms:.0f}ms")
 
-                except requests.exceptions.Timeout:
-                    error_msg = f"❌ Request timed out (>{REQUEST_TIMEOUT}s)"
-                    logger.error(f"[WIKI_ERROR] Timeout")
-                    st.error(error_msg)
-                    st.session_state.wiki_messages.append({"role": "assistant", "content": error_msg})
+                        st.markdown(answer, unsafe_allow_html=True)
+                        if full_result:
+                            with st.expander("🔍 View Full Result"):
+                                st.json(full_result)
+                        st.caption(f"⏱️ {elapsed_ms:.0f} ms")
 
-                except requests.exceptions.HTTPError as e:
-                    error_msg = f"❌ HTTP {e.response.status_code}"
-                    details = e.response.text[:500]
-                    logger.error(f"[WIKI_ERROR] HTTPError: {error_msg} — {details}")
-                    st.error(error_msg)
-                    with st.expander("📋 Error Details"):
-                        st.code(details, language="json")
-                    st.session_state.wiki_messages.append({"role": "assistant", "content": error_msg})
+                        st.session_state.wiki_messages.append({
+                            "role": "assistant",
+                            "content": answer,
+                            "full_result": full_result,
+                            "elapsed_ms": elapsed_ms,
+                        })
+                        # Rerun to update history
+                        st.rerun()
 
-                except Exception as e:
-                    error_msg = f"❌ Error: {e}"
-                    logger.error(f"[WIKI_ERROR] {error_msg}")
-                    st.error(error_msg)
-                    st.session_state.wiki_messages.append({"role": "assistant", "content": error_msg})
+                    except requests.exceptions.ConnectionError:
+                        error_msg = f"❌ Cannot connect to {WIKI_ENDPOINT}"
+                        logger.error(f"[WIKI_ERROR] ConnectionError: {error_msg}")
+                        st.error(error_msg)
+                        st.info("Make sure the moneypenly-agent server is running:\n```bash\ncd moneypenny-agent && uvicorn main:app --port 8600\n```")
+                        st.session_state.wiki_messages.append({"role": "assistant", "content": error_msg})
+                        st.rerun()
+
+                    except requests.exceptions.Timeout:
+                        error_msg = f"❌ Request timed out (>{REQUEST_TIMEOUT}s)"
+                        logger.error(f"[WIKI_ERROR] Timeout")
+                        st.error(error_msg)
+                        st.session_state.wiki_messages.append({"role": "assistant", "content": error_msg})
+                        st.rerun()
+
+                    except requests.exceptions.HTTPError as e:
+                        error_msg = f"❌ HTTP {e.response.status_code}"
+                        details = e.response.text[:500]
+                        logger.error(f"[WIKI_ERROR] HTTPError: {error_msg} — {details}")
+                        st.error(error_msg)
+                        with st.expander("📋 Error Details"):
+                            st.code(details, language="json")
+                        st.session_state.wiki_messages.append({"role": "assistant", "content": error_msg})
+                        st.rerun()
+
+                    except Exception as e:
+                        error_msg = f"❌ Error: {e}"
+                        logger.error(f"[WIKI_ERROR] {error_msg}")
+                        st.error(error_msg)
+                        st.session_state.wiki_messages.append({"role": "assistant", "content": error_msg})
+                        st.rerun()
 
 
 if __name__ == "__main__":
