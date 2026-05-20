@@ -66,6 +66,8 @@ if st.button("Send", type="primary") and user_query.strip():
                         if text and len(text) <= 50:
                             full_response += text
                             answer_placeholder.markdown(full_response)
+                        else:
+                            logger.info(f"Ignoring large chunk of length {len(text)}")
                     elif etype == "reset_answer":
                         # First reset_answer signals planning is done, actual answer starts.
                         answer_started = True

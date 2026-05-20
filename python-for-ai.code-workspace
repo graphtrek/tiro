@@ -9,14 +9,17 @@
 		"version": "0.2.0",
 		"configurations": [
 
+		
+		
+
 			{
-				"name": "moneypenny-agent: FastAPI",
+				"name": "streamlit-client: Launch Streamlit Client",
 				"type": "debugpy",
 				"request": "launch",
-				"module": "uvicorn",
+				"module": "streamlit",
 				"args": [
-					"moneypenny-agent.main:app",
-					"--reload"
+					"run",
+					"streamlit-chat-client/app.py",
 				],
 				"jinja": true
 			}
