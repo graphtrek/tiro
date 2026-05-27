@@ -43,3 +43,6 @@ generated_programs/*
 # ChromaDB and vector store caches
 chroma_db/
 tutorials/chroma_db/
+nothing-gets-out/payee-ajanlat.txt
+nothing-gets-out/payee-ajanlat.docx
+nothing-gets-out/payee-ajanlat.md
