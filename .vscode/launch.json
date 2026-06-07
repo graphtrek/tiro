@@ -5,6 +5,16 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "nav-szamla login",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "cli.main",
+      "args": ["login"],
+      "jinja": true,
+      "cwd": "${workspaceFolder}/nav-szamla"
+    },
+
+    {
       "name": "FastAPI",
       "type": "debugpy",
       "request": "launch",
