@@ -28,7 +28,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "cli.main",
-      "args": ["show", "NEXYS-2026-1"],
+      "args": ["show", "NEXYS-2026-1", "--direction", "INBOUND"],
       "jinja": true,
       "cwd": "${workspaceFolder}/nav-szamla"
     },
