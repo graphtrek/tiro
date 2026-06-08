@@ -13,7 +13,25 @@
       "jinja": true,
       "cwd": "${workspaceFolder}/nav-szamla"
     },
+    {
+      "name": "nav-szamla list",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "cli.main",
+      "args": ["list","--json", "--from", "2026-06-01", "--to", "2026-06-30", "--direction", "INBOUND"],
+      "jinja": true,
 
+      "cwd": "${workspaceFolder}/nav-szamla"
+    },
+   {
+      "name": "nav-szamla show NEXYS-2026-1",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "cli.main",
+      "args": ["show", "NEXYS-2026-1"],
+      "jinja": true,
+      "cwd": "${workspaceFolder}/nav-szamla"
+    },
     {
       "name": "FastAPI",
       "type": "debugpy",
