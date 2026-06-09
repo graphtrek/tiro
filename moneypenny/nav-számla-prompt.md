@@ -1,2 +1,16 @@
-Készítsünk microservice-t a nav online számlák lejérdezéséhez.
+---
+title: "Prompt: NAV Online Számla API"
+language: "HU"
+related: [nav-szamla-spec.md, szamla-db-prompt.md, pdf-szamla-prompt.md]
+---
+
+Készítsünk microservice-t a nav online számlák lekérdezéséhez.
 A szolgáltatáshoz készüljön cli és fastapi rest interface
+
+---
+
+## 🔗 Wiki Linkek
+- **Specifikáció**: [[nav-szamla-spec.md|NAV Szamla Spec]]
+- **Meghívva**: [[szamla-db-prompt.md|Szamla-DB Prompt]] → [[szamla-db-spec.md|Szamla-DB Spec]]
+- **Meghívja**: [[pdf-szamla-prompt.md|PDF Szamla Prompt]] → [[pdf-szamla-spec.md|PDF Szamla Spec]]
+- **Projekt Index**: [[INDEX.md|Moneypenny Index]]

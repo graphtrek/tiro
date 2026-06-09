@@ -163,12 +163,12 @@ POST /api/v1/sync (szamla-db)
 
 ## 📡 API Porток (Dev)
 
-| Service | Port | Endpoint |
-|---------|------|----------|
+| Service         | Port | Endpoint                |
+| --------------- | ---- | ----------------------- |
 | graphtrek-email | 8000 | `http://localhost:8000` |
-| pdf-szamla | 8001 | `http://localhost:8001` |
-| nav-szamla | 8002 | `http://localhost:8002` |
-| szamla-db | 8003 | `http://localhost:8003` |
+| pdf-szamla      | 8001 | `http://localhost:8001` |
+| nav-szamla      | 8002 | `http://localhost:8002` |
+| szamla-db       | 8003 | `http://localhost:8003` |
 
 ---
 
