@@ -1,0 +1,89 @@
+---
+title: "Specifikáció: NAV Online Számla Mikorszerviz"
+description: "NAV Online Számla API integrációs mikroszerviz"
+language: "HU"
+last_updated: "2026-06-09"
+related: [INDEX.md, szamla-db-spec.md, pdf-szamla-spec.md]
+---
+
+# NAV Online Számla Mikorszerviz - Specifikáció
+
+> 🔗 **Hívási Lánc**: [[szamla-db-spec.md|← MASTER (szamla-db)]] **→** [[pdf-szamla-spec.md|PDF Feldolgozó →]]
+
+---
+
+## Funkció
+- NAV Online Számla API-tól számlák lekérdezése (query)
+- **Meghívja: pdf-szamla** (PDF metaadatok kinyeréséhez)
+
+## API Integrációs pontok
+- Számlák lekérdezése (számlaszám alapján)
+- Lekérdezési adatok (keresési paraméterek)
+- Számlastátusz lekérése
+
+## Request paraméterek
+- `invoice_number` - számlaszám
+- `customer_tax_id` (optional) - vevő TAX ID
+- `supplier_tax_id` (optional) - szállító TAX ID
+- `invoice_date_from` (optional) - kezdő dátum
+- `invoice_date_to` (optional) - végdátum
+
+## Response
+```json
+{
+  "success": true,
+  "invoice": {
+    "invoice_number": "2026-001",
+    "invoice_date": "2026-05-01",
+    "supplier_tax_id": "12345678-1-01",
+    "customer_tax_id": "87654321-2-02",
+    "amount_total": 100000,
+    "amount_vat": 27000,
+    "nav_status": "RECEIVED",
+    "received_at": "2026-05-02T10:00:00Z"
+  },
+  "errors": []
+}
+```
+
+## Interface
+- **CLI**: 
+  - `nav-szamla query --invoice-number 2026-001`
+  - `nav-szamla search --supplier 12345678-1-01 --from 2026-05-01 --to 2026-05-31`
+- **REST API**:
+  - `GET /api/v1/invoices/{invoice_number}` - számlaszám alapján
+  - `POST /api/v1/invoices/search` - szabad keresés
+  - `GET /api/v1/invoices/status/{transaction_id}` - státusz
+
+## Tech stack
+- Python 3.10+
+- FastAPI, Typer
+- NAV Online Számla API (REST)
+- SSL tanúsítvány (nav-szamla auth)
+
+## Auth
+- SSL tanúsítvány + privát kulcs
+- Konfigurálható endpoint (test/prod)
+- API rate limiting kezelés
+
+---
+
+## Kapcsolódások
+
+### Hívási sorrend
+```
+szamla-db (MASTER)
+  ↓ meghívja
+nav-szamla (ÉN)
+  ↓ meghívja
+pdf-szamla
+  ↓ meghívja
+graphtrek-email
+```
+
+### Wiki linkek
+- **Prompt**: [[nav-számla-prompt.md|NAV Számla Prompt]]
+- **Meghívva**: [[szamla-db-spec.md|Szamla-DB (MASTER)]]
+- **Meghívom**: [[pdf-szamla-spec.md|PDF Feldolgozó]]
+  - pdf-szamla meghívása (POST /api/v1/invoices/extract)
+- **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]
