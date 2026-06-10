@@ -11,13 +11,13 @@ last_updated: "2026-06-09"
 
 A **Moneypenny** egy négy Python mikroszervizből álló számla-automatizálási rendszer, amely a Graphtrek számlázási folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, majd mindent egy PostgreSQL adatbázisba ment, szállítói és vevői adatokkal összekapcsolva.
 
-| # | Mikroszerviz | Port | Szerep |
-|---|---|---|---|
-| 4 | `szamla-db` | 8003 | MASTER orchestrator – DB persistálás, reconciliation |
-| 3 | `nav-szamla` | 8002 | NAV Online Számla API lekérdezés |
-| 2 | `pdf-szamla` | 8001 | PDF metaadat kinyerés (OCR/Regex) |
-| 1 | `graphtrek-email` | 8000 | Gmail PDF mellékletek letöltése |
-| 5 | `wise` | 8004 | Wise bankkivonatok letöltése és szinkronizálása |
+| #   | Mikroszerviz      | Port | Szerep                                               |
+| --- | ----------------- | ---- | ---------------------------------------------------- |
+| 4   | `szamla-db`       | 8003 | MASTER orchestrator – DB persistálás, reconciliation |
+| 3   | `nav-szamla`      | 8002 | NAV Online Számla API lekérdezés                     |
+| 2   | `pdf-szamla`      | 8001 | PDF metaadat kinyerés (OCR/Regex)                    |
+| 1   | `graphtrek-email` | 8000 | Gmail PDF mellékletek letöltése                      |
+| 5   | `wise`            | 8004 | Wise bankkivonatok letöltése és szinkronizálása      |
 
 Belépési pont: `POST /api/v1/sync` → `szamla-db` (8003). Minden mikroszerviznek van FastAPI REST interfésze és Typer CLI-je is.
 
