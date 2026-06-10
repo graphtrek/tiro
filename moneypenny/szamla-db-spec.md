@@ -12,6 +12,9 @@ related: [INDEX.md, nav-szamla-spec.md]
 
 ---
 
+## Szerepkör és kontextus
+Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata számlázási rendszer szíveként koordináld a mikroszervizek összes interakcióját. Ez a szolgáltatás a kritikus adatbázis hub, amely garantálja a szállító, vevő és számlainformációk konzisztenciáját a teljes rendszerben, biztosítva az idempotenciát és az adatintegritást.
+
 ## Funkció (MASTER HUB)
 - **Meghívja: nav-szamla** (utolsó 30 nap default paraméterrel)
 - nav-szamla → meghívja pdf-szamláta

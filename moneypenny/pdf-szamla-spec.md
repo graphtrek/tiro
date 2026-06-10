@@ -12,6 +12,9 @@ related: [INDEX.md, nav-szamla-spec.md, graphtrek-email-spec.md]
 
 ---
 
+## Szerepkör és kontextus
+Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF dokumentumokból strukturált számlaadatokat nyerni ki és validálni. Ez a szolgáltatás a számlákat felismerési pontosságért optimalizálja, és megbízható metaadatokat szállít a `szamla-db` orchestratornak, amely összeköti a NAV adatokkal.
+
 ## Funkció
 - **Meghívja: graphtrek-email** (utolsó 30 nap default)
 - Letöltött PDF fájlokból számlákat kiválogatja

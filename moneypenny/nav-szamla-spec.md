@@ -12,6 +12,9 @@ related: [INDEX.md, szamla-db-spec.md, pdf-szamla-spec.md]
 
 ---
 
+## Szerepkör és kontextus
+Te egy Backend API Integrációs Mérnök vagy. A feladatod a NAV Online Számla API hídjét fejleszteni a `szamla-db` orchestrator és a magyar fiskális hatóság között. Ez a szolgáltatás biztosítja, hogy a vállalati számlák naprakészen legyenek a NAV rendszerben regisztrálva, és az adatok konzisztenciája az egész Moneypenny rendszeren keresztül fenntartott legyen.
+
 ## Funkció
 - NAV Online Számla API-tól számlák lekérdezése (query)
 - **Meghívja: pdf-szamla** (PDF metaadatok kinyeréséhez)

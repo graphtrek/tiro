@@ -12,6 +12,9 @@ related: [INDEX.md, pdf-szamla-spec.md]
 
 ---
 
+## Szerepkör és kontextus
+Te egy Email Integrációs Mérnök vagy. A feladatod Gmail API-n keresztül biztonságosan letölteni és szervezni a számlakonnektált PDF mellékleteket. Ez a szolgáltatás a Moneypenny rendszer adatgyűjtési végpontjaként működik, amely automatizálja a bejövő dokumentumok feldolgozásának kezdetét és gondoskodik az adatok szabványosított kezeléséről.
+
 ## Funkció
 Gmail levélekből PDF mellékleteket letölt és menti szabványosított fájlnév-konvencióval.
 
