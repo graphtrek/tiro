@@ -4,126 +4,106 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository layout
 
-This is a multi-project workspace. Each sub-project has its own `.venv`, `requirements.txt`, and `.env`.
+This is a multi-project `uv`-based Python workspace. **Each sub-project has its own isolated virtual environment (`.venv`), `pyproject.toml`, and `.env`. There is NO shared/root virtual environment.**
+
+> **IMPORTANT — always use the project's own venv.** Before running any Python, test, or dependency command, `cd` into the specific sub-project and use *that* project's environment — either activate it (`source .venv/bin/activate`) or prefix with `uv run`. Never run a project's code from another project's venv or assume a workspace-wide environment.
 
 | Directory | Purpose |
 |---|---|
-| `nothing-gets-out/` | Main project: GDPR-compliant on-premise AI assistant |
-| `tutorials/` | OpenAI SDK examples (local LM Studio + Scaleway cloud) |
-| `hikari-slides/` | PowerPoint generation for Hungarian SME AI strategy decks |
+| `moneypenny/` | Obsidian design wiki (Hungarian): specs + prompts for an invoice-automation microservice pipeline |
+| `nav-szamla/` | NAV Online Számla 3.0 REST/XML client (FastAPI + CLI) |
+| `graphtrek-gmail/` | Gmail CLI + FastAPI interface (Google OAuth2) |
 
-## nothing-gets-out — primary project
+Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs), `.env.example` (Scaleway inference defaults: `SCALEWAY_BASE_URL`, `SCALEWAY_API_KEY`), `AGENTS.md`, this file.
 
-### Running the app
+### Dependency & run conventions
+- Each project's `.venv` lives at `<project>/.venv` and is the only environment you should use for that project's commands.
+- Install: `cd <project> && uv sync` (creates/updates `<project>/.venv`; or `pip install -e .` after activating it).
+- Run a command in the project's env: `cd <project> && uv run <cmd>`, or `source <project>/.venv/bin/activate` first.
+- Each service exposes both a **FastAPI** app under `api/` and a **CLI** (Click/Typer) under `cli/`, backed by a typed core package. Config via `pydantic-settings` reading `.env`. Tests under `tests/` (`uv run pytest`).
+
+## moneypenny — design wiki (not code)
+
+An Obsidian vault, written in Hungarian, that specs the **"Moneypenny"** invoice-automation system. Files: `*-spec.md` (specifications), `*-prompt.md` (code-generation prompts), `INDEX.md` (navigation hub, uses `[[wikilinks]]`).
+
+Describes five Python microservices, each with a FastAPI REST interface and a Typer/Click CLI:
+
+| # | Service | Port | Role |
+|---|---|---|---|
+| 4 | `szamla-db` | 8003 | MASTER orchestrator — PostgreSQL persistence + reconciliation |
+| 3 | `nav-szamla` | 8002 | NAV Online Számla API query |
+| 2 | `pdf-szamla` | 8001 | PDF metadata extraction (OCR/Regex) |
+| 1 | `graphtrek-email` | 8000 | Gmail PDF attachment download |
+| 5 | `wise` | 8004 | Wise bank-statement download/sync |
+
+**Flow**: entry point `POST /api/v1/sync` on `szamla-db` → synchronously calls `nav-szamla` → `pdf-szamla` → `graphtrek-email`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. `wise` is an independent entry point (own `POST /sync`) that writes Wise transactions directly into `szamla-db`'s PostgreSQL.
+
+**Status**: `nav-szamla` and `graphtrek-gmail` (= the `graphtrek-email` service) are implemented in this workspace; `pdf-szamla`, `szamla-db`, and `wise` are specced only.
+
+## nav-szamla — NAV Online Számla 3.0 client
+
+Hungarian tax-authority (NAV) Online Számla **3.0** REST/XML client (`/invoiceService/v3`) using technical-user (`technikai felhasználó`) authentication. `requires-python >=3.11`.
+
+### Running
 
 ```bash
-cd nothing-gets-out
+cd nav-szamla
+uv sync
 
-# Activate venv (always needed)
-source .venv/bin/activate
+# REST API (default port 8000)
+uvicorn api.main:app --reload         # or: python -m api.main
 
-# Start Streamlit UI (port 8501)
-streamlit run Chat.py
+# CLI (installed as `nav` script)
+python -m cli.main login              # test tokenExchange
+python -m cli.main list --from 2026-05-01 --to 2026-05-31 [--direction INBOUND] [--json]
+python -m cli.main show <invoice_number>
 
-# Start FastAPI backend (port 8500) — required for MCP and program manager
-uvicorn manager_api:app --host 0.0.0.0 --port 8500 --reload
-
-# Or use Docker Compose for both together
-docker compose up --build
+# Tests / lint
+uv run pytest tests/ -v
+uv run ruff check  nav_szamla/ api/ cli/
+uv run ruff format nav_szamla/ api/ cli/
 ```
 
-### Dependencies
+### Architecture
+- `nav_szamla/` — core package:
+  - `config.py` — Pydantic settings (`.env`)
+  - `models.py` — data models
+  - `crypto.py` — SHA-512 password hash, SHA3-512 request signature, AES-128 token decryption
+  - `client.py` — REST client + XML envelope construction
+  - `auth.py` — `tokenExchange` (login)
+  - `query.py` — `queryInvoiceDigest` / `queryInvoiceData` / `queryTaxpayer`
+  - `reporting.py` — `manageInvoice` / `queryTransactionStatus`
+- `api/main.py` — FastAPI endpoints (`/health`, `/auth/login`, `/invoices`, `/invoices/{szamlaszam}`, `/report`, `/settings`)
+- `cli/main.py` — Click CLI
+
+### Environment (`.env` from `.env.example`)
+`USERNAME`, `PASSWORD`, `LICENSE_KEY` (XML signKey), `CSERE_KEY` (XML exchangeKey, 16 chars), `TAX_NUMBER` (8 digits), `SOFTWARE_*` (software registration block required in every request), `ENVIRONMENT` (`test`/`production`), optional `ENDPOINT_URL` override, `API_HOST`/`API_PORT`, `LOG_LEVEL`.
+
+## graphtrek-gmail — Gmail CLI + FastAPI
+
+CLI and REST interface for Gmail (list / read / send / reply / trash / mark read-unread / labels) via Google OAuth2. Mirrors the `nav-szamla` structure and serves as the `graphtrek-email` service in the Moneypenny pipeline. `requires-python >=3.9`.
+
+### Running
 
 ```bash
-cd nothing-gets-out
-source .venv/bin/activate
-pip install -r requirements.txt
+cd graphtrek-gmail
+uv sync
+
+# REST API
+uvicorn graphtrek_gmail.api.main:app --reload
+
+# CLI (installed as `graphtrek-gmail` script)
+python -m graphtrek_gmail.cli.main list
+python -m graphtrek_gmail.cli.main read   <email_id>
+python -m graphtrek_gmail.cli.main send   --to <addr> --subject <s> --body <b>
+python -m graphtrek_gmail.cli.main reply  <email_id> <body>
+python -m graphtrek_gmail.cli.main trash  <email_id>
+python -m graphtrek_gmail.cli.main mark-read|mark-unread <email_id>
 ```
 
-### Running utility scripts
+### Architecture
+- `graphtrek_gmail/` — `api/main.py` (FastAPI), `cli/main.py` (Typer), `client/client.py` (Gmail API wrapper), `config/config.py` (settings), `models/models.py`.
+- API endpoints: `GET /emails`, `GET /emails/{id}`, `POST /emails/send`, `POST /emails/{id}/reply`, `POST /emails/{id}/trash`, `POST /emails/{id}/read`, `POST /emails/{id}/unread`, `GET /labels`.
 
-```bash
-cd nothing-gets-out
-source .venv/bin/activate
-python scripts/run_prompt_sql.py
-python scripts/test_query.py
-```
-
-### Environment
-
-Copy `.env.example` to `.env` and fill in values. Key variables:
-- `SCALEWAY_API_KEY` — inference endpoint key
-- `SCALEWAY_ENDPOINT_URL` — Scaleway OpenAI-compatible base URL
-- `CHAT_MODEL` — default: `mistral-small-3.2-24b-instruct-2506`
-- `CODER_MODEL` — default: `qwen3-coder-30b-a3b-instruct`
-- `POSTGRES_*` — database connection details
-- `GOOGLE_*` — OAuth credentials (credentials.json / token.json not committed)
-
-## Architecture overview (nothing-gets-out)
-
-### Two-process design
-- **Streamlit UI** (`Chat.py`, `pages/`) — chat frontend, file uploads, settings, logs
-- **FastAPI backend** (`manager_api.py`) — program lifecycle management (create/start/stop dynamically-generated FastAPI microservices)
-
-### Package layout (`packages/`)
-
-The `helpers/` directory has been replaced by `packages/` with Java-style sub-packages:
-
-| Package | Files | Responsibility |
-|---|---|---|
-| `packages/config/` | `app_config.py` | AppConfig, OpenAI client factories, env loading |
-| `packages/auth/` | `streamlit_auth.py`, `gmail_auth.py`, `drive_auth.py` | Streamlit login, Google OAuth scripts |
-| `packages/chat/` | `context.py`, `handlers.py`, `prompts.py`, `settings.py`, `ui.py`, `utils.py` | Chat modes, tool-call loops, prompt routing, UI |
-| `packages/tools/` | `gmail_tools.py`, `drive_tools.py`, `postgres_tools.py` | OpenAI function-calling tool definitions |
-| `packages/google/` | `gmail_service.py`, `drive_service.py` | Gmail and Drive API wrappers |
-| `packages/database/` | `postgres_service.py`, `exchange_rate_cache.py` | PostgreSQL access, exchange-rate cache |
-| `packages/rag/` | `langchain_rag.py` | LangChain + ChromaDB RAG pipeline |
-| `packages/mcp/` | `gmail_server.py`, `drive_server.py`, `postgres_server.py` | FastMCP servers for VS Code Copilot |
-| `packages/program/` | `generator.py`, `manager.py` | Dynamic FastAPI program generation and lifecycle |
-| `packages/observability/` | `log_utils.py` | Structured file logging |
-
-### Chat modes & context isolation
-Five modes, each with its own tool set and context builder (`packages/chat/context.py`):
-- **Internet** — DuckDuckGo web search
-- **DropBox** — RAG over uploaded files (ChromaDB vector store)
-- **Gmail** — Gmail API tool calls (read, search, send)
-- **Drive** — Google Drive API tool calls
-- **PostgreSQL** — SQL generation and execution against a configured DB
-
-Mode-specific tool definitions live in `packages/tools/`. Handlers for executing those tools live in `packages/chat/handlers.py`.
-
-### LLM integration
-Uses the OpenAI SDK pointed at Scaleway's inference endpoint. Two model slots:
-- Chat model (Mistral) for all conversation and tool-use
-- Coder model (Qwen) for `packages/program/generator.py` — generates full FastAPI programs from natural language
-
-Client factories are in `packages/config/app_config.py` (`AppConfig`).
-
-### RAG pipeline
-`packages/rag/langchain_rag.py` — LangChain + ChromaDB with ONNX embeddings. Documents (PDF, DOCX, XLSX, TXT) are indexed on upload via the DropBox page. Vector DB stored in `chroma_db/`.
-
-### MCP servers
-Three standalone FastMCP servers that expose tools to VS Code Copilot Agent:
-- `packages/mcp/gmail_server.py`
-- `packages/mcp/drive_server.py`
-- `packages/mcp/postgres_server.py`
-
-### Dynamic program manager
-`packages/program/generator.py` — uses Qwen to generate FastAPI microservices from a user prompt. `packages/program/manager.py` handles subprocess lifecycle. Generated programs land in `generated_programs/`. `manager_api.py` exposes REST endpoints to manage them.
-
-### Persistence
-- **ChromaDB** (`chroma_db/`) — vector embeddings and persisted user settings (`packages/chat/settings.py`)
-- **uploads/** — user-uploaded documents
-- **ai.log** — application log (`packages/observability/log_utils.py`)
-
-## CI/CD
-
-`.github/workflows/deploy.yml` builds from `nothing-gets-out/` context and pushes to `ghcr.io/graphtrek/python-for-ai` on every push to `main`. The image runs Streamlit on port 8501.
-
-## Docs prompt system (nothing-gets-out/docs/prompt/)
-
-Structured prompt files used by the PostgreSQL assistant:
-- `core/` — identity, schema, currency, tools, workflow rules, analysis areas
-- `kan/` — KAN-1 through KAN-10 query templates
-- `patterns/` — risk guide, SQL patterns, strategic advice
-- `index.md` — prompt index
+### Auth
+Place OAuth2 desktop `credentials.json` in the project root; `token.json` is generated on first successful auth. Override paths via `GOOGLE_CREDENTIALS_FILE` / `GOOGLE_TOKEN_FILE` in `.env`. Neither credential file is committed.
