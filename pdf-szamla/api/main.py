@@ -67,12 +67,12 @@ def extract_invoices_batch(request: ExtractBatchRequest):
     settings = get_settings()
     results: List[ExtractResponse] = []
     for output_dir in request.output_dirs:
-        invoices = process_directory(output_dir, settings.invoice_keywords)
+        files = process_directory(output_dir, settings.invoice_keywords)
         result = ExtractResponse(
-            total_files=len(invoices),
-            invoice_count=len(invoices),
+            total_files=len(files),
+            invoice_count=len(files),
             output_dir=output_dir,
-            invoices=invoices,
+            files=files,
         )
         _history.append(result)
         results.append(result)

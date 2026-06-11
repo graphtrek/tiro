@@ -1,21 +1,23 @@
 """Tests for the Pydantic models."""
 
+from datetime import datetime
+
 from pdf_szamla.models import (
     DownloadedFile,
     ExtractRequest,
     ExtractResponse,
-    InvoiceMetadata,
     JobInfo,
     JobStatus,
+    ProcessedFile,
 )
 
 
-class TestInvoiceMetadata:
-    def test_defaults(self):
-        meta = InvoiceMetadata(filename="x.pdf")
+class TestProcessedFile:
+    def test_fields(self):
+        now = datetime(2026, 5, 1, 12, 0)
+        meta = ProcessedFile(filename="x.pdf", modified=now)
         assert meta.filename == "x.pdf"
-        assert meta.invoice_number is None
-        assert meta.confidence == 0.0
+        assert meta.modified == now
 
 
 class TestExtractRequest:
@@ -36,7 +38,7 @@ class TestExtractResponse:
         resp = ExtractResponse()
         assert resp.total_files == 0
         assert resp.invoice_count == 0
-        assert resp.invoices == []
+        assert resp.files == []
 
 
 class TestJobInfo:

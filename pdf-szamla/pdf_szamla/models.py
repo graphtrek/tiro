@@ -2,31 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 
-# ── Extracted invoice metadata (service output) ─────────────────────────────
+# ── Processed invoice file (service output) ─────────────────────────────────
 
 
-class InvoiceMetadata(BaseModel):
-    """Structured metadata extracted from a single invoice PDF."""
+class ProcessedFile(BaseModel):
+    """A single invoice PDF identified by the service."""
 
     filename: str
-    invoice_number: Optional[str] = None
-    invoice_date: Optional[str] = None
-    supplier_name: Optional[str] = None
-    supplier_tax_id: Optional[str] = None
-    customer_name: Optional[str] = None
-    customer_tax_id: Optional[str] = None
-    amount_total: Optional[float] = None
-    amount_vat: Optional[float] = None
-    currency: Optional[str] = None
-    payment_due: Optional[str] = None
-    confidence: float = 0.0
-    saved_path: Optional[str] = None
+    modified: datetime
 
 
 # ── Request / response models ───────────────────────────────────────────────
@@ -56,7 +46,7 @@ class ExtractResponse(BaseModel):
     total_files: int = 0
     invoice_count: int = 0
     output_dir: str = ""
-    invoices: List[InvoiceMetadata] = Field(default_factory=list)
+    files: List[ProcessedFile] = Field(default_factory=list)
 
 
 class ExtractBatchRequest(BaseModel):

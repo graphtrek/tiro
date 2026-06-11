@@ -43,13 +43,13 @@ def run_extract(
         logger.info("Processing existing PDFs in %s", output_dir)
         source = output_dir
 
-    invoices = process_directory(source, settings.invoice_keywords)
+    files = process_directory(source, settings.invoice_keywords)
     total_files = len(paths) if request.download else _count_pdfs(output_dir)
     return ExtractResponse(
         total_files=total_files,
-        invoice_count=len(invoices),
+        invoice_count=len(files),
         output_dir=output_dir,
-        invoices=invoices,
+        files=files,
     )
 
 

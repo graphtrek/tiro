@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "pdf-szamla-spec.md",
+                "file": "nav-szamla-spec.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "pdf-szamla-spec"
+              "title": "nav-szamla-spec"
             }
           }
         ]
@@ -185,6 +185,7 @@
   },
   "active": "1b6fd279bca9f8e9",
   "lastOpenFiles": [
+    "pdf-szamla-spec.md",
     "graphtrek-email-spec.md",
     "graphtrek-email-prompt.md",
     "INDEX.md",
@@ -199,7 +200,6 @@
     "pdf-szamla-prompt.md.tmp.81206.e72371f3db51",
     "INDEX.md.tmp.81206.71b2a63f12a4",
     "szamla-db-spec.md.tmp.81206.504e97465aa8",
-    "pdf-szamla-spec.md",
     "szamla-db-spec.md.tmp.81206.a2d92659641d",
     "IMPLEMENTACIO.md",
     "CLI_SPECIFIKACIO.md",

@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # ── PDF source / extraction ─────────────────────────────
     output_dir: str = "./downloads"
-    invoice_keywords: list[str] = ["invoice", "szamla", "számla"]
+    invoice_keywords: list[str] = ["invoice", "bill", "szamla", "számla"]
 
     # ── Download job polling (seconds) ──────────────────────
     download_timeout: int = 120

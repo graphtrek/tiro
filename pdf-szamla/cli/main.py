@@ -72,30 +72,16 @@ def process(
         f"[green]✓[/green] {result.invoice_count} számla "
         f"({result.total_files} fájlból) — {result.output_dir}\n"
     )
-    if not result.invoices:
+    if not result.files:
         console.print("Nincs számla találat.")
         return
 
     table = Table(show_lines=False)
     table.add_column("Fájl", overflow="fold")
-    table.add_column("Számlaszám")
-    table.add_column("Dátum")
-    table.add_column("Szállító adószám")
-    table.add_column("Összeg", justify="right")
-    table.add_column("Pénznem")
-    table.add_column("Conf.", justify="right")
+    table.add_column("Módosítva")
 
-    for inv in result.invoices:
-        amount = f"{inv.amount_total:,.0f}" if inv.amount_total is not None else "—"
-        table.add_row(
-            inv.filename,
-            inv.invoice_number or "—",
-            inv.invoice_date or "—",
-            inv.supplier_tax_id or "—",
-            amount,
-            inv.currency or "—",
-            f"{inv.confidence:.2f}",
-        )
+    for f in result.files:
+        table.add_row(f.filename, f.modified.strftime("%Y-%m-%d %H:%M"))
     console.print(table)
 
 
