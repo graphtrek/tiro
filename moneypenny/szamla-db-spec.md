@@ -16,9 +16,8 @@ related: [INDEX.md, nav-szamla-spec.md]
 Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata számlázási rendszer szíveként koordináld a mikroszervizek összes interakcióját. Ez a szolgáltatás a kritikus adatbázis hub, amely garantálja a szállító, vevő és számlainformációk konzisztenciáját a teljes rendszerben, biztosítva az idempotenciát és az adatintegritást.
 
 ## Funkció (MASTER HUB)
-- **Meghívja: nav-szamla** (utolsó 30 nap default paraméterrel)
-- nav-szamla → meghívja pdf-szamláta
-- pdf-szamla → meghívja graphtrek-emailt
+- **Meghívja: nav-szamla** (NAV lekérdezés — levél szolgáltatás, csak NAV API-t hívja)
+- **Meghívja: pdf-szamla** (PDF feldolgozás — az meghívja graphtrek-emailt)
 - Vevő és szállító táblákat létrehozza nav-szamla adatai alapján
 - PDF-ből nyert metaadatokat összeköti nav-szamla táblákkal
 - Teljes invoice-supplier-customer összekapcsolás
@@ -59,14 +58,14 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - created_at, updated_at
 
 ## Logika (Orchestration)
-1. **szamla-db iniciál** → meghívja nav-szamláta (utolsó 30 nap)
-2. **nav-szamla** → meghívja pdf-szamláta
-3. **pdf-szamla** → meghívja graphtrek-emailt
-4. **graphtrek-email** → PDF-ek letöltése
-5. **Válasz lánc** (visszafelé):
-   - PDF metaadatok → nav-szamla
-   - NAV adatok + PDF → szamla-db
-6. **DB mentés**:
+1. **szamla-db iniciál** → párhuzamosan / egymás után:
+   - **nav-szamla** meghívása (GET /invoices?from=...&to=...&direction=...)
+     - nav-szamla csak a NAV API-t hívja, visszaad: számlalista, supplier/customer adatok
+   - **pdf-szamla** meghívása (POST /api/v1/invoices/extract)
+     - pdf-szamla meghívja graphtrek-emailt (Gmail PDF letöltés)
+     - visszaad: PDF metaadatok (számlaszám, összeg, partner)
+2. **Merge**: NAV adatok + PDF metaadatok összekapcsolása számlaszám alapján
+3. **DB mentés**:
    - Suppliers/Customers (partner adatok)
    - Invoices (számlák)
    - Reconciliation (PDF + NAV merge)
@@ -101,18 +100,22 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 ### Hívási sorrend
 ```
 szamla-db (MASTER)
-  ↓ meghívja
-nav-szamla
-  ↓ meghívja
-pdf-szamla
-  ↓ meghívja
-graphtrek-email
+  ├─ meghívja: nav-szamla ←→ NAV Online Számla 3.0 API
+  │   (levél szolgáltatás — nem hív tovább)
+  │
+  └─ meghívja: pdf-szamla
+                   ↓ meghívja
+             graphtrek-email ←→ Gmail API
+                   (levél szolgáltatás)
 ```
 
 ### Wiki linkek
 - **Prompt**: [[szamla-db-prompt.md|Szamla-DB Prompt]]
 - **MASTER Orchestrator**: Ez a szerviz
 - **Meghívja**: [[nav-szamla-spec.md|NAV API Specifikáció]]
-  - NAV API meghívása (GET /api/v1/invoices + search)
+  - NAV lekérdezés: `GET /invoices`, `GET /invoices/{szamlaszam}`
   - 30 nap default paraméterrel
+- **Meghívja**: [[pdf-szamla-spec.md|PDF Feldolgozó Specifikáció]]
+  - PDF feldolgozás: `POST /api/v1/invoices/extract`
+  - pdf-szamla maga hívja graphtrek-emailt a PDF letöltéshez
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

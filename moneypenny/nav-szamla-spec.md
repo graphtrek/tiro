@@ -17,7 +17,7 @@ Te egy Backend API Integrációs Mérnök vagy. A feladatod a NAV Online Számla
 
 ## Funkció
 - NAV Online Számla API-tól számlák lekérdezése (query)
-- **Meghívja: pdf-szamla** (PDF metaadatok kinyeréséhez)
+- **Levél szolgáltatás** — más mikroszervízt nem hív meg; eredményt ad vissza a `szamla-db`-nek
 
 ## API Integrációs pontok
 - Számlák lekérdezése (számlaszám alapján)
@@ -76,17 +76,18 @@ Te egy Backend API Integrációs Mérnök vagy. A feladatod a NAV Online Számla
 ### Hívási sorrend
 ```
 szamla-db (MASTER)
-  ↓ meghívja
-nav-szamla (ÉN)
-  ↓ meghívja
-pdf-szamla
-  ↓ meghívja
-graphtrek-email
+  ↓ POST /invoices?... vagy GET /invoices/{szamlaszam}
+nav-szamla (ÉN)  ←→  NAV Online Számla 3.0 API
+  ↓ visszaad adatot szamla-db-nek
+szamla-db (MASTER)
+  ↓ (ezután hívja pdf-szamlát)
+pdf-szamla → graphtrek-email
 ```
+
+> `nav-szamla` levél szolgáltatás: nem hív más mikroszervízt, csak a NAV API-t.
 
 ### Wiki linkek
 - **Prompt**: [[nav-számla-prompt.md|NAV Számla Prompt]]
 - **Meghívva**: [[szamla-db-spec.md|Szamla-DB (MASTER)]]
-- **Meghívom**: [[pdf-szamla-spec.md|PDF Feldolgozó]]
-  - pdf-szamla meghívása (POST /api/v1/invoices/extract)
+- **Meghívom**: (senki — levél szolgáltatás)
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

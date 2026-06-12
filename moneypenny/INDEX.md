@@ -30,15 +30,19 @@ MASTER ORCHESTRATOR
         ↓
     szamla-db
      (init)
+      ├───────────────────────┐
+      ↓                       ↓
+ nav-szamla             pdf-szamla
+ (NAV API)                    ↓
+                        graphtrek-email
+                          (Gmail API)
+      └───────────────────────┘
         ↓
- meghívja: nav-szamla
-        ↓
- meghívja: pdf-szamla
-        ↓
- meghívja: graphtrek-email
-        ↓
-    (végpont)
+  Merge + DB insert
 ```
+
+> `szamla-db` mindkét ágat közvetlenül hívja. `nav-szamla` levél szolgáltatás (csak NAV API).
+> `pdf-szamla` → `graphtrek-email` lánc a PDF-letöltési ág.
 
 ---
 
@@ -59,7 +63,7 @@ MASTER ORCHESTRATOR
 **[[nav-szamla-spec.md|📄 Specifikáció]]** | **[[nav-számla-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: [[szamla-db-spec.md|szamla-db]] által
-- **Meghívja**: [[pdf-szamla-spec.md|PDF Feldolgozó]]
+- **Meghívja**: (senki — levél szolgáltatás, csak NAV API-t hívja)
 - **Funkció**: NAV Online Számla lekérdezés
 - **Output**: NAV adatok + supplier/customer info
 - **REST**: `GET /api/v1/invoices/{invoice_number}`
@@ -69,7 +73,7 @@ MASTER ORCHESTRATOR
 ### 2️⃣ PDF Számla Feldolgozó
 **[[pdf-szamla-spec.md|📄 Specifikáció]]** | **[[pdf-szamla-prompt.md|💭 Prompt]]**
 
-- **Meghívva**: [[nav-szamla-spec.md|nav-szamla]] által
+- **Meghívva**: [[szamla-db-spec.md|szamla-db]] által
 - **Meghívja**: [[graphtrek-email-spec.md|Gmail Letöltő]]
 - **Funkció**: PDF metaadatok kinyerése (OCR/Regex)
 - **Input**: graphtrek-email API (utolsó 30 nap)
@@ -109,29 +113,22 @@ MASTER ORCHESTRATOR
 Hívási Lánc (Szinkron):
 ┌────────────────────────────────────────┐
 │  4. SZAMLA-DB (MASTER)                 │
-│  ├─ Meghívja: nav-szamla (30 nap)     │
-│  └─ Persistálás: DB                    │
+│  ├─ Meghívja: nav-szamla              │
+│  ├─ Meghívja: pdf-szamla              │
+│  └─ Persistálás + Merge: DB           │
 └────────────────────────────────────────┘
-                  ↓
-┌────────────────────────────────────────┐
-│  3. NAV API                            │
-│  ├─ NAV Online Számla query            │
-│  ├─ Meghívja: pdf-szamla               │
-│  └─ Output: NAV adatok                 │
-└────────────────────────────────────────┘
-                  ↓
-┌────────────────────────────────────────┐
-│  2. PDF FELDOLGOZÓ                     │
-│  ├─ Metaadatok kinyerése               │
-│  ├─ Meghívja: graphtrek-email (30 nap) │
-│  └─ Output: Invoice metadata           │
-└────────────────────────────────────────┘
-                  ↓
-┌────────────────────────────────────────┐
-│  1. GMAIL LETÖLTŐ (Végpont)            │
-│  ├─ Email PDF letöltés                 │
-│  └─ Output: PDF fájlok                 │
-└────────────────────────────────────────┘
+         ↓                   ↓
+┌──────────────────┐ ┌──────────────────────────────┐
+│  3. NAV API      │ │  2. PDF FELDOLGOZÓ            │
+│  ├─ NAV query    │ │  ├─ Metaadatok kinyerése      │
+│  └─ Levél szolg. │ │  └─ Meghívja: graphtrek-email│
+└──────────────────┘ └──────────────────────────────┘
+                                  ↓
+                     ┌──────────────────────────────┐
+                     │  1. GMAIL LETÖLTŐ (Végpont)  │
+                     │  ├─ Email PDF letöltés        │
+                     │  └─ Output: PDF fájlok        │
+                     └──────────────────────────────┘
 ```
 
 ---
@@ -168,15 +165,14 @@ POST /api/v1/sync (szamla-db)
 ### Chain Calls (Szinkron)
 ```
 1. szamla-db.sync()
-   ├─ nav_szamla.query(start_date, end_date)
-   │   └─ Létrehozza: suppliers/customers táblákat
-   │   └─ pdf_szamla.extract()
-   │       └─ graphtrek_email.jobs() meghívása
-   │           └─ Gmail API query (PDF letöltés)
-   │           └─ PDF-ek letöltése (30 nap)
-   │       └─ PDF metadata kinyerés
-   │       └─ Return: {invoice_number, supplier_tax_id, amount, ...}
-   │   └─ Return: {nav_status, received_at, ...}
+   ├─ nav_szamla.query(start_date, end_date)   [levél — csak NAV API]
+   │   └─ Return: {nav_status, invoice_number, supplier, customer, ...}
+   └─ pdf_szamla.extract(start_date, end_date)
+       └─ graphtrek_email.jobs() meghívása     [levél — csak Gmail API]
+           └─ Gmail API query (PDF letöltés)
+           └─ Return: PDF fájlok listája
+       └─ PDF metadata kinyerés (OCR/Regex)
+       └─ Return: {invoice_number, supplier_tax_id, amount, ...}
    └─ Merge: PDF + NAV adatok
    └─ Insert: invoices tábla (reconciliation)
    └─ Return: Sync results
@@ -242,22 +238,21 @@ DEFAULT_DAYS_BACK=30
 ### Request → Response Lánc
 ```
 1. Szamla-DB: POST /api/v1/sync
-   ↓ (request params: start_date, end_date)
-2. NAV API: GET /api/v1/invoices (szamla-db-tól)
-   ↓
-3. PDF Feldolgozó: POST /api/v1/invoices/extract (nav-szamla-tól)
-   ↓
-4. Gmail Letöltő: POST /api/v1/jobs (pdf-szamla-tól)
-   ↓ (Response)
-4. Gmail ← Return: {job_id, status}
-   ↓
-3. PDF Feldolgozó ← Hívja: GET /api/v1/jobs/{job_id}
-   ├─ Return: {downloaded_files: [...]}
-   └─ Extract metadata
-   ↓
-2. NAV API ← Return: {invoices: [...], pdf_metadata: {...}}
-   ↓
-1. Szamla-DB ← Return: Merge + DB insert
+   ├─ (request params: start_date, end_date)
+   │
+   ├─ → NAV API: GET /invoices?from=...&to=...&direction=...  (szamla-db-tól)
+   │       ↩ Return: [InvoiceDigest, ...]
+   │
+   └─ → PDF Feldolgozó: POST /api/v1/invoices/extract       (szamla-db-tól)
+           ↓
+         Gmail Letöltő: POST /api/v1/jobs                   (pdf-szamla-tól)
+           ↩ Return: {job_id, status}
+         Gmail Letöltő: GET /api/v1/jobs/{job_id}
+           ↩ Return: {downloaded_files: [...]}
+         PDF metadata kinyerés (OCR/Regex)
+           ↩ Return: {invoice_number, supplier_tax_id, amount, ...}
+   ↩
+1. Szamla-DB ← Merge NAV + PDF adatok → DB insert
    └─ Return: {sync_result, invoices_count, errors}
 ```
 
@@ -266,10 +261,9 @@ DEFAULT_DAYS_BACK=30
 ## 🔗 Wiki Linkek Összefoglalása
 
 ### Service Links
-- **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[nav-szamla-spec.md|nav-szamla]]
-- **Second**: [[nav-szamla-spec.md|nav-szamla]] → hívja → [[pdf-szamla-spec.md|pdf-szamla]]
-- **Third**: [[pdf-szamla-spec.md|pdf-szamla]] → hívja → [[graphtrek-email-spec.md|graphtrek-email]]
-- **Endpoint**: [[graphtrek-email-spec.md|graphtrek-email]] (No outgoing calls)
+- **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[nav-szamla-spec.md|nav-szamla]] (levél)
+- **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[pdf-szamla-spec.md|pdf-szamla]]
+- **PDF ág**: [[pdf-szamla-spec.md|pdf-szamla]] → hívja → [[graphtrek-email-spec.md|graphtrek-email]] (levél)
 - **Alternate Source**: [[wise-spec.md|wise]] → közvetlenül írja a [[szamla-db-spec.md|szamla-db]] PostgreSQL-jét (önálló belépési pont)
 
 ### Prompt Links
