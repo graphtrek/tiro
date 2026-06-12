@@ -32,7 +32,7 @@ class ExtractRequest(BaseModel):
         None, description="Filter end date (YYYY-MM-DD); default today"
     )
     output_dir: Optional[str] = Field(
-        None, description="PDF directory (default: ./downloads)"
+        None, description="PDF directory (default: ../graphtrek-gmail/downloads)"
     )
     download: bool = Field(
         True,

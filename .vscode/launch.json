@@ -5,10 +5,20 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "pdf-szamla API",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/pdf-szamla/run_api.py",
+      "python": "${workspaceFolder}/pdf-szamla/.venv/bin/python",
+      "console": "integratedTerminal"
+    },
+    {
       "name": "graphtrek-gmail API",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/graphtrek-gmail/run_api.py",
+      "python": "${workspaceFolder}/graphtrek-gmail/.venv/bin/python",
+      "console": "integratedTerminal"
     }
   ]
 }

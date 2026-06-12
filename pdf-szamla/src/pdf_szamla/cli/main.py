@@ -36,7 +36,7 @@ def process(
         None, "--end", help="Filter end date (YYYY-MM-DD); default today"
     ),
     output_dir: Optional[str] = typer.Option(
-        None, "--output-dir", help="PDF directory (default: ./downloads)"
+        None, "--output-dir", help="PDF directory (default: ../graphtrek-gmail/downloads)"
     ),
     local: bool = typer.Option(
         False,

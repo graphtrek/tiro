@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     graphtrek_email_url: str = "http://localhost:8000"
 
     # ── PDF source / extraction ─────────────────────────────
-    output_dir: str = "./downloads"
+    output_dir: str = "../graphtrek-gmail/downloads"
     invoice_keywords: list[str] = ["invoice", "bill", "szamla", "számla"]
 
     # ── Download job polling (seconds) ──────────────────────

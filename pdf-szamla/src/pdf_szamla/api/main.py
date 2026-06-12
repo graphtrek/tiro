@@ -91,7 +91,7 @@ def run_server():
 
     settings = get_settings()
     uvicorn.run(
-        "api.main:app",
+        "pdf_szamla.api.main:app",
         host=settings.api_host,
         port=settings.api_port,
         reload=True,
