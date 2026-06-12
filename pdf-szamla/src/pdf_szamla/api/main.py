@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 from typing import List
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 
 from pdf_szamla.client import GraphtrekEmailError
-from pdf_szamla.config import get_settings
+from pdf_szamla.config import configure_logging, get_settings
 from pdf_szamla.extractor import process_directory
 from pdf_szamla.models import (
     ExtractBatchRequest,
@@ -18,7 +19,8 @@ from pdf_szamla.models import (
 )
 from pdf_szamla.service import run_extract
 
-logging.basicConfig(level=logging.INFO)
+_settings = get_settings()
+configure_logging(_settings.log_level)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -26,6 +28,19 @@ app = FastAPI(
     description="Downloads invoice PDFs via graphtrek-email and extracts metadata.",
     version="0.1.0",
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    path = request.url.path
+    if request.url.query:
+        path = f"{path}?{request.url.query}"
+    logger.info("%s %s → %d in %.0fms", request.method, path, response.status_code, elapsed_ms)
+    return response
+
 
 # In-memory processing history (most recent runs).
 _history: List[ExtractResponse] = []

@@ -2,7 +2,34 @@
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+
+
+def configure_logging(log_level: str = "INFO") -> None:
+    _LOG_DIR.mkdir(exist_ok=True)
+    level = getattr(logging, log_level.upper(), logging.INFO)
+    fmt = logging.Formatter(
+        "%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(fmt)
+    file_handler = logging.FileHandler(_LOG_DIR / "pdf-szamla.log", encoding="utf-8")
+    file_handler.setFormatter(fmt)
+    root = logging.getLogger()
+    root.setLevel(level)
+    if not root.handlers:
+        root.addHandler(stream_handler)
+        root.addHandler(file_handler)
+    else:
+        root.handlers.clear()
+        root.addHandler(stream_handler)
+        root.addHandler(file_handler)
 
 
 class Settings(BaseSettings):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date, timedelta
 from typing import Optional
 
@@ -32,6 +33,7 @@ def run_extract(
     """
     settings = settings or get_settings()
     output_dir = request.output_dir or settings.output_dir
+    t0 = time.monotonic()
 
     if request.download:
         start, end = _default_dates(request.start_date, request.end_date)
@@ -45,6 +47,11 @@ def run_extract(
 
     files = process_directory(source, settings.invoice_keywords)
     total_files = len(paths) if request.download else _count_pdfs(output_dir)
+    elapsed_ms = (time.monotonic() - t0) * 1000
+    logger.info(
+        "Extraction complete: %d invoice(s) from %d file(s) in %.0fms",
+        len(files), total_files, elapsed_ms,
+    )
     return ExtractResponse(
         total_files=total_files,
         invoice_count=len(files),

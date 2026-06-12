@@ -38,6 +38,7 @@ class GraphtrekEmailClient:
         payload = {"start_date": start_date, "end_date": end_date}
         if output_dir:
             payload["output_dir"] = output_dir
+        t0 = time.monotonic()
         try:
             resp = self.session.post(
                 f"{self.base_url}/api/v1/jobs", json=payload, timeout=30
@@ -50,7 +51,11 @@ class GraphtrekEmailClient:
         job_id = resp.json().get("job_id")
         if not job_id:
             raise GraphtrekEmailError("graphtrek-email did not return a job_id")
-        logger.info("Started graphtrek-email download job %s", job_id)
+        elapsed_ms = (time.monotonic() - t0) * 1000
+        logger.info(
+            "POST %s/api/v1/jobs → job_id=%s in %.0fms",
+            self.base_url, job_id, elapsed_ms,
+        )
         return job_id
 
     def get_job(self, job_id: str) -> JobInfo:
@@ -69,13 +74,18 @@ class GraphtrekEmailClient:
 
         Raises :class:`GraphtrekEmailError` on failure or timeout.
         """
-        deadline = time.monotonic() + self.settings.download_timeout
+        t0 = time.monotonic()
+        deadline = t0 + self.settings.download_timeout
         while True:
             job = self.get_job(job_id)
             if job.status == JobStatus.COMPLETED:
                 files = job.result.files if job.result else []
                 paths = [f.saved_path for f in files]
-                logger.info("Download job %s completed: %d file(s)", job_id, len(paths))
+                elapsed_ms = (time.monotonic() - t0) * 1000
+                logger.info(
+                    "Download job %s completed: %d file(s) in %.0fms",
+                    job_id, len(paths), elapsed_ms,
+                )
                 return paths
             if job.status == JobStatus.FAILED:
                 raise GraphtrekEmailError(
