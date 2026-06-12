@@ -5,49 +5,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "nav-szamla login",
+      "name": "graphtrek-gmail API",
       "type": "debugpy",
       "request": "launch",
-      "module": "cli.main",
-      "args": ["login"],
-      "jinja": true,
-      "cwd": "${workspaceFolder}/nav-szamla"
-    },
-    {
-      "name": "nav-szamla list",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "cli.main",
-      "args": ["list","--json", "--from", "2026-06-01", "--to", "2026-06-30", "--direction", "INBOUND"],
-      "jinja": true,
-
-      "cwd": "${workspaceFolder}/nav-szamla"
-    },
-   {
-      "name": "nav-szamla show NEXYS-2026-1",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "cli.main",
-      "args": ["show", "NEXYS-2026-1", "--direction", "INBOUND"],
-      "jinja": true,
-      "cwd": "${workspaceFolder}/nav-szamla"
-    },
-    {
-      "name": "FastAPI",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": ["main:app", "--host", "0.0.0.0", "--port", "8600", "--reload"],
-      "jinja": true,
-      "cwd": "${workspaceFolder}/moneypenny-agent"
-    },
-    {
-      "name": "Streamlit",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "streamlit",
-      "args": ["run", "streamlit-chat-client/app.py"],
-      "jinja": true
+      "program": "${workspaceFolder}/graphtrek-gmail/run_api.py",
     }
   ]
 }
