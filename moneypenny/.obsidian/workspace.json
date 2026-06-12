@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "nav-szamla-spec.md",
+                "file": "INDEX.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "nav-szamla-spec"
+              "title": "INDEX"
             }
           }
         ]
@@ -185,16 +185,16 @@
   },
   "active": "1b6fd279bca9f8e9",
   "lastOpenFiles": [
-    "pdf-szamla-spec.md",
-    "graphtrek-email-spec.md",
-    "graphtrek-email-prompt.md",
-    "INDEX.md",
-    "wise-spec.md",
-    "wise-prompt.md",
-    "szamla-db-spec.md",
-    "szamla-db-prompt.md",
-    "INDEX.md.tmp.99594.ef1496322ee0",
     "nav-szamla-spec.md",
+    "szamla-db-spec.md",
+    "INDEX.md",
+    "graphtrek-email-spec.md",
+    "pdf-szamla-spec.md",
+    "szamla-db-prompt.md",
+    "wise-prompt.md",
+    "graphtrek-email-prompt.md",
+    "wise-spec.md",
+    "INDEX.md.tmp.99594.ef1496322ee0",
     "pdf-szamla-prompt.md",
     "nav-számla-prompt.md",
     "pdf-szamla-prompt.md.tmp.81206.e72371f3db51",

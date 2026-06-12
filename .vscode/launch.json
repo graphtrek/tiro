@@ -5,6 +5,14 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "nav-szamla API",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/nav-szamla/run_api.py",
+      "python": "${workspaceFolder}/nav-szamla/.venv/bin/python",
+      "console": "integratedTerminal"
+    },
+    {
       "name": "pdf-szamla API",
       "type": "debugpy",
       "request": "launch",

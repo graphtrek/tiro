@@ -13,14 +13,19 @@ a **FastAPI** REST API and a **Typer** CLI.
 cd pdf-szamla
 uv sync
 
-# REST API (default port 8001)
-uv run uvicorn pdf_szamla.api.main:app --reload
+# REST API (port 8001)
+python run_api.py
+
+# Or directly with uvicorn
+uv run uvicorn pdf_szamla.api.main:app --host 0.0.0.0 --port 8001 --reload
 
 # CLI (installed as `pdf-szamla`)
-uv run pdf-szamla process                                   # last 30 days, via graphtrek-email
+uv run pdf-szamla process                                     # last 30 days, download via graphtrek-email
 uv run pdf-szamla process --start 2026-05-01 --end 2026-05-31
-uv run pdf-szamla process --local --output-dir ./downloads  # process existing PDFs, no download
-uv run pdf-szamla process --json                            # machine-readable output
+uv run pdf-szamla process --start 2026-05-01 --end 2026-05-31 --json  # machine-readable output
+uv run pdf-szamla process --local --output-dir ./downloads    # process existing PDFs, no download
+uv run pdf-szamla process --download                          # explicit download (default)
+uv run pdf-szamla process --verbose                           # verbose logging
 
 # Tests
 uv run pytest tests/ -v
