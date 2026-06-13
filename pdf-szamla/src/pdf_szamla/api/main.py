@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 
 from pdf_szamla.client import GraphtrekEmailError
 from pdf_szamla.config import configure_logging, get_settings
-from pdf_szamla.extractor import extract_words_csv, process_directory
+from pdf_szamla.extractor import clear_words_cache, extract_words_csv, process_directory, words_cache_info
 from pdf_szamla.models import (
     ExtractBatchRequest,
     ExtractRequest,
@@ -108,6 +108,19 @@ def get_pdf_words(request: WordsRequest):
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.get("/api/v1/pdf/words/cache")
+def get_words_cache_info():
+    """Return stats about the in-memory words cache."""
+    return words_cache_info()
+
+
+@app.delete("/api/v1/pdf/words/cache")
+def delete_words_cache():
+    """Evict all entries from the in-memory words cache."""
+    removed = clear_words_cache()
+    return {"removed": removed}
 
 
 @app.get("/api/v1/invoices", response_model=List[ExtractResponse])

@@ -9,7 +9,7 @@ import os
 import unicodedata
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import pdfplumber
 
@@ -19,6 +19,9 @@ from .models import ProcessedFile
 logger = logging.getLogger(__name__)
 
 DEFAULT_KEYWORDS = ["invoice", "bill", "szamla", "számla"]
+
+# In-memory word cache: path → (mtime, csv_data)
+_words_cache: Dict[str, Tuple[float, str]] = {}
 
 
 def _fold(text: str) -> str:
@@ -39,7 +42,20 @@ def get_page_count(pdf_path: str) -> int:
 
 
 def extract_words_csv(pdf_path: str) -> str:
-    """Return all words from a PDF as CSV with columns: page,word,x0,top,x1,bottom."""
+    """Return all words from a PDF as CSV with columns: page,word,x0,top,x1,bottom.
+
+    Results are cached by file path keyed on mtime; stale entries are evicted automatically.
+    """
+    try:
+        mtime = os.path.getmtime(pdf_path)
+    except OSError:
+        mtime = 0.0
+
+    cached_mtime, cached_csv = _words_cache.get(pdf_path, (None, None))
+    if cached_mtime == mtime and cached_csv is not None:
+        logger.debug("words cache hit: %s", pdf_path)
+        return cached_csv
+
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["page", "word", "x0", "top", "x1", "bottom"])
@@ -52,7 +68,21 @@ def extract_words_csv(pdf_path: str) -> str:
                     )
     except Exception as exc:
         logger.warning("Could not extract words from %s: %s", pdf_path, exc)
-    return buf.getvalue()
+    csv_data = buf.getvalue()
+    _words_cache[pdf_path] = (mtime, csv_data)
+    return csv_data
+
+
+def words_cache_info() -> dict:
+    """Return stats about the current words cache."""
+    return {"entries": len(_words_cache), "paths": list(_words_cache.keys())}
+
+
+def clear_words_cache() -> int:
+    """Evict all entries from the words cache; return the number removed."""
+    count = len(_words_cache)
+    _words_cache.clear()
+    return count
 
 
 def extract_text(pdf_path: str) -> str:

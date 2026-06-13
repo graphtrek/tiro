@@ -30,6 +30,10 @@ uv run pdf-szamla process --verbose                           # verbose logging
 uv run pdf-szamla words invoice.pdf                           # print words as CSV to stdout
 uv run pdf-szamla words invoice.pdf -o words.csv              # save CSV to file
 
+uv run pdf-szamla cache-info                                  # show words cache stats
+uv run pdf-szamla cache-info --json
+uv run pdf-szamla cache-clear                                 # evict all cached word extractions
+
 # Tests
 uv run pytest tests/ -v
 ```
@@ -44,6 +48,8 @@ uv run pytest tests/ -v
 | `POST` | `/api/v1/invoices/extract-batch` | Batch extraction over one or more local directories |
 | `GET`  | `/api/v1/invoices` | In-memory processing history |
 | `POST` | `/api/v1/pdf/words` | Extract all words from a PDF as CSV |
+| `GET`  | `/api/v1/pdf/words/cache` | Words cache stats (entry count + cached paths) |
+| `DELETE` | `/api/v1/pdf/words/cache` | Evict all entries from the words cache |
 
 ### GET /health
 
@@ -203,6 +209,33 @@ page,word,x0,top,x1,bottom
 |-------|------|-------------|
 | `pdf_path` | `string` | Absolute or relative path to the PDF file |
 
+### GET /api/v1/pdf/words/cache
+
+Return stats about the in-process words cache.
+
+```bash
+curl http://localhost:8001/api/v1/pdf/words/cache
+```
+
+```json
+{"entries": 2, "paths": ["/downloads/invoice_a.pdf", "/downloads/invoice_b.pdf"]}
+```
+
+### DELETE /api/v1/pdf/words/cache
+
+Evict all entries from the in-process words cache.
+
+```bash
+curl -X DELETE http://localhost:8001/api/v1/pdf/words/cache
+```
+
+```json
+{"removed": 2}
+```
+
+> **Note:** the cache is process-local. The CLI and the API server each maintain their
+> own cache; clearing one does not affect the other.
+
 ## CLI
 
 ### process
@@ -236,6 +269,26 @@ uv run pdf-szamla words PDF_PATH [--output FILE]
 | `--output FILE` / `-o FILE` | Write CSV to this file; omit to print to stdout |
 
 Output columns: `page`, `word`, `x0`, `top`, `x1`, `bottom`.
+
+### cache-info
+
+Show stats about the in-process words cache (entry count and cached file paths).
+
+```bash
+uv run pdf-szamla cache-info
+uv run pdf-szamla cache-info --json
+```
+
+### cache-clear
+
+Evict all entries from the in-process words cache.
+
+```bash
+uv run pdf-szamla cache-clear
+```
+
+> **Note:** the cache is process-local. Each CLI invocation has its own cache; this
+> command does not affect a running API server instance.
 
 ## Logs
 

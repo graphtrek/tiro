@@ -12,7 +12,7 @@ from rich.table import Table
 
 from pdf_szamla.client import GraphtrekEmailError
 from pdf_szamla.config import get_settings
-from pdf_szamla.extractor import extract_words_csv
+from pdf_szamla.extractor import clear_words_cache, extract_words_csv, words_cache_info
 from pdf_szamla.models import ExtractRequest
 from pdf_szamla.service import run_extract
 
@@ -101,6 +101,27 @@ def words(
         console.print(f"[green]✓[/green] Words written to {output}")
     else:
         console.print(csv_content, end="")
+
+
+@app.command("cache-info")
+def cache_info(
+    as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """Show stats about the in-process words cache."""
+    info = words_cache_info()
+    if as_json:
+        console.print_json(_json.dumps(info))
+        return
+    console.print(f"[bold]Entries:[/bold] {info['entries']}")
+    for path in info["paths"]:
+        console.print(f"  {path}")
+
+
+@app.command("cache-clear")
+def cache_clear():
+    """Evict all entries from the in-process words cache."""
+    removed = clear_words_cache()
+    console.print(f"[green]✓[/green] {removed} bejegyzés törölve a gyorsítótárból.")
 
 
 if __name__ == "__main__":
