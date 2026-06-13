@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 import os
 import unicodedata
@@ -26,6 +28,33 @@ def _fold(text: str) -> str:
     )
 
 
+def get_page_count(pdf_path: str) -> int:
+    """Return the number of pages in a PDF (0 if it cannot be read)."""
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            return len(pdf.pages)
+    except Exception as exc:
+        logger.warning("Could not read page count from %s: %s", pdf_path, exc)
+        return 0
+
+
+def extract_words_csv(pdf_path: str) -> str:
+    """Return all words from a PDF as CSV with columns: page,word,x0,top,x1,bottom."""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["page", "word", "x0", "top", "x1", "bottom"])
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_num, page in enumerate(pdf.pages, start=1):
+                for word in page.extract_words():
+                    writer.writerow(
+                        [page_num, word["text"], word["x0"], word["top"], word["x1"], word["bottom"]]
+                    )
+    except Exception as exc:
+        logger.warning("Could not extract words from %s: %s", pdf_path, exc)
+    return buf.getvalue()
+
+
 def extract_text(pdf_path: str) -> str:
     """Return all text from a PDF (empty string if it cannot be read)."""
     try:
@@ -45,9 +74,9 @@ def is_invoice(filename: str, text: str, keywords: Optional[Sequence[str]] = Non
 
 
 def describe_file(pdf_path: str) -> ProcessedFile:
-    """Return the original filename and modification date of a PDF file."""
+    """Return the relative path and modification date of a PDF file."""
     modified = datetime.fromtimestamp(os.path.getmtime(pdf_path))
-    return ProcessedFile(filename=os.path.basename(pdf_path), modified=modified)
+    return ProcessedFile(filename=os.path.relpath(pdf_path), modified=modified)
 
 
 def _iter_pdf_paths(paths_or_dir) -> List[str]:
@@ -74,10 +103,14 @@ def process_directory(
     kws = list(keywords) if keywords else get_settings().invoice_keywords
     results: List[ProcessedFile] = []
     for pdf_path in _iter_pdf_paths(paths_or_dir):
-        text = extract_text(pdf_path)
         filename = os.path.basename(pdf_path)
+        page_count = get_page_count(pdf_path)
+        text = extract_text(pdf_path)
         if not is_invoice(filename, text, kws):
             logger.info("Skipping non-invoice file: %s", filename)
+            continue
+        if page_count == 0 or page_count > 2:
+            logger.warning("Skipping file (%d pages): %s", page_count, filename)
             continue
         results.append(describe_file(pdf_path))
     return results

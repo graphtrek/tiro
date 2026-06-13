@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "INDEX.md",
+                "file": "szamla-db-spec.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "INDEX"
+              "title": "szamla-db-spec"
             }
           }
         ]
@@ -185,11 +185,11 @@
   },
   "active": "1b6fd279bca9f8e9",
   "lastOpenFiles": [
-    "szamla-db-spec.md",
     "szamla-db-prompt.md",
-    "INDEX.md",
-    "nav-szamla-spec.md",
     "nav-számla-prompt.md",
+    "nav-szamla-spec.md",
+    "INDEX.md",
+    "szamla-db-spec.md",
     "graphtrek-email-spec.md",
     "pdf-szamla-spec.md",
     "wise-prompt.md",

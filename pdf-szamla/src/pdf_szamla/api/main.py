@@ -2,20 +2,23 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import time
 from datetime import datetime
 from typing import List
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from pdf_szamla.client import GraphtrekEmailError
 from pdf_szamla.config import configure_logging, get_settings
-from pdf_szamla.extractor import process_directory
+from pdf_szamla.extractor import extract_words_csv, process_directory
 from pdf_szamla.models import (
     ExtractBatchRequest,
     ExtractRequest,
     ExtractResponse,
+    WordsRequest,
 )
 from pdf_szamla.service import run_extract
 
@@ -92,6 +95,19 @@ def extract_invoices_batch(request: ExtractBatchRequest):
         _history.append(result)
         results.append(result)
     return results
+
+
+@app.post("/api/v1/pdf/words")
+def get_pdf_words(request: WordsRequest):
+    """Extract all words from a PDF and return them as CSV (page,word,x0,top,x1,bottom)."""
+    csv_content = extract_words_csv(request.pdf_path)
+    filename = request.pdf_path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1] or "words"
+    filename = filename.removesuffix(".pdf") + "_words.csv"
+    return StreamingResponse(
+        io.StringIO(csv_content),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/api/v1/invoices", response_model=List[ExtractResponse])

@@ -12,6 +12,7 @@ from rich.table import Table
 
 from pdf_szamla.client import GraphtrekEmailError
 from pdf_szamla.config import get_settings
+from pdf_szamla.extractor import extract_words_csv
 from pdf_szamla.models import ExtractRequest
 from pdf_szamla.service import run_extract
 
@@ -83,6 +84,23 @@ def process(
     for f in result.files:
         table.add_row(f.filename, f.modified.strftime("%Y-%m-%d %H:%M"))
     console.print(table)
+
+
+@app.command()
+def words(
+    pdf_path: str = typer.Argument(..., help="Path to the PDF file"),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="Write CSV to this file instead of stdout"
+    ),
+):
+    """Extract all words from a PDF and output them as CSV (page,word,x0,top,x1,bottom)."""
+    csv_content = extract_words_csv(pdf_path)
+    if output:
+        from pathlib import Path
+        Path(output).write_text(csv_content, encoding="utf-8")
+        console.print(f"[green]✓[/green] Words written to {output}")
+    else:
+        console.print(csv_content, end="")
 
 
 if __name__ == "__main__":

@@ -27,6 +27,9 @@ uv run pdf-szamla process --local --output-dir ./downloads    # process existing
 uv run pdf-szamla process --download                          # explicit download (default)
 uv run pdf-szamla process --verbose                           # verbose logging
 
+uv run pdf-szamla words invoice.pdf                           # print words as CSV to stdout
+uv run pdf-szamla words invoice.pdf -o words.csv              # save CSV to file
+
 # Tests
 uv run pytest tests/ -v
 ```
@@ -40,6 +43,7 @@ uv run pytest tests/ -v
 | `POST` | `/api/v1/invoices/extract` | Download (via graphtrek-email) + extract metadata |
 | `POST` | `/api/v1/invoices/extract-batch` | Batch extraction over one or more local directories |
 | `GET`  | `/api/v1/invoices` | In-memory processing history |
+| `POST` | `/api/v1/pdf/words` | Extract all words from a PDF as CSV |
 
 ### GET /health
 
@@ -100,9 +104,9 @@ Response:
   "invoice_count": 3,
   "output_dir": "./downloads",
   "files": [
-    {"filename": "invoice_2026_05.pdf", "modified": "2026-05-15T10:30:00"},
-    {"filename": "szamla_2026_05.pdf",  "modified": "2026-05-20T14:00:00"},
-    {"filename": "bill_may.pdf",         "modified": "2026-05-28T09:15:00"}
+    {"filename": "downloads/invoice_2026_05.pdf", "modified": "2026-05-15T10:30:00"},
+    {"filename": "downloads/szamla_2026_05.pdf",  "modified": "2026-05-20T14:00:00"},
+    {"filename": "downloads/bill_may.pdf",         "modified": "2026-05-28T09:15:00"}
   ]
 }
 ```
@@ -139,13 +143,13 @@ Response — array of `ExtractResponse`, one entry per directory:
     "total_files": 2,
     "invoice_count": 2,
     "output_dir": "./downloads/2026-04",
-    "files": [{"filename": "april_invoice.pdf", "modified": "2026-04-10T08:00:00"}]
+    "files": [{"filename": "downloads/2026-04/april_invoice.pdf", "modified": "2026-04-10T08:00:00"}]
   },
   {
     "total_files": 5,
     "invoice_count": 3,
     "output_dir": "./downloads/2026-05",
-    "files": [{"filename": "invoice_2026_05.pdf", "modified": "2026-05-15T10:30:00"}]
+    "files": [{"filename": "downloads/2026-05/invoice_2026_05.pdf", "modified": "2026-05-15T10:30:00"}]
   }
 ]
 ```
@@ -159,6 +163,79 @@ curl http://localhost:8001/api/v1/invoices
 ```
 
 Response — array of `ExtractResponse` objects (same shape as `/extract`).
+
+### POST /api/v1/pdf/words
+
+Extract every word from a PDF file and return them as a CSV download with positional
+metadata sourced from pdfplumber's word-extraction engine.
+
+```bash
+curl -X POST http://localhost:8001/api/v1/pdf/words \
+  -H "Content-Type: application/json" \
+  -d '{"pdf_path": "/path/to/invoice.pdf"}' \
+  -o invoice_words.csv
+```
+
+Response — `text/csv` attachment (`<basename>_words.csv`):
+
+```
+page,word,x0,top,x1,bottom
+1,Invoice,72.0,48.2,108.5,60.1
+1,Number:,110.0,48.2,148.3,60.1
+1,2026-0042,150.0,48.2,210.7,60.1
+...
+```
+
+**CSV columns:**
+
+| Column | Description |
+|--------|-------------|
+| `page` | 1-based page number |
+| `word` | Extracted word text |
+| `x0` | Left edge of the word bounding box (points from left) |
+| `top` | Top edge of the word bounding box (points from top of page) |
+| `x1` | Right edge of the word bounding box |
+| `bottom` | Bottom edge of the word bounding box |
+
+**Request fields (`WordsRequest`):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pdf_path` | `string` | Absolute or relative path to the PDF file |
+
+## CLI
+
+### process
+
+Download invoice PDFs via graphtrek-email (or process local files) and print a summary table.
+
+```bash
+uv run pdf-szamla process [OPTIONS]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--start DATE` | 30 days ago | Filter start date (`YYYY-MM-DD`) |
+| `--end DATE` | today | Filter end date (`YYYY-MM-DD`) |
+| `--output-dir PATH` | env `OUTPUT_DIR` | PDF directory |
+| `--local` / `--download` | `--download` | Skip graphtrek-email; use existing files |
+| `--json` | off | Output result as JSON |
+| `--verbose` / `-v` | off | Enable INFO logging |
+
+### words
+
+Extract every word from a PDF and emit CSV with positional metadata.
+
+```bash
+uv run pdf-szamla words PDF_PATH [--output FILE]
+```
+
+| Argument / Option | Description |
+|-------------------|-------------|
+| `PDF_PATH` | Path to the PDF file (required) |
+| `--output FILE` / `-o FILE` | Write CSV to this file; omit to print to stdout |
+
+Output columns: `page`, `word`, `x0`, `top`, `x1`, `bottom`.
 
 ## Logs
 

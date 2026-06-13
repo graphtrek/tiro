@@ -57,6 +57,12 @@ class ExtractBatchRequest(BaseModel):
     )
 
 
+class WordsRequest(BaseModel):
+    """Request for word-level CSV extraction from a single PDF."""
+
+    pdf_path: str = Field(..., description="Absolute or relative path to the PDF file")
+
+
 # ── graphtrek-email job shapes (subset we consume) ──────────────────────────
 
 
