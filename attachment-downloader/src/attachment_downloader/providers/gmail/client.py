@@ -1,7 +1,5 @@
 import base64
 import logging
-import os
-import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable, Iterator, List, Optional, Tuple
@@ -13,8 +11,10 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from attachment_downloader.cache import TTLCache
-from attachment_downloader.config import CACHE_TTL_SECONDS, CREDENTIALS_PATH, DOWNLOAD_ROOT_DIR, TOKEN_PATH
+from attachment_downloader.config import CACHE_TTL_SECONDS, DOWNLOAD_ROOT_DIR
 from attachment_downloader.models import DownloadedFile, DownloadResult
+from attachment_downloader.providers.gmail.config import CREDENTIALS_PATH, TOKEN_PATH
+from attachment_downloader.utils import sanitize_filename, scan_output
 
 logger = logging.getLogger(__name__)
 
@@ -55,40 +55,6 @@ class GmailClient:
 
         self._service = build("gmail", "v1", credentials=creds)
         return self._service
-
-    @staticmethod
-    def _sanitize_filename(name: str) -> str:
-        """Strip any path component and replace unsafe characters."""
-        name = os.path.basename(name or "")
-        name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
-        return name or "attachment.pdf"
-
-    # Matches our naming scheme ``YYYY-MM-DD_NNN(N)_<name>`` and captures the
-    # date, the (zero-padded) running counter, and the trailing name part.
-    _NAME_RE = re.compile(r"^((\d{4})-\d{2}-\d{2})_(\d+)_(.+)$")
-
-    @classmethod
-    def _scan_output(cls, out_path: Path) -> Tuple[dict, set]:
-        """Scan ``out_path`` once for previously downloaded files.
-
-        Returns ``(max_seq_by_year, identities)`` where ``max_seq_by_year`` maps
-        each year to the highest counter already used and ``identities`` is a set
-        of ``(date, name)`` keys used to skip already-downloaded attachments.
-        """
-        max_seq: dict = {}
-        identities: set = set()
-        if not out_path.is_dir():
-            return max_seq, identities
-        for entry in out_path.iterdir():
-            match = cls._NAME_RE.match(entry.name)
-            if not match:
-                continue
-            date_str, year, seq, name_part = match.groups()
-            year, seq = int(year), int(seq)
-            if seq > max_seq.get(year, 0):
-                max_seq[year] = seq
-            identities.add((date_str, name_part))
-        return max_seq, identities
 
     def _iter_message_ids(self, service, query: str) -> Iterator[str]:
         """Yield every message id matching ``query``, paging through results."""
@@ -201,7 +167,7 @@ class GmailClient:
                 messages.append((internal, message_id, parts))
         messages.sort(key=lambda item: item[0])
 
-        seq_by_year, existing = self._scan_output(out_path)
+        seq_by_year, existing = scan_output(out_path)
         skipped = 0
         downloaded: List[DownloadedFile] = []
         for internal, message_id, parts in messages:
@@ -209,7 +175,7 @@ class GmailClient:
             date_str = email_dt.strftime("%Y-%m-%d")
             year = email_dt.year
             for original_filename, attachment_id in parts:
-                safe_original = self._sanitize_filename(original_filename)
+                safe_original = sanitize_filename(original_filename)
                 name_part = safe_original
                 if not name_part.lower().endswith(".pdf"):
                     name_part += ".pdf"

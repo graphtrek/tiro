@@ -1,21 +1,25 @@
 [project]
 name = "attachment-downloader"
 version = "0.1.0"
-description = "A CLI and FastAPI interface for Gmail access."
+description = "A CLI and FastAPI interface for downloading email attachments."
 dependencies = [
     "fastapi>=0.100.0",
     "uvicorn>=0.22.0",
-    "google-api-python-client>=0.120.0",
-    "google-auth-oauthlib>=0.16.0",
-    "google-auth-httplib2>=0.1.0",
     "typer>=0.9.0",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
     "rich>=13.0.0",
-    "pytest>=7.0.0",
 ]
 readme = "README.md"
 requires-python = ">=3.9"
+
+[project.optional-dependencies]
+gmail = [
+    "google-api-python-client>=0.120.0",
+    "google-auth-oauthlib>=0.16.0",
+    "google-auth-httplib2>=0.1.0",
+]
+all = ["attachment-downloader[gmail]"]
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -26,6 +30,7 @@ where = ["src"]
 
 [dependency-groups]
 dev = [
+    "pytest>=7.0.0",
     "debugpy>=1.8.21",
 ]
 

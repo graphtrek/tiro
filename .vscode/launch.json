@@ -26,6 +26,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/attachment-downloader/run_api.py",
       "python": "${workspaceFolder}/attachment-downloader/.venv/bin/python",
+      "cwd": "${workspaceFolder}/attachment-downloader",
       "console": "integratedTerminal"
     }
   ]

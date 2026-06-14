@@ -1,13 +1,12 @@
 from typing import Optional
 
 import typer
-from attachment_downloader.client import GmailClient
+from attachment_downloader.providers import get_client
 from rich.console import Console
 from rich.table import Table
 
 app = typer.Typer(help="Attachment Downloader CLI")
 console = Console()
-client = GmailClient()
 
 
 @app.command()
@@ -15,13 +14,15 @@ def download(
     start: str = typer.Option(..., "--start", help="Filter start date (YYYY-MM-DD)"),
     end: str = typer.Option(..., "--end", help="Filter end date (YYYY-MM-DD)"),
     output: Optional[str] = typer.Option(None, "--output", help="Subdirectory under DOWNLOAD_ROOT_DIR (default: DOWNLOAD_ROOT_DIR root)"),
+    provider: str = typer.Option("gmail", "--provider", help="Email provider (gmail)"),
 ):
-    """Download PDF attachments from Gmail in a date range."""
+    """Download PDF attachments from an email provider in a date range."""
     colors = {"INFO": "cyan", "WARN": "yellow", "ERROR": "red"}
 
     def log(level: str, message: str) -> None:
         console.print(f"[{colors.get(level, 'white')}]{level}[/] {message}")
 
+    client = get_client(provider)
     try:
         result = client.download_pdf_attachments(start, end, output, log=log)
     except Exception as e:

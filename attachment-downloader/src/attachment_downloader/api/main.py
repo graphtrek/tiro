@@ -2,16 +2,16 @@ import asyncio
 import logging
 import time
 
-from fastapi import FastAPI, HTTPException, Request
-from attachment_downloader.client import GmailClient
+from fastapi import FastAPI, HTTPException, Query, Request
 from attachment_downloader.config import configure_logging
 from attachment_downloader.models import CacheInfo, DownloadRequest, DownloadResult
+from attachment_downloader.providers import get_client
 
 configure_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Attachment Downloader API")
-client = GmailClient()
+client = get_client("gmail")
 
 
 @app.middleware("http")
@@ -39,13 +39,17 @@ async def clear_cache():
 
 
 @app.post("/api/v1/jobs", response_model=DownloadResult)
-async def create_download_job(request: DownloadRequest):
+async def create_download_job(
+    request: DownloadRequest,
+    provider: str = Query("gmail", description="Email provider (gmail)"),
+):
     """Download PDF attachments synchronously; returns the result when done."""
+    active_client = client if provider == "gmail" else get_client(provider)
     loop = asyncio.get_event_loop()
     try:
         return await loop.run_in_executor(
             None,
-            lambda: client.download_pdf_attachments(
+            lambda: active_client.download_pdf_attachments(
                 start_date=request.start_date,
                 end_date=request.end_date,
                 output_dir=request.output_dir,

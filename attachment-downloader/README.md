@@ -1,16 +1,23 @@
 # attachment-downloader
 
 Moneypenny pipeline microservice #1 (`attachment-downloader`, port 8000). Downloads
-PDF attachments from Gmail for a given date range via Google OAuth2 (`gmail.readonly`).
+PDF attachments from an email provider for a given date range.
 Exposes a CLI and a REST API consumed by `pdf-szamla`.
+
+Supported providers: **Gmail** (Google OAuth2, `gmail.readonly`). The architecture
+is designed for additional providers (e.g. Outlook/Microsoft Graph) — see [Adding a provider](#adding-a-provider).
 
 ## Prerequisites
 
 - Python 3.9+
+
+**Gmail provider:**
 - Google Cloud Project with Gmail API enabled
 - OAuth2 Desktop client credentials JSON
 
 ## Setup
+
+### Gmail
 
 1. Download OAuth2 Desktop credentials from Google Cloud Console and place the
    JSON file in the project root (or set `GOOGLE_CREDENTIALS_FILE` in `.env`).
@@ -19,21 +26,19 @@ Exposes a CLI and a REST API consumed by `pdf-szamla`.
 
 ```bash
 cd attachment-downloader
-uv sync
+uv sync --extra gmail
 ```
 
 ## Running
 
 ```bash
 # REST API — listens on 127.0.0.1:8000
-python run_api.py
-
-# or with hot-reload
 uv run uvicorn attachment_downloader.api.main:app --host 0.0.0.0 --port 8000 --reload
 
-# CLI
-uv run attachment-downloader download --start 2026-05-01 --end 2026-05-31
-uv run attachment-downloader download --start 2026-05-01 --end 2026-05-31 --output invoices
+# CLI (defaults to --provider gmail)
+uv run attachment-downloader --start 2026-05-01 --end 2026-05-31
+uv run attachment-downloader --start 2026-05-01 --end 2026-05-31 --output invoices
+uv run attachment-downloader --start 2026-05-01 --end 2026-05-31 --provider gmail
 
 # Tests
 uv run pytest tests/ -v
@@ -56,15 +61,26 @@ then returns the result.
 curl -X POST http://localhost:8000/api/v1/jobs \
   -H "Content-Type: application/json" \
   -d '{"start_date": "2026-05-01", "end_date": "2026-05-31"}'
+
+# Explicit provider
+curl -X POST "http://localhost:8000/api/v1/jobs?provider=gmail" \
+  -H "Content-Type: application/json" \
+  -d '{"start_date": "2026-05-01", "end_date": "2026-05-31"}'
 ```
 
-**Request:**
+**Request body:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `start_date` | string | yes | Start of date range (`YYYY-MM-DD`) |
 | `end_date` | string | yes | End of date range (`YYYY-MM-DD`, inclusive) |
 | `output_dir` | string | no | Subdirectory under `DOWNLOAD_ROOT_DIR` (omit to save directly in the root) |
+
+**Query parameter:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `provider` | `gmail` | Email provider to use |
 
 **Response:**
 
@@ -94,11 +110,11 @@ filename, counter ignored) are skipped without re-downloading.
 
 `output_dir` (and `--output` on the CLI) is a subdirectory name relative to
 `DOWNLOAD_ROOT_DIR` (project root `downloads/` by default). Omit it to save
-directly into the root. An absolute path overrides the root entirely.
+directly into the root.
 
 Results are cached in memory by `(start_date, end_date, output_dir)` for
 `CACHE_TTL_SECONDS` (default 1 hour). A cache hit returns immediately without
-querying Gmail. Use `DELETE /api/v1/cache` to force a fresh fetch.
+querying the provider. Use `DELETE /api/v1/cache` to force a fresh fetch.
 
 ### GET /api/v1/cache
 
@@ -120,15 +136,49 @@ Returns `204 No Content`.
 
 ## Configuration (`.env`)
 
+**Shared:**
+
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GOOGLE_CREDENTIALS_FILE` | `credentials.json` | Path to OAuth2 Desktop credentials JSON |
-| `GOOGLE_TOKEN_FILE` | `token.json` | Path to generated token (auto-created on first auth) |
 | `DOWNLOAD_ROOT_DIR` | `downloads` | Root download folder, relative to the project root |
 | `CACHE_TTL_SECONDS` | `3600` | How long (seconds) to keep a cached `DownloadResult` |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 
+**Gmail provider:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GOOGLE_CREDENTIALS_FILE` | `credentials.json` | Path to OAuth2 Desktop credentials JSON |
+| `GOOGLE_TOKEN_FILE` | `token.json` | Path to generated token (auto-created on first auth) |
+
 Logs are written to stdout and `logs/attachment-downloader.log`.
+
+## Architecture
+
+```
+src/attachment_downloader/
+├── base.py              # EmailClient Protocol — the provider interface
+├── utils.py             # Shared helpers (filename sanitization, output scanning)
+├── config.py            # Shared settings (download dir, cache TTL, logging)
+├── models.py            # Pydantic models (DownloadRequest, DownloadResult, …)
+├── cache.py             # Thread-safe TTL cache
+├── providers/
+│   ├── __init__.py      # get_client(provider) factory
+│   └── gmail/
+│       ├── client.py    # GmailClient — Google OAuth2 + Gmail API v1
+│       └── config.py    # Gmail-specific settings (credential paths)
+├── cli/main.py          # Typer CLI (--provider flag)
+└── api/main.py          # FastAPI app (provider query param on /jobs)
+```
+
+## Adding a provider
+
+1. Create `src/attachment_downloader/providers/<name>/client.py` with a class that
+   implements `download_pdf_attachments(start_date, end_date, output_dir, log) -> DownloadResult`.
+2. Add an `elif provider == "<name>":` branch in `providers/__init__.py`.
+3. Add provider-specific dependencies as a new optional extra in `pyproject.toml`.
+
+The `EmailClient` Protocol in `base.py` defines the required interface.
 
 ## Pipeline
 

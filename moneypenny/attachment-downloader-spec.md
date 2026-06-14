@@ -1,12 +1,12 @@
 ---
-title: "Specifikáció: Gmail PDF Letöltő Mikroszerviz"
-description: "Gmail API-val PDF mellékleteket letöltő mikroszerviz"
+title: "Specifikáció: E-mail Melléklet Letöltő Mikroszerviz"
+description: "E-mail mellékleteket (PDF) letöltő mikroszerviz, több szolgáltató támogatásával"
 language: "HU"
-last_updated: "2026-06-09"
+last_updated: "2026-06-14"
 related: [INDEX.md, pdf-szamla-spec.md]
 ---
 
-# Gmail PDF Letöltő Mikroszerviz - Specifikáció
+# E-mail Melléklet Letöltő Mikroszerviz - Specifikáció
 
 > 🔗 **Hívási Lánc**: [[pdf-szamla-spec.md|← PDF Feldolgozó]]
 
@@ -15,35 +15,57 @@ related: [INDEX.md, pdf-szamla-spec.md]
 ---
 
 ## Szerepkör és kontextus
-Te egy Email Integrációs Mérnök vagy. A feladatod Gmail API-n keresztül biztonságosan letölteni és szervezni a számlakonnektált PDF mellékleteket. Ez a szolgáltatás a Moneypenny rendszer adatgyűjtési végpontjaként működik, amely automatizálja a bejövő dokumentumok feldolgozásának kezdetét és gondoskodik az adatok szabványosított kezeléséről.
+Te egy Email Integrációs Mérnök vagy. A feladatod e-mail API-n keresztül biztonságosan letölteni és szervezni a számlakonnektált PDF mellékleteket. Ez a szolgáltatás a Moneypenny rendszer adatgyűjtési végpontjaként működik, amely automatizálja a bejövő dokumentumok feldolgozásának kezdetét és gondoskodik az adatok szabványosított kezeléséről.
+
+A szolgáltatás több e-mail szolgáltatót támogat (provider architektúra). Jelenleg megvalósított: **Gmail** (Google OAuth2). Az architektúra lehetővé teszi további szolgáltatók (pl. Outlook/Microsoft Graph) egyszerű hozzáadását.
 
 ## Funkció
-Gmail levélekből PDF mellékleteket letölt és menti szabványosított fájlnév-konvencióval.
+E-mail levelekből PDF mellékleteket letölt és ment szabványosított fájlnév-konvencióval, a kiválasztott e-mail szolgáltatón keresztül.
 
 ## Request paraméterek
 - `start_date` (YYYY-MM-DD) - szűrés kezdete
-- `end_date` (YYYY-MM-DD) - szűrés vége  
+- `end_date` (YYYY-MM-DD) - szűrés vége
 - `output_dir` (optional) - alkönyvtár a `DOWNLOAD_ROOT_DIR` alatt (default: a gyökér maga)
+- `provider` (optional, default: `gmail`) - e-mail szolgáltató azonosítója
 
 ## Fájlnév formátum
-`YYYY-MM-DDD_eredeti_fajlnev.pdf`
-- DDD = napi sorrendi szám (001-tól)
+`YYYY-MM-DD_NNNN_eredeti_fajlnev.pdf`
+- NNNN = éves folyamatos sorrendi szám (0001-től), futások között folytatódik
+
+Már letöltött fájlok (dátum + eredeti fájlnév egyezés alapján) újra letöltés nélkül kihagyásra kerülnek.
 
 ## Interface
-- **CLI**: `attachment-downloader download --start 2026-05-01 --end 2026-05-31 --output ./pdfs/`
-- **REST API**: 
-  - `POST /api/v1/jobs` - feladat indítás
-  - `GET /api/v1/jobs/{job_id}` - státusz
-  - `GET /api/v1/jobs/{job_id}/logs` - logok
+- **CLI**: 
+  ```
+  attachment-downloader download --start 2026-05-01 --end 2026-05-31
+  attachment-downloader download --start 2026-05-01 --end 2026-05-31 --output invoices --provider gmail
+  ```
+- **REST API**:
+  - `POST /api/v1/jobs?provider=gmail` - letöltés indítása (szinkron, visszaadja az eredményt)
+  - `GET /api/v1/cache` - cache statisztika
+  - `DELETE /api/v1/cache` - cache törlése
 
 ## Tech stack
-- Python 3.10+
-- FastAPI, Typer, google-api-python-client
-- OAuth2 (Gmail)
+- Python 3.9+
+- FastAPI, Typer, Pydantic
+- **Gmail provider**: google-api-python-client, google-auth-oauthlib (opcionális függőség: `[gmail]` extra)
+- Provider interface: `EmailClient` Protocol (`base.py`)
 
 ## Függőségek
-- OAuth2 token (credentials.json)
+- E-mail szolgáltató hitelesítő adatok (Gmail: `credentials.json` + `token.json`)
 - Helyi fájlrendszer írási jog
+
+## Provider architektúra
+
+```
+providers/
+├── __init__.py          # get_client(provider) factory
+└── gmail/
+    ├── client.py        # GmailClient — Google OAuth2 + Gmail API v1
+    └── config.py        # Gmail-specifikus beállítások
+```
+
+Új provider hozzáadásához: `providers/<nev>/client.py` létrehozása `download_pdf_attachments()` metódussal, majd regisztráció a factory-ban.
 
 ---
 
@@ -61,7 +83,7 @@ attachment-downloader (ÉN - VÉGPONT)
 ```
 
 ### Wiki linkek
-- **Prompt**: [[attachment-downloader-prompt.md|Gmail Letöltő Prompt]]
+- **Prompt**: [[attachment-downloader-prompt.md|Melléklet Letöltő Prompt]]
 - **Meghívva**: [[pdf-szamla-spec.md|PDF Feldolgozó]]
 - **Lánc elődje**: [[nav-szamla-spec.md|NAV API]]
 - **MASTER Orchestrator**: [[szamla-db-spec.md|Szamla-DB]]

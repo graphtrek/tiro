@@ -3,12 +3,12 @@ from datetime import datetime
 
 import pytest
 from unittest.mock import MagicMock, patch
-from attachment_downloader.client import GmailClient
+from attachment_downloader.providers.gmail.client import GmailClient
 
 
 @pytest.fixture
 def gmail_client():
-    with patch('attachment_downloader.client.build') as mock_build:
+    with patch('attachment_downloader.providers.gmail.client.build') as mock_build:
         client = GmailClient()
         client._get_service = MagicMock()
         yield client
