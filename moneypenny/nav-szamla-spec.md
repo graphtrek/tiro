@@ -3,12 +3,12 @@ title: "Specifikáció: NAV Online Számla Mikorszerviz"
 description: "NAV Online Számla API integrációs mikroszerviz"
 language: "HU"
 last_updated: "2026-06-09"
-related: [INDEX.md, szamla-db-spec.md, pdf-szamla-spec.md]
+related: [INDEX.md, szamla-db-spec.md, invoice-file-filter-spec.md]
 ---
 
 # NAV Online Számla Mikorszerviz - Specifikáció
 
-> 🔗 **Hívási Lánc**: [[szamla-db-spec.md|← MASTER (szamla-db)]] **→** [[pdf-szamla-spec.md|PDF Feldolgozó →]]
+> 🔗 **Hívási Lánc**: [[szamla-db-spec.md|← MASTER (szamla-db)]] **→** [[invoice-file-filter-spec.md|PDF Feldolgozó →]]
 
 ---
 
@@ -81,7 +81,7 @@ nav-szamla (ÉN)  ←→  NAV Online Számla 3.0 API
   ↓ visszaad adatot szamla-db-nek
 szamla-db (MASTER)
   ↓ (ezután hívja pdf-szamlát)
-pdf-szamla → attachment-downloader
+invoice-file-filter → attachment-downloader
 ```
 
 > `nav-szamla` levél szolgáltatás: nem hív más mikroszervízt, csak a NAV API-t.

@@ -1,7 +1,7 @@
 [project]
-name = "pdf-szamla"
+name = "invoice-file-filter"
 version = "0.1.0"
-description = "PDF invoice metadata extraction microservice (Moneypenny pdf-szamla) with FastAPI and CLI"
+description = "PDF invoice metadata extraction microservice (Moneypenny invoice-file-filter) with FastAPI and CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-pdf-szamla = "pdf_szamla.cli.main:app"
+invoice-file-filter = "invoice_file_filter.cli.main:app"
 
 [dependency-groups]
 dev = [

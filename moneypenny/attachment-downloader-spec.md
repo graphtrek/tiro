@@ -3,12 +3,12 @@ title: "Specifikáció: E-mail Melléklet Letöltő Mikroszerviz"
 description: "E-mail mellékleteket (PDF) letöltő mikroszerviz, több szolgáltató támogatásával"
 language: "HU"
 last_updated: "2026-06-14"
-related: [INDEX.md, pdf-szamla-spec.md]
+related: [INDEX.md, invoice-file-filter-spec.md]
 ---
 
 # E-mail Melléklet Letöltő Mikroszerviz - Specifikáció
 
-> 🔗 **Hívási Lánc**: [[pdf-szamla-spec.md|← PDF Feldolgozó]]
+> 🔗 **Hívási Lánc**: [[invoice-file-filter-spec.md|← PDF Feldolgozó]]
 
 > 📄 **Implementáció**: [attachment-downloader/README.md](../attachment-downloader/README.md)
 
@@ -77,14 +77,14 @@ szamla-db (MASTER)
   ↓ meghívja
 nav-szamla
   ↓ meghívja
-pdf-szamla
+invoice-file-filter
   ↓ meghívja
 attachment-downloader (ÉN - VÉGPONT)
 ```
 
 ### Wiki linkek
 - **Prompt**: [[attachment-downloader-prompt.md|Melléklet Letöltő Prompt]]
-- **Meghívva**: [[pdf-szamla-spec.md|PDF Feldolgozó]]
+- **Meghívva**: [[invoice-file-filter-spec.md|PDF Feldolgozó]]
 - **Lánc elődje**: [[nav-szamla-spec.md|NAV API]]
 - **MASTER Orchestrator**: [[szamla-db-spec.md|Szamla-DB]]
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

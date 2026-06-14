@@ -6,6 +6,7 @@ import csv
 import io
 import logging
 import os
+import re
 import unicodedata
 from datetime import datetime
 from pathlib import Path
@@ -97,16 +98,21 @@ def extract_text(pdf_path: str) -> str:
 
 
 def is_invoice(filename: str, text: str, keywords: Optional[Sequence[str]] = None) -> bool:
-    """True if the filename or text contains an invoice keyword."""
+    """True if the filename or text contains an invoice keyword (whole-word match).
+
+    Underscores and hyphens are treated as word separators so that filenames
+    like ``2026_invoice_42.pdf`` match the keyword ``invoice``.
+    """
     kws = [_fold(k).lower() for k in (keywords or DEFAULT_KEYWORDS)]
-    haystack = _fold(f"{filename}\n{text}").lower()
-    return any(kw in haystack for kw in kws)
+    raw = _fold(f"{filename}\n{text}").lower()
+    haystack = re.sub(r"[_\-]", " ", raw)
+    return any(re.search(r"\b" + re.escape(kw) + r"\b", haystack) for kw in kws)
 
 
 def describe_file(pdf_path: str) -> ProcessedFile:
-    """Return the relative path and modification date of a PDF file."""
+    """Return the filename and modification date of a PDF file."""
     modified = datetime.fromtimestamp(os.path.getmtime(pdf_path))
-    return ProcessedFile(filename=os.path.relpath(pdf_path), modified=modified)
+    return ProcessedFile(filename=os.path.basename(pdf_path), modified=modified)
 
 
 def _iter_pdf_paths(paths_or_dir) -> List[str]:

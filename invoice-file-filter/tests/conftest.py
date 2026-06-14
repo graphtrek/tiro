@@ -1,4 +1,4 @@
-"""Shared fixtures for pdf-szamla tests."""
+"""Shared fixtures for invoice-file-filter tests."""
 
 import pytest
 

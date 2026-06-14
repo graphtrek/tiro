@@ -1,4 +1,4 @@
-"""FastAPI app for the pdf-szamla microservice."""
+"""FastAPI app for the invoice-file-filter microservice."""
 
 from __future__ import annotations
 
@@ -11,16 +11,16 @@ from typing import List
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from pdf_szamla.client import AttachmentDownloaderError
-from pdf_szamla.config import configure_logging, get_settings
-from pdf_szamla.extractor import clear_words_cache, extract_words_csv, process_directory, words_cache_info
-from pdf_szamla.models import (
+from invoice_file_filter.client import AttachmentDownloaderError
+from invoice_file_filter.config import configure_logging, get_settings
+from invoice_file_filter.extractor import clear_words_cache, extract_words_csv, process_directory, words_cache_info
+from invoice_file_filter.models import (
     ExtractBatchRequest,
     ExtractRequest,
     ExtractResponse,
     WordsRequest,
 )
-from pdf_szamla.service import run_extract
+from invoice_file_filter.service import run_extract
 
 _settings = get_settings()
 configure_logging(_settings.log_level)
@@ -135,7 +135,7 @@ def run_server():
 
     settings = get_settings()
     uvicorn.run(
-        "pdf_szamla.api.main:app",
+        "invoice_file_filter.api.main:app",
         host=settings.api_host,
         port=settings.api_port,
         reload=True,

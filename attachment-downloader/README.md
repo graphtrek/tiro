@@ -2,7 +2,7 @@
 
 Moneypenny pipeline microservice #1 (`attachment-downloader`, port 8000). Downloads
 PDF attachments from an email provider for a given date range.
-Exposes a CLI and a REST API consumed by `pdf-szamla`.
+Exposes a CLI and a REST API consumed by `invoice-file-filter`.
 
 Supported providers: **Gmail** (Google OAuth2, `gmail.readonly`). The architecture
 is designed for additional providers (e.g. Outlook/Microsoft Graph) — see [Adding a provider](#adding-a-provider).
@@ -183,5 +183,5 @@ The `EmailClient` Protocol in `base.py` defines the required interface.
 ## Pipeline
 
 ```
-szamla-db (MASTER) → nav-szamla → pdf-szamla → attachment-downloader (this)
+szamla-db (MASTER) → nav-szamla → invoice-file-filter → attachment-downloader (this)
 ```

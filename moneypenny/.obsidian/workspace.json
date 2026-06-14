@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "attachment-downloader-spec.md",
+                "file": "INDEX.md",
                 "mode": "source",
-                "source": false
+                "source": true
               },
               "icon": "lucide-file",
-              "title": "attachment-downloader-spec"
+              "title": "INDEX"
             }
           }
         ]
@@ -78,7 +78,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 293.5
   },
   "right": {
     "id": "2791ed75d23a9fd6",
@@ -185,8 +185,10 @@
   },
   "active": "a9c6ffd5c0d260b8",
   "lastOpenFiles": [
-    "pdf-szamla-spec.md",
     "attachment-downloader-spec.md",
+    "invoice-file-filter-prompt.md",
+    "invoice-file-filter-spec.md",
+    "pdf-szamla-spec.md",
     "wise-spec.md",
     "wise-prompt.md",
     "attachment-downloader-prompt.md",
@@ -215,7 +217,6 @@
     "ADAT_MODELL.md",
     "TESZTELES.md",
     "SPECIFIKACIO.md",
-    "README.md",
-    "Üdvözöljük.md"
+    "README.md"
   ]
 }

@@ -51,9 +51,9 @@ Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF
 
 ## Interface
 - **CLI**: 
-  - `pdf-szamla process` (utolsó 30 nap, default)
-  - `pdf-szamla process --start 2026-05-01 --end 2026-05-31`
-  - `pdf-szamla process --output-dir /path/to/pdfs/`
+  - `invoice-file-filter process` (utolsó 30 nap, default)
+  - `invoice-file-filter process --start 2026-05-01 --end 2026-05-31`
+  - `invoice-file-filter process --output-dir /path/to/pdfs/`
 - **REST API**:
   - `POST /api/v1/invoices/extract` - metaadatok kinyerése (attachment-downloader integrációval)
   - `POST /api/v1/invoices/extract-batch` - batch feldolgozás
@@ -83,13 +83,13 @@ szamla-db (MASTER)
   ↓ meghívja
 nav-szamla
   ↓ meghívja
-pdf-szamla (ÉN)
+invoice-file-filter (ÉN)
   ↓ meghívja
 attachment-downloader
 ```
 
 ### Wiki linkek
-- **Prompt**: [[pdf-szamla-prompt.md|PDF Szamla Prompt]]
+- **Prompt**: [[invoice-file-filter-prompt.md|PDF Szamla Prompt]]
 - **Meghívva**: [[nav-szamla-spec.md|NAV API]]
 - **Meghívom**: [[attachment-downloader-spec.md|Gmail Letöltő]]
   - attachment-downloader meghívása (POST /api/v1/jobs)

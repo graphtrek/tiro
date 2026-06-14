@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from pdf_szamla.extractor import describe_file, is_invoice
+from invoice_file_filter.extractor import describe_file, is_invoice
 
 
 class TestIsInvoice:

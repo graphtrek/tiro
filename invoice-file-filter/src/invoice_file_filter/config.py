@@ -1,4 +1,4 @@
-"""Configuration for the pdf-szamla microservice (loaded from ``.env``)."""
+"""Configuration for the invoice-file-filter microservice (loaded from ``.env``)."""
 
 from __future__ import annotations
 
@@ -19,8 +19,10 @@ def configure_logging(log_level: str = "INFO") -> None:
     )
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(fmt)
-    file_handler = logging.FileHandler(_LOG_DIR / "pdf-szamla.log", encoding="utf-8")
+    file_handler = logging.FileHandler(_LOG_DIR / "invoice-file-filter.log", encoding="utf-8")
     file_handler.setFormatter(fmt)
+    logging.getLogger("pdfminer").setLevel(logging.ERROR)
+
     root = logging.getLogger()
     root.setLevel(level)
     if not root.handlers:

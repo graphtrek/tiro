@@ -1,4 +1,4 @@
-"""Typer CLI for the pdf-szamla microservice."""
+"""Typer CLI for the invoice-file-filter microservice."""
 
 from __future__ import annotations
 
@@ -10,22 +10,24 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from pdf_szamla.client import AttachmentDownloaderError
-from pdf_szamla.config import get_settings
-from pdf_szamla.extractor import clear_words_cache, extract_words_csv, words_cache_info
-from pdf_szamla.models import ExtractRequest
-from pdf_szamla.service import run_extract
+from invoice_file_filter.client import AttachmentDownloaderError
+from invoice_file_filter.config import configure_logging, get_settings
+from invoice_file_filter.extractor import clear_words_cache, extract_words_csv, words_cache_info
+from invoice_file_filter.models import ExtractRequest
+from invoice_file_filter.service import run_extract
 
 app = typer.Typer(
     help="PDF Számla Feldolgozó — download and extract invoice metadata.",
     no_args_is_help=True,
 )
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 @app.callback()
 def _main():
     """PDF Számla Feldolgozó CLI."""
+    configure_logging(get_settings().log_level)
 
 
 @app.command()
@@ -49,7 +51,7 @@ def process(
 ):
     """Download invoice PDFs (last 30 days by default) and extract metadata."""
     if verbose:
-        logging.basicConfig(level=logging.INFO)
+        logging.getLogger().setLevel(logging.DEBUG)
 
     settings = get_settings()
     request = ExtractRequest(
@@ -62,7 +64,12 @@ def process(
     try:
         result = run_extract(request, settings)
     except AttachmentDownloaderError as exc:
+        logger.error("attachment-downloader error: %s", exc)
         console.print(f"[red]✗ attachment-downloader hiba:[/red] {exc}")
+        raise typer.Exit(code=1)
+    except Exception as exc:
+        logger.exception("Unexpected error during extraction")
+        console.print(f"[red]✗ Váratlan hiba:[/red] {exc}")
         raise typer.Exit(code=1)
 
     if as_json:

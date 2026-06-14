@@ -1,6 +1,6 @@
-# pdf-szamla — PDF Invoice Metadata Extractor
+# invoice-file-filter — PDF Invoice Metadata Extractor
 
-Moneypenny pipeline microservice #2 (`pdf-szamla`, port 8001). Calls the
+Moneypenny pipeline microservice #2 (`invoice-file-filter`, port 8001). Calls the
 **attachment-downloader** service to download invoice PDF attachments (last 30 days by
 default), selects the invoices (`invoice` / `számla`) among the downloaded files,
 extracts structured metadata (invoice number, dates, supplier/customer, amounts,
@@ -10,29 +10,29 @@ a **FastAPI** REST API and a **Typer** CLI.
 ## Running
 
 ```bash
-cd pdf-szamla
+cd invoice-file-filter
 uv sync
 
 # REST API (port 8001)
 python run_api.py
 
 # Or directly with uvicorn
-uv run uvicorn pdf_szamla.api.main:app --host 0.0.0.0 --port 8001 --reload
+uv run uvicorn invoice_file_filter.api.main:app --host 0.0.0.0 --port 8001 --reload
 
-# CLI (installed as `pdf-szamla`)
-uv run pdf-szamla process                                     # last 30 days, download via attachment-downloader
-uv run pdf-szamla process --start 2026-05-01 --end 2026-05-31
-uv run pdf-szamla process --start 2026-05-01 --end 2026-05-31 --json  # machine-readable output
-uv run pdf-szamla process --local --output-dir ./downloads    # process existing PDFs, no download
-uv run pdf-szamla process --download                          # explicit download (default)
-uv run pdf-szamla process --verbose                           # verbose logging
+# CLI (installed as `invoice-file-filter`)
+uv run invoice-file-filter process                                     # last 30 days, download via attachment-downloader
+uv run invoice-file-filter process --start 2026-05-01 --end 2026-05-31
+uv run invoice-file-filter process --start 2026-05-01 --end 2026-05-31 --json  # machine-readable output
+uv run invoice-file-filter process --local --output-dir ./downloads    # process existing PDFs, no download
+uv run invoice-file-filter process --download                          # explicit download (default)
+uv run invoice-file-filter process --verbose                           # verbose logging
 
-uv run pdf-szamla words invoice.pdf                           # print words as CSV to stdout
-uv run pdf-szamla words invoice.pdf -o words.csv              # save CSV to file
+uv run invoice-file-filter words invoice.pdf                           # print words as CSV to stdout
+uv run invoice-file-filter words invoice.pdf -o words.csv              # save CSV to file
 
-uv run pdf-szamla cache-info                                  # show words cache stats
-uv run pdf-szamla cache-info --json
-uv run pdf-szamla cache-clear                                 # evict all cached word extractions
+uv run invoice-file-filter cache-info                                  # show words cache stats
+uv run invoice-file-filter cache-info --json
+uv run invoice-file-filter cache-clear                                 # evict all cached word extractions
 
 # Tests
 uv run pytest tests/ -v
@@ -243,7 +243,7 @@ curl -X DELETE http://localhost:8001/api/v1/pdf/words/cache
 Download invoice PDFs via attachment-downloader (or process local files) and print a summary table.
 
 ```bash
-uv run pdf-szamla process [OPTIONS]
+uv run invoice-file-filter process [OPTIONS]
 ```
 
 | Option | Default | Description |
@@ -260,7 +260,7 @@ uv run pdf-szamla process [OPTIONS]
 Extract every word from a PDF and emit CSV with positional metadata.
 
 ```bash
-uv run pdf-szamla words PDF_PATH [--output FILE]
+uv run invoice-file-filter words PDF_PATH [--output FILE]
 ```
 
 | Argument / Option | Description |
@@ -275,8 +275,8 @@ Output columns: `page`, `word`, `x0`, `top`, `x1`, `bottom`.
 Show stats about the in-process words cache (entry count and cached file paths).
 
 ```bash
-uv run pdf-szamla cache-info
-uv run pdf-szamla cache-info --json
+uv run invoice-file-filter cache-info
+uv run invoice-file-filter cache-info --json
 ```
 
 ### cache-clear
@@ -284,7 +284,7 @@ uv run pdf-szamla cache-info --json
 Evict all entries from the in-process words cache.
 
 ```bash
-uv run pdf-szamla cache-clear
+uv run invoice-file-filter cache-clear
 ```
 
 > **Note:** the cache is process-local. Each CLI invocation has its own cache; this
@@ -292,20 +292,20 @@ uv run pdf-szamla cache-clear
 
 ## Logs
 
-Logs are written to both stdout and `logs/pdf-szamla.log`.
+Logs are written to both stdout and `logs/invoice-file-filter.log`.
 
 Every HTTP request is logged at `INFO` level with method, path, status code, and elapsed time:
 
 ```
-2026-06-12 16:00:01 INFO     pdf_szamla.api.main: POST /api/v1/invoices/extract → 200 in 342ms
+2026-06-12 16:00:01 INFO     invoice_file_filter.api.main: POST /api/v1/invoices/extract → 200 in 342ms
 ```
 
 Service calls to attachment-downloader are also logged with elapsed time:
 
 ```
-2026-06-12 16:00:00 INFO     pdf_szamla.client: POST http://localhost:8000/api/v1/jobs → job_id=abc123 in 85ms
-2026-06-12 16:00:01 INFO     pdf_szamla.client: Download job abc123 completed: 5 file(s) in 1243ms
-2026-06-12 16:00:01 INFO     pdf_szamla.service: Extraction complete: 3 invoice(s) from 5 file(s) in 1350ms
+2026-06-12 16:00:00 INFO     invoice_file_filter.client: POST http://localhost:8000/api/v1/jobs → job_id=abc123 in 85ms
+2026-06-12 16:00:01 INFO     invoice_file_filter.client: Download job abc123 completed: 5 file(s) in 1243ms
+2026-06-12 16:00:01 INFO     invoice_file_filter.service: Extraction complete: 3 invoice(s) from 5 file(s) in 1350ms
 ```
 
 ## Configuration (`.env` from `.env.example`)
@@ -323,5 +323,5 @@ Service calls to attachment-downloader are also logged with elapsed time:
 ## Pipeline
 
 ```
-szamla-db (MASTER) → nav-szamla → pdf-szamla (this) → attachment-downloader
+szamla-db (MASTER) → nav-szamla → invoice-file-filter (this) → attachment-downloader
 ```

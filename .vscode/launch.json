@@ -13,11 +13,11 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "pdf-szamla API",
+      "name": "invoice-file-filter API",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/pdf-szamla/run_api.py",
-      "python": "${workspaceFolder}/pdf-szamla/.venv/bin/python",
+      "program": "${workspaceFolder}/invoice-file-filter/run_api.py",
+      "python": "${workspaceFolder}/invoice-file-filter/.venv/bin/python",
       "console": "integratedTerminal"
     },
     {

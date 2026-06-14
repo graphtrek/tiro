@@ -17,10 +17,10 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 
 ## Funkció (MASTER HUB)
 - **Meghívja: nav-szamla** (NAV lekérdezés — levél szolgáltatás, csak NAV API-t hívja)
-- **Meghívja: pdf-szamla** (PDF feldolgozás — az meghívja attachment-downloadert)
+- **Meghívja: invoice-file-filter** (PDF feldolgozás — az meghívja attachment-downloadert)
 - **Meghívja: wise** (pénzügyi tranzakciók lekérése)
 - Vevő és szállító táblákat létrehozza nav-szamla adatai alapján
-- pdf-szamla visszaadott adatait külön `invoice_file` táblában tárolja
+- invoice-file-filter visszaadott adatait külön `invoice_file` táblában tárolja
 - `invoice_file` rekordokat összeköti az `invoice` táblával (words-alapú számlaszám egyezés)
 - wise tranzakciókat `wise_transaction` táblában tárolja, összeköti `supplier`/`customer`/`invoice` táblákkal
 - Teljes invoice-supplier-customer-wise_transaction összekapcsolás
@@ -43,7 +43,7 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - invoice_file_id (FK → invoice_file, nullable: ha nincs PDF egyezés)
 - created_at, updated_at
 
-### invoice_file (pdf-szamla visszaadott adatok)
+### invoice_file (invoice-file-filter visszaadott adatok)
 - id (PK)
 - filename
 - invoice_number_raw (PDF-ből kinyert számlaszám)
@@ -91,15 +91,15 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 1. **szamla-db iniciál** → sorban:
    - **nav-szamla** meghívása (GET /invoices?from=...&to=...&direction=...)
      - nav-szamla csak a NAV API-t hívja, visszaad: számlalista, supplier/customer adatok
-   - **pdf-szamla** meghívása (POST /api/v1/invoices/extract)
-     - pdf-szamla meghívja attachment-downloadert (Gmail PDF letöltés)
+   - **invoice-file-filter** meghívása (POST /api/v1/invoices/extract)
+     - invoice-file-filter meghívja attachment-downloadert (Gmail PDF letöltés)
      - visszaad: letöltött PDF fájlok szövegindexe
 2. **Merge** (words-alapú kereséssel):
    - Minden nav-szamla számlaszámhoz: `GET /api/v1/invoices/search?words=<számlaszám>`
-     → pdf-szamla megkeresi, melyik PDF fájl tartalmazza a számlaszám szövegét
+     → invoice-file-filter megkeresi, melyik PDF fájl tartalmazza a számlaszám szövegét
    - Egyezés esetén a PDF metaadatait (összeg, partner, dátum) linkeli a NAV rekordhoz
 3. **DB mentés**:
-   - `invoice_file`: pdf-szamla nyers visszaadott adatai (minden PDF rekord)
+   - `invoice_file`: invoice-file-filter nyers visszaadott adatai (minden PDF rekord)
    - `supplier` / `customer`: partner adatok (nav-szamla alapján)
    - `invoice`: NAV számlák, `invoice_file_id` FK-val ha volt words-egyezés
 
@@ -146,7 +146,7 @@ szamla-db (MASTER)
   ├─ meghívja: nav-szamla ←→ NAV Online Számla 3.0 API
   │   (levél szolgáltatás — nem hív tovább)
   │
-  ├─ meghívja: pdf-szamla
+  ├─ meghívja: invoice-file-filter
   │                ↓ meghívja
   │          attachment-downloader ←→ Gmail API
   │                (levél szolgáltatás)
@@ -161,10 +161,10 @@ szamla-db (MASTER)
 - **Meghívja**: [[nav-szamla-spec.md|NAV API Specifikáció]]
   - NAV lekérdezés: `GET /invoices`, `GET /invoices/{szamlaszam}`
   - 30 nap default paraméterrel
-- **Meghívja**: [[pdf-szamla-spec.md|PDF Feldolgozó Specifikáció]]
+- **Meghívja**: [[invoice-file-filter-spec.md|PDF Feldolgozó Specifikáció]]
   - PDF letöltés + indexelés: `POST /api/v1/invoices/extract`
   - Words keresés: `GET /api/v1/invoices/search?words=<számlaszám>` (melyik PDF fájl tartalmazza a szót)
-  - pdf-szamla maga hívja attachment-downloadert a PDF letöltéshez
+  - invoice-file-filter maga hívja attachment-downloadert a PDF letöltéshez
 - **Meghívja**: [[wise-spec.md|Wise Integráció Specifikáció]]
   - Tranzakció szinkron: `POST /sync?start_date=...&end_date=...`
   - Tranzakció lekérdezés: `GET /transactions/{transaction_id}`

@@ -1,9 +1,8 @@
-"""Pydantic models for the pdf-szamla microservice."""
+"""Pydantic models for the invoice-file-filter microservice."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
@@ -63,14 +62,7 @@ class WordsRequest(BaseModel):
     pdf_path: str = Field(..., description="Absolute or relative path to the PDF file")
 
 
-# ── attachment-downloader job shapes (subset we consume) ──────────────────────────
-
-
-class JobStatus(str, Enum):
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
+# ── attachment-downloader response shapes (subset we consume) ─────────────────
 
 
 class DownloadedFile(BaseModel):
@@ -83,12 +75,3 @@ class DownloadResult(BaseModel):
     total_files: int = 0
     output_dir: str = ""
     files: List[DownloadedFile] = Field(default_factory=list)
-
-
-class JobInfo(BaseModel):
-    """Subset of attachment-downloader's JobInfo that pdf-szamla needs."""
-
-    job_id: str
-    status: JobStatus
-    result: Optional[DownloadResult] = None
-    error: Optional[str] = None

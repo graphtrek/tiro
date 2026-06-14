@@ -15,11 +15,11 @@
   |---|---|---|---|
   | 4 | `szamla-db` | 8003 | MASTER orchestrator — DB persistence + reconciliation |
   | 3 | `nav-szamla` | 8002 | NAV Online Számla API query |
-  | 2 | `pdf-szamla` | 8001 | PDF metadata extraction (OCR/Regex) |
+  | 2 | `invoice-file-filter` | 8001 | PDF metadata extraction (OCR/Regex) |
   | 1 | `attachment-downloader` | 8000 | Gmail PDF attachment download |
   | 5 | `wise` | 8004 | Wise bank-statement download/sync (independent entry point) |
 
-- **Call chain**: entry point `POST /api/v1/sync` on `szamla-db` (8003) → `nav-szamla` → `pdf-szamla` → `attachment-downloader`. `wise` is a separate source that writes directly into `szamla-db`'s PostgreSQL.
+- **Call chain**: entry point `POST /api/v1/sync` on `szamla-db` (8003) → `nav-szamla` → `invoice-file-filter` → `attachment-downloader`. `wise` is a separate source that writes directly into `szamla-db`'s PostgreSQL.
 - **Implementation status**: `nav-szamla` and `attachment-downloader` are the projects already built in this workspace; the others are specced in the wiki.
 
 ## nav-szamla — NAV Online Számla 3.0 client
