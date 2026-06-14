@@ -60,19 +60,18 @@ class TestPartnerName:
 class TestToSummary:
     def test_credit_summary(self, credit_transaction):
         summary = _to_summary(credit_transaction)
-        assert summary.reference_number == "TRANSFER-11111111"
+        assert summary.wise_transaction_id == "TRANSFER-11111111"
         assert summary.type == TransactionType.CREDIT
         assert summary.amount == Decimal("1500.00")
         assert summary.currency == "EUR"
-        assert summary.partner_name == "ACME Corp"
+        assert summary.counterparty_name == "ACME Corp"
         assert summary.payment_reference == "INV-2026-42"
-        assert summary.synced_to_db is False
 
     def test_debit_summary(self, debit_transaction):
         summary = _to_summary(debit_transaction)
         assert summary.type == TransactionType.DEBIT
         assert summary.amount == Decimal("49.99")
-        assert summary.partner_name == "Scaleway SAS"
+        assert summary.counterparty_name == "Scaleway SAS"
 
 
 class TestSyncRequest:
@@ -92,7 +91,6 @@ class TestSyncResponse:
     def test_defaults(self):
         resp = SyncResponse(start_date="2026-05-01", end_date="2026-05-31", currency="EUR")
         assert resp.fetched == 0
-        assert resp.synced == 0
         assert resp.transactions == []
 
     def test_with_transactions(self, credit_transaction):
@@ -105,4 +103,4 @@ class TestSyncResponse:
             transactions=[summary],
         )
         assert resp.fetched == 1
-        assert resp.transactions[0].reference_number == "TRANSFER-11111111"
+        assert resp.transactions[0].wise_transaction_id == "TRANSFER-11111111"

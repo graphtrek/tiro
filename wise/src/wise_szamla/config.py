@@ -41,9 +41,6 @@ class Settings(BaseSettings):
     wise_account_currency: str = "EUR"
     wise_sandbox: bool = False
 
-    # ── szamla-db orchestrátor ──────────────────────────────────
-    szamla_db_url: str = "http://localhost:8003"
-
     # ── FastAPI szerver ─────────────────────────────────────────
     api_host: str = "0.0.0.0"
     api_port: int = 8004

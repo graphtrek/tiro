@@ -16,7 +16,7 @@ from wise_szamla.models import SyncRequest, TransactionType
 from wise_szamla.sync import run_sync
 
 app = typer.Typer(
-    help="Wise Banki Mikorszerviz — bankkivonat letöltés és szinkronizálás.",
+    help="Wise Banki Mikorszerviz — bankkivonat letöltés.",
     no_args_is_help=True,
 )
 console = Console()
@@ -41,7 +41,7 @@ def sync(
     as_json: bool = typer.Option(False, "--json", help="JSON kimenet"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Részletes napló"),
 ):
-    """Wise tranzakciók szinkronizálása (letöltés + szamla-db push)."""
+    """Wise tranzakciók lekérése a megadott időszakra."""
     if verbose:
         logging.basicConfig(level=logging.INFO)
 
@@ -58,53 +58,45 @@ def sync(
 
     console.print(
         f"[green]✓[/green] {result.fetched} tranzakció "
-        f"({result.start_date}..{result.end_date}, {result.currency}) — "
-        f"{result.synced} szinkronizálva, "
-        f"{result.skipped} kihagyva, "
-        f"{result.errors} hiba\n"
+        f"({result.start_date}..{result.end_date}, {result.currency})\n"
     )
     if not result.transactions:
         console.print("Nincs tranzakció a megadott időszakban.")
         return
 
     table = Table(show_lines=False)
-    table.add_column("Referencia", overflow="fold")
+    table.add_column("Azonosító", overflow="fold")
     table.add_column("Típus", width=7)
     table.add_column("Dátum", width=12)
     table.add_column("Összeg", justify="right")
     table.add_column("Partner", overflow="fold")
-    table.add_column("DB", width=3)
 
     for txn in result.transactions:
         color = "green" if txn.type == TransactionType.CREDIT else "red"
-        db_mark = "[green]✓[/green]" if txn.synced_to_db else "[dim]–[/dim]"
         table.add_row(
-            txn.reference_number,
+            txn.wise_transaction_id,
             f"[{color}]{txn.type.value}[/{color}]",
-            txn.date.strftime("%Y-%m-%d"),
+            txn.transaction_date.strftime("%Y-%m-%d"),
             f"{txn.amount:,.2f} {txn.currency}",
-            txn.partner_name or "[dim]–[/dim]",
-            db_mark,
+            txn.counterparty_name or "[dim]–[/dim]",
         )
     console.print(table)
 
 
-@app.command("list-transactions")
+@app.command("list")
 def list_transactions(
     last: int = typer.Option(
-        10, "--last", "-n", help="Utolsó n tranzakció (csak API-n keresztül elérhető)"
+        10, "--last", "-n", help="Utolsó n tranzakció (csak futó API szerveren)"
     ),
 ):
-    """Legutóbbi szinkronizált tranzakciók listázása.
+    """Legutóbbi tranzakciók listázása (API-n keresztül).
 
-    Az in-memory előzmény csak a futó API szerveren keresztül érhető el:
-      GET /api/v1/sync/history
-      GET /api/v1/transactions/{reference_number}
+      GET /transactions/{wise_transaction_id}
     """
     console.print(
         "[yellow]Megjegyzés:[/yellow] Az előzmény csak az API szerveren él.\n"
-        "  GET /api/v1/sync/history\n"
-        "  GET /api/v1/transactions/{reference_number}"
+        "  POST /sync → tranzakció lista\n"
+        "  GET /transactions/{wise_transaction_id}"
     )
 
 

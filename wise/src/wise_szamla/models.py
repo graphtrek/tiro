@@ -85,37 +85,22 @@ class SyncRequest(BaseModel):
 class TransactionSummary(BaseModel):
     """Egy feldolgozott Wise tranzakció összefoglalója."""
 
-    reference_number: str
+    wise_transaction_id: str
     type: TransactionType
-    date: datetime
+    transaction_date: datetime
     amount: Decimal
     currency: str
     description: Optional[str] = None
-    partner_name: Optional[str] = None
+    counterparty_name: Optional[str] = None
+    counterparty_account: Optional[str] = None
     payment_reference: Optional[str] = None
-    synced_to_db: bool = False
 
 
 class SyncResponse(BaseModel):
-    """Szinkronizálási futás eredménye."""
+    """Wise lekérés eredménye."""
 
     start_date: str
     end_date: str
     currency: str
     fetched: int = 0
-    synced: int = 0
-    skipped: int = 0
-    errors: int = 0
     transactions: List[TransactionSummary] = Field(default_factory=list)
-
-
-class SyncHistoryEntry(BaseModel):
-    """Egy szinkronizálási futás összefoglalója (előzmény listához)."""
-
-    start_date: str
-    end_date: str
-    currency: str
-    fetched: int
-    synced: int
-    skipped: int
-    errors: int

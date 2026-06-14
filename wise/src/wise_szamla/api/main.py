@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request
 
 from wise_szamla.client import WiseApiError, WiseClient
 from wise_szamla.config import configure_logging, get_settings
-from wise_szamla.models import SyncHistoryEntry, SyncRequest, SyncResponse, TransactionSummary
+from wise_szamla.models import SyncRequest, SyncResponse, TransactionSummary
 from wise_szamla.sync import run_sync
 
 _settings = get_settings()
@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Wise Banki Mikorszerviz",
     description=(
-        "Wise bankkivonatok letöltése és szinkronizálás a szamla-db rendszerrel. "
-        "Önálló belépési pont: POST /api/v1/sync"
+        "Wise bankkivonatok letöltése és visszaadása strukturált formában. "
+        "Levél szolgáltatás: csak Wise API-t hív, DB-t nem kezel."
     ),
     version="0.1.0",
 )
@@ -62,7 +62,6 @@ def settings_info():
         "wise_profile_id": s.wise_profile_id,
         "wise_account_currency": s.wise_account_currency,
         "wise_sandbox": s.wise_sandbox,
-        "szamla_db_url": s.szamla_db_url,
         "api_port": s.api_port,
         "max_retries": s.max_retries,
     }
@@ -71,11 +70,11 @@ def settings_info():
 # ── Szinkronizálás ────────────────────────────────────────────────────────────
 
 
-@app.post("/api/v1/sync", response_model=SyncResponse)
+@app.post("/sync", response_model=SyncResponse)
 def sync_transactions(request: SyncRequest):
-    """Wise tranzakciók letöltése és szinkronizálása a szamla-db-be.
+    """Wise tranzakciók lekérése a megadott időszakra.
 
-    Ha a ``start_date`` / ``end_date`` nincs megadva, az utolsó 30 napot dolgozza fel.
+    Ha a ``start_date`` / ``end_date`` nincs megadva, az utolsó 30 napot adja vissza.
     A ``currency`` default értéke a ``WISE_ACCOUNT_CURRENCY`` env változó.
     """
     try:
@@ -86,36 +85,19 @@ def sync_transactions(request: SyncRequest):
     return result
 
 
-@app.get("/api/v1/sync/history", response_model=List[SyncHistoryEntry])
-def sync_history():
-    """Visszaadja a szinkronizálási futások előzményeit (in-memory)."""
-    return [
-        SyncHistoryEntry(
-            start_date=r.start_date,
-            end_date=r.end_date,
-            currency=r.currency,
-            fetched=r.fetched,
-            synced=r.synced,
-            skipped=r.skipped,
-            errors=r.errors,
-        )
-        for r in _sync_history
-    ]
-
-
 # ── Tranzakció lekérdezés ─────────────────────────────────────────────────────
 
 
-@app.get("/api/v1/transactions/{reference_number}", response_model=TransactionSummary)
-def get_transaction(reference_number: str):
-    """Lekérdezi egy szinkronizált tranzakció részleteit referenciaszám alapján."""
+@app.get("/transactions/{wise_transaction_id}", response_model=TransactionSummary)
+def get_transaction(wise_transaction_id: str):
+    """Lekérdezi egy tranzakció részleteit azonosító alapján."""
     for run in reversed(_sync_history):
         for txn in run.transactions:
-            if txn.reference_number == reference_number:
+            if txn.wise_transaction_id == wise_transaction_id:
                 return txn
     raise HTTPException(
         status_code=404,
-        detail=f"Tranzakció nem található: {reference_number}",
+        detail=f"Tranzakció nem található: {wise_transaction_id}",
     )
 
 
@@ -132,7 +114,6 @@ def get_profiles():
 
 
 def run_server():
-    """Fejlesztői szerver indítása."""
     import uvicorn
 
     settings = get_settings()
