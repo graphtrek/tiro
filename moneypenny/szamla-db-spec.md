@@ -3,7 +3,7 @@ title: "Specifikáció: Számla Adatbázis Mikroszerviz"
 description: "Számlákat és partnereket kezelő adatbázis mikroszerviz (MASTER orchestrator)"
 language: "HU"
 last_updated: "2026-06-09"
-related: [INDEX.md, nav-szamla-spec.md]
+related: [INDEX.md, nav-szamla-spec.md, wise-spec.md]
 ---
 
 # Számla Adatbázis Mikroszerviz - Specifikáció
@@ -18,15 +18,17 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 ## Funkció (MASTER HUB)
 - **Meghívja: nav-szamla** (NAV lekérdezés — levél szolgáltatás, csak NAV API-t hívja)
 - **Meghívja: pdf-szamla** (PDF feldolgozás — az meghívja graphtrek-emailt)
+- **Meghívja: wise** (pénzügyi tranzakciók lekérése)
 - Vevő és szállító táblákat létrehozza nav-szamla adatai alapján
 - pdf-szamla visszaadott adatait külön `invoice_file` táblában tárolja
 - `invoice_file` rekordokat összeköti az `invoice` táblával (words-alapú számlaszám egyezés)
-- Teljes invoice-supplier-customer összekapcsolás
+- wise tranzakciókat `wise_transaction` táblában tárolja, összeköti `supplier`/`customer`/`invoice` táblákkal
+- Teljes invoice-supplier-customer-wise_transaction összekapcsolás
 
 ## Request paraméterek
 - `start_date` (optional) - szűrés kezdete (default: 30 nappal ezelőtt)
 - `end_date` (optional) - szűrés vége (default: ma)
-- `sync_mode` (optional) - sync típusa (full|nav_only|pdf_only)
+- `sync_mode` (optional) - sync típusa (full|nav_only|pdf_only|wise_only)
 
 ## Táblák
 ### invoice (számlák)
@@ -73,6 +75,18 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - payment_terms
 - created_at, updated_at
 
+### wise_transaction (Wise pénzügyi tranzakciók)
+- id (PK)
+- wise_transaction_id (külső azonosító, idempotencia)
+- amount
+- currency
+- transaction_date
+- description
+- supplier_id (FK → supplier, nullable)
+- customer_id (FK → customer, nullable)
+- invoice_id (FK → invoice, nullable)
+- created_at, updated_at
+
 ## Logika (Orchestration)
 1. **szamla-db iniciál** → sorban:
    - **nav-szamla** meghívása (GET /invoices?from=...&to=...&direction=...)
@@ -89,20 +103,30 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
    - `supplier` / `customer`: partner adatok (nav-szamla alapján)
    - `invoice`: NAV számlák, `invoice_file_id` FK-val ha volt words-egyezés
 
+4. **Wise szinkron** (független a NAV/PDF ágaktól):
+   - **wise** meghívása (`POST /sync?start_date=...&end_date=...`)
+     → visszaad: Wise tranzakciók listája
+   - `wise_transaction` mentése (idempotens: `wise_transaction_id` duplikátum-ellenőrzés)
+   - `supplier` / `customer` létrehozás ha még nem létezik (Wise partner adatok alapján)
+   - `invoice_id` összekapcsolás összeg + dátum alapján (ha van egyező NAV számla)
+
 ## Interface
 - **CLI**:
-  - `szamla-db sync` - teljes szinkronizálás (NAV + PDF)
+  - `szamla-db sync` - teljes szinkronizálás (NAV + PDF + Wise)
   - `szamla-db sync-nav` - NAV adatok szinkronizálása
   - `szamla-db sync-pdf` - PDF adatok szinkronizálása
+  - `szamla-db sync-wise` - Wise tranzakciók szinkronizálása
   - `szamla-db report --month 2026-05` - havi kimutatás
 - **REST API**:
   - `POST /api/v1/sync` - teljes szinkronizálás
   - `POST /api/v1/sync/nav` - NAV adatok szinkronizálása
   - `POST /api/v1/sync/pdf` - PDF adatok szinkronizálása
+  - `POST /api/v1/sync/wise` - Wise tranzakciók szinkronizálása
   - `GET /api/v1/invoices` - számlalista (szűrés: dátum, partner, status)
   - `GET /api/v1/invoices/{invoice_number}` - egy számla adatai
-  - `GET /api/v1/partners/suppliers` - szállítólist
+  - `GET /api/v1/partners/suppliers` - szállítólista
   - `GET /api/v1/partners/customers` - vevőlista
+  - `GET /api/v1/transactions` - Wise tranzakciók listája
 
 ## Tech stack
 - Python 3.10+
@@ -122,10 +146,13 @@ szamla-db (MASTER)
   ├─ meghívja: nav-szamla ←→ NAV Online Számla 3.0 API
   │   (levél szolgáltatás — nem hív tovább)
   │
-  └─ meghívja: pdf-szamla
-                   ↓ meghívja
-             graphtrek-email ←→ Gmail API
-                   (levél szolgáltatás)
+  ├─ meghívja: pdf-szamla
+  │                ↓ meghívja
+  │          graphtrek-email ←→ Gmail API
+  │                (levél szolgáltatás)
+  │
+  └─ meghívja: wise ←→ Wise API
+      (levél szolgáltatás — nem hív tovább)
 ```
 
 ### Wiki linkek
@@ -138,4 +165,8 @@ szamla-db (MASTER)
   - PDF letöltés + indexelés: `POST /api/v1/invoices/extract`
   - Words keresés: `GET /api/v1/invoices/search?words=<számlaszám>` (melyik PDF fájl tartalmazza a szót)
   - pdf-szamla maga hívja graphtrek-emailt a PDF letöltéshez
+- **Meghívja**: [[wise-spec.md|Wise Integráció Specifikáció]]
+  - Tranzakció szinkron: `POST /sync?start_date=...&end_date=...`
+  - Tranzakció lekérdezés: `GET /transactions/{transaction_id}`
+  - Levél szolgáltatás — csak Wise API-t hívja
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

@@ -1,76 +1,83 @@
 ---
-title: "Specifikáció: Wise Integráció Microservice"
-description: "Wise banki kivonatok letöltése és szinkronizálás a szamla-db ökoszisztémával"
+title: "Specifikáció: Wise Banki Mikroszerviz"
+description: "Wise banki kivonatok letöltése és visszaadása — levél szolgáltatás"
 language: "HU"
-last_updated: "2026-06-10"
+last_updated: "2026-06-14"
 related: [INDEX.md, szamla-db-spec.md, wise-prompt.md]
 ---
 
-# Prompt: Wise Integráció Microservice Fejlesztés
+# Wise Banki Mikroszerviz - Specifikáció
 
-## Cél
-A [Wise API dokumentáció](https://docs.wise.com/api-reference) alapján implementálni egy robusztus, Python-alapú microservicot CLI és FastAPI használatával, amely automatizálja a Wise banki kivonatai letöltését, és szinkronizálja a tranzakciós adatokat a meglévő `szamla-db` ökoszisztémával.
-
-## Szerepkör és kontextus
-Te egy Senior Python Backend Engineer vagy. A feladatod egy olyan microservice fejlesztése, amely adatbeolgatási hídként funkcionál a Wise API és a `szamla-db` orchestrátor között. Ez a szolgáltatás a Moneypenny automatizálási folyamatának kritikus része, amely biztosítja, hogy a banki mozgások pontosan tükröződjenek az accounting adatbázisban.
-
-## Részletes követelmények
-
-### 1. Hitelesítés és kapcsolat
-- Implementálj egy biztonságos kapcsolatot a Wise API-hoz technikai felhasználói hitelesítéssel (API Key/OAuth2).
-- Támogasd a konfigurációt környezeti változókon keresztül (pl. `WISE_API_KEY`, `WISE_ACCOUNT_ID`).
-
-### 2. Adatkinyerés (Ingestion)
-- Szerezz meg tranzakció előzményeket/banki kivonatokat a Wise API-ból.
-- Támogasd a dátumintervallum szűrést (`start_date`, `end_date`) az iteratív szinkronizálás lehetővé tétele érdekében.
-- Implementálj hibakezelést és újrapróbálási logikát az API kapcsolati hibákkal szemben.
-
-### 3. Adatátalakítás és mapolás
-- Parsolj ki a Wise JSON választ egy strukturált Pydantic modelbe.
-- Mapold a Wise tranzakció mezőket a `szamla-db` sémájához:
-    - **Tranzakció összege és pénzneme** $\rightarrow$ `invoices.amount_total`
-    - **Partner információk** $\rightarrow$ `suppliers.name`, `customers.name`, `address`, `tax_id`
-    - **Tranzakció dátuma** $\rightarrow$ `invoices.invoice_date`
-    - **Referencia/Leírás** $\rightarrow$ Metadata a megesezés logikához.
-
-### 4. Adatbázis integráció és orchestráció
-A szolgáltatásnak a `szamla-db` PostgreSQL példányával kell interakálnia az adatok konzisztenciája érdekében:
-- **Idempotencia:** Győződj meg róla, hogy ugyanazt a Wise tranzakciót nem olvassák be többször. Ellenőrizd a meglévő `nav_transaction_id` vagy egyoszerű metaadatokat a beszúrás előtt.
-- **Entitás megelőzés:**
-    - **Számlás partnerek/Ügyfelek:** Ha egy partner nem található a `suppliers` vagy a `customers` táblákban, hozz létre egy új rekordot a Wise tranzakció részletei alapján.
-    - **Számlák:** Hozz létre új bejegyzéseket az `invoices` táblában, összekötve őket a (új vagy meglévő) `supplier_id` és `customer_id` azonosítókkal.
-- **Státusz kezelés:** Jelölj meg tranzakciókat szinkronizáltnak/feldolgozottnak.
-
-## Technológiai stack
-- **Nyelv:** Python 3.10+
-- **Framework:** FastAPI (RESTful végpontokhoz)
-- **CLI:** Typer (CLI kezeléshez)
-- **ORM:** SQLAlchemy 2.0+ (aszkron支援álással)
-- **Adatvalidáció:** Pydantic v2
-- **Környezetkezelés:** `python-dotenv`
-- **Adatbázis:** PostgreSQL (Primary)
-
-## API Interface (tervezett)
-- `GET /health`: Állapotellenőrző végpont.
-- `POST /sync`: Elindítja a szinkronizálási folyamatot egy megadott dátumintervallumhoz.
-- `GET /transactions/{transaction_id}`: Lekérdezi egy feldolgozott tranzakció részleteit.
-
-## CLI Interface (tervezett)
-- `sync --start-date <date> --end-date <date>`: Megindítja a szinkronizálást.
-- `list-transactions --last <n>`: Listázza a legutóbbi feldolgozott tranzakciókat.
-- `status`: Megtekintheti az utolsó szinkronizálás állapotát.
-
-## Sikerfeltételek
-- Sikeres hitelesítés és adatmegszerzés a Wise-tól.
-- Pontos adatmapolás az `invoices`, `suppliers` és `customers` táblákhoz.
-- Nincs duplikált rekord létrehozása az adatbázisban.
-- A szinkronizálási folyamat umfassító logolása (indulás, siker/hiba, feldolgozott rekordok száma).
+> 🔗 **Hívási Lánc**: [[szamla-db-spec.md|← MASTER (szamla-db)]]
 
 ---
 
-## 🔗 Wiki Linkek
-- **Prompt**: [[wise-prompt.md|Wise Integráció Prompt]]
-- **Adatbeolvasási híd**: Wise API → közvetlen írás a [[szamla-db-spec.md|Szamla-DB]] PostgreSQL példányába
-- **Önálló belépési pont**: `POST /sync` (nem a szamla-db hívja)
+## Szerepkör és kontextus
+Te egy Backend API Integrációs Mérnök vagy. A feladatod a Wise API hídját fejleszteni a `szamla-db` orchestrator és a Wise banki rendszer között. Ez a szolgáltatás **levél szolgáltatás**: csak a Wise API-t hívja, nem ír adatbázisba, az adatokat strukturáltan adja vissza a `szamla-db`-nek.
+
+## Funkció
+- Wise API-tól banki tranzakciók lekérése
+- **Levél szolgáltatás** — adatbázist nem kezel; strukturált tranzakció listát ad vissza a `szamla-db`-nek
+
+## Request paraméterek
+- `start_date` (YYYY-MM-DD) - szűrés kezdete (default: 30 nappal ezelőtt)
+- `end_date` (YYYY-MM-DD) - szűrés vége (default: ma)
+
+## Response
+```json
+[
+  {
+    "wise_transaction_id": "TXN-12345",
+    "amount": 100000,
+    "currency": "HUF",
+    "transaction_date": "2026-05-15",
+    "description": "Invoice payment - ABC Kft.",
+    "counterparty_name": "ABC Kft.",
+    "counterparty_account": "HU12345678"
+  }
+]
+```
+
+## Interface
+- **CLI**:
+  - `wise sync --start 2026-05-01 --end 2026-05-31` - tranzakciók listázása
+  - `wise list --last 30` - utolsó N tranzakció
+  - `wise status` - API kapcsolat ellenőrzés
+- **REST API**:
+  - `GET /health` - állapotellenőrzés
+  - `POST /sync` - tranzakciók lekérése (start_date, end_date paraméterrel)
+  - `GET /transactions/{transaction_id}` - egy tranzakció részletei
+
+## Auth
+- Wise API Key (`WISE_API_KEY`)
+- Wise Account ID (`WISE_ACCOUNT_ID`)
+- Konfigurálható endpoint (sandbox/live)
+
+## Tech stack
+- Python 3.10+
+- FastAPI, Typer
+- Pydantic v2 (tranzakció modellek)
+- python-dotenv
+
+---
+
+## Kapcsolódások
+
+### Hívási sorrend
+```
+szamla-db (MASTER)
+  ↓ POST /sync?start_date=...&end_date=...
+wise (ÉN)  ←→  Wise API
+  ↓ visszaad tranzakció listát szamla-db-nek
+szamla-db
+  ↓ wise_transaction tábla mentés + összekapcsolás
+```
+
+> `wise` levél szolgáltatás: nem hív más mikroszervízt, csak a Wise API-t. DB-t nem kezel.
+
+### Wiki linkek
+- **Prompt**: [[wise-prompt.md|Wise Prompt]]
+- **Meghívva**: [[szamla-db-spec.md|Szamla-DB (MASTER)]]
+- **Meghívom**: (senki — levél szolgáltatás)
 - **Wise API Docs**: https://docs.wise.com/api-reference
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

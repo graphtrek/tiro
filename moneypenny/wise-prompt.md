@@ -8,7 +8,7 @@ related: [INDEX.md, szamla-db-spec.md, wise-spec.md]
 
 # Wise Banki Mikorszerviz - Prompt
 
-Wise API dokumentáció https://docs.wise.com/api-reference alapján implementálni egy robusztus, Python-alapú microservice használatával, amely automatizálja a Wise banki kivonatai letöltését, és szinkronizálja a tranzakciós adatokat a meglévő `szamla-db` ökoszisztémával.
+Wise API dokumentáció https://docs.wise.com/api-reference alapján implementálni egy robusztus, Python-alapú microservice használatával, amely automatizálja a Wise banki kivonatai letöltését.
 A szolgáltatáshoz készüljön cli és fastapi rest interface.
 
 ---
