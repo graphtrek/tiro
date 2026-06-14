@@ -3,12 +3,12 @@ title: "Specifikáció: PDF Számla Feldolgozó Mikroszerviz"
 description: "PDF számlákból metaadatokat kinyerő mikroszerviz"
 language: "HU"
 last_updated: "2026-06-09"
-related: [INDEX.md, nav-szamla-spec.md, graphtrek-email-spec.md]
+related: [INDEX.md, nav-szamla-spec.md, attachment-downloader-spec.md]
 ---
 
 # PDF Számla Feldolgozó Mikroszerviz - Specifikáció
 
-> 🔗 **Hívási Lánc**: [[nav-szamla-spec.md|← NAV API]] **→** [[graphtrek-email-spec.md|Gmail Letöltő →]]
+> 🔗 **Hívási Lánc**: [[nav-szamla-spec.md|← NAV API]] **→** [[attachment-downloader-spec.md|Gmail Letöltő →]]
 
 ---
 
@@ -16,7 +16,7 @@ related: [INDEX.md, nav-szamla-spec.md, graphtrek-email-spec.md]
 Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF dokumentumokból strukturált számlaadatokat nyerni ki és validálni. Ez a szolgáltatás a számlákat felismerési pontosságért optimalizálja, és megbízható metaadatokat szállít a `szamla-db` orchestratornak, amely összeköti a NAV adatokkal.
 
 ## Funkció
-- **Meghívja: graphtrek-email** (utolsó 30 nap default)
+- **Meghívja: attachment-downloader** (utolsó 30 nap default)
 - Letöltött PDF fájlokból számlákat kiválogatja
 - Számla metaadatokat nyeri ki (OCR/szabályok)
 - Meghívott a nav-szamla által
@@ -46,7 +46,7 @@ Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF
 - Batch feldolgozás támogatás
 
 ## API hívások
-- graphtrek-email API: `GET /api/v1/jobs?status=completed` → PDF-ek letöltésének lekérdezése
+- attachment-downloader API: `GET /api/v1/jobs?status=completed` → PDF-ek letöltésének lekérdezése
 - Letöltött PDF-ek feldolgozása az output_dir-ből
 
 ## Interface
@@ -55,7 +55,7 @@ Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF
   - `pdf-szamla process --start 2026-05-01 --end 2026-05-31`
   - `pdf-szamla process --output-dir /path/to/pdfs/`
 - **REST API**:
-  - `POST /api/v1/invoices/extract` - metaadatok kinyerése (graphtrek-email integrációval)
+  - `POST /api/v1/invoices/extract` - metaadatok kinyerése (attachment-downloader integrációval)
   - `POST /api/v1/invoices/extract-batch` - batch feldolgozás
   - `GET /api/v1/invoices` - feldolgozási történet
 
@@ -85,14 +85,14 @@ nav-szamla
   ↓ meghívja
 pdf-szamla (ÉN)
   ↓ meghívja
-graphtrek-email
+attachment-downloader
 ```
 
 ### Wiki linkek
 - **Prompt**: [[pdf-szamla-prompt.md|PDF Szamla Prompt]]
 - **Meghívva**: [[nav-szamla-spec.md|NAV API]]
-- **Meghívom**: [[graphtrek-email-spec.md|Gmail Letöltő]]
-  - graphtrek-email meghívása (POST /api/v1/jobs)
+- **Meghívom**: [[attachment-downloader-spec.md|Gmail Letöltő]]
+  - attachment-downloader meghívása (POST /api/v1/jobs)
   - utolsó 30 nap default paraméterrel
 - **MASTER Orchestrator**: [[szamla-db-spec.md|Szamla-DB]]
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

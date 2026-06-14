@@ -28,7 +28,7 @@ Gmail levélekből PDF mellékleteket letölt és menti szabványosított fájln
 - DDD = napi sorrendi szám (001-tól)
 
 ## Interface
-- **CLI**: `graphtrek-email download --start 2026-05-01 --end 2026-05-31 --output ./pdfs/`
+- **CLI**: `attachment-downloader download --start 2026-05-01 --end 2026-05-31 --output ./pdfs/`
 - **REST API**: 
   - `POST /api/v1/jobs` - feladat indítás
   - `GET /api/v1/jobs/{job_id}` - státusz
@@ -55,11 +55,11 @@ nav-szamla
   ↓ meghívja
 pdf-szamla
   ↓ meghívja
-graphtrek-email (ÉN - VÉGPONT)
+attachment-downloader (ÉN - VÉGPONT)
 ```
 
 ### Wiki linkek
-- **Prompt**: [[graphtrek-email-prompt.md|Gmail Letöltő Prompt]]
+- **Prompt**: [[attachment-downloader-prompt.md|Gmail Letöltő Prompt]]
 - **Meghívva**: [[pdf-szamla-spec.md|PDF Feldolgozó]]
 - **Lánc elődje**: [[nav-szamla-spec.md|NAV API]]
 - **MASTER Orchestrator**: [[szamla-db-spec.md|Szamla-DB]]

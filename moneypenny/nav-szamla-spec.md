@@ -81,7 +81,7 @@ nav-szamla (ÉN)  ←→  NAV Online Számla 3.0 API
   ↓ visszaad adatot szamla-db-nek
 szamla-db (MASTER)
   ↓ (ezután hívja pdf-szamlát)
-pdf-szamla → graphtrek-email
+pdf-szamla → attachment-downloader
 ```
 
 > `nav-szamla` levél szolgáltatás: nem hív más mikroszervízt, csak a NAV API-t.

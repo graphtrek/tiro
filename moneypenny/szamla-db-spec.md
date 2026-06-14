@@ -17,7 +17,7 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 
 ## Funkció (MASTER HUB)
 - **Meghívja: nav-szamla** (NAV lekérdezés — levél szolgáltatás, csak NAV API-t hívja)
-- **Meghívja: pdf-szamla** (PDF feldolgozás — az meghívja graphtrek-emailt)
+- **Meghívja: pdf-szamla** (PDF feldolgozás — az meghívja attachment-downloadert)
 - **Meghívja: wise** (pénzügyi tranzakciók lekérése)
 - Vevő és szállító táblákat létrehozza nav-szamla adatai alapján
 - pdf-szamla visszaadott adatait külön `invoice_file` táblában tárolja
@@ -92,7 +92,7 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
    - **nav-szamla** meghívása (GET /invoices?from=...&to=...&direction=...)
      - nav-szamla csak a NAV API-t hívja, visszaad: számlalista, supplier/customer adatok
    - **pdf-szamla** meghívása (POST /api/v1/invoices/extract)
-     - pdf-szamla meghívja graphtrek-emailt (Gmail PDF letöltés)
+     - pdf-szamla meghívja attachment-downloadert (Gmail PDF letöltés)
      - visszaad: letöltött PDF fájlok szövegindexe
 2. **Merge** (words-alapú kereséssel):
    - Minden nav-szamla számlaszámhoz: `GET /api/v1/invoices/search?words=<számlaszám>`
@@ -148,7 +148,7 @@ szamla-db (MASTER)
   │
   ├─ meghívja: pdf-szamla
   │                ↓ meghívja
-  │          graphtrek-email ←→ Gmail API
+  │          attachment-downloader ←→ Gmail API
   │                (levél szolgáltatás)
   │
   └─ meghívja: wise ←→ Wise API
@@ -164,7 +164,7 @@ szamla-db (MASTER)
 - **Meghívja**: [[pdf-szamla-spec.md|PDF Feldolgozó Specifikáció]]
   - PDF letöltés + indexelés: `POST /api/v1/invoices/extract`
   - Words keresés: `GET /api/v1/invoices/search?words=<számlaszám>` (melyik PDF fájl tartalmazza a szót)
-  - pdf-szamla maga hívja graphtrek-emailt a PDF letöltéshez
+  - pdf-szamla maga hívja attachment-downloadert a PDF letöltéshez
 - **Meghívja**: [[wise-spec.md|Wise Integráció Specifikáció]]
   - Tranzakció szinkron: `POST /sync?start_date=...&end_date=...`
   - Tranzakció lekérdezés: `GET /transactions/{transaction_id}`

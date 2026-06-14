@@ -12,7 +12,7 @@ This is a multi-project `uv`-based Python workspace. **Each sub-project has its 
 |---|---|
 | `moneypenny/` | Obsidian design wiki (Hungarian): specs + prompts for an invoice-automation microservice pipeline |
 | `nav-szamla/` | NAV Online Számla 3.0 REST/XML client (FastAPI + CLI) |
-| `graphtrek-gmail/` | Gmail CLI + FastAPI interface (Google OAuth2) |
+| `attachment-downloader/` | Gmail CLI + FastAPI interface (Google OAuth2) |
 
 Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs), `.env.example` (Scaleway inference defaults: `SCALEWAY_BASE_URL`, `SCALEWAY_API_KEY`), `AGENTS.md`, this file.
 
@@ -38,7 +38,7 @@ Describes five Python microservices, each with a FastAPI REST interface and a Ty
 
 **Flow**: entry point `POST /api/v1/sync` on `szamla-db` → synchronously calls `nav-szamla` → `pdf-szamla` → `graphtrek-email`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. `wise` is an independent entry point (own `POST /sync`) that writes Wise transactions directly into `szamla-db`'s PostgreSQL.
 
-**Status**: `nav-szamla` and `graphtrek-gmail` (= the `graphtrek-email` service) are implemented in this workspace; `pdf-szamla`, `szamla-db`, and `wise` are specced only.
+**Status**: `nav-szamla` and `attachment-downloader` (= the `graphtrek-email` service) are implemented in this workspace; `pdf-szamla`, `szamla-db`, and `wise` are specced only.
 
 ## nav-szamla — NAV Online Számla 3.0 client
 
@@ -79,30 +79,30 @@ uv run ruff format nav_szamla/ api/ cli/
 ### Environment (`.env` from `.env.example`)
 `USERNAME`, `PASSWORD`, `LICENSE_KEY` (XML signKey), `CSERE_KEY` (XML exchangeKey, 16 chars), `TAX_NUMBER` (8 digits), `SOFTWARE_*` (software registration block required in every request), `ENVIRONMENT` (`test`/`production`), optional `ENDPOINT_URL` override, `API_HOST`/`API_PORT`, `LOG_LEVEL`.
 
-## graphtrek-gmail — Gmail CLI + FastAPI
+## attachment-downloader — Gmail CLI + FastAPI
 
 CLI and REST interface for Gmail (list / read / send / reply / trash / mark read-unread / labels) via Google OAuth2. Mirrors the `nav-szamla` structure and serves as the `graphtrek-email` service in the Moneypenny pipeline. `requires-python >=3.9`.
 
 ### Running
 
 ```bash
-cd graphtrek-gmail
+cd attachment-downloader
 uv sync
 
 # REST API
-uvicorn graphtrek_gmail.api.main:app --reload
+uvicorn attachment_downloader.api.main:app --reload
 
-# CLI (installed as `graphtrek-gmail` script)
-python -m graphtrek_gmail.cli.main list
-python -m graphtrek_gmail.cli.main read   <email_id>
-python -m graphtrek_gmail.cli.main send   --to <addr> --subject <s> --body <b>
-python -m graphtrek_gmail.cli.main reply  <email_id> <body>
-python -m graphtrek_gmail.cli.main trash  <email_id>
-python -m graphtrek_gmail.cli.main mark-read|mark-unread <email_id>
+# CLI (installed as `attachment-downloader` script)
+python -m attachment_downloader.cli.main list
+python -m attachment_downloader.cli.main read   <email_id>
+python -m attachment_downloader.cli.main send   --to <addr> --subject <s> --body <b>
+python -m attachment_downloader.cli.main reply  <email_id> <body>
+python -m attachment_downloader.cli.main trash  <email_id>
+python -m attachment_downloader.cli.main mark-read|mark-unread <email_id>
 ```
 
 ### Architecture
-- `graphtrek_gmail/` — `api/main.py` (FastAPI), `cli/main.py` (Typer), `client/client.py` (Gmail API wrapper), `config/config.py` (settings), `models/models.py`.
+- `attachment_downloader/` — `api/main.py` (FastAPI), `cli/main.py` (Typer), `client/client.py` (Gmail API wrapper), `config/config.py` (settings), `models/models.py`.
 - API endpoints: `GET /emails`, `GET /emails/{id}`, `POST /emails/send`, `POST /emails/{id}/reply`, `POST /emails/{id}/trash`, `POST /emails/{id}/read`, `POST /emails/{id}/unread`, `GET /labels`.
 
 ### Auth

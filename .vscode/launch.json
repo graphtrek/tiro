@@ -21,11 +21,11 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "graphtrek-gmail API",
+      "name": "attachment-downloader API",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/graphtrek-gmail/run_api.py",
-      "python": "${workspaceFolder}/graphtrek-gmail/.venv/bin/python",
+      "program": "${workspaceFolder}/attachment-downloader/run_api.py",
+      "python": "${workspaceFolder}/attachment-downloader/.venv/bin/python",
       "console": "integratedTerminal"
     }
   ]

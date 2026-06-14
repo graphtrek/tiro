@@ -1,0 +1,18 @@
+# Downloaded PDF attachments
+/downloads/
+
+# Logs
+/logs/
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+
+# Credentials & tokens
+token.json
+*.apps.googleusercontent.com.json

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "wise-spec.md",
+                "file": "pdf-szamla-prompt.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "wise-spec"
+              "title": "pdf-szamla-prompt"
             }
           }
         ]
@@ -183,12 +183,14 @@
       "bases:Új bázis létrehozása": false
     }
   },
-  "active": "5400acc1fc744ffb",
+  "active": "1b6fd279bca9f8e9",
   "lastOpenFiles": [
-    "wise-prompt.md",
-    "INDEX.md",
-    "wise-spec.md",
     "szamla-db-spec.md",
+    "INDEX.md",
+    "attachment-downloader-prompt.md",
+    "attachment-downloader-spec.md",
+    "wise-spec.md",
+    "wise-prompt.md",
     "szamla-db-prompt.md",
     "graphtrek-email-prompt.md",
     "graphtrek-email-spec.md",

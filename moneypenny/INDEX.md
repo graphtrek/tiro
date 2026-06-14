@@ -16,7 +16,7 @@ A **Moneypenny** egy öt Python mikroszervizből álló számla-automatizálási
 | 4   | `szamla-db`       | 8003 | MASTER orchestrator – DB persistálás, reconciliation |
 | 3   | `nav-szamla`      | 8002 | NAV Online Számla API lekérdezés                     |
 | 2   | `pdf-szamla`      | 8001 | PDF metaadat kinyerés (OCR/Regex)                    |
-| 1   | `graphtrek-email` | 8000 | Gmail PDF mellékletek letöltése                      |
+| 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                      |
 | 5   | `wise`            | 8004 | Wise bankkivonatok letöltése — levél szolgáltatás    |
 
 Belépési pont: `POST /api/v1/sync` → `szamla-db` (8003). Minden mikroszerviznek van FastAPI REST interfésze és Typer CLI-je is.
@@ -34,7 +34,7 @@ MASTER ORCHESTRATOR
       ↓                  ↓                  ↓
  nav-szamla         pdf-szamla            wise
  (NAV API)               ↓             (Wise API)
-                   graphtrek-email
+                   attachment-downloader
                      (Gmail API)
       └──────────────────┴──────────────────┘
                          ↓
@@ -42,7 +42,7 @@ MASTER ORCHESTRATOR
 ```
 
 > `szamla-db` mindhárom ágat közvetlenül hívja. `nav-szamla` és `wise` levél szolgáltatások (csak saját API-t hívnak).
-> `pdf-szamla` → `graphtrek-email` lánc a PDF-letöltési ág.
+> `pdf-szamla` → `attachment-downloader` lánc a PDF-letöltési ág.
 
 ---
 
@@ -74,16 +74,16 @@ MASTER ORCHESTRATOR
 **[[pdf-szamla-spec.md|📄 Specifikáció]]** | **[[pdf-szamla-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: [[szamla-db-spec.md|szamla-db]] által
-- **Meghívja**: [[graphtrek-email-spec.md|Gmail Letöltő]]
+- **Meghívja**: [[attachment-downloader-spec.md|Gmail Letöltő]]
 - **Funkció**: PDF metaadatok kinyerése (OCR/Regex)
-- **Input**: graphtrek-email API (utolsó 30 nap)
+- **Input**: attachment-downloader API (utolsó 30 nap)
 - **Output**: Invoice metadata (szám, dátum, összeg, partner)
 - **REST**: `POST /api/v1/invoices/extract`
 
 ---
 
 ### 1️⃣ Gmail PDF Letöltő
-**[[graphtrek-email-spec.md|📄 Specifikáció]]** | **[[graphtrek-email-prompt.md|💭 Prompt]]**
+**[[attachment-downloader-spec.md|📄 Specifikáció]]** | **[[attachment-downloader-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: [[pdf-szamla-spec.md|pdf-szamla]] által
 - **Funkció**: Email PDF mellékleteket letölt
@@ -121,7 +121,7 @@ Hívási Lánc (Szinkron):
 ┌──────────────┐ ┌──────────────────────┐ ┌──────────────┐
 │  3. NAV API  │ │  2. PDF FELDOLGOZÓ   │ │  5. WISE     │
 │  ├─ NAV query│ │  ├─ PDF indexelés    │ │  ├─ Wise API │
-│  └─ Levél   │ │  └─ → graphtrek-email│ │  └─ Levél   │
+│  └─ Levél   │ │  └─ → attachment-downloader│ │  └─ Levél   │
 └──────────────┘ └──────────────────────┘ └──────────────┘
                            ↓
               ┌────────────────────────────┐
@@ -139,14 +139,14 @@ Hívási Lánc (Szinkron):
 - **szamla-db**: [[szamla-db-spec.md|spec]] (MASTER orchestrator)
 - **nav-szamla**: [[nav-szamla-spec.md|spec]] (NAV query)
 - **pdf-szamla**: [[pdf-szamla-spec.md|spec]] (PDF extract)
-- **graphtrek-email**: [[graphtrek-email-spec.md|spec]] (Gmail download)
+- **attachment-downloader**: [[attachment-downloader-spec.md|spec]] (Gmail download)
 - **wise**: [[wise-spec.md|spec]] (Bankkivonatok integráció)
 
 ### Promptok
 - **szamla-db**: [[szamla-db-prompt.md|prompt]]
 - **nav-szamla**: [[nav-számla-prompt.md|prompt]]
 - **pdf-szamla**: [[pdf-szamla-prompt.md|prompt]]
-- **graphtrek-email**: [[graphtrek-email-prompt.md|prompt]]
+- **attachment-downloader**: [[attachment-downloader-prompt.md|prompt]]
 - **wise**: [[wise-prompt.md|prompt]]
 
 ---
@@ -168,7 +168,7 @@ POST /api/v1/sync (szamla-db)
    ├─ nav_szamla.query(start_date, end_date)        [levél — csak NAV API]
    │   └─ Return: {nav_status, invoice_number, supplier, customer, ...}
    ├─ pdf_szamla.extract(start_date, end_date)
-   │   └─ graphtrek_email.jobs() meghívása          [levél — csak Gmail API]
+   │   └─ attachment_downloader.jobs() meghívása          [levél — csak Gmail API]
    │       └─ Return: PDF fájlok szövegindexe
    └─ wise.sync(start_date, end_date)               [levél — csak Wise API]
        └─ Return: [{wise_transaction_id, amount, currency, ...}]
@@ -189,8 +189,8 @@ POST /api/v1/sync (szamla-db)
 
 ## 🚀 Fejlesztési Sorrend
 
-1. **[[graphtrek-email-spec.md|Gmail Letöltő]]** - OAuth2, PDF API
-2. **[[pdf-szamla-spec.md|PDF Feldolgozó]]** - OCR/Regex, graphtrek-email integrálás
+1. **[[attachment-downloader-spec.md|Gmail Letöltő]]** - OAuth2, PDF API
+2. **[[pdf-szamla-spec.md|PDF Feldolgozó]]** - OCR/Regex, attachment-downloader integrálás
 3. **[[nav-szamla-spec.md|NAV API]]** - NAV query, pdf-szamla integrálás
 4. **[[szamla-db-spec.md|Szamla-DB]]** - DB orchestration, reconciliation
 5. **[[wise-spec.md|Wise Integráció]]** - Wise API, levél szolgáltatás (szamla-db hívja)
@@ -201,7 +201,7 @@ POST /api/v1/sync (szamla-db)
 
 | Service         | Port | Endpoint                |
 | --------------- | ---- | ----------------------- |
-| graphtrek-email | 8000 | `http://localhost:8000` |
+| attachment-downloader | 8000 | `http://localhost:8000` |
 | pdf-szamla      | 8001 | `http://localhost:8001` |
 | nav-szamla      | 8002 | `http://localhost:8002` |
 | szamla-db       | 8003 | `http://localhost:8003` |
@@ -224,10 +224,10 @@ NAV_KEY_FILE=./key.pem
 PDF_API_URL=http://localhost:8001
 
 # pdf-szamla
-GRAPHTREK_EMAIL_URL=http://localhost:8000
+ATTACHMENT_DOWNLOADER_URL=http://localhost:8000
 DEFAULT_DAYS_BACK=30
 
-# graphtrek-email
+# attachment-downloader
 GMAIL_CREDENTIALS_FILE=./credentials.json
 DEFAULT_OUTPUT_DIR=./downloads/
 
@@ -279,14 +279,14 @@ DEFAULT_DAYS_BACK=30
 ### Service Links
 - **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[nav-szamla-spec.md|nav-szamla]] (levél)
 - **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[pdf-szamla-spec.md|pdf-szamla]]
-- **PDF ág**: [[pdf-szamla-spec.md|pdf-szamla]] → hívja → [[graphtrek-email-spec.md|graphtrek-email]] (levél)
+- **PDF ág**: [[pdf-szamla-spec.md|pdf-szamla]] → hívja → [[attachment-downloader-spec.md|attachment-downloader]] (levél)
 - **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[wise-spec.md|wise]] (levél — csak Wise API)
 
 ### Prompt Links
 - [[szamla-db-prompt.md|szamla-db-prompt.md]]
 - [[nav-számla-prompt.md|nav-számla-prompt.md]]
 - [[pdf-szamla-prompt.md|pdf-szamla-prompt.md]]
-- [[graphtrek-email-prompt.md|graphtrek-email-prompt.md]]
+- [[attachment-downloader-prompt.md|attachment-downloader-prompt.md]]
 - [[wise-prompt.md|wise-prompt.md]]
 
 ---
