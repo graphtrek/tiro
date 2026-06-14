@@ -19,14 +19,13 @@ python run_api.py
 uv run uvicorn wise_szamla.api.main:app --host 0.0.0.0 --port 8004 --reload
 
 # CLI (telepítve: `wise-szamla` script)
+uv run wise-szamla status                                        # Wise API kapcsolat + profilok ellenőrzése
+uv run wise-szamla balances                                      # elérhető pénznemek és balance ID-k
 uv run wise-szamla sync                                          # utolsó 30 nap, WISE_ACCOUNT_CURRENCY
 uv run wise-szamla sync --start 2026-05-01 --end 2026-05-31
-uv run wise-szamla sync --start 2026-05-01 --currency GBP
+uv run wise-szamla sync --start 2026-05-01 --currency HUF
 uv run wise-szamla sync --json                                   # géppel olvasható JSON kimenet
-uv run wise-szamla sync --verbose                                # részletes napló
-
-uv run wise-szamla status                                        # Wise API kapcsolat + profilok ellenőrzése
-uv run wise-szamla list                                          # előzmény elérési útvonalak (API)
+uv run wise-szamla --verbose sync --start 2026-05-01            # DEBUG szintű napló
 
 # Tesztek
 uv run pytest tests/ -v
@@ -34,13 +33,14 @@ uv run pytest tests/ -v
 
 ## REST API
 
-| Metódus  | Útvonal                                      | Leírás                                          |
-|----------|----------------------------------------------|-------------------------------------------------|
-| `GET`    | `/health`                                    | Állapotellenőrző végpont                        |
-| `GET`    | `/settings`                                  | Aktív konfiguráció (API kulcs nélkül)           |
-| `POST`   | `/sync`                                      | Wise tranzakciók lekérése                       |
-| `GET`    | `/transactions/{wise_transaction_id}`        | Egy tranzakció részletei azonosító alapján      |
-| `GET`    | `/api/v1/profiles`                           | Wise profilok (API kapcsolat teszt)             |
+| Metódus  | Útvonal                               | Leírás                                          |
+|----------|---------------------------------------|-------------------------------------------------|
+| `GET`    | `/health`                             | Állapotellenőrző végpont                        |
+| `GET`    | `/settings`                           | Aktív konfiguráció (API kulcs nélkül)           |
+| `GET`    | `/profiles`                           | Wise profilok (API kapcsolat teszt)             |
+| `GET`    | `/balances`                           | Elérhető egyenlegek pénzneménként               |
+| `POST`   | `/sync`                               | Wise tranzakciók lekérése                       |
+| `GET`    | `/transactions/{wise_transaction_id}` | Egy tranzakció részletei azonosító alapján      |
 
 ### GET /health
 
@@ -68,10 +68,34 @@ curl http://localhost:8004/settings
 }
 ```
 
+### GET /profiles
+
+Wise profilok lekérdezése — API kapcsolat és hitelesítés tesztelésére.
+
+```bash
+curl http://localhost:8004/profiles
+```
+
+### GET /balances
+
+Elérhető STANDARD egyenlegek listája (pénznem és balance ID).
+
+```bash
+curl http://localhost:8004/balances
+```
+
+```json
+[
+  {"id": 11111111, "currency": "EUR", "amount": {"value": 1234.56, "currency": "EUR"}},
+  {"id": 22222222, "currency": "HUF", "amount": {"value": 500000.00, "currency": "HUF"}}
+]
+```
+
 ### POST /sync
 
-Wise bankkivonat lekérése a megadott dátumintervallumra. Visszaadja a tranzakciókat
-strukturált formában — DB-be írás nélkül.
+Wise bankkivonat lekérése a megadott dátumintervallumra. A helyes flow a Wise API-n belül:
+1. `GET /v1/borderless-accounts?profileId={profileId}` — megkeresi a borderless számla ID-t és az elérhető pénznemeket
+2. `GET /v1/borderless-accounts/{accountId}/statement.json?currency={currency}&intervalStart=...&intervalEnd=...` — lekéri a kivonatot
 
 ```bash
 curl -X POST http://localhost:8004/sync \
@@ -147,40 +171,12 @@ Egy korábban lekért tranzakció részletei azonosító alapján (in-memory ker
 curl http://localhost:8004/transactions/TRANSFER-11111111
 ```
 
-### GET /api/v1/profiles
-
-Wise profilok lekérdezése — API kapcsolat és hitelesítés tesztelésére.
-
-```bash
-curl http://localhost:8004/api/v1/profiles
-```
-
 ## CLI
 
-### sync
-
-Wise tranzakciók lekérése és kilistázása.
+A `--verbose` / `-v` globális opció — a parancs neve **elé** kell írni:
 
 ```bash
-uv run wise-szamla sync [OPTIONS]
-```
-
-| Opció               | Default                 | Leírás                          |
-|---------------------|-------------------------|---------------------------------|
-| `--start DATE`      | 30 napja                | Szűrés kezdete (`YYYY-MM-DD`)   |
-| `--end DATE`        | ma                      | Szűrés vége (`YYYY-MM-DD`)      |
-| `--currency TEXT`   | `WISE_ACCOUNT_CURRENCY` | Pénznem (pl. `EUR`, `GBP`)      |
-| `--json`            | ki                      | JSON kimenet                    |
-| `--verbose` / `-v`  | ki                      | INFO szintű napló               |
-
-Példa kimenet:
-
-```
-✓ 2 tranzakció (2026-05-01..2026-05-31, EUR)
-
- Azonosító           Típus   Dátum        Összeg        Partner
- TRANSFER-11111111   CREDIT  2026-05-15   1,500.00 EUR  ACME Corp
- CARD-22222222       DEBIT   2026-05-20      49.99 EUR  Scaleway SAS
+uv run wise-szamla --verbose sync --start 2026-05-01
 ```
 
 ### status
@@ -196,24 +192,81 @@ uv run wise-szamla status
   ID: 12345678  Típus: BUSINESS  Név: Graphtrek Kft.
 ```
 
-### list
+### balances
 
-Tájékoztató parancs — az in-memory előzmény az API szerveren keresztül érhető el.
+Elérhető pénznemek és balance ID-k listázása. Hasznos a `WISE_ACCOUNT_CURRENCY` beállításához
+és a `sync` parancs `--currency` opciójához.
 
 ```bash
-uv run wise-szamla list
+uv run wise-szamla balances
+```
+
+```
+ Balance ID  Pénznem  Egyenleg
+ 11111111    EUR      1,234.56 EUR
+ 22222222    HUF    500,000.00 HUF
+```
+
+### sync
+
+Wise tranzakciók lekérése és kilistázása.
+
+```bash
+uv run wise-szamla sync [OPTIONS]
+```
+
+| Opció             | Default                 | Leírás                          |
+|-------------------|-------------------------|---------------------------------|
+| `--start DATE`    | 30 napja                | Szűrés kezdete (`YYYY-MM-DD`)   |
+| `--end DATE`      | ma                      | Szűrés vége (`YYYY-MM-DD`)      |
+| `--currency TEXT` | `WISE_ACCOUNT_CURRENCY` | Pénznem (pl. `EUR`, `GBP`)      |
+| `--json`          | ki                      | JSON kimenet                    |
+
+Példa kimenet:
+
+```
+✓ 2 tranzakció (2026-05-01..2026-05-31, EUR)
+
+ Azonosító           Típus   Dátum        Összeg        Partner
+ TRANSFER-11111111   CREDIT  2026-05-15   1,500.00 EUR  ACME Corp
+ CARD-22222222       DEBIT   2026-05-20      49.99 EUR  Scaleway SAS
 ```
 
 ## Naplózás
 
-Naplók stdout-ra és `logs/wise.log` fájlba is kerülnek.
+Naplók stdout-ra és `logs/wise.log` fájlba is kerülnek. Alapértelmezett szint: `LOG_LEVEL` (`.env`).
 
 ```
 2026-06-14 10:00:00 INFO     wise_szamla.sync: Wise lekérés: 2026-05-01..2026-05-31 (EUR)
-2026-06-14 10:00:01 INFO     wise_szamla.client: Wise statement 2026-05-01..2026-05-31 (EUR): 2 tranzakció 843ms alatt
+2026-06-14 10:00:01 INFO     wise_szamla.client: Wise statement 2026-05-01..2026-05-31 (EUR, balance_id=11111111): 2 tranzakció 843ms alatt
 2026-06-14 10:00:01 INFO     wise_szamla.sync: Wise lekérés kész: 2 tranzakció
-2026-06-14 10:00:01 INFO     wise_szamla.api.main: POST /sync → 200 in 848ms
 ```
+
+## SCA (Strong Customer Authentication) beállítása
+
+A Wise **bankszámlakivonat letöltés** (`/balance-statements`) SCA hitelesítést igényel.
+Egyszer kell beállítani:
+
+```bash
+# 1. RSA kulcspár generálása (a wise/ könyvtárban)
+openssl genrsa -out wise_sca_private.pem 2048
+openssl rsa -in wise_sca_private.pem -pubout -out wise_sca_public.pem
+
+# 2. A nyilvános kulcs tartalma (ezt kell Wise-ba másolni)
+cat wise_sca_public.pem
+```
+
+3. Wise weboldalon: **Settings → API tokens → [token neve] → Manage → Add SCA public key**  
+   Másold be a `wise_sca_public.pem` teljes tartalmát (BEGIN/END sorral együtt).
+
+4. `.env` beállítás (már megvan):
+   ```
+   WISE_SCA_PRIVATE_KEY_PATH=./wise_sca_private.pem
+   ```
+
+A privát kulcs fájlt ne commitold — már szerepel a `.gitignore`-ban.
+
+---
 
 ## Konfiguráció (`.env` — `.env.example` alapján)
 
@@ -221,8 +274,9 @@ Naplók stdout-ra és `logs/wise.log` fájlba is kerülnek.
 |-------------------------|-----------|-----------------------------------------------------|
 | `WISE_API_KEY`          | —         | Wise Bearer token (kötelező)                        |
 | `WISE_PROFILE_ID`       | —         | Numerikus Wise profil ID (kötelező)                 |
-| `WISE_ACCOUNT_CURRENCY` | `EUR`     | Alapértelmezett pénznem                             |
+| `WISE_ACCOUNT_CURRENCY` | `EUR`     | Alapértelmezett pénznem a `sync` parancshoz         |
 | `WISE_SANDBOX`          | `false`   | `true` = sandbox, `false` = éles                   |
+| `WISE_SCA_PRIVATE_KEY_PATH` | —    | RSA privát kulcs elérési útja (SCA, lásd fent)     |
 | `API_HOST`              | `0.0.0.0` | FastAPI bind cím                                    |
 | `API_PORT`              | `8004`    | FastAPI port                                        |
 | `LOG_LEVEL`             | `INFO`    | Napló szint (`DEBUG`, `INFO`, `WARNING`, `ERROR`)   |
@@ -235,12 +289,14 @@ Naplók stdout-ra és `logs/wise.log` fájlba is kerülnek.
 ```
 wise/
 ├── pyproject.toml
-├── run_api.py                      # VS Code debug belépési pont
+├── run_api.py                      # VS Code debug belépési pont (port 8004)
 ├── .env.example
 └── src/wise_szamla/
-    ├── config.py                   # pydantic-settings, logging
+    ├── config.py                   # pydantic-settings, configure_logging()
     ├── models.py                   # WiseStatement, SyncRequest/Response, TransactionSummary
-    ├── client.py                   # WiseClient (Bearer auth, retry, live/sandbox URL)
+    ├── client.py                   # WiseClient — Bearer auth, retry, live/sandbox URL
+    │                               #   get_profiles() · get_balances() · get_statement()
+    │                               #   uses v1 borderless-accounts (wider account support)
     ├── sync.py                     # run_sync() — Wise API lekérés, modell konverzió
     ├── api/main.py                 # FastAPI végpontok
     └── cli/main.py                 # Typer CLI

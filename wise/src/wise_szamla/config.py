@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     api_port: int = 8004
     log_level: str = "INFO"
 
+    # ── SCA (Strong Customer Authentication) ────────────────────
+    # Path to PEM private key registered in Wise API settings.
+    # Required for statement downloads (balance-statements endpoint).
+    wise_sca_private_key_path: str = ""
+
     # ── HTTP kliens ─────────────────────────────────────────────
     request_timeout: int = 30
     max_retries: int = 3

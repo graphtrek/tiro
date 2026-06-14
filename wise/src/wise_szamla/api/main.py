@@ -104,11 +104,20 @@ def get_transaction(wise_transaction_id: str):
 # ── Wise API kapcsolat ellenőrzés ─────────────────────────────────────────────
 
 
-@app.get("/api/v1/profiles")
+@app.get("/profiles")
 def get_profiles():
     """Visszaadja a Wise profillistát (API kapcsolat teszteléshez)."""
     try:
         return WiseClient().get_profiles()
+    except WiseApiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.get("/balances")
+def get_balances():
+    """Visszaadja a profil STANDARD egyenlegeit (pénznem és balance ID)."""
+    try:
+        return WiseClient().get_balances()
     except WiseApiError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 

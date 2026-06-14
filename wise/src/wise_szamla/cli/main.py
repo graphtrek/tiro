@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from wise_szamla.client import WiseApiError, WiseClient
-from wise_szamla.config import get_settings
+from wise_szamla.config import configure_logging, get_settings
 from wise_szamla.models import SyncRequest, TransactionType
 from wise_szamla.sync import run_sync
 
@@ -23,8 +23,11 @@ console = Console()
 
 
 @app.callback()
-def _main():
+def _main(
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="DEBUG szintű napló"),
+):
     """Wise Banki Mikorszerviz CLI."""
+    configure_logging("DEBUG" if verbose else get_settings().log_level)
 
 
 @app.command()
@@ -39,12 +42,8 @@ def sync(
         None, "--currency", help="Pénznem (pl. EUR, GBP, HUF)"
     ),
     as_json: bool = typer.Option(False, "--json", help="JSON kimenet"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Részletes napló"),
 ):
     """Wise tranzakciók lekérése a megadott időszakra."""
-    if verbose:
-        logging.basicConfig(level=logging.INFO)
-
     request = SyncRequest(start_date=start, end_date=end, currency=currency)
     try:
         result = run_sync(request)
@@ -83,21 +82,33 @@ def sync(
     console.print(table)
 
 
-@app.command("list")
-def list_transactions(
-    last: int = typer.Option(
-        10, "--last", "-n", help="Utolsó n tranzakció (csak futó API szerveren)"
-    ),
-):
-    """Legutóbbi tranzakciók listázása (API-n keresztül).
+@app.command()
+def balances():
+    """Elérhető Wise egyenlegek listázása (pénznem és balance ID)."""
+    client = WiseClient()
+    try:
+        items = client.get_balances()
+    except WiseApiError as exc:
+        console.print(f"[red]✗ Wise API hiba:[/red] {exc}")
+        raise typer.Exit(code=1)
 
-      GET /transactions/{wise_transaction_id}
-    """
-    console.print(
-        "[yellow]Megjegyzés:[/yellow] Az előzmény csak az API szerveren él.\n"
-        "  POST /sync → tranzakció lista\n"
-        "  GET /transactions/{wise_transaction_id}"
-    )
+    if not items:
+        console.print("Nincs egyenleg a profilban.")
+        return
+
+    table = Table(show_lines=False)
+    table.add_column("Balance ID", justify="right")
+    table.add_column("Pénznem", width=8)
+    table.add_column("Egyenleg", justify="right")
+
+    for b in items:
+        amt = b.get("amount", {})
+        table.add_row(
+            str(b.get("id", "–")),
+            b.get("currency", "–"),
+            f"{amt.get('value', 0):,.2f} {amt.get('currency', '')}",
+        )
+    console.print(table)
 
 
 @app.command()
@@ -112,10 +123,13 @@ def status():
             f"[green]✓[/green] Wise API OK ({env}) — {len(profiles)} profil"
         )
         for p in profiles:
+            name = (
+                p.get("fullName")
+                or p.get("businessName")
+                or f"{p.get('firstName', '')} {p.get('lastName', '')}".strip()
+            )
             console.print(
-                f"  ID: {p.get('id')}  "
-                f"Típus: {p.get('type')}  "
-                f"Név: {p.get('fullName', '')}"
+                f"  ID: {p.get('id')}  Típus: {p.get('type')}  Név: {name}"
             )
     except WiseApiError as exc:
         console.print(f"[red]✗ Wise API hiba:[/red] {exc}")
