@@ -8,13 +8,23 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+_SRC_DIR = Path(__file__).resolve().parent.parent
+
+
+class _Formatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        try:
+            record.relpath = Path(record.pathname).relative_to(_SRC_DIR)
+        except ValueError:
+            record.relpath = Path(record.pathname).name
+        return super().format(record)
 
 
 def configure_logging(log_level: str = "INFO") -> None:
     _LOG_DIR.mkdir(exist_ok=True)
     level = getattr(logging, log_level.upper(), logging.INFO)
-    fmt = logging.Formatter(
-        "%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+    fmt = _Formatter(
+        "%(asctime)s %(levelname)-8s %(relpath)s:%(lineno)d %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     stream_handler = logging.StreamHandler()

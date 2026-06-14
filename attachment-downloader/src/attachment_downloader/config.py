@@ -10,13 +10,23 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 
 LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+_SRC_DIR = Path(__file__).resolve().parent.parent
+
+
+class _Formatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        try:
+            record.relpath = Path(record.pathname).relative_to(_SRC_DIR)
+        except ValueError:
+            record.relpath = Path(record.pathname).name
+        return super().format(record)
 
 
 def configure_logging() -> None:
     LOG_DIR.mkdir(exist_ok=True)
     level = getattr(logging, LOG_LEVEL, logging.INFO)
-    fmt = logging.Formatter(
-        "%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+    fmt = _Formatter(
+        "%(asctime)s %(levelname)-8s %(relpath)s:%(lineno)d %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
