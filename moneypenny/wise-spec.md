@@ -9,7 +9,7 @@ related: [INDEX.md, szamla-db-spec.md, wise-prompt.md]
 # Prompt: Wise Integráció Microservice Fejlesztés
 
 ## Cél
-Implementálni egy robusztus, Python-alapú microservicot CLI és FastAPI használatával, amely automatizálja a Wise banki kivonatai letöltését, és szinkronizálja a tranzakciós adatokat a meglévő `szamla-db` ökoszisztémával.
+A [Wise API dokumentáció](https://docs.wise.com/api-reference) alapján implementálni egy robusztus, Python-alapú microservicot CLI és FastAPI használatával, amely automatizálja a Wise banki kivonatai letöltését, és szinkronizálja a tranzakciós adatokat a meglévő `szamla-db` ökoszisztémával.
 
 ## Szerepkör és kontextus
 Te egy Senior Python Backend Engineer vagy. A feladatod egy olyan microservice fejlesztése, amely adatbeolgatási hídként funkcionál a Wise API és a `szamla-db` orchestrátor között. Ez a szolgáltatás a Moneypenny automatizálási folyamatának kritikus része, amely biztosítja, hogy a banki mozgások pontosan tükröződjenek az accounting adatbázisban.
@@ -72,4 +72,5 @@ A szolgáltatásnak a `szamla-db` PostgreSQL példányával kell interakálnia a
 - **Prompt**: [[wise-prompt.md|Wise Integráció Prompt]]
 - **Adatbeolvasási híd**: Wise API → közvetlen írás a [[szamla-db-spec.md|Szamla-DB]] PostgreSQL példányába
 - **Önálló belépési pont**: `POST /sync` (nem a szamla-db hívja)
+- **Wise API Docs**: https://docs.wise.com/api-reference
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]
