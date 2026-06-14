@@ -19,7 +19,8 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - **Meghívja: nav-szamla** (NAV lekérdezés — levél szolgáltatás, csak NAV API-t hívja)
 - **Meghívja: pdf-szamla** (PDF feldolgozás — az meghívja graphtrek-emailt)
 - Vevő és szállító táblákat létrehozza nav-szamla adatai alapján
-- PDF-ből nyert metaadatokat összeköti nav-szamla táblákkal
+- pdf-szamla visszaadott adatait külön `invoice_file` táblában tárolja
+- `invoice_file` rekordokat összeköti az `invoice` táblával (words-alapú számlaszám egyezés)
 - Teljes invoice-supplier-customer összekapcsolás
 
 ## Request paraméterek
@@ -28,20 +29,35 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - `sync_mode` (optional) - sync típusa (full|nav_only|pdf_only)
 
 ## Táblák
-### invoices (számlák)
+### invoice (számlák)
 - id (PK)
 - invoice_number (nav_szamla-tól)
 - invoice_date
-- supplier_id (FK)
-- customer_id (FK)
+- supplier_id (FK → supplier)
+- customer_id (FK → customer)
 - amount_net, amount_vat, amount_total
 - payment_status (PAID|UNPAID|PARTIAL)
 - nav_transaction_id
-- pdf_metadata (JSON: pdf-szamla-tól)
-- pdf_confidence (0.0-1.0: PDF feldolgozás biztonsági szintje)
+- invoice_file_id (FK → invoice_file, nullable: ha nincs PDF egyezés)
 - created_at, updated_at
 
-### suppliers (szállítók)
+### invoice_file (pdf-szamla visszaadott adatok)
+- id (PK)
+- filename
+- invoice_number_raw (PDF-ből kinyert számlaszám)
+- invoice_date_raw
+- supplier_name_raw
+- supplier_tax_id_raw
+- customer_name_raw
+- customer_tax_id_raw
+- amount_total_raw
+- amount_vat_raw
+- currency
+- payment_due_raw
+- confidence (0.0-1.0: OCR/kinyerés biztonsági szintje)
+- created_at, updated_at
+
+### supplier (szállítók)
 - id (PK)
 - name
 - tax_id
@@ -49,7 +65,7 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - bank_account
 - created_at, updated_at
 
-### customers (vevők)
+### customer (vevők)
 - id (PK)
 - name
 - tax_id
@@ -58,17 +74,20 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - created_at, updated_at
 
 ## Logika (Orchestration)
-1. **szamla-db iniciál** → párhuzamosan / egymás után:
+1. **szamla-db iniciál** → sorban:
    - **nav-szamla** meghívása (GET /invoices?from=...&to=...&direction=...)
      - nav-szamla csak a NAV API-t hívja, visszaad: számlalista, supplier/customer adatok
    - **pdf-szamla** meghívása (POST /api/v1/invoices/extract)
      - pdf-szamla meghívja graphtrek-emailt (Gmail PDF letöltés)
-     - visszaad: PDF metaadatok (számlaszám, összeg, partner)
-2. **Merge**: NAV adatok + PDF metaadatok összekapcsolása számlaszám alapján
+     - visszaad: letöltött PDF fájlok szövegindexe
+2. **Merge** (words-alapú kereséssel):
+   - Minden nav-szamla számlaszámhoz: `GET /api/v1/invoices/search?words=<számlaszám>`
+     → pdf-szamla megkeresi, melyik PDF fájl tartalmazza a számlaszám szövegét
+   - Egyezés esetén a PDF metaadatait (összeg, partner, dátum) linkeli a NAV rekordhoz
 3. **DB mentés**:
-   - Suppliers/Customers (partner adatok)
-   - Invoices (számlák)
-   - Reconciliation (PDF + NAV merge)
+   - `invoice_file`: pdf-szamla nyers visszaadott adatai (minden PDF rekord)
+   - `supplier` / `customer`: partner adatok (nav-szamla alapján)
+   - `invoice`: NAV számlák, `invoice_file_id` FK-val ha volt words-egyezés
 
 ## Interface
 - **CLI**:
@@ -116,6 +135,7 @@ szamla-db (MASTER)
   - NAV lekérdezés: `GET /invoices`, `GET /invoices/{szamlaszam}`
   - 30 nap default paraméterrel
 - **Meghívja**: [[pdf-szamla-spec.md|PDF Feldolgozó Specifikáció]]
-  - PDF feldolgozás: `POST /api/v1/invoices/extract`
+  - PDF letöltés + indexelés: `POST /api/v1/invoices/extract`
+  - Words keresés: `GET /api/v1/invoices/search?words=<számlaszám>` (melyik PDF fájl tartalmazza a szót)
   - pdf-szamla maga hívja graphtrek-emailt a PDF letöltéshez
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

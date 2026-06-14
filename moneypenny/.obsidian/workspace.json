@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "szamla-db-spec.md",
+                "file": "graphtrek-email-prompt.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "szamla-db-spec"
+              "title": "graphtrek-email-prompt"
             }
           }
         ]
@@ -185,21 +185,21 @@
   },
   "active": "1b6fd279bca9f8e9",
   "lastOpenFiles": [
+    "graphtrek-email-spec.md",
+    "graphtrek-email-prompt.md",
+    "szamla-db-spec.md",
     "szamla-db-prompt.md",
-    "wise-prompt.md",
+    "pdf-szamla-spec.md",
     "wise-spec.md",
+    "wise-prompt.md",
     "INDEX.md",
     "15dbf37e-f40d-40d0-b236-bdd93fb536e9.pem",
     "Nincs megerősítve 584038.crdownload",
     "banking-spec.md",
     "API reference _ Enable Banking Docs.md",
     "banking-prompt.md",
-    "szamla-db-spec.md",
     "nav-számla-prompt.md",
     "nav-szamla-spec.md",
-    "graphtrek-email-spec.md",
-    "pdf-szamla-spec.md",
-    "graphtrek-email-prompt.md",
     "INDEX.md.tmp.99594.ef1496322ee0",
     "pdf-szamla-prompt.md",
     "pdf-szamla-prompt.md.tmp.81206.e72371f3db51",
