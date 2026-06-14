@@ -1,7 +1,7 @@
 # pdf-szamla — PDF Invoice Metadata Extractor
 
 Moneypenny pipeline microservice #2 (`pdf-szamla`, port 8001). Calls the
-**graphtrek-email** service to download invoice PDF attachments (last 30 days by
+**attachment-downloader** service to download invoice PDF attachments (last 30 days by
 default), selects the invoices (`invoice` / `számla`) among the downloaded files,
 extracts structured metadata (invoice number, dates, supplier/customer, amounts,
 VAT, currency, due date) with a confidence score, and exposes the result through
@@ -20,7 +20,7 @@ python run_api.py
 uv run uvicorn pdf_szamla.api.main:app --host 0.0.0.0 --port 8001 --reload
 
 # CLI (installed as `pdf-szamla`)
-uv run pdf-szamla process                                     # last 30 days, download via graphtrek-email
+uv run pdf-szamla process                                     # last 30 days, download via attachment-downloader
 uv run pdf-szamla process --start 2026-05-01 --end 2026-05-31
 uv run pdf-szamla process --start 2026-05-01 --end 2026-05-31 --json  # machine-readable output
 uv run pdf-szamla process --local --output-dir ./downloads    # process existing PDFs, no download
@@ -44,7 +44,7 @@ uv run pytest tests/ -v
 |--------|------|-------------|
 | `GET`  | `/health` | Health check |
 | `GET`  | `/settings` | Effective configuration |
-| `POST` | `/api/v1/invoices/extract` | Download (via graphtrek-email) + extract metadata |
+| `POST` | `/api/v1/invoices/extract` | Download (via attachment-downloader) + extract metadata |
 | `POST` | `/api/v1/invoices/extract-batch` | Batch extraction over one or more local directories |
 | `GET`  | `/api/v1/invoices` | In-memory processing history |
 | `POST` | `/api/v1/pdf/words` | Extract all words from a PDF as CSV |
@@ -69,8 +69,8 @@ curl http://localhost:8001/settings
 
 ```json
 {
-  "graphtrek_email_url": "http://localhost:8000",
-  "output_dir": "../graphtrek-gmail/downloads",
+  "attachment_downloader_url": "http://localhost:8000",
+  "output_dir": "../attachment-downloader/downloads",
   "invoice_keywords": ["invoice", "bill", "szamla", "számla"],
   "download_timeout": 120,
   "poll_interval": 2.0
@@ -79,7 +79,7 @@ curl http://localhost:8001/settings
 
 ### POST /api/v1/invoices/extract
 
-Download PDFs via graphtrek-email for the given date range, then extract metadata.
+Download PDFs via attachment-downloader for the given date range, then extract metadata.
 
 ```bash
 curl -X POST http://localhost:8001/api/v1/invoices/extract \
@@ -124,7 +124,7 @@ Response:
 | `start_date` | `string` | 30 days ago | Filter start date (`YYYY-MM-DD`) |
 | `end_date` | `string` | today | Filter end date (`YYYY-MM-DD`) |
 | `output_dir` | `string` | env `OUTPUT_DIR` | Directory for downloaded / existing PDFs |
-| `download` | `bool` | `true` | `true` = call graphtrek-email; `false` = use existing files |
+| `download` | `bool` | `true` | `true` = call attachment-downloader; `false` = use existing files |
 
 ### POST /api/v1/invoices/extract-batch
 
@@ -240,7 +240,7 @@ curl -X DELETE http://localhost:8001/api/v1/pdf/words/cache
 
 ### process
 
-Download invoice PDFs via graphtrek-email (or process local files) and print a summary table.
+Download invoice PDFs via attachment-downloader (or process local files) and print a summary table.
 
 ```bash
 uv run pdf-szamla process [OPTIONS]
@@ -251,7 +251,7 @@ uv run pdf-szamla process [OPTIONS]
 | `--start DATE` | 30 days ago | Filter start date (`YYYY-MM-DD`) |
 | `--end DATE` | today | Filter end date (`YYYY-MM-DD`) |
 | `--output-dir PATH` | env `OUTPUT_DIR` | PDF directory |
-| `--local` / `--download` | `--download` | Skip graphtrek-email; use existing files |
+| `--local` / `--download` | `--download` | Skip attachment-downloader; use existing files |
 | `--json` | off | Output result as JSON |
 | `--verbose` / `-v` | off | Enable INFO logging |
 
@@ -300,7 +300,7 @@ Every HTTP request is logged at `INFO` level with method, path, status code, and
 2026-06-12 16:00:01 INFO     pdf_szamla.api.main: POST /api/v1/invoices/extract → 200 in 342ms
 ```
 
-Service calls to graphtrek-email are also logged with elapsed time:
+Service calls to attachment-downloader are also logged with elapsed time:
 
 ```
 2026-06-12 16:00:00 INFO     pdf_szamla.client: POST http://localhost:8000/api/v1/jobs → job_id=abc123 in 85ms
@@ -312,9 +312,9 @@ Service calls to graphtrek-email are also logged with elapsed time:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GRAPHTREK_EMAIL_URL` | `http://localhost:8000` | Base URL of the graphtrek-email service |
+| `ATTACHMENT_DOWNLOADER_URL` | `http://localhost:8000` | Base URL of the attachment-downloader service |
 | `OUTPUT_DIR` | `./downloads` | Default PDF download directory |
-| `DOWNLOAD_TIMEOUT` | `120` | Max seconds to wait for a graphtrek-email job |
+| `DOWNLOAD_TIMEOUT` | `120` | Max seconds to wait for a attachment-downloader job |
 | `POLL_INTERVAL` | `2.0` | Polling interval in seconds |
 | `API_HOST` | `0.0.0.0` | FastAPI bind address |
 | `API_PORT` | `8001` | FastAPI port |
@@ -323,5 +323,5 @@ Service calls to graphtrek-email are also logged with elapsed time:
 ## Pipeline
 
 ```
-szamla-db (MASTER) → nav-szamla → pdf-szamla (this) → graphtrek-email
+szamla-db (MASTER) → nav-szamla → pdf-szamla (this) → attachment-downloader
 ```

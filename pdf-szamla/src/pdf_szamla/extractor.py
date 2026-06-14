@@ -128,7 +128,7 @@ def process_directory(
     """Select invoice PDFs among the given paths/dir and list them.
 
     ``paths_or_dir`` may be a directory, a single PDF path, or an iterable of
-    paths (e.g. the ``saved_path`` list returned by graphtrek-email).
+    paths (e.g. the ``saved_path`` list returned by attachment-downloader).
     """
     kws = list(keywords) if keywords else get_settings().invoice_keywords
     results: List[ProcessedFile] = []

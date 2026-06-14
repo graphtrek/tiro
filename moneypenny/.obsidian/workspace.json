@@ -4,21 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "74936ebbae80ff5f",
+        "id": "1b5e9437d8e10f70",
         "type": "tabs",
         "children": [
           {
-            "id": "1b6fd279bca9f8e9",
+            "id": "a9c6ffd5c0d260b8",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "pdf-szamla-prompt.md",
+                "file": "attachment-downloader-spec.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "pdf-szamla-prompt"
+              "title": "attachment-downloader-spec"
             }
           }
         ]
@@ -183,18 +183,19 @@
       "bases:Új bázis létrehozása": false
     }
   },
-  "active": "1b6fd279bca9f8e9",
+  "active": "a9c6ffd5c0d260b8",
   "lastOpenFiles": [
-    "szamla-db-spec.md",
-    "INDEX.md",
-    "attachment-downloader-prompt.md",
+    "pdf-szamla-spec.md",
     "attachment-downloader-spec.md",
     "wise-spec.md",
     "wise-prompt.md",
+    "attachment-downloader-prompt.md",
+    "pdf-szamla-prompt.md",
+    "szamla-db-spec.md",
+    "INDEX.md",
     "szamla-db-prompt.md",
     "graphtrek-email-prompt.md",
     "graphtrek-email-spec.md",
-    "pdf-szamla-spec.md",
     "15dbf37e-f40d-40d0-b236-bdd93fb536e9.pem",
     "Nincs megerősítve 584038.crdownload",
     "banking-spec.md",
@@ -203,7 +204,6 @@
     "nav-számla-prompt.md",
     "nav-szamla-spec.md",
     "INDEX.md.tmp.99594.ef1496322ee0",
-    "pdf-szamla-prompt.md",
     "pdf-szamla-prompt.md.tmp.81206.e72371f3db51",
     "INDEX.md.tmp.81206.71b2a63f12a4",
     "szamla-db-spec.md.tmp.81206.504e97465aa8",

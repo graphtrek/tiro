@@ -31,4 +31,3 @@ dev = [
 
 [project.scripts]
 attachment-downloader = "attachment_downloader.cli.main:app"
-graphtrek-email = "attachment_downloader.cli.main:app"

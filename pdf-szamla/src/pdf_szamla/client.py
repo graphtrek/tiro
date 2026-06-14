@@ -1,4 +1,4 @@
-"""HTTP client for the graphtrek-email PDF download service."""
+"""HTTP client for the attachment-downloader PDF download service."""
 
 from __future__ import annotations
 
@@ -14,12 +14,12 @@ from .models import JobInfo, JobStatus
 logger = logging.getLogger(__name__)
 
 
-class GraphtrekEmailError(RuntimeError):
-    """Raised when the graphtrek-email service cannot fulfil a request."""
+class AttachmentDownloaderError(RuntimeError):
+    """Raised when the attachment-downloader service cannot fulfil a request."""
 
 
-class GraphtrekEmailClient:
-    """Thin client over graphtrek-email's async jobs API.
+class AttachmentDownloaderClient:
+    """Thin client over attachment-downloader's async jobs API.
 
     Drives ``POST /api/v1/jobs`` then polls ``GET /api/v1/jobs/{job_id}`` until
     the download job reaches a terminal state, returning the saved PDF paths.
@@ -27,7 +27,7 @@ class GraphtrekEmailClient:
 
     def __init__(self, settings: Optional[Settings] = None):
         self.settings = settings or get_settings()
-        self.base_url = self.settings.graphtrek_email_url.rstrip("/")
+        self.base_url = self.settings.attachment_downloader_url.rstrip("/")
         self.session = requests.Session()
         self.session.headers.update({"Accept": "application/json"})
 
@@ -45,12 +45,12 @@ class GraphtrekEmailClient:
             )
             resp.raise_for_status()
         except requests.RequestException as exc:
-            raise GraphtrekEmailError(
+            raise AttachmentDownloaderError(
                 f"Failed to start download job at {self.base_url}: {exc}"
             ) from exc
         job_id = resp.json().get("job_id")
         if not job_id:
-            raise GraphtrekEmailError("graphtrek-email did not return a job_id")
+            raise AttachmentDownloaderError("attachment-downloader did not return a job_id")
         elapsed_ms = (time.monotonic() - t0) * 1000
         logger.info(
             "POST %s/api/v1/jobs → job_id=%s in %.0fms",
@@ -66,13 +66,13 @@ class GraphtrekEmailClient:
             )
             resp.raise_for_status()
         except requests.RequestException as exc:
-            raise GraphtrekEmailError(f"Failed to query job {job_id}: {exc}") from exc
+            raise AttachmentDownloaderError(f"Failed to query job {job_id}: {exc}") from exc
         return JobInfo.model_validate(resp.json())
 
     def wait_for_completion(self, job_id: str) -> List[str]:
         """Poll ``job_id`` until terminal; return the saved PDF paths.
 
-        Raises :class:`GraphtrekEmailError` on failure or timeout.
+        Raises :class:`AttachmentDownloaderError` on failure or timeout.
         """
         t0 = time.monotonic()
         deadline = t0 + self.settings.download_timeout
@@ -88,11 +88,11 @@ class GraphtrekEmailClient:
                 )
                 return paths
             if job.status == JobStatus.FAILED:
-                raise GraphtrekEmailError(
+                raise AttachmentDownloaderError(
                     f"Download job {job_id} failed: {job.error or 'unknown error'}"
                 )
             if time.monotonic() >= deadline:
-                raise GraphtrekEmailError(
+                raise AttachmentDownloaderError(
                     f"Download job {job_id} did not finish within "
                     f"{self.settings.download_timeout}s (last status: {job.status.value})"
                 )

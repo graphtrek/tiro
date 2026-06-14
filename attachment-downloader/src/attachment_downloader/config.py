@@ -35,6 +35,10 @@ def configure_logging() -> None:
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Google API configuration — attachment-downloader's own OAuth client, independent of any other project
+CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
+
+DOWNLOAD_ROOT_DIR = BASE_DIR / os.getenv("DOWNLOAD_ROOT_DIR", "downloads")
+
 CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "graphtrek_client_secret_611876331781-ldji0jb23got9n5fk623s0h195q61vt3.apps.googleusercontent.com.json")
 TOKEN_FILE = os.getenv("GOOGLE_TOKEN_FILE", "token.json")
 

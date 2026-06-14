@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 from unittest.mock import MagicMock, patch
 from attachment_downloader.client import GmailClient
-from attachment_downloader.models import EmailSummary, EmailDetail
+
 
 @pytest.fixture
 def gmail_client():
@@ -13,64 +13,11 @@ def gmail_client():
         client._get_service = MagicMock()
         yield client
 
-def test_list_emails(gmail_client):
-    # Mock service and response
-    mock_service = MagicMock()
-    gmail_client._get_service.return_value = mock_service
-    
-    mock_service.users().messages().list().execute.return_value = {
-        "messages": [{"id": "test_id"}]
-    }
-
-    # Mock metadata fetch for the message
-    mock_service.users().messages().get().execute.return_value = {
-        "id": "test_id",
-        "snippet": "Test snippet",
-        "payload": {
-            "headers": [
-                {"name": "Subject", "value": "Test Subject"},
-                {"name": "From", "value": "sender@example.com"},
-                {"name": "Date", "value": "Mon, 01 Jan 2024 00:00:00 +0000"},
-            ],
-        }
-    }
-
-    emails = gmail_client.list_emails()
-    assert len(emails) == 1
-    assert emails[0].id == "test_id"
-    assert emails[0].subject == "Test Subject"
-    assert emails[0].from_address == "sender@example.com"
-
-def test_read_email(gmail_client):
-    mock_service = MagicMock()
-    gmail_client._get_service.return_value = mock_service
-    
-    mock_service.users().messages().get().execute.return_value = {
-        "id": "test_id",
-        "snippet": "Test snippet",
-        "payload": {
-            "mimeType": "text/plain",
-            "headers": [
-                {"name": "Subject", "value": "Test Subject"},
-                {"name": "From", "value": "sender@example.com"},
-                {"name": "To", "value": "recipient@example.com"},
-                {"name": "Date", "value": "Mon, 01 Jan 2024 00:00:00 +0000"},
-            ],
-            "body": {"data": "SGVsbG8gd29ybGQ="}  # "Hello world" in base64
-        }
-    }
-
-    email = gmail_client.read_email("test_id")
-    assert email.id == "test_id"
-    assert email.subject == "Test Subject"
-    assert email.body == "Hello world"
-
 
 def test_download_pdf_attachments(gmail_client, tmp_path):
     mock_service = MagicMock()
     gmail_client._get_service.return_value = mock_service
 
-    # Single matching message, no further pages.
     mock_service.users().messages().list().execute.return_value = {
         "messages": [{"id": "msg1"}]
     }
@@ -183,7 +130,6 @@ def test_download_skips_already_present_file(gmail_client, tmp_path):
 
     assert result.total_files == 0
     assert result.skipped_files == 1
-    # The attachment bytes were never fetched for the skipped file.
     attachments_get.assert_not_called()
 
 

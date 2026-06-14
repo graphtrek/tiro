@@ -251,7 +251,7 @@ wise/
 ```
 szamla-db (MASTER)
   ├─ nav-szamla    ←→ NAV Online Számla 3.0 API
-  ├─ pdf-szamla → graphtrek-email ←→ Gmail API
+  ├─ pdf-szamla → attachment-downloader ←→ Gmail API
   └─ wise (ez)  ←→ Wise API
 ```
 

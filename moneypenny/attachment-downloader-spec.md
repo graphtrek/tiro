@@ -10,6 +10,8 @@ related: [INDEX.md, pdf-szamla-spec.md]
 
 > 🔗 **Hívási Lánc**: [[pdf-szamla-spec.md|← PDF Feldolgozó]]
 
+> 📄 **Implementáció**: [attachment-downloader/README.md](../attachment-downloader/README.md)
+
 ---
 
 ## Szerepkör és kontextus
@@ -21,7 +23,7 @@ Gmail levélekből PDF mellékleteket letölt és menti szabványosított fájln
 ## Request paraméterek
 - `start_date` (YYYY-MM-DD) - szűrés kezdete
 - `end_date` (YYYY-MM-DD) - szűrés vége  
-- `output_dir` (optional) - cél könyvtár (default: `./downloads/`)
+- `output_dir` (optional) - alkönyvtár a `DOWNLOAD_ROOT_DIR` alatt (default: a gyökér maga)
 
 ## Fájlnév formátum
 `YYYY-MM-DDD_eredeti_fajlnev.pdf`

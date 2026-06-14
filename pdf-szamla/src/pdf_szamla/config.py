@@ -39,11 +39,11 @@ class Settings(BaseSettings):
         env_file=".env", case_sensitive=False, extra="ignore"
     )
 
-    # ── graphtrek-email (download) service ──────────────────
-    graphtrek_email_url: str = "http://localhost:8000"
+    # ── attachment-downloader (download) service ─────────────
+    attachment_downloader_url: str = "http://localhost:8000"
 
     # ── PDF source / extraction ─────────────────────────────
-    output_dir: str = "../graphtrek-gmail/downloads"
+    output_dir: str = "../attachment-downloader/downloads"
     invoice_keywords: list[str] = ["invoice", "bill", "szamla", "számla"]
 
     # ── Download job polling (seconds) ──────────────────────

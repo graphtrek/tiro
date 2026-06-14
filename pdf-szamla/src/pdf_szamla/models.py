@@ -32,11 +32,11 @@ class ExtractRequest(BaseModel):
         None, description="Filter end date (YYYY-MM-DD); default today"
     )
     output_dir: Optional[str] = Field(
-        None, description="PDF directory (default: ../graphtrek-gmail/downloads)"
+        None, description="PDF directory (default: ../attachment-downloader/downloads)"
     )
     download: bool = Field(
         True,
-        description="Download via graphtrek-email first; if False, process existing files in output_dir",
+        description="Download via attachment-downloader first; if False, process existing files in output_dir",
     )
 
 
@@ -63,7 +63,7 @@ class WordsRequest(BaseModel):
     pdf_path: str = Field(..., description="Absolute or relative path to the PDF file")
 
 
-# ── graphtrek-email job shapes (subset we consume) ──────────────────────────
+# ── attachment-downloader job shapes (subset we consume) ──────────────────────────
 
 
 class JobStatus(str, Enum):
@@ -86,7 +86,7 @@ class DownloadResult(BaseModel):
 
 
 class JobInfo(BaseModel):
-    """Subset of graphtrek-email's JobInfo that pdf-szamla needs."""
+    """Subset of attachment-downloader's JobInfo that pdf-szamla needs."""
 
     job_id: str
     status: JobStatus

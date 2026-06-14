@@ -10,7 +10,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from pdf_szamla.client import GraphtrekEmailError
+from pdf_szamla.client import AttachmentDownloaderError
 from pdf_szamla.config import get_settings
 from pdf_szamla.extractor import clear_words_cache, extract_words_csv, words_cache_info
 from pdf_szamla.models import ExtractRequest
@@ -37,12 +37,12 @@ def process(
         None, "--end", help="Filter end date (YYYY-MM-DD); default today"
     ),
     output_dir: Optional[str] = typer.Option(
-        None, "--output-dir", help="PDF directory (default: ../graphtrek-gmail/downloads)"
+        None, "--output-dir", help="PDF directory (default: ../attachment-downloader/downloads)"
     ),
     local: bool = typer.Option(
         False,
         "--local/--download",
-        help="Process existing PDFs without calling graphtrek-email",
+        help="Process existing PDFs without calling attachment-downloader",
     ),
     as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
@@ -61,8 +61,8 @@ def process(
 
     try:
         result = run_extract(request, settings)
-    except GraphtrekEmailError as exc:
-        console.print(f"[red]✗ graphtrek-email hiba:[/red] {exc}")
+    except AttachmentDownloaderError as exc:
+        console.print(f"[red]✗ attachment-downloader hiba:[/red] {exc}")
         raise typer.Exit(code=1)
 
     if as_json:

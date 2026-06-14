@@ -33,12 +33,12 @@ Describes five Python microservices, each with a FastAPI REST interface and a Ty
 | 4 | `szamla-db` | 8003 | MASTER orchestrator — PostgreSQL persistence + reconciliation |
 | 3 | `nav-szamla` | 8002 | NAV Online Számla API query |
 | 2 | `pdf-szamla` | 8001 | PDF metadata extraction (OCR/Regex) |
-| 1 | `graphtrek-email` | 8000 | Gmail PDF attachment download |
+| 1 | `attachment-downloader` | 8000 | Gmail PDF attachment download |
 | 5 | `wise` | 8004 | Wise bank-statement download/sync |
 
-**Flow**: entry point `POST /api/v1/sync` on `szamla-db` → synchronously calls `nav-szamla` → `pdf-szamla` → `graphtrek-email`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. `wise` is an independent entry point (own `POST /sync`) that writes Wise transactions directly into `szamla-db`'s PostgreSQL.
+**Flow**: entry point `POST /api/v1/sync` on `szamla-db` → synchronously calls `nav-szamla` → `pdf-szamla` → `attachment-downloader`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. `wise` is an independent entry point (own `POST /sync`) that writes Wise transactions directly into `szamla-db`'s PostgreSQL.
 
-**Status**: `nav-szamla` and `attachment-downloader` (= the `graphtrek-email` service) are implemented in this workspace; `pdf-szamla`, `szamla-db`, and `wise` are specced only.
+**Status**: `nav-szamla` and `attachment-downloader` are implemented in this workspace; `pdf-szamla`, `szamla-db`, and `wise` are specced only.
 
 ## nav-szamla — NAV Online Számla 3.0 client
 
@@ -81,7 +81,7 @@ uv run ruff format nav_szamla/ api/ cli/
 
 ## attachment-downloader — Gmail CLI + FastAPI
 
-CLI and REST interface for Gmail (list / read / send / reply / trash / mark read-unread / labels) via Google OAuth2. Mirrors the `nav-szamla` structure and serves as the `graphtrek-email` service in the Moneypenny pipeline. `requires-python >=3.9`.
+CLI and REST interface for Gmail (list / read / send / reply / trash / mark read-unread / labels) via Google OAuth2. Mirrors the `nav-szamla` structure and serves as the `attachment-downloader` service in the Moneypenny pipeline. `requires-python >=3.9`.
 
 ### Running
 

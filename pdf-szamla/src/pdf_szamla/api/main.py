@@ -11,7 +11,7 @@ from typing import List
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from pdf_szamla.client import GraphtrekEmailError
+from pdf_szamla.client import AttachmentDownloaderError
 from pdf_szamla.config import configure_logging, get_settings
 from pdf_szamla.extractor import clear_words_cache, extract_words_csv, process_directory, words_cache_info
 from pdf_szamla.models import (
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="PDF Számla Feldolgozó",
-    description="Downloads invoice PDFs via graphtrek-email and extracts metadata.",
+    description="Downloads invoice PDFs via attachment-downloader and extracts metadata.",
     version="0.1.0",
 )
 
@@ -60,7 +60,7 @@ def get_settings_info():
     """Return the effective configuration."""
     settings = get_settings()
     return {
-        "graphtrek_email_url": settings.graphtrek_email_url,
+        "attachment_downloader_url": settings.attachment_downloader_url,
         "output_dir": settings.output_dir,
         "invoice_keywords": settings.invoice_keywords,
         "download_timeout": settings.download_timeout,
@@ -70,10 +70,10 @@ def get_settings_info():
 
 @app.post("/api/v1/invoices/extract", response_model=ExtractResponse)
 def extract_invoices(request: ExtractRequest):
-    """Download (via graphtrek-email) and extract invoice metadata."""
+    """Download (via attachment-downloader) and extract invoice metadata."""
     try:
         result = run_extract(request)
-    except GraphtrekEmailError as exc:
+    except AttachmentDownloaderError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
     _history.append(result)
     return result

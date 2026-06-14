@@ -7,7 +7,7 @@ import time
 from datetime import date, timedelta
 from typing import Optional
 
-from .client import GraphtrekEmailClient
+from .client import AttachmentDownloaderClient
 from .config import Settings, get_settings
 from .extractor import process_directory
 from .models import ExtractRequest, ExtractResponse
@@ -25,7 +25,7 @@ def _default_dates(start: Optional[str], end: Optional[str]) -> tuple[str, str]:
 def run_extract(
     request: ExtractRequest, settings: Optional[Settings] = None
 ) -> ExtractResponse:
-    """Run an extraction: optionally download via graphtrek-email, then parse.
+    """Run an extraction: optionally download via attachment-downloader, then parse.
 
     When ``request.download`` is True (default) the last-30-days window is used
     unless explicit dates are given. When False, PDFs already present in
@@ -37,8 +37,8 @@ def run_extract(
 
     if request.download:
         start, end = _default_dates(request.start_date, request.end_date)
-        logger.info("Downloading PDFs %s .. %s via graphtrek-email", start, end)
-        client = GraphtrekEmailClient(settings)
+        logger.info("Downloading PDFs %s .. %s via attachment-downloader", start, end)
+        client = AttachmentDownloaderClient(settings)
         paths = client.download(start, end, output_dir)
         source: object = paths if paths else output_dir
     else:
