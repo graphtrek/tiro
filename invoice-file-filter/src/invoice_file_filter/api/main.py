@@ -6,16 +6,14 @@ import io
 import logging
 import time
 from datetime import datetime
-from typing import List
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from invoice_file_filter.client import AttachmentDownloaderError
 from invoice_file_filter.config import configure_logging, get_settings
-from invoice_file_filter.extractor import clear_words_cache, extract_words_csv, process_directory, words_cache_info
+from invoice_file_filter.extractor import clear_words_cache, extract_words_csv, words_cache_info
 from invoice_file_filter.models import (
-    ExtractBatchRequest,
     ExtractRequest,
     ExtractResponse,
     WordsRequest,
@@ -45,27 +43,10 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# In-memory processing history (most recent runs).
-_history: List[ExtractResponse] = []
-
-
 @app.get("/health")
 def health_check():
     """Service health check endpoint."""
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
-
-
-@app.get("/settings")
-def get_settings_info():
-    """Return the effective configuration."""
-    settings = get_settings()
-    return {
-        "attachment_downloader_url": settings.attachment_downloader_url,
-        "output_dir": settings.output_dir,
-        "invoice_keywords": settings.invoice_keywords,
-        "download_timeout": settings.download_timeout,
-        "poll_interval": settings.poll_interval,
-    }
 
 
 @app.post("/api/v1/invoices/extract", response_model=ExtractResponse)
@@ -75,26 +56,7 @@ def extract_invoices(request: ExtractRequest):
         result = run_extract(request)
     except AttachmentDownloaderError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
-    _history.append(result)
     return result
-
-
-@app.post("/api/v1/invoices/extract-batch", response_model=List[ExtractResponse])
-def extract_invoices_batch(request: ExtractBatchRequest):
-    """Extract metadata from one or more local PDF directories (no download)."""
-    settings = get_settings()
-    results: List[ExtractResponse] = []
-    for output_dir in request.output_dirs:
-        files = process_directory(output_dir, settings.invoice_keywords)
-        result = ExtractResponse(
-            total_files=len(files),
-            invoice_count=len(files),
-            output_dir=output_dir,
-            files=files,
-        )
-        _history.append(result)
-        results.append(result)
-    return results
 
 
 @app.post("/api/v1/pdf/words")
@@ -121,12 +83,6 @@ def delete_words_cache():
     """Evict all entries from the in-memory words cache."""
     removed = clear_words_cache()
     return {"removed": removed}
-
-
-@app.get("/api/v1/invoices", response_model=List[ExtractResponse])
-def list_processed():
-    """Return the in-memory processing history."""
-    return _history
 
 
 def run_server():

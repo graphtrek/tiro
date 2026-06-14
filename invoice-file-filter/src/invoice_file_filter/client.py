@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import List, Optional
+from typing import Optional
 
 import requests
 
@@ -30,18 +30,13 @@ class AttachmentDownloaderClient:
         self.session = requests.Session()
         self.session.headers.update({"Accept": "application/json"})
 
-    def download(
-        self, start_date: str, end_date: str, output_dir: Optional[str] = None
-    ) -> List[str]:
-        """POST a download job and return the saved PDF paths when done."""
-        payload: dict = {"start_date": start_date, "end_date": end_date}
-        if output_dir:
-            payload["output_dir"] = output_dir
+    def download(self, start_date: str, end_date: str) -> DownloadResult:
+        """POST a download job and return the full result (files + output_dir)."""
         t0 = time.monotonic()
         try:
             resp = self.session.post(
                 f"{self.base_url}/api/v1/jobs",
-                json=payload,
+                json={"start_date": start_date, "end_date": end_date},
                 timeout=self.settings.download_timeout,
             )
             resp.raise_for_status()
@@ -50,10 +45,9 @@ class AttachmentDownloaderClient:
                 f"Failed to reach attachment-downloader at {self.base_url}: {exc}"
             ) from exc
         result = DownloadResult.model_validate(resp.json())
-        paths = [f.saved_path for f in result.files]
         elapsed_ms = (time.monotonic() - t0) * 1000
         logger.info(
             "POST %s/api/v1/jobs → %d file(s) in %.0fms",
-            self.base_url, len(paths), elapsed_ms,
+            self.base_url, len(result.files), elapsed_ms,
         )
-        return paths
+        return result

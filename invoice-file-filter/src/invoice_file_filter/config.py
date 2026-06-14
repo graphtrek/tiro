@@ -48,9 +48,8 @@ class Settings(BaseSettings):
     output_dir: str = "../attachment-downloader/downloads"
     invoice_keywords: list[str] = ["invoice", "bill", "szamla", "számla"]
 
-    # ── Download job polling (seconds) ──────────────────────
+    # ── Download timeout (seconds) ───────────────────────────
     download_timeout: int = 120
-    poll_interval: float = 2.0
 
     # ── FastAPI server ──────────────────────────────────────
     api_host: str = "0.0.0.0"

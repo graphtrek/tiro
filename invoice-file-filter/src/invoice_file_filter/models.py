@@ -48,14 +48,6 @@ class ExtractResponse(BaseModel):
     files: List[ProcessedFile] = Field(default_factory=list)
 
 
-class ExtractBatchRequest(BaseModel):
-    """Batch extraction over one or more local PDF directories."""
-
-    output_dirs: List[str] = Field(
-        default_factory=list, description="Directories of PDFs to process"
-    )
-
-
 class WordsRequest(BaseModel):
     """Request for word-level CSV extraction from a single PDF."""
 

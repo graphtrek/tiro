@@ -32,16 +32,17 @@ def run_extract(
     ``output_dir`` are processed directly.
     """
     settings = settings or get_settings()
-    output_dir = request.output_dir or settings.output_dir
     t0 = time.monotonic()
 
     if request.download:
         start, end = _default_dates(request.start_date, request.end_date)
         logger.info("Downloading PDFs %s .. %s via attachment-downloader", start, end)
-        client = AttachmentDownloaderClient(settings)
-        paths = client.download(start, end, output_dir)
+        result = AttachmentDownloaderClient(settings).download(start, end)
+        paths = [f.saved_path for f in result.files]
+        output_dir = result.output_dir
         source: object = paths if paths else output_dir
     else:
+        output_dir = request.output_dir or settings.output_dir
         logger.info("Processing existing PDFs in %s", output_dir)
         source = output_dir
 
