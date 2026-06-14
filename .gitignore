@@ -24,3 +24,4 @@ credentials.json
 
 # OS files
 .DS_Store
+invoice-file-filter/logs/invoice-file-filter.log
