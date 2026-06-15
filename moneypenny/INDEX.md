@@ -154,6 +154,21 @@ Hívási Lánc (Szinkron):
 
 ## 🔍 Hívási Sorrend Részletezve
 
+```mermaid
+flowchart TD
+    C[Client] -->|sync| SD[szamla-db]
+    SD -->|query| NAV[nav-szamla]
+    NAV -->|digest| SD
+    SD -->|extract| IFF[pdf-filter]
+    IFF -->|jobs| AD[gmail]
+    AD -->|files| IFF
+    IFF -->|index| SD
+    SD -->|statements| W[wise]
+    W -->|import| SD
+    SD -->|insert| DB[PostgreSQL]
+    DB -->|result| C
+```
+
 ### Initiation (Szamla-DB)
 ```
 Client
