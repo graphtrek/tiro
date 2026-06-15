@@ -26,6 +26,10 @@ uv run wise-szamla sync --start 2026-05-01 --end 2026-05-31
 uv run wise-szamla sync --start 2026-05-01 --currency HUF
 uv run wise-szamla sync --json                                   # géppel olvasható JSON kimenet
 uv run wise-szamla --verbose sync --start 2026-05-01            # DEBUG szintű napló
+uv run wise-szamla statements                                    # letöltött kivonat CSV-k listázása
+uv run wise-szamla statements --currency HUF --from 2026-05-01
+uv run wise-szamla import statement_25546267_HUF_2026-05-19_2026-06-02.csv
+uv run wise-szamla import statement_25546267_HUF_2026-05-19_2026-06-02.csv --json
 
 # Tesztek
 uv run pytest tests/ -v
@@ -41,6 +45,8 @@ uv run pytest tests/ -v
 | `GET`    | `/balances`                           | Elérhető egyenlegek pénzneménként               |
 | `POST`   | `/sync`                               | Wise tranzakciók lekérése                       |
 | `GET`    | `/transactions/{wise_transaction_id}` | Egy tranzakció részletei azonosító alapján      |
+| `GET`    | `/balance-statements`                 | CSV-k listázása vagy a legfrissebb beolvasása   |
+| `GET`    | `/balance-statements/{filename}`      | Egy CSV fájl beolvasása (JSON vagy raw CSV)     |
 
 ### GET /health
 
@@ -171,6 +177,47 @@ Egy korábban lekért tranzakció részletei azonosító alapján (in-memory ker
 curl http://localhost:8004/transactions/TRANSFER-11111111
 ```
 
+### GET /balance-statements
+
+A `balance-statements/` mappában lévő kivonat CSV-k kezelése.
+
+- **Szűrő nélkül**: a legfrissebb CSV fájlt olvassa be és adja vissza `StatementImport` JSON-ként.
+- **Szűrőkkel** (`from`, `to`, `currency`): a megfelelő fájlok metaadatait listázza.
+
+```bash
+# A legfrissebb kivonat tranzakciói
+curl http://localhost:8004/balance-statements
+
+# Fájllista szűréssel
+curl "http://localhost:8004/balance-statements?currency=HUF&from=2026-05-01"
+```
+
+### GET /balance-statements/{filename}
+
+Egy konkrét kivonat CSV beolvasása és visszaadása JSON-ként. A `?csv=true` paraméterrel az eredeti CSV fájl tölthető le.
+
+```bash
+# JSON (alapértelmezett)
+curl http://localhost:8004/balance-statements/statement_25546267_HUF_2026-05-19_2026-06-02.csv
+
+# Eredeti CSV letöltése
+curl "http://localhost:8004/balance-statements/statement_25546267_HUF_2026-05-19_2026-06-02.csv?csv=true" -o kivonat.csv
+```
+
+Válasz (`StatementImport`):
+
+```json
+{
+  "filename": "statement_25546267_HUF_2026-05-19_2026-06-02.csv",
+  "balance_id": 25546267,
+  "currency": "HUF",
+  "from_date": "2026-05-19",
+  "to_date": "2026-06-02",
+  "fetched": 3,
+  "transactions": [...]
+}
+```
+
 ## CLI
 
 A `--verbose` / `-v` globális opció — a parancs neve **elé** kell írni:
@@ -232,6 +279,52 @@ Példa kimenet:
  CARD-22222222       DEBIT   2026-05-20      49.99 EUR  Scaleway SAS
 ```
 
+### statements
+
+A `balance-statements/` mappában lévő, kézzel letöltött kivonat CSV-k listázása.
+
+```bash
+uv run wise-szamla statements [OPTIONS]
+```
+
+| Opció             | Default  | Leírás                                     |
+|-------------------|----------|--------------------------------------------|
+| `--from DATE`     | —        | Csak ettől a dátumtól adatot tartalmazók   |
+| `--to DATE`       | —        | Csak eddig a dátumig adatot tartalmazók    |
+| `--currency TEXT` | —        | Pénznem szűrő (pl. HUF)                    |
+
+Példa kimenet:
+
+```
+ Fájl                                              Balance ID  Pénznem  Időszak                     Méret
+ statement_25546267_HUF_2026-05-19_2026-06-02.csv  25546267    HUF      2026-05-19 .. 2026-06-02   12,345 B
+```
+
+### import
+
+Egy letöltött kivonat CSV beolvasása és tranzakcióinak megjelenítése.
+
+```bash
+uv run wise-szamla import <FILENAME> [--json]
+```
+
+A `FILENAME` a `balance-statements/` mappán belüli fájlnév (útvonal-komponens nem megengedett).
+
+```bash
+uv run wise-szamla import statement_25546267_HUF_2026-05-19_2026-06-02.csv
+uv run wise-szamla import statement_25546267_HUF_2026-05-19_2026-06-02.csv --json
+```
+
+Példa kimenet:
+
+```
+✓ 3 tranzakció (2026-05-19..2026-06-02, HUF)
+
+ Azonosító       Típus   Dátum        Összeg          Partner
+ TRANSFER-AAA    CREDIT  2026-05-20   150,000.00 HUF  ACME Kft.
+ CARD-BBB        DEBIT   2026-05-25     4,990.00 HUF  Netflix
+```
+
 ## Naplózás
 
 Naplók stdout-ra és `logs/wise.log` fájlba is kerülnek. Alapértelmezett szint: `LOG_LEVEL` (`.env`).
@@ -266,6 +359,18 @@ cat wise_sca_public.pem
 
 A privát kulcs fájlt ne commitold — már szerepel a `.gitignore`-ban.
 
+## Kivonat CSV-k (kézi letöltés)
+
+Ha a Wise API SCA-val védett balance-statements végpontja nem érhető el (pl. EU/UK személyes token, PSD2 korlátok), a kivonatokat kézzel is le lehet tölteni a Wise webfelületről, majd a `balance-statements/` mappába másolni.
+
+**Fájlnév-séma** (a Wise által generált fájlnév megtartandó):
+```
+statement_<balanceId>_<currency>_<from>_<to>.csv
+pl. statement_25546267_HUF_2026-05-19_2026-06-02.csv
+```
+
+A `csv_import` modul a fájlnévből parsolja ki a balance ID-t, pénznemet és időszakot. A `balance-statements/` mappa `.gitignore`-ban van.
+
 ---
 
 ## Konfiguráció (`.env` — `.env.example` alapján)
@@ -277,6 +382,7 @@ A privát kulcs fájlt ne commitold — már szerepel a `.gitignore`-ban.
 | `WISE_ACCOUNT_CURRENCY` | `EUR`     | Alapértelmezett pénznem a `sync` parancshoz         |
 | `WISE_SANDBOX`          | `false`   | `true` = sandbox, `false` = éles                   |
 | `WISE_SCA_PRIVATE_KEY_PATH` | —    | RSA privát kulcs elérési útja (SCA, lásd fent)     |
+| `BALANCE_STATEMENTS_DIR` | `./balance-statements` | Kézzel letöltött kivonat CSV-k mappája    |
 | `API_HOST`              | `0.0.0.0` | FastAPI bind cím                                    |
 | `API_PORT`              | `8004`    | FastAPI port                                        |
 | `LOG_LEVEL`             | `INFO`    | Napló szint (`DEBUG`, `INFO`, `WARNING`, `ERROR`)   |
@@ -291,13 +397,18 @@ wise/
 ├── pyproject.toml
 ├── run_api.py                      # VS Code debug belépési pont (port 8004)
 ├── .env.example
+├── balance-statements/             # Wise webfelületről kézzel letöltött CSV-k (.gitignore)
+│                                   #   Fájlnév-séma: statement_<balanceId>_<currency>_<from>_<to>.csv
 └── src/wise_szamla/
     ├── config.py                   # pydantic-settings, configure_logging()
-    ├── models.py                   # WiseStatement, SyncRequest/Response, TransactionSummary
+    ├── models.py                   # WiseStatement, SyncRequest/Response, TransactionSummary,
+    │                               #   StatementFile, StatementImport
     ├── client.py                   # WiseClient — Bearer auth, retry, live/sandbox URL
     │                               #   get_profiles() · get_balances() · get_statement()
     │                               #   uses v1 borderless-accounts (wider account support)
     ├── sync.py                     # run_sync() — Wise API lekérés, modell konverzió
+    ├── csv_import.py               # list_statement_files() · parse_statement_csv()
+    │                               #   kézzel letöltött CSV-k feldolgozása (SCA nélkül)
     ├── api/main.py                 # FastAPI végpontok
     └── cli/main.py                 # Typer CLI
 ```

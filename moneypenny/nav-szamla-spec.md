@@ -2,7 +2,7 @@
 title: "Specifikáció: NAV Online Számla Mikorszerviz"
 description: "NAV Online Számla API integrációs mikroszerviz"
 language: "HU"
-last_updated: "2026-06-09"
+last_updated: "2026-06-15"
 related: [INDEX.md, szamla-db-spec.md, invoice-file-filter-spec.md]
 ---
 
@@ -24,49 +24,66 @@ Te egy Backend API Integrációs Mérnök vagy. A feladatod a NAV Online Számla
 - Lekérdezési adatok (keresési paraméterek)
 - Számlastátusz lekérése
 
-## Request paraméterek
-- `invoice_number` - számlaszám
-- `customer_tax_id` (optional) - vevő TAX ID
-- `supplier_tax_id` (optional) - szállító TAX ID
-- `invoice_date_from` (optional) - kezdő dátum
-- `invoice_date_to` (optional) - végdátum
+## Request paraméterek (számlalista lekérdezés)
+- `from_date` (YYYY-MM-DD, optional) - kiállítás dátuma (tól), default: ma − 30 nap
+- `to_date` (YYYY-MM-DD, optional) - kiállítás dátuma (ig), default: ma; max 35 napos tartomány
+- `direction` (OUTBOUND|INBOUND, optional, default: OUTBOUND) - kiállított / befogadott
+- `page` (egész, optional, default: 1) - lapszám (NAV oldalankénti limit)
 
-## Response
+Egyedi számlalekérdezés:
+- `szamlaszam` (path param) - számlaszám
+- `direction` (query, optional, default: OUTBOUND)
+
+## Response (GET /invoices)
 ```json
-{
-  "success": true,
-  "invoice": {
-    "invoice_number": "2026-001",
-    "invoice_date": "2026-05-01",
-    "supplier_tax_id": "12345678-1-01",
-    "customer_tax_id": "87654321-2-02",
-    "amount_total": 100000,
-    "amount_vat": 27000,
-    "nav_status": "RECEIVED",
-    "received_at": "2026-05-02T10:00:00Z"
-  },
-  "errors": []
-}
+[
+  {
+    "invoice_number": "SZAMLA-2026-001",
+    "invoice_operation": "CREATE",
+    "invoice_category": "NORMAL",
+    "invoice_issue_date": "2026-05-15",
+    "supplier_tax_number": "12345678",
+    "supplier_name": "Példa Kft.",
+    "customer_tax_number": "87654321",
+    "customer_name": "Vevő Zrt.",
+    "invoice_net_amount": 100000.0,
+    "invoice_vat_amount": 27000.0,
+    "currency": "HUF",
+    "ins_date": "2026-05-15T10:30:00Z"
+  }
+]
 ```
 
 ## Interface
-- **CLI**: 
-  - `nav-szamla query --invoice-number 2026-001`
-  - `nav-szamla search --supplier 12345678-1-01 --from 2026-05-01 --to 2026-05-31`
-- **REST API**:
-  - `GET /api/v1/invoices/{invoice_number}` - számlaszám alapján
-  - `POST /api/v1/invoices/search` - szabad keresés
-  - `GET /api/v1/invoices/status/{transaction_id}` - státusz
+- **CLI** (script neve: `nav`, port 8002):
+  - `nav login` — tokenExchange tesztelése
+  - `nav list [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--direction INBOUND|OUTBOUND] [--page N] [--json]`
+  - `nav show <számlaszám> [--direction INBOUND|OUTBOUND]` — egyedi számla XML
+  - `nav report --json '{...}'` — manageInvoice (adatszolgáltatás)
+  - `nav cache-clear` — memória-cache törlése
+  - `nav --verbose list ...` — DEBUG szintű napló
+- **REST API** (port 8002):
+  - `GET /health` — állapotellenőrző
+  - `POST /auth/login` — tokenExchange (hitelesítés teszt)
+  - `GET /invoices` — számlalista (queryInvoiceDigest)
+  - `GET /invoices/{szamlaszam}` — egyedi számla XML (queryInvoiceData)
+  - `POST /report` — számla beküldése (manageInvoice)
+  - `POST /cache/clear` — memória-cache törlése
+  - `GET /settings` — aktív konfiguráció
 
 ## Tech stack
 - Python 3.10+
-- FastAPI, Typer
-- NAV Online Számla API (REST)
-- SSL tanúsítvány (nav-szamla auth)
+- FastAPI, Click
+- NAV Online Számla API 3.0 REST/XML (`/invoiceService/v3`)
+- pydantic-settings (.env konfiguráció)
+- requests (HTTP kliens)
+- lxml (XML feldolgozás)
+- cryptography (AES-128 token visszafejtés)
 
 ## Auth
-- SSL tanúsítvány + privát kulcs
-- Konfigurálható endpoint (test/prod)
+- **Technikai felhasználó** hitelesítés: SHA-512 jelszó hash, SHA3-512 kérés-aláírás, AES-128 token visszafejtés
+- Konfigurálható endpoint (`test` / `production`)
+- Memória-cache (TTL konfigurálható, `CACHE_TTL_SECONDS`)
 - API rate limiting kezelés
 
 ---
@@ -84,10 +101,8 @@ szamla-db (MASTER)
 invoice-file-filter → attachment-downloader
 ```
 
-> `nav-szamla` levél szolgáltatás: nem hív más mikroszervízt, csak a NAV API-t.
-
 ### Wiki linkek
 - **Prompt**: [[nav-számla-prompt.md|NAV Számla Prompt]]
 - **Meghívva**: [[szamla-db-spec.md|Szamla-DB (MASTER)]]
-- **Meghívom**: (senki — levél szolgáltatás)
+- **Meghívom**: (senki — csak a NAV API-t hívja)
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

@@ -26,6 +26,8 @@ credentials.json
 .DS_Store
 invoice-file-filter/logs/invoice-file-filter.log
 nav-szamla/logs/nav-szamla.log
-wise/logs/wise.log
+wise/logs/
 wise/wise_sca_private.pem
 wise/wise_sca_public.pem
+wise/wise_sca_public_der.txt
+wise/balance-statements/

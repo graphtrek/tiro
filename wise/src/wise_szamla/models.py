@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field, field_serializer
 
 
 # ── Wise API válasz modellek ─────────────────────────────────────────────────
@@ -95,6 +95,17 @@ class TransactionSummary(BaseModel):
     counterparty_account: Optional[str] = None
     payment_reference: Optional[str] = None
 
+    @field_serializer("transaction_date")
+    def _serialize_datetime(self, value: datetime) -> str:
+        """``Date Time`` formátum: yyyy-mm-dd hh:mm:ss."""
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def date(self) -> str:
+        """``Date`` formátum: yyyy-mm-dd (a tranzakció napja)."""
+        return self.transaction_date.strftime("%Y-%m-%d")
+
 
 class SyncResponse(BaseModel):
     """Wise lekérés eredménye."""
@@ -102,5 +113,36 @@ class SyncResponse(BaseModel):
     start_date: str
     end_date: str
     currency: str
+    fetched: int = 0
+    transactions: List[TransactionSummary] = Field(default_factory=list)
+
+
+# ── CSV-import modellek ───────────────────────────────────────────────────────
+
+
+class StatementFile(BaseModel):
+    """Egy letöltött Wise kivonat CSV fájl metaadatai.
+
+    A fájlnév-sémából (``statement_<balanceId>_<currency>_<from>_<to>.csv``)
+    parszolva.
+    """
+
+    filename: str
+    balance_id: int
+    currency: str
+    from_date: date
+    to_date: date
+    size_bytes: int
+    modified_at: datetime
+
+
+class StatementImport(BaseModel):
+    """Egy CSV fájlból beolvasott tranzakciók."""
+
+    filename: str
+    balance_id: Optional[int] = None
+    currency: Optional[str] = None
+    from_date: Optional[date] = None
+    to_date: Optional[date] = None
     fetched: int = 0
     transactions: List[TransactionSummary] = Field(default_factory=list)

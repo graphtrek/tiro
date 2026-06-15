@@ -2,7 +2,7 @@
 title: "Moneypenny - Projekt Index"
 description: "Számlázási és email feldolgozási mikorszervízek - wiki navigáció"
 language: "HU"
-last_updated: "2026-06-09"
+last_updated: "2026-06-15"
 ---
 
 # 📚 Moneypenny - Wiki Index
@@ -13,13 +13,13 @@ A **Moneypenny** egy öt Python mikroszervizből álló számla-automatizálási
 
 | #   | Mikroszerviz      | Port | Szerep                                               |
 | --- | ----------------- | ---- | ---------------------------------------------------- |
-| 4   | `szamla-db`       | 8003 | MASTER orchestrator – DB persistálás, reconciliation |
+| 5   | `szamla-db`       | 8004 | MASTER orchestrator – DB persistálás, reconciliation |
 | 3   | `nav-szamla`      | 8002 | NAV Online Számla API lekérdezés                     |
 | 2   | `invoice-file-filter`      | 8001 | PDF metaadat kinyerés (OCR/Regex)                    |
 | 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                      |
-| 5   | `wise`            | 8004 | Wise bankkivonatok letöltése — levél szolgáltatás    |
+| 4   | `wise`            | 8003 | Wise bankkivonatok feldolgozása (CSV import)         |
 
-Belépési pont: `POST /api/v1/sync` → `szamla-db` (8003). Minden mikroszerviznek van FastAPI REST interfésze és Typer CLI-je is.
+Belépési pont: `POST /api/v1/sync` → `szamla-db` (8004). Minden mikroszerviznek van FastAPI REST interfésze és Typer CLI-je is.
 
 ---
 
@@ -41,8 +41,7 @@ MASTER ORCHESTRATOR
                    Merge + DB insert
 ```
 
-> `szamla-db` mindhárom ágat közvetlenül hívja. `nav-szamla` és `wise` levél szolgáltatások (csak saját API-t hívnak).
-> `invoice-file-filter` → `attachment-downloader` lánc a PDF-letöltési ág.
+> `szamla-db` mindhárom ágat közvetlenül hívja. `invoice-file-filter` → `attachment-downloader` lánc a PDF-letöltési ág.
 
 ---
 
@@ -63,10 +62,11 @@ MASTER ORCHESTRATOR
 **[[nav-szamla-spec.md|📄 Specifikáció]]** | **[[nav-számla-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: [[szamla-db-spec.md|szamla-db]] által
-- **Meghívja**: (senki — levél szolgáltatás, csak NAV API-t hívja)
-- **Funkció**: NAV Online Számla lekérdezés
-- **Output**: NAV adatok + supplier/customer info
-- **REST**: `GET /api/v1/invoices/{invoice_number}`
+- **Meghívja**: (senki — csak a NAV API-t hívja)
+- **Funkció**: NAV Online Számla lekérdezés (queryInvoiceDigest / queryInvoiceData)
+- **Output**: NAV adatok (számlalista, supplier/customer info)
+- **REST** (port 8002): `GET /health`, `POST /auth/login`, `GET /invoices`, `GET /invoices/{szamlaszam}`, `POST /report`, `POST /cache/clear`, `GET /settings`
+- **CLI**: `nav login`, `nav list`, `nav show <szamlaszam>`, `nav report`, `nav cache-clear`
 
 ---
 
@@ -86,10 +86,11 @@ MASTER ORCHESTRATOR
 **[[attachment-downloader-spec.md|📄 Specifikáció]]** | **[[attachment-downloader-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: [[invoice-file-filter-spec.md|invoice-file-filter]] által
-- **Funkció**: Email PDF mellékleteket letölt
+- **Funkció**: Email PDF mellékleteket letölt (provider architektúra; jelenleg: Gmail OAuth2)
 - **Dátum szűrés**: YYYY-MM-DD intervallum
-- **Output**: `./downloads/YYYY-MM-DDD_filename.pdf`
-- **REST**: `POST /api/v1/jobs` (async job)
+- **Output**: `./downloads/YYYY-MM-DD_NNNN_<fájlnév>.pdf`
+- **REST** (port 8000, szinkron): `POST /api/v1/jobs`, `GET /api/v1/cache`, `DELETE /api/v1/cache`
+- **CLI**: `attachment-downloader --start <date> --end <date> [--output <dir>] [--provider gmail]`
 
 ---
 
@@ -97,12 +98,12 @@ MASTER ORCHESTRATOR
 **[[wise-spec.md|📄 Specifikáció]]** | **[[wise-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: [[szamla-db-spec.md|szamla-db]] által
-- **Meghívja**: (senki — levél szolgáltatás, csak Wise API-t hívja)
-- **Funkció**: Wise banki tranzakciók lekérése, strukturált lista visszaadása
-- **Input**: `start_date`/`end_date` dátumintervallum
-- **Output**: Wise tranzakció lista (JSON) — DB-t nem kezel
-- **REST**: `GET /health`, `POST /sync`, `GET /transactions/{transaction_id}`
-- **CLI**: `wise sync --start <date> --end <date>`, `wise list --last <n>`, `wise status`
+- **Meghívja**: (senki — DB-t nem kezel)
+- **Funkció**: Kézzel letöltött Wise kivonat CSV-k feldolgozása, strukturált tranzakció lista visszaadása
+- **Input**: `balance-statements/` mappa CSV fájljai (fájlnév-séma: `statement_<balanceId>_<currency>_<from>_<to>.csv`)
+- **Output**: `StatementImport` (JSON) — DB-t nem kezel
+- **REST** (port 8003): `GET /health`, `GET /balance-statements`, `GET /balance-statements/{filename}`, `POST /sync` (egyelőre nem működik)
+- **CLI**: `wise-szamla status`, `wise-szamla statements`, `wise-szamla import <filename>`, `wise-szamla sync`
 
 ---
 
@@ -166,12 +167,13 @@ POST /api/v1/sync (szamla-db)
 ```
 1. szamla-db.sync()
    ├─ nav_szamla.query(start_date, end_date)        [levél — csak NAV API]
-   │   └─ Return: {nav_status, invoice_number, supplier, customer, ...}
+   │   └─ GET /invoices?from_date=...&to_date=...&direction=OUTBOUND
+   │   └─ Return: számlalista (InvoiceDigest[]), supplier/customer adatok
    ├─ invoice_file_filter.extract(start_date, end_date)
-   │   └─ attachment_downloader.jobs() meghívása          [levél — csak Gmail API]
-   │       └─ Return: PDF fájlok szövegindexe
-   └─ wise.sync(start_date, end_date)               [levél — csak Wise API]
-       └─ Return: [{wise_transaction_id, amount, currency, ...}]
+   │   └─ POST /api/v1/jobs → attachment_downloader [szinkron, Gmail API]
+   │       └─ Return: {total_files, files: [{filename, saved_path, ...}]}
+   └─ wise.balance_statements()                       [levél — CSV import]
+       └─ GET /balance-statements                    → StatementImport (legfrissebb kivonat)
 
 2. DB mentés:
    └─ Insert: invoice_file (minden PDF nyers adat)
@@ -192,8 +194,8 @@ POST /api/v1/sync (szamla-db)
 1. **[[attachment-downloader-spec.md|Gmail Letöltő]]** - OAuth2, PDF API
 2. **[[invoice-file-filter-spec.md|PDF Feldolgozó]]** - OCR/Regex, attachment-downloader integrálás
 3. **[[nav-szamla-spec.md|NAV API]]** - NAV query, invoice-file-filter integrálás
-4. **[[szamla-db-spec.md|Szamla-DB]]** - DB orchestration, reconciliation
-5. **[[wise-spec.md|Wise Integráció]]** - Wise API, levél szolgáltatás (szamla-db hívja)
+4. **[[wise-spec.md|Wise Integráció]]** - CSV import, balance-statements végpont (szamla-db hívja)
+5. **[[szamla-db-spec.md|Szamla-DB]]** - DB orchestration, reconciliation (utolsó: mindenkit integrál)
 
 ---
 
@@ -204,8 +206,8 @@ POST /api/v1/sync (szamla-db)
 | attachment-downloader | 8000 | `http://localhost:8000` |
 | invoice-file-filter      | 8001 | `http://localhost:8001` |
 | nav-szamla      | 8002 | `http://localhost:8002` |
-| szamla-db       | 8003 | `http://localhost:8003` |
-| wise            | 8004 | `http://localhost:8004` |
+| wise            | 8003 | `http://localhost:8003` |
+| szamla-db       | 8004 | `http://localhost:8004` |
 
 ---
 
@@ -266,8 +268,8 @@ DEFAULT_DAYS_BACK=30
    └─ Insert: invoice (invoice_file_id FK-val ha volt egyezés)
 
 3. Wise ág:
-   └─ → Wise: POST /sync?start_date=...&end_date=...         (szamla-db-tól)
-         ↩ Return: [{wise_transaction_id, amount, currency, counterparty_name, ...}]
+   └─ → Wise: GET /balance-statements                        (szamla-db-tól, paraméter nélkül)
+         ↩ Return: StatementImport — mai naphoz legközelebbi kivonat tranzakciói
    └─ Insert: wise_transaction (idempotens: wise_transaction_id ellenőrzés)
    └─ Return: {sync_result, invoice_count, wise_transaction_count, errors}
 ```
@@ -291,4 +293,4 @@ DEFAULT_DAYS_BACK=30
 
 ---
 
-**Utolsó frissítés**: 2026-06-14
+**Utolsó frissítés**: 2026-06-15

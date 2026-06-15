@@ -176,6 +176,22 @@ class WiseClient:
                     headers={"x-2fa-approval": otp, "x-signature": signature},
                 )
 
+            # Tartós SCA elutasítás: EU/UK-ban a personal token nem férhet a
+            # kivonat végponthoz (PSD2). Magyarázat a néma 403 helyett.
+            if (
+                resp.status_code == 403
+                and resp.headers.get("x-2fa-approval-result") == "REJECTED"
+            ):
+                logger.error(
+                    "Wise SCA elutasítva (403, x-2fa-approval-result=REJECTED) a(z) %s "
+                    "végponton. EU/UK-ban a kivonat-hozzáférés (balance-statements) PSD2 "
+                    "miatt NEM érhető el personal tokennel — OAuth 2.0-t kell használni "
+                    "personal token helyett. A client_id + client_secret a Wise Platform "
+                    "partnerprogramon keresztül igényelhető a Wise-tól (sales/CSM). "
+                    "Alternatíva: a kivonat kézi CSV exportja a Wise webfelületéről.",
+                    path,
+                )
+
             resp.raise_for_status()
         except requests.HTTPError as exc:
             body = exc.response.text[:300] if exc.response is not None else ""

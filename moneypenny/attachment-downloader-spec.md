@@ -2,7 +2,7 @@
 title: "Specifikáció: E-mail Melléklet Letöltő Mikroszerviz"
 description: "E-mail mellékleteket (PDF) letöltő mikroszerviz, több szolgáltató támogatásával"
 language: "HU"
-last_updated: "2026-06-14"
+last_updated: "2026-06-15"
 related: [INDEX.md, invoice-file-filter-spec.md]
 ---
 
@@ -29,21 +29,22 @@ E-mail levelekből PDF mellékleteket letölt és ment szabványosított fájln�
 - `provider` (optional, default: `gmail`) - e-mail szolgáltató azonosítója
 
 ## Fájlnév formátum
-`YYYY-MM-DD_NNNN_eredeti_fajlnev.pdf`
-- NNNN = éves folyamatos sorrendi szám (0001-től), futások között folytatódik
+`YYYY-MM-DD_NNNN_<sanitizált_eredeti_fájlnév>.pdf`
+- `NNNN` = éves folyamatos sorrendi szám (0001-től), futások között folytatódik (a meglévő fájlok alapján)
 
-Már letöltött fájlok (dátum + eredeti fájlnév egyezés alapján) újra letöltés nélkül kihagyásra kerülnek.
+Már letöltött fájlok (dátum + eredeti fájlnév egyezés, sorszám nélkül) újra letöltés nélkül kihagyásra kerülnek.
 
 ## Interface
-- **CLI**: 
+- **CLI** (script neve: `attachment-downloader`):
   ```
-  attachment-downloader download --start 2026-05-01 --end 2026-05-31
-  attachment-downloader download --start 2026-05-01 --end 2026-05-31 --output invoices --provider gmail
+  attachment-downloader --start 2026-05-01 --end 2026-05-31
+  attachment-downloader --start 2026-05-01 --end 2026-05-31 --output invoices
+  attachment-downloader --start 2026-05-01 --end 2026-05-31 --provider gmail
   ```
-- **REST API**:
-  - `POST /api/v1/jobs?provider=gmail` - letöltés indítása (szinkron, visszaadja az eredményt)
-  - `GET /api/v1/cache` - cache statisztika
-  - `DELETE /api/v1/cache` - cache törlése
+- **REST API** (port 8000, szinkron — blokkoló hívás, visszaadja az eredményt):
+  - `POST /api/v1/jobs?provider=gmail` - letöltés indítása (szinkron)
+  - `GET /api/v1/cache` - cache statisztika (entries, hits, misses)
+  - `DELETE /api/v1/cache` - cache törlése (204 No Content)
 
 ## Tech stack
 - Python 3.9+

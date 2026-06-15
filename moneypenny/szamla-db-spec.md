@@ -16,7 +16,7 @@ related: [INDEX.md, nav-szamla-spec.md, wise-spec.md]
 Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata számlázási rendszer szíveként koordináld a mikroszervizek összes interakcióját. Ez a szolgáltatás a kritikus adatbázis hub, amely garantálja a szállító, vevő és számlainformációk konzisztenciáját a teljes rendszerben, biztosítva az idempotenciát és az adatintegritást.
 
 ## Funkció (MASTER HUB)
-- **Meghívja: nav-szamla** (NAV lekérdezés — levél szolgáltatás, csak NAV API-t hívja)
+- **Meghívja: nav-szamla** (NAV lekérdezés — csak a NAV API-t hívja)
 - **Meghívja: invoice-file-filter** (PDF feldolgozás — az meghívja attachment-downloadert)
 - **Meghívja: wise** (pénzügyi tranzakciók lekérése)
 - Vevő és szállító táblákat létrehozza nav-szamla adatai alapján
@@ -104,11 +104,12 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
    - `invoice`: NAV számlák, `invoice_file_id` FK-val ha volt words-egyezés
 
 4. **Wise szinkron** (független a NAV/PDF ágaktól):
-   - **wise** meghívása (`POST /sync?start_date=...&end_date=...`)
-     → visszaad: Wise tranzakciók listája
+   - **wise** meghívása: `GET /balance-statements` (paraméter nélkül)
+     → visszaad: `StatementImport` — a mai naphoz legközelebbi `to_date`-tel rendelkező CSV tranzakciói
    - `wise_transaction` mentése (idempotens: `wise_transaction_id` duplikátum-ellenőrzés)
    - `supplier` / `customer` létrehozás ha még nem létezik (Wise partner adatok alapján)
    - `invoice_id` összekapcsolás összeg + dátum alapján (ha van egyező NAV számla)
+   > **Megjegyzés**: a `POST /sync` (élő Wise API hívás) egyelőre nem működik — a CSV import az aktív integrációs út.
 
 ## Interface
 - **CLI**:
@@ -144,15 +145,13 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 ```
 szamla-db (MASTER)
   ├─ meghívja: nav-szamla ←→ NAV Online Számla 3.0 API
-  │   (levél szolgáltatás — nem hív tovább)
   │
   ├─ meghívja: invoice-file-filter
   │                ↓ meghívja
   │          attachment-downloader ←→ Gmail API
-  │                (levél szolgáltatás)
+  │                (levél szolgáltatás — nem hív tovább)
   │
-  └─ meghívja: wise ←→ Wise API
-      (levél szolgáltatás — nem hív tovább)
+  └─ meghívja: wise ←→ balance-statements/ CSV fájlok
 ```
 
 ### Wiki linkek
@@ -166,7 +165,6 @@ szamla-db (MASTER)
   - Words keresés: `GET /api/v1/invoices/search?words=<számlaszám>` (melyik PDF fájl tartalmazza a szót)
   - invoice-file-filter maga hívja attachment-downloadert a PDF letöltéshez
 - **Meghívja**: [[wise-spec.md|Wise Integráció Specifikáció]]
-  - Tranzakció szinkron: `POST /sync?start_date=...&end_date=...`
-  - Tranzakció lekérdezés: `GET /transactions/{transaction_id}`
-  - Levél szolgáltatás — csak Wise API-t hívja
+  - `GET /balance-statements` (paraméter nélkül) — legfrissebb kivonat tranzakciói
+  - Levél szolgáltatás — DB-t nem kezel (`POST /sync` egyelőre nem működik)
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

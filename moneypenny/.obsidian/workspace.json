@@ -11,14 +11,10 @@
             "id": "a9c6ffd5c0d260b8",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "INDEX.md",
-                "mode": "source",
-                "source": true
-              },
-              "icon": "lucide-file",
-              "title": "INDEX"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Gráf nézet"
             }
           }
         ]
@@ -186,16 +182,16 @@
   "active": "a9c6ffd5c0d260b8",
   "lastOpenFiles": [
     "attachment-downloader-spec.md",
+    "INDEX.md",
+    "attachment-downloader-prompt.md",
+    "szamla-db-spec.md",
+    "wise-spec.md",
+    "szamla-db-prompt.md",
     "invoice-file-filter-prompt.md",
     "invoice-file-filter-spec.md",
     "pdf-szamla-spec.md",
-    "wise-spec.md",
     "wise-prompt.md",
-    "attachment-downloader-prompt.md",
     "pdf-szamla-prompt.md",
-    "szamla-db-spec.md",
-    "INDEX.md",
-    "szamla-db-prompt.md",
     "graphtrek-email-prompt.md",
     "graphtrek-email-spec.md",
     "15dbf37e-f40d-40d0-b236-bdd93fb536e9.pem",

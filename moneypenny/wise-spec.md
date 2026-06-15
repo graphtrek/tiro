@@ -1,8 +1,8 @@
 ---
 title: "Specifikáció: Wise Banki Mikroszerviz"
-description: "Wise banki kivonatok letöltése és visszaadása — levél szolgáltatás"
+description: "Wise banki kivonatok letöltése és visszaadása strukturált JSON-ként"
 language: "HU"
-last_updated: "2026-06-14"
+last_updated: "2026-06-15"
 related: [INDEX.md, szamla-db-spec.md, wise-prompt.md]
 ---
 
@@ -13,51 +13,79 @@ related: [INDEX.md, szamla-db-spec.md, wise-prompt.md]
 ---
 
 ## Szerepkör és kontextus
-Te egy Backend API Integrációs Mérnök vagy. A feladatod a Wise API hídját fejleszteni a `szamla-db` orchestrator és a Wise banki rendszer között. Ez a szolgáltatás **levél szolgáltatás**: csak a Wise API-t hívja, nem ír adatbázisba, az adatokat strukturáltan adja vissza a `szamla-db`-nek.
+Te egy Backend API Integrációs Mérnök vagy. A feladatod a Wise bankkivonatok feldolgozásának hídját fejleszteni a `szamla-db` orchestrator és a Wise rendszer között. Ez a szolgáltatás nem ír adatbázisba, az adatokat strukturáltan adja vissza a `szamla-db`-nek.
 
 ## Funkció
-- Wise API-tól banki tranzakciók lekérése
-- **Levél szolgáltatás** — adatbázist nem kezel; strukturált tranzakció listát ad vissza a `szamla-db`-nek
+- Wise webfelületről **kézzel letöltött** kivonat CSV-ket (`balance-statements/` mappa) dolgoz fel
+- Adatbázist nem kezel; strukturált tranzakció listát ad vissza a `szamla-db`-nek
+- A `POST /sync` (élő Wise API hívás) egyelőre nem működik — a `szamla-db` a `/balance-statements` végpontot használja
 
-## Request paraméterek
-- `start_date` (YYYY-MM-DD) - szűrés kezdete (default: 30 nappal ezelőtt)
-- `end_date` (YYYY-MM-DD) - szűrés vége (default: ma)
+## Request paraméterek (`GET /balance-statements`)
+- `from` (YYYY-MM-DD, optional) — csak ettől a dátumtól adatot tartalmazó fájlok
+- `to` (YYYY-MM-DD, optional) — csak eddig a dátumig adatot tartalmazó fájlok
+- `currency` (optional) — pénznem szűrő (pl. HUF)
+- Szűrő nélkül: a legfrissebb CSV fájl tranzakcióit adja vissza
 
-## Response
+## Response (`StatementImport`)
 ```json
-[
-  {
-    "wise_transaction_id": "TXN-12345",
-    "amount": 100000,
-    "currency": "HUF",
-    "transaction_date": "2026-05-15",
-    "description": "Invoice payment - ABC Kft.",
-    "counterparty_name": "ABC Kft.",
-    "counterparty_account": "HU12345678"
-  }
-]
+{
+  "filename": "statement_25546267_HUF_2026-05-19_2026-06-02.csv",
+  "balance_id": 25546267,
+  "currency": "HUF",
+  "from_date": "2026-05-19",
+  "to_date": "2026-06-02",
+  "fetched": 3,
+  "transactions": [
+    {
+      "wise_transaction_id": "TRANSFER-11111111",
+      "type": "CREDIT",
+      "transaction_date": "2026-05-20 10:30:00",
+      "date": "2026-05-20",
+      "amount": "150000.00",
+      "currency": "HUF",
+      "description": "Átutalás: INV-2026-42",
+      "counterparty_name": "ACME Kft.",
+      "counterparty_account": "HU12345678",
+      "payment_reference": "INV-2026-42"
+    }
+  ]
+}
 ```
 
+## CSV fájlnév-séma
+`statement_<balanceId>_<currency>_<from>_<to>.csv`  
+pl. `statement_25546267_HUF_2026-05-19_2026-06-02.csv`  
+A fájlokat a Wise webfelületről kézzel kell letölteni és a `balance-statements/` mappába helyezni.
+
 ## Interface
-- **CLI**:
-  - `wise sync --start 2026-05-01 --end 2026-05-31` - tranzakciók listázása
-  - `wise list --last 30` - utolsó N tranzakció
-  - `wise status` - API kapcsolat ellenőrzés
-- **REST API**:
-  - `GET /health` - állapotellenőrzés
-  - `POST /sync` - tranzakciók lekérése (start_date, end_date paraméterrel)
-  - `GET /transactions/{transaction_id}` - egy tranzakció részletei
+- **CLI** (script neve: `wise-szamla`):
+  - `wise-szamla status` — Wise API kapcsolat + profilok ellenőrzése
+  - `wise-szamla balances` — elérhető egyenlegek listázása
+  - `wise-szamla sync [--start DATE] [--end DATE] [--currency TEXT] [--json]` — élő API lekérés
+  - `wise-szamla statements [--from DATE] [--to DATE] [--currency TEXT]` — CSV fájlok listázása
+  - `wise-szamla import <filename> [--json]` — egy CSV beolvasása
+- **REST API** (port 8003):
+  - `GET /health` — állapotellenőrzés
+  - `GET /settings` — aktív konfiguráció
+  - `GET /profiles` — Wise profilok (API teszt)
+  - `GET /balances` — elérhető egyenlegek
+  - `POST /sync` — élő Wise API lekérés (egyelőre nem működik)
+  - `GET /transactions/{wise_transaction_id}` — egy tranzakció részletei
+  - `GET /balance-statements` — CSV fájlok listázása vagy legfrissebb beolvasása ← **szamla-db ezt hívja**
+  - `GET /balance-statements/{filename}` — egy CSV beolvasása (JSON vagy raw CSV)
 
 ## Auth
 - Wise API Key (`WISE_API_KEY`)
-- Wise Account ID (`WISE_ACCOUNT_ID`)
-- Konfigurálható endpoint (sandbox/live)
+- Wise Profile ID (`WISE_PROFILE_ID`)
+- SCA privát kulcs (`WISE_SCA_PRIVATE_KEY_PATH`) — balance-statements API-hoz (jövőbeli)
+- Konfigurálható endpoint (`WISE_SANDBOX=true/false`)
 
 ## Tech stack
-- Python 3.10+
-- FastAPI, Typer
+- Python 3.11+
+- FastAPI, Typer, Rich
 - Pydantic v2 (tranzakció modellek)
-- python-dotenv
+- pydantic-settings (.env konfiguráció)
+- httpx (Wise API kliens)
 
 ---
 
@@ -66,18 +94,19 @@ Te egy Backend API Integrációs Mérnök vagy. A feladatod a Wise API hídját 
 ### Hívási sorrend
 ```
 szamla-db (MASTER)
-  ↓ POST /sync?start_date=...&end_date=...
-wise (ÉN)  ←→  Wise API
-  ↓ visszaad tranzakció listát szamla-db-nek
+  ↓ GET /balance-statements?from=...&to=...        (CSV lista)
+  ↓ GET /balance-statements/{filename}             (tranzakciók beolvasása)
+wise (ÉN)  ←→  balance-statements/ CSV fájlok
+  ↓ visszaad StatementImport (tranzakció lista) szamla-db-nek
 szamla-db
   ↓ wise_transaction tábla mentés + összekapcsolás
 ```
 
-> `wise` levél szolgáltatás: nem hív más mikroszervízt, csak a Wise API-t. DB-t nem kezel.
+> A `POST /sync` (élő Wise API) egyelőre nem működik — a CSV import az aktív integrációs út.
 
 ### Wiki linkek
 - **Prompt**: [[wise-prompt.md|Wise Prompt]]
 - **Meghívva**: [[szamla-db-spec.md|Szamla-DB (MASTER)]]
-- **Meghívom**: (senki — levél szolgáltatás)
+- **Meghívom**: (senki — DB-t nem kezel)
 - **Wise API Docs**: https://docs.wise.com/api-reference
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

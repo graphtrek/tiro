@@ -7,7 +7,9 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_LOG_DIR = _PROJECT_ROOT / "logs"
+_BALANCE_STATEMENTS_DIR = _PROJECT_ROOT / "balance-statements"
 
 
 def configure_logging(log_level: str = "INFO") -> None:
@@ -50,6 +52,11 @@ class Settings(BaseSettings):
     # Path to PEM private key registered in Wise API settings.
     # Required for statement downloads (balance-statements endpoint).
     wise_sca_private_key_path: str = ""
+
+    # ── CSV import ──────────────────────────────────────────────
+    # Mappa a Wise webfelületről kézzel letöltött kivonat CSV-knek.
+    # Fájlnév-séma: statement_<balanceId>_<currency>_<from>_<to>.csv
+    balance_statements_dir: str = str(_BALANCE_STATEMENTS_DIR)
 
     # ── HTTP kliens ─────────────────────────────────────────────
     request_timeout: int = 30
