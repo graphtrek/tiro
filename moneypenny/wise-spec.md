@@ -92,14 +92,14 @@ A fájlokat a Wise webfelületről kézzel kell letölteni és a `balance-statem
 ## Kapcsolódások
 
 ### Hívási sorrend
-```
-szamla-db (MASTER)
-  ↓ GET /balance-statements?from=...&to=...        (CSV lista)
-  ↓ GET /balance-statements/{filename}             (tranzakciók beolvasása)
-wise (ÉN)  ←→  balance-statements/ CSV fájlok
-  ↓ visszaad StatementImport (tranzakció lista) szamla-db-nek
-szamla-db
-  ↓ wise_transaction tábla mentés + összekapcsolás
+
+```mermaid
+flowchart TD
+    SD[szamla-db] -->|statements| W[wise]
+    W -->|read| CSV[CSV fajlok]
+    CSV -->|transactions| W
+    W -->|StatementImport| SD
+    SD -->|insert| DB[PostgreSQL]
 ```
 
 > A `POST /sync` (élő Wise API) egyelőre nem működik — a CSV import az aktív integrációs út.

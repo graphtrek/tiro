@@ -91,14 +91,13 @@ Egyedi számlalekérdezés:
 ## Kapcsolódások
 
 ### Hívási sorrend
-```
-szamla-db (MASTER)
-  ↓ POST /invoices?... vagy GET /invoices/{szamlaszam}
-nav-szamla (ÉN)  ←→  NAV Online Számla 3.0 API
-  ↓ visszaad adatot szamla-db-nek
-szamla-db (MASTER)
-  ↓ (ezután hívja pdf-szamlát)
-invoice-file-filter → attachment-downloader
+
+```mermaid
+flowchart TD
+    SD[szamla-db] -->|query| NAV[nav-szamla]
+    NAV -->|request| NAVAPI[NAV API]
+    NAVAPI -->|response| NAV
+    NAV -->|digest| SD
 ```
 
 ### Wiki linkek

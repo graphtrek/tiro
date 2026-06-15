@@ -142,16 +142,20 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 ## Kapcsolódások
 
 ### Hívási sorrend
-```
-szamla-db (MASTER)
-  ├─ meghívja: nav-szamla ←→ NAV Online Számla 3.0 API
-  │
-  ├─ meghívja: invoice-file-filter
-  │                ↓ meghívja
-  │          attachment-downloader ←→ Gmail API
-  │                (levél szolgáltatás — nem hív tovább)
-  │
-  └─ meghívja: wise ←→ balance-statements/ CSV fájlok
+
+```mermaid
+flowchart TD
+    C[Client] -->|sync| SD[szamla-db]
+    SD -->|query| NAV[nav-szamla]
+    NAV -->|digest| SD
+    SD -->|extract| IFF[pdf-filter]
+    IFF -->|jobs| AD[gmail]
+    AD -->|files| IFF
+    IFF -->|index| SD
+    SD -->|statements| W[wise]
+    W -->|import| SD
+    SD -->|insert| DB[PostgreSQL]
+    DB -->|result| C
 ```
 
 ### Wiki linkek

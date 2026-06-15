@@ -73,14 +73,13 @@ providers/
 ## Kapcsolódások
 
 ### Hívási sorrend
-```
-szamla-db (MASTER)
-  ↓ meghívja
-nav-szamla
-  ↓ meghívja
-invoice-file-filter
-  ↓ meghívja
-attachment-downloader (ÉN - VÉGPONT)
+
+```mermaid
+flowchart TD
+    SD[szamla-db] -->|extract| IFF[pdf-filter]
+    IFF -->|jobs| AD[gmail]
+    AD -->|files| IFF
+    IFF -->|index| SD
 ```
 
 ### Wiki linkek

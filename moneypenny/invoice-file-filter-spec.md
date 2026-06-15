@@ -78,14 +78,13 @@ Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF
 ## Kapcsolódások
 
 ### Hívási sorrend
-```
-szamla-db (MASTER)
-  ↓ meghívja
-nav-szamla
-  ↓ meghívja
-invoice-file-filter (ÉN)
-  ↓ meghívja
-attachment-downloader
+
+```mermaid
+flowchart TD
+    SD[szamla-db] -->|extract| IFF[pdf-filter]
+    IFF -->|jobs| AD[gmail]
+    AD -->|files| IFF
+    IFF -->|index| SD
 ```
 
 ### Wiki linkek
