@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "wise-spec.md",
+                "file": "INDEX.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "wise-spec"
+              "title": "INDEX"
             }
           }
         ]
@@ -185,6 +185,7 @@
   },
   "active": "a9c6ffd5c0d260b8",
   "lastOpenFiles": [
+    "wise-spec.md",
     "szamla-db-spec.md",
     "nav-szamla-spec.md",
     "invoice-file-filter-spec.md",
@@ -192,7 +193,6 @@
     "INDEX.md",
     "invoice-file-filter-prompt.md",
     "attachment-downloader-prompt.md",
-    "wise-spec.md",
     "szamla-db-prompt.md",
     "pdf-szamla-spec.md",
     "wise-prompt.md",
