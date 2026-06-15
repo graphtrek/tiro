@@ -14,7 +14,7 @@ A **Moneypenny** egy öt Python mikroszervizből álló számla-automatizálási
 | #   | Mikroszerviz      | Port | Szerep                                               |
 | --- | ----------------- | ---- | ---------------------------------------------------- |
 | 5   | `szamla-db`       | 8004 | MASTER orchestrator – DB persistálás, reconciliation |
-| 3   | `nav-szamla`      | 8002 | NAV Online Számla API lekérdezés                     |
+| 3   | `nav-invoice`      | 8002 | NAV Online Számla API lekérdezés                     |
 | 2   | `invoice-file-filter`      | 8001 | PDF metaadat kinyerés (OCR/Regex)                    |
 | 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                      |
 | 4   | `wise`            | 8003 | Wise bankkivonatok feldolgozása (CSV import)         |
@@ -32,7 +32,7 @@ MASTER ORCHESTRATOR
      (init)
       ├──────────────────┬──────────────────┐
       ↓                  ↓                  ↓
- nav-szamla         invoice-file-filter   wise
+ nav-invoice         invoice-file-filter   wise
  (NAV API)               ↓             (Wise API)
                    attachment-downloader
                      (Gmail API)
@@ -51,7 +51,7 @@ MASTER ORCHESTRATOR
 **[[szamla-db-spec.md|📄 Specifikáció]]** | **[[szamla-db-prompt.md|💭 Prompt]]**
 
 - **Szerepe**: Orchestrator (szinkronizálás indítása)
-- **Meghívja**: [[nav-szamla-spec.md|NAV API]], [[invoice-file-filter-spec.md|invoice-file-filter]], [[wise-spec.md|wise]]
+- **Meghívja**: [[nav-invoice-spec.md|NAV API]], [[invoice-file-filter-spec.md|invoice-file-filter]], [[wise-spec.md|wise]]
 - **Funkció**: Összes adat persistálása + partnerek kezelése
 - **Output**: PostgreSQL DB (invoice, invoice_file, supplier, customer, wise_transaction)
 - **REST**: `POST /api/v1/sync` → teljes szinkronizálás (NAV + PDF + Wise)
@@ -59,7 +59,7 @@ MASTER ORCHESTRATOR
 ---
 
 ### 3️⃣ NAV Online Számla API
-**[[nav-szamla-spec.md|📄 Specifikáció]]** | **[[nav-számla-prompt.md|💭 Prompt]]**
+**[[nav-invoice-spec.md|📄 Specifikáció]]** | **[[nav-számla-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: [[szamla-db-spec.md|szamla-db]] által
 - **Meghívja**: (senki — csak a NAV API-t hívja)
@@ -113,7 +113,7 @@ MASTER ORCHESTRATOR
 Hívási Lánc (Szinkron):
 ┌──────────────────────────────────────────────────────┐
 │  4. SZAMLA-DB (MASTER)                               │
-│  ├─ Meghívja: nav-szamla                             │
+│  ├─ Meghívja: nav-invoice                             │
 │  ├─ Meghívja: invoice-file-filter                    |
 │  ├─ Meghívja: wise                                   │
 │  └─ Persistálás + Merge: DB                          │
@@ -138,14 +138,14 @@ Hívási Lánc (Szinkron):
 
 ### Specifikációk
 - **szamla-db**: [[szamla-db-spec.md|spec]] (MASTER orchestrator)
-- **nav-szamla**: [[nav-szamla-spec.md|spec]] (NAV query)
+- **nav-invoice**: [[nav-invoice-spec.md|spec]] (NAV query)
 - **invoice-file-filter**: [[invoice-file-filter-spec.md|spec]] (PDF extract)
 - **attachment-downloader**: [[attachment-downloader-spec.md|spec]] (Gmail download)
 - **wise**: [[wise-spec.md|spec]] (Bankkivonatok integráció)
 
 ### Promptok
 - **szamla-db**: [[szamla-db-prompt.md|prompt]]
-- **nav-szamla**: [[nav-számla-prompt.md|prompt]]
+- **nav-invoice**: [[nav-számla-prompt.md|prompt]]
 - **invoice-file-filter**: [[invoice-file-filter-prompt.md|prompt]]
 - **attachment-downloader**: [[attachment-downloader-prompt.md|prompt]]
 - **wise**: [[wise-prompt.md|prompt]]
@@ -157,7 +157,7 @@ Hívási Lánc (Szinkron):
 ```mermaid
 flowchart TD
     C[Client] -->|sync| SD[szamla-db]
-    SD -->|query| NAV[nav-szamla]
+    SD -->|query| NAV[nav-invoice]
     NAV -->|digest| SD
     SD -->|extract| IFF[pdf-filter]
     IFF -->|jobs| AD[gmail]
@@ -181,7 +181,7 @@ POST /api/v1/sync (szamla-db)
 ### Chain Calls (Szinkron)
 ```
 1. szamla-db.sync()
-   ├─ nav_szamla.query(start_date, end_date)        [levél — csak NAV API]
+   ├─ nav_invoice.query(start_date, end_date)        [levél — csak NAV API]
    │   └─ GET /invoices?from_date=...&to_date=...&direction=OUTBOUND
    │   └─ Return: számlalista (InvoiceDigest[]), supplier/customer adatok
    ├─ invoice_file_filter.extract(start_date, end_date)
@@ -208,7 +208,7 @@ POST /api/v1/sync (szamla-db)
 
 1. **[[attachment-downloader-spec.md|Gmail Letöltő]]** - OAuth2, PDF API
 2. **[[invoice-file-filter-spec.md|PDF Feldolgozó]]** - OCR/Regex, attachment-downloader integrálás
-3. **[[nav-szamla-spec.md|NAV API]]** - NAV query, invoice-file-filter integrálás
+3. **[[nav-invoice-spec.md|NAV API]]** - NAV query, invoice-file-filter integrálás
 4. **[[wise-spec.md|Wise Integráció]]** - CSV import, balance-statements végpont (szamla-db hívja)
 5. **[[szamla-db-spec.md|Szamla-DB]]** - DB orchestration, reconciliation (utolsó: mindenkit integrál)
 
@@ -220,7 +220,7 @@ POST /api/v1/sync (szamla-db)
 | --------------------- | ---- | ----------------------- |
 | attachment-downloader | 8000 | `http://localhost:8000` |
 | invoice-file-filter   | 8001 | `http://localhost:8001` |
-| nav-szamla            | 8002 | `http://localhost:8002` |
+| nav-invoice            | 8002 | `http://localhost:8002` |
 | wise                  | 8003 | `http://localhost:8003` |
 | szamla-db             | 8004 | `http://localhost:8004` |
 
@@ -235,7 +235,7 @@ NAV_API_URL=http://localhost:8002
 PDF_API_URL=http://localhost:8001
 DEFAULT_DAYS_BACK=30
 
-# nav-szamla
+# nav-invoice
 NAV_CERT_FILE=./cert.pem
 NAV_KEY_FILE=./key.pem
 PDF_API_URL=http://localhost:8001
@@ -294,7 +294,7 @@ DEFAULT_DAYS_BACK=30
 ## 🔗 Wiki Linkek Összefoglalása
 
 ### Service Links
-- **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[nav-szamla-spec.md|nav-szamla]] (levél)
+- **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[nav-invoice-spec.md|nav-invoice]] (levél)
 - **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[invoice-file-filter-spec.md|invoice-file-filter]]
 - **PDF ág**: [[invoice-file-filter-spec.md|invoice-file-filter]] → hívja → [[attachment-downloader-spec.md|attachment-downloader]] (levél)
 - **MASTER**: [[szamla-db-spec.md|szamla-db]] → hívja → [[wise-spec.md|wise]] (levél — csak Wise API)

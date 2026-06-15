@@ -417,7 +417,7 @@ wise/
 
 ```
 szamla-db (MASTER)
-  ├─ nav-szamla    ←→ NAV Online Számla 3.0 API
+  ├─ nav-invoice    ←→ NAV Online Számla 3.0 API
   ├─ invoice-file-filter → attachment-downloader ←→ Gmail API
   └─ wise (ez)  ←→ Wise API
 ```

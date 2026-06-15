@@ -85,6 +85,6 @@ flowchart TD
 ### Wiki linkek
 - **Prompt**: [[attachment-downloader-prompt.md|Melléklet Letöltő Prompt]]
 - **Meghívva**: [[invoice-file-filter-spec.md|PDF Feldolgozó]]
-- **Lánc elődje**: [[nav-szamla-spec.md|NAV API]]
+- **Lánc elődje**: [[nav-invoice-spec.md|NAV API]]
 - **MASTER Orchestrator**: [[szamla-db-spec.md|Szamla-DB]]
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

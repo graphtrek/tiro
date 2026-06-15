@@ -11,7 +11,7 @@ This is a multi-project `uv`-based Python workspace. **Each sub-project has its 
 | Directory | Purpose |
 |---|---|
 | `moneypenny/` | Obsidian design wiki (Hungarian): specs + prompts for an invoice-automation microservice pipeline |
-| `nav-szamla/` | NAV Online Számla 3.0 REST/XML client (FastAPI + CLI) |
+| `nav-invoice/` | NAV Online Számla 3.0 REST/XML client (FastAPI + CLI) |
 | `attachment-downloader/` | Gmail CLI + FastAPI interface (Google OAuth2) |
 
 Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs), `.env.example` (Scaleway inference defaults: `SCALEWAY_BASE_URL`, `SCALEWAY_API_KEY`), `AGENTS.md`, this file.
@@ -31,23 +31,23 @@ Describes five Python microservices, each with a FastAPI REST interface and a Ty
 | # | Service | Port | Role |
 |---|---|---|---|
 | 4 | `szamla-db` | 8003 | MASTER orchestrator — PostgreSQL persistence + reconciliation |
-| 3 | `nav-szamla` | 8002 | NAV Online Számla API query |
+| 3 | `nav-invoice` | 8002 | NAV Online Számla API query |
 | 2 | `invoice-file-filter` | 8001 | PDF metadata extraction (OCR/Regex) |
 | 1 | `attachment-downloader` | 8000 | Gmail PDF attachment download |
 | 5 | `wise` | 8004 | Wise bank-statement download/sync |
 
-**Flow**: entry point `POST /api/v1/sync` on `szamla-db` → synchronously calls `nav-szamla` → `invoice-file-filter` → `attachment-downloader`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. `wise` is an independent entry point (own `POST /sync`) that writes Wise transactions directly into `szamla-db`'s PostgreSQL.
+**Flow**: entry point `POST /api/v1/sync` on `szamla-db` → synchronously calls `nav-invoice` → `invoice-file-filter` → `attachment-downloader`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. `wise` is an independent entry point (own `POST /sync`) that writes Wise transactions directly into `szamla-db`'s PostgreSQL.
 
-**Status**: `nav-szamla` and `attachment-downloader` are implemented in this workspace; `invoice-file-filter`, `szamla-db`, and `wise` are specced only.
+**Status**: `nav-invoice` and `attachment-downloader` are implemented in this workspace; `invoice-file-filter`, `szamla-db`, and `wise` are specced only.
 
-## nav-szamla — NAV Online Számla 3.0 client
+## nav-invoice — NAV Online Számla 3.0 client
 
 Hungarian tax-authority (NAV) Online Számla **3.0** REST/XML client (`/invoiceService/v3`) using technical-user (`technikai felhasználó`) authentication. `requires-python >=3.11`.
 
 ### Running
 
 ```bash
-cd nav-szamla
+cd nav-invoice
 uv sync
 
 # REST API (default port 8000)
@@ -60,12 +60,12 @@ python -m cli.main show <invoice_number>
 
 # Tests / lint
 uv run pytest tests/ -v
-uv run ruff check  nav_szamla/ api/ cli/
-uv run ruff format nav_szamla/ api/ cli/
+uv run ruff check  nav_invoice/ api/ cli/
+uv run ruff format nav_invoice/ api/ cli/
 ```
 
 ### Architecture
-- `nav_szamla/` — core package:
+- `nav_invoice/` — core package:
   - `config.py` — Pydantic settings (`.env`)
   - `models.py` — data models
   - `crypto.py` — SHA-512 password hash, SHA3-512 request signature, AES-128 token decryption
@@ -81,7 +81,7 @@ uv run ruff format nav_szamla/ api/ cli/
 
 ## attachment-downloader — Gmail CLI + FastAPI
 
-CLI and REST interface for Gmail (list / read / send / reply / trash / mark read-unread / labels) via Google OAuth2. Mirrors the `nav-szamla` structure and serves as the `attachment-downloader` service in the Moneypenny pipeline. `requires-python >=3.9`.
+CLI and REST interface for Gmail (list / read / send / reply / trash / mark read-unread / labels) via Google OAuth2. Mirrors the `nav-invoice` structure and serves as the `attachment-downloader` service in the Moneypenny pipeline. `requires-python >=3.9`.
 
 ### Running
 

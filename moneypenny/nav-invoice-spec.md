@@ -94,7 +94,7 @@ Egyedi számlalekérdezés:
 
 ```mermaid
 flowchart TD
-    SD[szamla-db] -->|query| NAV[nav-szamla]
+    SD[szamla-db] -->|query| NAV[nav-invoice]
     NAV -->|request| NAVAPI[NAV API]
     NAVAPI -->|response| NAV
     NAV -->|digest| SD

@@ -192,5 +192,5 @@ Written to stdout and `logs/invoice-file-filter.log`.
 ## Pipeline
 
 ```
-szamla-db (MASTER) → nav-szamla → invoice-file-filter (this) → attachment-downloader
+szamla-db (MASTER) → nav-invoice → invoice-file-filter (this) → attachment-downloader
 ```

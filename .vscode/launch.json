@@ -5,11 +5,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "nav-szamla API",
+      "name": "nav-invoice API",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/nav-szamla/run_api.py",
-      "python": "${workspaceFolder}/nav-szamla/.venv/bin/python",
+      "program": "${workspaceFolder}/nav-invoice/run_api.py",
+      "python": "${workspaceFolder}/nav-invoice/.venv/bin/python",
       "console": "integratedTerminal"
     },
     {

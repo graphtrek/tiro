@@ -3,12 +3,12 @@ title: "Specifikáció: PDF Számla Feldolgozó Mikroszerviz"
 description: "PDF számlákból metaadatokat kinyerő mikroszerviz"
 language: "HU"
 last_updated: "2026-06-09"
-related: [INDEX.md, nav-szamla-spec.md, attachment-downloader-spec.md]
+related: [INDEX.md, nav-invoice-spec.md, attachment-downloader-spec.md]
 ---
 
 # PDF Számla Feldolgozó Mikroszerviz - Specifikáció
 
-> 🔗 **Hívási Lánc**: [[nav-szamla-spec.md|← NAV API]] **→** [[attachment-downloader-spec.md|Gmail Letöltő →]]
+> 🔗 **Hívási Lánc**: [[nav-invoice-spec.md|← NAV API]] **→** [[attachment-downloader-spec.md|Gmail Letöltő →]]
 
 ---
 
@@ -19,7 +19,7 @@ Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF
 - **Meghívja: attachment-downloader** (utolsó 30 nap default)
 - Letöltött PDF fájlokból számlákat kiválogatja
 - Számla metaadatokat nyeri ki (OCR/szabályok)
-- Meghívott a nav-szamla által
+- Meghívott a nav-invoice által
 
 ## Kimeneti metaadatok
 ```json
@@ -89,7 +89,7 @@ flowchart TD
 
 ### Wiki linkek
 - **Prompt**: [[invoice-file-filter-prompt.md|PDF Szamla Prompt]]
-- **Meghívva**: [[nav-szamla-spec.md|NAV API]]
+- **Meghívva**: [[nav-invoice-spec.md|NAV API]]
 - **Meghívom**: [[attachment-downloader-spec.md|Gmail Letöltő]]
   - attachment-downloader meghívása (POST /api/v1/jobs)
   - utolsó 30 nap default paraméterrel

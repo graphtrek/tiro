@@ -12,6 +12,6 @@ A szolgáltatáshoz készüljön cli és fastapi rest interface
 
 ## 🔗 Wiki Linkek
 - **Specifikáció**: [[invoice-file-filter-spec.md|PDF Szamla Spec]]
-- **Meghívva**: [[nav-számla-prompt.md|NAV Szamla Prompt]] → [[nav-szamla-spec.md|NAV Szamla Spec]]
+- **Meghívva**: [[nav-számla-prompt.md|NAV Szamla Prompt]] → [[nav-invoice-spec.md|NAV Szamla Spec]]
 - **Meghívja**: [[attachment-downloader-prompt.md|Graphtrek Email Prompt]] → [[attachment-downloader-spec.md|Graphtrek Email Spec]]
 - **Projekt Index**: [[INDEX.md|Moneypenny Index]]

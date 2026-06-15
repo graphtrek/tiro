@@ -3,12 +3,12 @@ title: "Specifikáció: Számla Adatbázis Mikroszerviz"
 description: "Számlákat és partnereket kezelő adatbázis mikroszerviz (MASTER orchestrator)"
 language: "HU"
 last_updated: "2026-06-09"
-related: [INDEX.md, nav-szamla-spec.md, wise-spec.md]
+related: [INDEX.md, nav-invoice-spec.md, wise-spec.md]
 ---
 
 # Számla Adatbázis Mikroszerviz - Specifikáció
 
-> 🔗 **Hívási Lánc**: **←** [[nav-szamla-spec.md|NAV API]]
+> 🔗 **Hívási Lánc**: **←** [[nav-invoice-spec.md|NAV API]]
 
 ---
 
@@ -16,10 +16,10 @@ related: [INDEX.md, nav-szamla-spec.md, wise-spec.md]
 Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata számlázási rendszer szíveként koordináld a mikroszervizek összes interakcióját. Ez a szolgáltatás a kritikus adatbázis hub, amely garantálja a szállító, vevő és számlainformációk konzisztenciáját a teljes rendszerben, biztosítva az idempotenciát és az adatintegritást.
 
 ## Funkció (MASTER HUB)
-- **Meghívja: nav-szamla** (NAV lekérdezés — csak a NAV API-t hívja)
+- **Meghívja: nav-invoice** (NAV lekérdezés — csak a NAV API-t hívja)
 - **Meghívja: invoice-file-filter** (PDF feldolgozás — az meghívja attachment-downloadert)
 - **Meghívja: wise** (pénzügyi tranzakciók lekérése)
-- Vevő és szállító táblákat létrehozza nav-szamla adatai alapján
+- Vevő és szállító táblákat létrehozza nav-invoice adatai alapján
 - invoice-file-filter visszaadott adatait külön `invoice_file` táblában tárolja
 - `invoice_file` rekordokat összeköti az `invoice` táblával (words-alapú számlaszám egyezés)
 - wise tranzakciókat `wise_transaction` táblában tárolja, összeköti `supplier`/`customer`/`invoice` táblákkal
@@ -33,7 +33,7 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 ## Táblák
 ### invoice (számlák)
 - id (PK)
-- invoice_number (nav_szamla-tól)
+- invoice_number (nav_invoice-tól)
 - invoice_date
 - supplier_id (FK → supplier)
 - customer_id (FK → customer)
@@ -89,18 +89,18 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 
 ## Logika (Orchestration)
 1. **szamla-db iniciál** → sorban:
-   - **nav-szamla** meghívása (GET /invoices?from=...&to=...&direction=...)
-     - nav-szamla csak a NAV API-t hívja, visszaad: számlalista, supplier/customer adatok
+   - **nav-invoice** meghívása (GET /invoices?from=...&to=...&direction=...)
+     - nav-invoice csak a NAV API-t hívja, visszaad: számlalista, supplier/customer adatok
    - **invoice-file-filter** meghívása (POST /api/v1/invoices/extract)
      - invoice-file-filter meghívja attachment-downloadert (Gmail PDF letöltés)
      - visszaad: letöltött PDF fájlok szövegindexe
 2. **Merge** (words-alapú kereséssel):
-   - Minden nav-szamla számlaszámhoz: `GET /api/v1/invoices/search?words=<számlaszám>`
+   - Minden nav-invoice számlaszámhoz: `GET /api/v1/invoices/search?words=<számlaszám>`
      → invoice-file-filter megkeresi, melyik PDF fájl tartalmazza a számlaszám szövegét
    - Egyezés esetén a PDF metaadatait (összeg, partner, dátum) linkeli a NAV rekordhoz
 3. **DB mentés**:
    - `invoice_file`: invoice-file-filter nyers visszaadott adatai (minden PDF rekord)
-   - `supplier` / `customer`: partner adatok (nav-szamla alapján)
+   - `supplier` / `customer`: partner adatok (nav-invoice alapján)
    - `invoice`: NAV számlák, `invoice_file_id` FK-val ha volt words-egyezés
 
 4. **Wise szinkron** (független a NAV/PDF ágaktól):
@@ -146,7 +146,7 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 ```mermaid
 flowchart TD
     C[Client] -->|sync| SD[szamla-db]
-    SD -->|query| NAV[nav-szamla]
+    SD -->|query| NAV[nav-invoice]
     NAV -->|digest| SD
     SD -->|extract| IFF[pdf-filter]
     IFF -->|jobs| AD[gmail]
@@ -161,7 +161,7 @@ flowchart TD
 ### Wiki linkek
 - **Prompt**: [[szamla-db-prompt.md|Szamla-DB Prompt]]
 - **MASTER Orchestrator**: Ez a szerviz
-- **Meghívja**: [[nav-szamla-spec.md|NAV API Specifikáció]]
+- **Meghívja**: [[nav-invoice-spec.md|NAV API Specifikáció]]
   - NAV lekérdezés: `GET /invoices`, `GET /invoices/{szamlaszam}`
   - 30 nap default paraméterrel
 - **Meghívja**: [[invoice-file-filter-spec.md|PDF Feldolgozó Specifikáció]]

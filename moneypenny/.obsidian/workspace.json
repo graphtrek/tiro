@@ -186,16 +186,18 @@
   "active": "a9c6ffd5c0d260b8",
   "lastOpenFiles": [
     "wise-spec.md",
+    "wise-prompt.md",
     "szamla-db-spec.md",
+    "szamla-db-prompt.md",
+    "nav-invoice-spec.md",
+    "nav-invoice-prompt.md",
+    "INDEX.md",
     "nav-szamla-spec.md",
     "invoice-file-filter-spec.md",
     "attachment-downloader-spec.md",
-    "INDEX.md",
     "invoice-file-filter-prompt.md",
     "attachment-downloader-prompt.md",
-    "szamla-db-prompt.md",
     "pdf-szamla-spec.md",
-    "wise-prompt.md",
     "pdf-szamla-prompt.md",
     "graphtrek-email-prompt.md",
     "graphtrek-email-spec.md",
@@ -215,8 +217,6 @@
     "ARHITEKTURA.md",
     "API_SPECIFIKACIO.md",
     "ADAT_MODELL.md",
-    "TESZTELES.md",
-    "SPECIFIKACIO.md",
-    "README.md"
+    "TESZTELES.md"
   ]
 }
