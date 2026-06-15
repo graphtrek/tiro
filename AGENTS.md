@@ -13,13 +13,13 @@
 
   | # | Service | Port | Role |
   |---|---|---|---|
-  | 4 | `szamla-db` | 8003 | MASTER orchestrator — DB persistence + reconciliation |
+  | 4 | `invoice-core` | 8003 | MASTER orchestrator — DB persistence + reconciliation |
   | 3 | `nav-invoice` | 8002 | NAV Online Számla API query |
   | 2 | `invoice-file-filter` | 8001 | PDF metadata extraction (OCR/Regex) |
   | 1 | `attachment-downloader` | 8000 | Gmail PDF attachment download |
   | 5 | `wise` | 8004 | Wise bank-statement download/sync (independent entry point) |
 
-- **Call chain**: entry point `POST /api/v1/sync` on `szamla-db` (8003) → `nav-invoice` → `invoice-file-filter` → `attachment-downloader`. `wise` is a separate source that writes directly into `szamla-db`'s PostgreSQL.
+- **Call chain**: entry point `POST /api/v1/sync` on `invoice-core` (8003) → `nav-invoice` → `invoice-file-filter` → `attachment-downloader`. `wise` is a separate source that writes directly into `invoice-core`'s PostgreSQL.
 - **Implementation status**: `nav-invoice` and `attachment-downloader` are the projects already built in this workspace; the others are specced in the wiki.
 
 ## nav-invoice — NAV Online Számla 3.0 client

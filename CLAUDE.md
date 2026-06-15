@@ -30,15 +30,15 @@ Describes five Python microservices, each with a FastAPI REST interface and a Ty
 
 | # | Service | Port | Role |
 |---|---|---|---|
-| 4 | `szamla-db` | 8003 | MASTER orchestrator — PostgreSQL persistence + reconciliation |
+| 4 | `invoice-core` | 8003 | MASTER orchestrator — PostgreSQL persistence + reconciliation |
 | 3 | `nav-invoice` | 8002 | NAV Online Számla API query |
 | 2 | `invoice-file-filter` | 8001 | PDF metadata extraction (OCR/Regex) |
 | 1 | `attachment-downloader` | 8000 | Gmail PDF attachment download |
 | 5 | `wise` | 8004 | Wise bank-statement download/sync |
 
-**Flow**: entry point `POST /api/v1/sync` on `szamla-db` → synchronously calls `nav-invoice` → `invoice-file-filter` → `attachment-downloader`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. `wise` is an independent entry point (own `POST /sync`) that writes Wise transactions directly into `szamla-db`'s PostgreSQL.
+**Flow**: entry point `POST /api/v1/sync` on `invoice-core` → synchronously calls `nav-invoice` → `invoice-file-filter` → `attachment-downloader`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. `wise` is an independent entry point (own `POST /sync`) that writes Wise transactions directly into `invoice-core`'s PostgreSQL.
 
-**Status**: `nav-invoice` and `attachment-downloader` are implemented in this workspace; `invoice-file-filter`, `szamla-db`, and `wise` are specced only.
+**Status**: `nav-invoice` and `attachment-downloader` are implemented in this workspace; `invoice-file-filter`, `invoice-core`, and `wise` are specced only.
 
 ## nav-invoice — NAV Online Számla 3.0 client
 

@@ -13,7 +13,7 @@ related: [INDEX.md, nav-invoice-spec.md, attachment-downloader-spec.md]
 ---
 
 ## Szerepkör és kontextus
-Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF dokumentumokból strukturált számlaadatokat nyerni ki és validálni. Ez a szolgáltatás a számlákat felismerési pontosságért optimalizálja, és megbízható metaadatokat szállít a `szamla-db` orchestratornak, amely összeköti a NAV adatokkal.
+Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF dokumentumokból strukturált számlaadatokat nyerni ki és validálni. Ez a szolgáltatás a számlákat felismerési pontosságért optimalizálja, és megbízható metaadatokat szállít a `invoice-core` orchestratornak, amely összeköti a NAV adatokkal.
 
 ## Funkció
 - **Meghívja: attachment-downloader** (utolsó 30 nap default)
@@ -81,7 +81,7 @@ Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF
 
 ```mermaid
 flowchart TD
-    SD[szamla-db] -->|extract| IFF[pdf-filter]
+    SD[invoice-core] -->|extract| IFF[pdf-filter]
     IFF -->|jobs| AD[gmail]
     AD -->|files| IFF
     IFF -->|index| SD
@@ -93,5 +93,5 @@ flowchart TD
 - **Meghívom**: [[attachment-downloader-spec.md|Gmail Letöltő]]
   - attachment-downloader meghívása (POST /api/v1/jobs)
   - utolsó 30 nap default paraméterrel
-- **MASTER Orchestrator**: [[szamla-db-spec.md|Szamla-DB]]
+- **MASTER Orchestrator**: [[invoice-core-spec.md|Invoice-Core]]
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

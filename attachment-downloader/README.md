@@ -183,5 +183,5 @@ The `EmailClient` Protocol in `base.py` defines the required interface.
 ## Pipeline
 
 ```
-szamla-db (MASTER) → nav-invoice → invoice-file-filter → attachment-downloader (this)
+invoice-core (MASTER) → nav-invoice → invoice-file-filter → attachment-downloader (this)
 ```

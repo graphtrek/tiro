@@ -76,7 +76,7 @@ providers/
 
 ```mermaid
 flowchart TD
-    SD[szamla-db] -->|extract| IFF[pdf-filter]
+    SD[invoice-core] -->|extract| IFF[pdf-filter]
     IFF -->|jobs| AD[gmail]
     AD -->|files| IFF
     IFF -->|index| SD
@@ -86,5 +86,5 @@ flowchart TD
 - **Prompt**: [[attachment-downloader-prompt.md|Melléklet Letöltő Prompt]]
 - **Meghívva**: [[invoice-file-filter-spec.md|PDF Feldolgozó]]
 - **Lánc elődje**: [[nav-invoice-spec.md|NAV API]]
-- **MASTER Orchestrator**: [[szamla-db-spec.md|Szamla-DB]]
+- **MASTER Orchestrator**: [[invoice-core-spec.md|Invoice-Core]]
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

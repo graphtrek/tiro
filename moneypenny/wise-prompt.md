@@ -1,9 +1,9 @@
 ---
 title: "Specifikáció: Wise Banki Mikorszerviz"
-description: "Wise bankkivonat letöltés és szinkronizálás az szamla-db rendszerrel"
+description: "Wise bankkivonat letöltés és szinkronizálás az invoice-core rendszerrel"
 language: "HU"
 last_updated: "2026-06-10"
-related: [INDEX.md, szamla-db-spec.md, wise-spec.md]
+related: [INDEX.md, invoice-core-spec.md, wise-spec.md]
 ---
 
 # Wise Banki Mikorszerviz - Prompt
@@ -15,5 +15,5 @@ A szolgáltatáshoz készüljön cli és fastapi rest interface.
 
 ## 🔗 Wiki Linkek
 - **Specifikáció**: [[wise-spec.md|Wise Integráció Spec]]
-- **Cél adatbázis**: [[szamla-db-prompt.md|Szamla-DB Prompt]] → [[szamla-db-spec.md|Szamla-DB Spec]] (közvetlen PostgreSQL írás)
+- **Cél adatbázis**: [[invoice-core-prompt.md|Invoice-Core Prompt]] → [[invoice-core-spec.md|Invoice-Core Spec]] (közvetlen PostgreSQL írás)
 - **Projekt Index**: [[INDEX.md|Moneypenny Index]]

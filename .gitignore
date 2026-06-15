@@ -25,7 +25,7 @@ credentials.json
 # OS files
 .DS_Store
 invoice-file-filter/logs/invoice-file-filter.log
-nav-szamla/logs/nav-szamla.log
+nav-invoice/logs/
 wise/logs/
 wise/wise_sca_private.pem
 wise/wise_sca_public.pem

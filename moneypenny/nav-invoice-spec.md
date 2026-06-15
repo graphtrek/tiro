@@ -3,21 +3,21 @@ title: "Specifikáció: NAV Online Számla Mikorszerviz"
 description: "NAV Online Számla API integrációs mikroszerviz"
 language: "HU"
 last_updated: "2026-06-15"
-related: [INDEX.md, szamla-db-spec.md, invoice-file-filter-spec.md]
+related: [INDEX.md, invoice-core-spec.md, invoice-file-filter-spec.md]
 ---
 
 # NAV Online Számla Mikorszerviz - Specifikáció
 
-> 🔗 **Hívási Lánc**: [[szamla-db-spec.md|← MASTER (szamla-db)]] **→** [[invoice-file-filter-spec.md|PDF Feldolgozó →]]
+> 🔗 **Hívási Lánc**: [[invoice-core-spec.md|← MASTER (invoice-core)]] **→** [[invoice-file-filter-spec.md|PDF Feldolgozó →]]
 
 ---
 
 ## Szerepkör és kontextus
-Te egy Backend API Integrációs Mérnök vagy. A feladatod a NAV Online Számla API hídjét fejleszteni a `szamla-db` orchestrator és a magyar fiskális hatóság között. Ez a szolgáltatás biztosítja, hogy a vállalati számlák naprakészen legyenek a NAV rendszerben regisztrálva, és az adatok konzisztenciája az egész Moneypenny rendszeren keresztül fenntartott legyen.
+Te egy Backend API Integrációs Mérnök vagy. A feladatod a NAV Online Számla API hídjét fejleszteni a `invoice-core` orchestrator és a magyar fiskális hatóság között. Ez a szolgáltatás biztosítja, hogy a vállalati számlák naprakészen legyenek a NAV rendszerben regisztrálva, és az adatok konzisztenciája az egész Moneypenny rendszeren keresztül fenntartott legyen.
 
 ## Funkció
 - NAV Online Számla API-tól számlák lekérdezése (query)
-- **Levél szolgáltatás** — más mikroszervízt nem hív meg; eredményt ad vissza a `szamla-db`-nek
+- **Levél szolgáltatás** — más mikroszervízt nem hív meg; eredményt ad vissza a `invoice-core`-nek
 
 ## API Integrációs pontok
 - Számlák lekérdezése (számlaszám alapján)
@@ -94,7 +94,7 @@ Egyedi számlalekérdezés:
 
 ```mermaid
 flowchart TD
-    SD[szamla-db] -->|query| NAV[nav-invoice]
+    SD[invoice-core] -->|query| NAV[nav-invoice]
     NAV -->|request| NAVAPI[NAV API]
     NAVAPI -->|response| NAV
     NAV -->|digest| SD
@@ -102,6 +102,6 @@ flowchart TD
 
 ### Wiki linkek
 - **Prompt**: [[nav-számla-prompt.md|NAV Számla Prompt]]
-- **Meghívva**: [[szamla-db-spec.md|Szamla-DB (MASTER)]]
+- **Meghívva**: [[invoice-core-spec.md|Invoice-Core (MASTER)]]
 - **Meghívom**: (senki — csak a NAV API-t hívja)
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

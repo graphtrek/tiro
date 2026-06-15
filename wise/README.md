@@ -2,7 +2,7 @@
 
 Moneypenny pipeline mikroszerviz #5 (`wise`, port 8003). Letölti a Wise bankkivonatot
 ([Wise API](https://docs.wise.com/api-reference)), Pydantic modellbe parsolja a tranzakciókat,
-és strukturált JSON-ként adja vissza a `szamla-db` orchestratornak.
+és strukturált JSON-ként adja vissza a `invoice-core` orchestratornak.
 
 **Levél szolgáltatás** — csak a Wise API-t hívja, DB-t nem kezel.
 
@@ -416,11 +416,11 @@ wise/
 ## Pipeline helye
 
 ```
-szamla-db (MASTER)
+invoice-core (MASTER)
   ├─ nav-invoice    ←→ NAV Online Számla 3.0 API
   ├─ invoice-file-filter → attachment-downloader ←→ Gmail API
   └─ wise (ez)  ←→ Wise API
 ```
 
-A `szamla-db` hívja `POST /sync`-en keresztül, megkapja a tranzakciókat, majd maga kezeli
+A `invoice-core` hívja `POST /sync`-en keresztül, megkapja a tranzakciókat, majd maga kezeli
 a `wise_transaction` tábla mentését és az összekapcsolást a többi táblával.

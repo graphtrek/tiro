@@ -11,14 +11,10 @@
             "id": "a9c6ffd5c0d260b8",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "INDEX.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "INDEX"
+              "title": "Új lap"
             }
           }
         ]
@@ -185,13 +181,15 @@
   },
   "active": "a9c6ffd5c0d260b8",
   "lastOpenFiles": [
+    "invoice-core-prompt.md",
+    "invoice-core-prompt.md",
+    "invoice-core-spec.md",
+    "invoice-core-spec.md",
+    "INDEX.md",
     "wise-spec.md",
     "wise-prompt.md",
-    "szamla-db-spec.md",
-    "szamla-db-prompt.md",
     "nav-invoice-spec.md",
     "nav-invoice-prompt.md",
-    "INDEX.md",
     "nav-szamla-spec.md",
     "invoice-file-filter-spec.md",
     "attachment-downloader-spec.md",
@@ -210,13 +208,11 @@
     "INDEX.md.tmp.99594.ef1496322ee0",
     "pdf-szamla-prompt.md.tmp.81206.e72371f3db51",
     "INDEX.md.tmp.81206.71b2a63f12a4",
-    "szamla-db-spec.md.tmp.81206.504e97465aa8",
-    "szamla-db-spec.md.tmp.81206.a2d92659641d",
+    "invoice-core-spec.md.tmp.81206.504e97465aa8",
+    "invoice-core-spec.md.tmp.81206.a2d92659641d",
     "IMPLEMENTACIO.md",
     "CLI_SPECIFIKACIO.md",
     "ARHITEKTURA.md",
-    "API_SPECIFIKACIO.md",
-    "ADAT_MODELL.md",
-    "TESZTELES.md"
+    "API_SPECIFIKACIO.md"
   ]
 }

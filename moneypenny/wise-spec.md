@@ -3,22 +3,22 @@ title: "Specifikáció: Wise Banki Mikroszerviz"
 description: "Wise banki kivonatok letöltése és visszaadása strukturált JSON-ként"
 language: "HU"
 last_updated: "2026-06-15"
-related: [INDEX.md, szamla-db-spec.md, wise-prompt.md]
+related: [INDEX.md, invoice-core-spec.md, wise-prompt.md]
 ---
 
 # Wise Banki Mikroszerviz - Specifikáció
 
-> 🔗 **Hívási Lánc**: [[szamla-db-spec.md|← MASTER (szamla-db)]]
+> 🔗 **Hívási Lánc**: [[invoice-core-spec.md|← MASTER (invoice-core)]]
 
 ---
 
 ## Szerepkör és kontextus
-Te egy Backend API Integrációs Mérnök vagy. A feladatod a Wise bankkivonatok feldolgozásának hídját fejleszteni a `szamla-db` orchestrator és a Wise rendszer között. Ez a szolgáltatás nem ír adatbázisba, az adatokat strukturáltan adja vissza a `szamla-db`-nek.
+Te egy Backend API Integrációs Mérnök vagy. A feladatod a Wise bankkivonatok feldolgozásának hídját fejleszteni a `invoice-core` orchestrator és a Wise rendszer között. Ez a szolgáltatás nem ír adatbázisba, az adatokat strukturáltan adja vissza a `invoice-core`-nek.
 
 ## Funkció
 - Wise webfelületről **kézzel letöltött** kivonat CSV-ket (`balance-statements/` mappa) dolgoz fel
-- Adatbázist nem kezel; strukturált tranzakció listát ad vissza a `szamla-db`-nek
-- A `POST /sync` (élő Wise API hívás) egyelőre nem működik — a `szamla-db` a `/balance-statements` végpontot használja
+- Adatbázist nem kezel; strukturált tranzakció listát ad vissza a `invoice-core`-nek
+- A `POST /sync` (élő Wise API hívás) egyelőre nem működik — a `invoice-core` a `/balance-statements` végpontot használja
 
 ## Request paraméterek (`GET /balance-statements`)
 - `from` (YYYY-MM-DD, optional) — csak ettől a dátumtól adatot tartalmazó fájlok
@@ -71,7 +71,7 @@ A fájlokat a Wise webfelületről kézzel kell letölteni és a `balance-statem
   - `GET /balances` — elérhető egyenlegek
   - `POST /sync` — élő Wise API lekérés (egyelőre nem működik)
   - `GET /transactions/{wise_transaction_id}` — egy tranzakció részletei
-  - `GET /balance-statements` — CSV fájlok listázása vagy legfrissebb beolvasása ← **szamla-db ezt hívja**
+  - `GET /balance-statements` — CSV fájlok listázása vagy legfrissebb beolvasása ← **invoice-core ezt hívja**
   - `GET /balance-statements/{filename}` — egy CSV beolvasása (JSON vagy raw CSV)
 
 ## Auth
@@ -95,7 +95,7 @@ A fájlokat a Wise webfelületről kézzel kell letölteni és a `balance-statem
 
 ```mermaid
 flowchart TD
-    SD[szamla-db] -->|statements| W[wise]
+    SD[invoice-core] -->|statements| W[wise]
     W -->|read| CSV[CSV fajlok]
     CSV -->|transactions| W
     W -->|StatementImport| SD
@@ -106,7 +106,7 @@ flowchart TD
 
 ### Wiki linkek
 - **Prompt**: [[wise-prompt.md|Wise Prompt]]
-- **Meghívva**: [[szamla-db-spec.md|Szamla-DB (MASTER)]]
+- **Meghívva**: [[invoice-core-spec.md|Invoice-Core (MASTER)]]
 - **Meghívom**: (senki — DB-t nem kezel)
 - **Wise API Docs**: https://docs.wise.com/api-reference
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

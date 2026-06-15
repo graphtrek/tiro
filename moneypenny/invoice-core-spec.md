@@ -88,7 +88,7 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - created_at, updated_at
 
 ## Logika (Orchestration)
-1. **szamla-db iniciál** → sorban:
+1. **invoice-core iniciál** → sorban:
    - **nav-invoice** meghívása (GET /invoices?from=...&to=...&direction=...)
      - nav-invoice csak a NAV API-t hívja, visszaad: számlalista, supplier/customer adatok
    - **invoice-file-filter** meghívása (POST /api/v1/invoices/extract)
@@ -113,11 +113,11 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 
 ## Interface
 - **CLI**:
-  - `szamla-db sync` - teljes szinkronizálás (NAV + PDF + Wise)
-  - `szamla-db sync-nav` - NAV adatok szinkronizálása
-  - `szamla-db sync-pdf` - PDF adatok szinkronizálása
-  - `szamla-db sync-wise` - Wise tranzakciók szinkronizálása
-  - `szamla-db report --month 2026-05` - havi kimutatás
+  - `invoice-core sync` - teljes szinkronizálás (NAV + PDF + Wise)
+  - `invoice-core sync-nav` - NAV adatok szinkronizálása
+  - `invoice-core sync-pdf` - PDF adatok szinkronizálása
+  - `invoice-core sync-wise` - Wise tranzakciók szinkronizálása
+  - `invoice-core report --month 2026-05` - havi kimutatás
 - **REST API**:
   - `POST /api/v1/sync` - teljes szinkronizálás
   - `POST /api/v1/sync/nav` - NAV adatok szinkronizálása
@@ -145,7 +145,7 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 
 ```mermaid
 flowchart TD
-    C[Client] -->|sync| SD[szamla-db]
+    C[Client] -->|sync| SD[invoice-core]
     SD -->|query| NAV[nav-invoice]
     NAV -->|digest| SD
     SD -->|extract| IFF[pdf-filter]
@@ -159,7 +159,7 @@ flowchart TD
 ```
 
 ### Wiki linkek
-- **Prompt**: [[szamla-db-prompt.md|Szamla-DB Prompt]]
+- **Prompt**: [[invoice-core-prompt.md|Invoice-Core Prompt]]
 - **MASTER Orchestrator**: Ez a szerviz
 - **Meghívja**: [[nav-invoice-spec.md|NAV API Specifikáció]]
   - NAV lekérdezés: `GET /invoices`, `GET /invoices/{szamlaszam}`
