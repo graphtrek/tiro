@@ -1,6 +1,6 @@
 # wise-szamla — Wise Banki Mikroszerviz
 
-Moneypenny pipeline mikroszerviz #5 (`wise`, port 8004). Letölti a Wise bankkivonatot
+Moneypenny pipeline mikroszerviz #5 (`wise`, port 8003). Letölti a Wise bankkivonatot
 ([Wise API](https://docs.wise.com/api-reference)), Pydantic modellbe parsolja a tranzakciókat,
 és strukturált JSON-ként adja vissza a `szamla-db` orchestratornak.
 
@@ -12,11 +12,11 @@ Moneypenny pipeline mikroszerviz #5 (`wise`, port 8004). Letölti a Wise bankkiv
 cd wise
 uv sync
 
-# REST API (port 8004)
+# REST API (port 8003)
 python run_api.py
 
 # Vagy uvicorn-nal közvetlenül
-uv run uvicorn wise_szamla.api.main:app --host 0.0.0.0 --port 8004 --reload
+uv run uvicorn wise_szamla.api.main:app --host 0.0.0.0 --port 8003 --reload
 
 # CLI (telepítve: `wise-szamla` script)
 uv run wise-szamla status                                        # Wise API kapcsolat + profilok ellenőrzése
@@ -51,7 +51,7 @@ uv run pytest tests/ -v
 ### GET /health
 
 ```bash
-curl http://localhost:8004/health
+curl http://localhost:8003/health
 ```
 
 ```json
@@ -61,7 +61,7 @@ curl http://localhost:8004/health
 ### GET /settings
 
 ```bash
-curl http://localhost:8004/settings
+curl http://localhost:8003/settings
 ```
 
 ```json
@@ -69,7 +69,7 @@ curl http://localhost:8004/settings
   "wise_profile_id": 12345678,
   "wise_account_currency": "EUR",
   "wise_sandbox": false,
-  "api_port": 8004,
+  "api_port": 8003,
   "max_retries": 3
 }
 ```
@@ -79,7 +79,7 @@ curl http://localhost:8004/settings
 Wise profilok lekérdezése — API kapcsolat és hitelesítés tesztelésére.
 
 ```bash
-curl http://localhost:8004/profiles
+curl http://localhost:8003/profiles
 ```
 
 ### GET /balances
@@ -87,7 +87,7 @@ curl http://localhost:8004/profiles
 Elérhető STANDARD egyenlegek listája (pénznem és balance ID).
 
 ```bash
-curl http://localhost:8004/balances
+curl http://localhost:8003/balances
 ```
 
 ```json
@@ -104,7 +104,7 @@ Wise bankkivonat lekérése a megadott dátumintervallumra. A helyes flow a Wise
 2. `GET /v1/borderless-accounts/{accountId}/statement.json?currency={currency}&intervalStart=...&intervalEnd=...` — lekéri a kivonatot
 
 ```bash
-curl -X POST http://localhost:8004/sync \
+curl -X POST http://localhost:8003/sync \
   -H "Content-Type: application/json" \
   -d '{
     "start_date": "2026-05-01",
@@ -174,7 +174,7 @@ Válasz:
 Egy korábban lekért tranzakció részletei azonosító alapján (in-memory keresés a futó session-ben).
 
 ```bash
-curl http://localhost:8004/transactions/TRANSFER-11111111
+curl http://localhost:8003/transactions/TRANSFER-11111111
 ```
 
 ### GET /balance-statements
@@ -186,10 +186,10 @@ A `balance-statements/` mappában lévő kivonat CSV-k kezelése.
 
 ```bash
 # A legfrissebb kivonat tranzakciói
-curl http://localhost:8004/balance-statements
+curl http://localhost:8003/balance-statements
 
 # Fájllista szűréssel
-curl "http://localhost:8004/balance-statements?currency=HUF&from=2026-05-01"
+curl "http://localhost:8003/balance-statements?currency=HUF&from=2026-05-01"
 ```
 
 ### GET /balance-statements/{filename}
@@ -198,10 +198,10 @@ Egy konkrét kivonat CSV beolvasása és visszaadása JSON-ként. A `?csv=true` 
 
 ```bash
 # JSON (alapértelmezett)
-curl http://localhost:8004/balance-statements/statement_25546267_HUF_2026-05-19_2026-06-02.csv
+curl http://localhost:8003/balance-statements/statement_25546267_HUF_2026-05-19_2026-06-02.csv
 
 # Eredeti CSV letöltése
-curl "http://localhost:8004/balance-statements/statement_25546267_HUF_2026-05-19_2026-06-02.csv?csv=true" -o kivonat.csv
+curl "http://localhost:8003/balance-statements/statement_25546267_HUF_2026-05-19_2026-06-02.csv?csv=true" -o kivonat.csv
 ```
 
 Válasz (`StatementImport`):
@@ -384,7 +384,7 @@ A `csv_import` modul a fájlnévből parsolja ki a balance ID-t, pénznemet és 
 | `WISE_SCA_PRIVATE_KEY_PATH` | —    | RSA privát kulcs elérési útja (SCA, lásd fent)     |
 | `BALANCE_STATEMENTS_DIR` | `./balance-statements` | Kézzel letöltött kivonat CSV-k mappája    |
 | `API_HOST`              | `0.0.0.0` | FastAPI bind cím                                    |
-| `API_PORT`              | `8004`    | FastAPI port                                        |
+| `API_PORT`              | `8003`    | FastAPI port                                        |
 | `LOG_LEVEL`             | `INFO`    | Napló szint (`DEBUG`, `INFO`, `WARNING`, `ERROR`)   |
 | `REQUEST_TIMEOUT`       | `30`      | Wise API kérés timeout (másodperc)                  |
 | `MAX_RETRIES`           | `3`       | Automatikus újrapróbálások száma (429/5xx)          |
@@ -395,7 +395,7 @@ A `csv_import` modul a fájlnévből parsolja ki a balance ID-t, pénznemet és 
 ```
 wise/
 ├── pyproject.toml
-├── run_api.py                      # VS Code debug belépési pont (port 8004)
+├── run_api.py                      # VS Code debug belépési pont (port 8003)
 ├── .env.example
 ├── balance-statements/             # Wise webfelületről kézzel letöltött CSV-k (.gitignore)
 │                                   #   Fájlnév-séma: statement_<balanceId>_<currency>_<from>_<to>.csv

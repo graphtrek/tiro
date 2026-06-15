@@ -28,6 +28,15 @@
       "python": "${workspaceFolder}/attachment-downloader/.venv/bin/python",
       "cwd": "${workspaceFolder}/attachment-downloader",
       "console": "integratedTerminal"
+    },
+    {
+      "name": "wise API",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/wise/run_api.py",
+      "python": "${workspaceFolder}/wise/.venv/bin/python",
+      "cwd": "${workspaceFolder}/wise",
+      "console": "integratedTerminal"
     }
   ]
 }
