@@ -161,14 +161,14 @@ flowchart TD
 ### Wiki linkek
 - **Prompt**: [[invoice-core-prompt.md|Invoice-Core Prompt]]
 - **MASTER Orchestrator**: Ez a szerviz
-- **Meghívja**: [[nav-invoice-spec.md|NAV API Specifikáció]]
+- **Meghívja**: [[nav-invoice-spec.md|NAV Invoice Spec]]
   - NAV lekérdezés: `GET /invoices`, `GET /invoices/{szamlaszam}`
   - 30 nap default paraméterrel
-- **Meghívja**: [[invoice-file-filter-spec.md|PDF Feldolgozó Specifikáció]]
+- **Meghívja**: [[invoice-file-filter-spec.md|PDF Feldolgozó Spec]]
   - PDF letöltés + indexelés: `POST /api/v1/invoices/extract`
   - Words keresés: `GET /api/v1/invoices/search?words=<számlaszám>` (melyik PDF fájl tartalmazza a szót)
   - invoice-file-filter maga hívja attachment-downloadert a PDF letöltéshez
-- **Meghívja**: [[wise-spec.md|Wise Integráció Specifikáció]]
+- **Meghívja**: [[wise-spec.md|Wise Spec]]
   - `GET /balance-statements` (paraméter nélkül) — legfrissebb kivonat tranzakciói
   - Levél szolgáltatás — DB-t nem kezel (`POST /sync` egyelőre nem működik)
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

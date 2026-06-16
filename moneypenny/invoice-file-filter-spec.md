@@ -88,10 +88,10 @@ flowchart TD
 ```
 
 ### Wiki linkek
-- **Prompt**: [[invoice-file-filter-prompt.md|PDF Szamla Prompt]]
-- **Meghívva**: [[nav-invoice-spec.md|NAV API]]
-- **Meghívom**: [[attachment-downloader-spec.md|Gmail Letöltő]]
+- **Prompt**: [[invoice-file-filter-prompt.md|PDF Feldolgozó Prompt]]
+- **Meghívva**: [[nav-invoice-spec.md|NAV Invoice Spec]]
+- **Meghívom**: [[attachment-downloader-spec.md|Attachment Downloader Spec]]
   - attachment-downloader meghívása (POST /api/v1/jobs)
   - utolsó 30 nap default paraméterrel
-- **MASTER Orchestrator**: [[invoice-core-spec.md|Invoice-Core]]
+- **MASTER Orchestrator**: [[invoice-core-spec.md|Invoice-Core Spec]]
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

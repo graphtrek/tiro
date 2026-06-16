@@ -14,6 +14,6 @@ A szolgáltatáshoz készüljön cli és fastapi rest interface.
 ---
 
 ## 🔗 Wiki Linkek
-- **Specifikáció**: [[wise-spec.md|Wise Integráció Spec]]
+- **Specifikáció**: [[wise-spec.md|Wise Spec]]
 - **Cél adatbázis**: [[invoice-core-prompt.md|Invoice-Core Prompt]] → [[invoice-core-spec.md|Invoice-Core Spec]] (közvetlen PostgreSQL írás)
 - **Projekt Index**: [[INDEX.md|Moneypenny Index]]

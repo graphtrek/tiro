@@ -59,7 +59,7 @@ MASTER ORCHESTRATOR
 ---
 
 ### 3️⃣ NAV Online Számla API
-**[[nav-invoice-spec.md|📄 Specifikáció]]** | **[[nav-számla-prompt.md|💭 Prompt]]**
+**[[nav-invoice-spec.md|📄 Specifikáció]]** | **[[nav-invoice-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: [[invoice-core-spec.md|invoice-core]] által
 - **Meghívja**: (senki — csak a NAV API-t hívja)
@@ -145,7 +145,7 @@ Hívási Lánc (Szinkron):
 
 ### Promptok
 - **invoice-core**: [[invoice-core-prompt.md|prompt]]
-- **nav-invoice**: [[nav-számla-prompt.md|prompt]]
+- **nav-invoice**: [[nav-invoice-prompt.md|prompt]]
 - **invoice-file-filter**: [[invoice-file-filter-prompt.md|prompt]]
 - **attachment-downloader**: [[attachment-downloader-prompt.md|prompt]]
 - **wise**: [[wise-prompt.md|prompt]]
@@ -300,11 +300,11 @@ DEFAULT_DAYS_BACK=30
 - **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[wise-spec.md|wise]] (levél — csak Wise API)
 
 ### Prompt Links
-- [[invoice-core-prompt.md|invoice-core-prompt.md]]
-- [[nav-számla-prompt.md|nav-számla-prompt.md]]
-- [[invoice-file-filter-prompt.md|invoice-file-filter-prompt.md]]
-- [[attachment-downloader-prompt.md|attachment-downloader-prompt.md]]
-- [[wise-prompt.md|wise-prompt.md]]
+- [[invoice-core-prompt.md|Invoice-Core Prompt]]
+- [[nav-invoice-prompt.md|NAV Invoice Prompt]]
+- [[invoice-file-filter-prompt.md|PDF Feldolgozó Prompt]]
+- [[attachment-downloader-prompt.md|Attachment Downloader Prompt]]
+- [[wise-prompt.md|Wise Prompt]]
 
 ---
 

@@ -101,7 +101,7 @@ flowchart TD
 ```
 
 ### Wiki linkek
-- **Prompt**: [[nav-számla-prompt.md|NAV Számla Prompt]]
+- **Prompt**: [[nav-invoice-prompt.md|NAV Invoice Prompt]]
 - **Meghívva**: [[invoice-core-spec.md|Invoice-Core (MASTER)]]
 - **Meghívom**: (senki — csak a NAV API-t hívja)
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

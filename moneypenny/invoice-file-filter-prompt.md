@@ -1,7 +1,7 @@
 ---
 title: "Prompt: PDF Számla Feldolgozó"
 language: "HU"
-related: [invoice-file-filter-spec.md, nav-számla-prompt.md, attachment-downloader-prompt.md]
+related: [invoice-file-filter-spec.md, nav-invoice-prompt.md, attachment-downloader-prompt.md]
 ---
 
 Készüljön egy microservice ami meghívja a attachment-downloader szolgáltatást az utolsó 30 nap intervallum default paraméterrel kiválogatja a attachment-downloader által letöltött fájlok közül a számlákat (invoice, számla).
@@ -11,7 +11,7 @@ A szolgáltatáshoz készüljön cli és fastapi rest interface
 ---
 
 ## 🔗 Wiki Linkek
-- **Specifikáció**: [[invoice-file-filter-spec.md|PDF Szamla Spec]]
-- **Meghívva**: [[nav-számla-prompt.md|NAV Szamla Prompt]] → [[nav-invoice-spec.md|NAV Szamla Spec]]
-- **Meghívja**: [[attachment-downloader-prompt.md|Graphtrek Email Prompt]] → [[attachment-downloader-spec.md|Graphtrek Email Spec]]
+- **Specifikáció**: [[invoice-file-filter-spec.md|PDF Feldolgozó Spec]]
+- **Meghívva**: [[nav-invoice-prompt.md|NAV Invoice Prompt]] → [[nav-invoice-spec.md|NAV Invoice Spec]]
+- **Meghívja**: [[attachment-downloader-prompt.md|Attachment Downloader Prompt]] → [[attachment-downloader-spec.md|Attachment Downloader Spec]]
 - **Projekt Index**: [[INDEX.md|Moneypenny Index]]

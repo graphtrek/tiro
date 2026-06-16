@@ -10,7 +10,7 @@ A szolgáltatáshoz készüljön cli és fastapi rest interface
 ---
 
 ## 🔗 Wiki Linkek
-- **Specifikáció**: [[nav-invoice-spec.md|NAV Szamla Spec]]
+- **Specifikáció**: [[nav-invoice-spec.md|NAV Invoice Spec]]
 - **Meghívva**: [[invoice-core-prompt.md|Invoice-Core Prompt]] → [[invoice-core-spec.md|Invoice-Core Spec]]
-- **Meghívja**: [[invoice-file-filter-prompt.md|PDF Szamla Prompt]] → [[invoice-file-filter-spec.md|PDF Szamla Spec]]
+- **Meghívja**: [[invoice-file-filter-prompt.md|PDF Feldolgozó Prompt]] → [[invoice-file-filter-spec.md|PDF Feldolgozó Spec]]
 - **Projekt Index**: [[INDEX.md|Moneypenny Index]]

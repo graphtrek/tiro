@@ -11,10 +11,14 @@
             "id": "a9c6ffd5c0d260b8",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "invoice-file-filter-prompt.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "Új lap"
+              "title": "invoice-file-filter-prompt"
             }
           }
         ]
@@ -181,20 +185,22 @@
   },
   "active": "a9c6ffd5c0d260b8",
   "lastOpenFiles": [
-    "invoice-core-prompt.md",
-    "invoice-core-prompt.md",
-    "invoice-core-spec.md",
-    "invoice-core-spec.md",
-    "INDEX.md",
-    "wise-spec.md",
-    "wise-prompt.md",
     "nav-invoice-spec.md",
     "nav-invoice-prompt.md",
+    "wise-spec.md",
+    "INDEX.md.tmp.55289.3d1e1f651571",
+    "wise-prompt.md",
+    "nav-számla-prompt.md",
+    "invoice-file-filter-prompt.md",
+    "attachment-downloader-prompt.md",
+    "szamla-db-prompt.md",
+    "invoice-core-prompt.md",
+    "invoice-core-spec.md",
+    "szamla-db-spec.md",
+    "INDEX.md",
     "nav-szamla-spec.md",
     "invoice-file-filter-spec.md",
     "attachment-downloader-spec.md",
-    "invoice-file-filter-prompt.md",
-    "attachment-downloader-prompt.md",
     "pdf-szamla-spec.md",
     "pdf-szamla-prompt.md",
     "graphtrek-email-prompt.md",
@@ -204,15 +210,13 @@
     "banking-spec.md",
     "API reference _ Enable Banking Docs.md",
     "banking-prompt.md",
-    "nav-számla-prompt.md",
     "INDEX.md.tmp.99594.ef1496322ee0",
     "pdf-szamla-prompt.md.tmp.81206.e72371f3db51",
     "INDEX.md.tmp.81206.71b2a63f12a4",
-    "invoice-core-spec.md.tmp.81206.504e97465aa8",
-    "invoice-core-spec.md.tmp.81206.a2d92659641d",
+    "szamla-db-spec.md.tmp.81206.504e97465aa8",
+    "szamla-db-spec.md.tmp.81206.a2d92659641d",
     "IMPLEMENTACIO.md",
     "CLI_SPECIFIKACIO.md",
-    "ARHITEKTURA.md",
-    "API_SPECIFIKACIO.md"
+    "ARHITEKTURA.md"
   ]
 }
