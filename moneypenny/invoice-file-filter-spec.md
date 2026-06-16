@@ -66,12 +66,27 @@ Te egy adatkinyerési szakember (Data Extraction Engineer) vagy. A feladatod PDF
 - Regex/spaCy (adatkinyerés)
 - Tesseract OCR (opcionális: beszkennelt PDF)
 
+## Szűrési kulcsszavak (dokumentumtípus-felismerés)
+
+A PDF szövegéből az alábbi kulcsszavak bármelyikének megléte esetén minősíti a fájlt feldolgozandó pénzügyi dokumentumnak:
+
+| Kulcsszó | Típus |
+|---|---|
+| `számla` | Számla (általános) |
+| `invoice` | Invoice (angol) |
+| `számviteli bizonylat` | Számviteli bizonylat |
+| `díjbekérő` | Díjbekérő |
+| `pro forma` | Pro forma számla |
+
+A kulcsszó-egyezés kis-nagybetű-érzéketlen (case-insensitive). Ha egyik sem egyezik, a PDF-et a rendszer kiszűri és nem dolgozza fel.
+
 ## Logika
 1. PDF-t megnyitja
 2. Szöveg kinyerése
-3. Regex/szabályok: számlaszám, dátum, összeg, TAX ID
-4. Metaadatok JSON-ként
-5. Confidence score kalkulálása
+3. Dokumentumtípus-felismerés: kulcsszó-egyezés (lásd fent) → ha nem egyezik, kihagyja
+4. Regex/szabályok: számlaszám, dátum, összeg, TAX ID
+5. Metaadatok JSON-ként
+6. Confidence score kalkulálása
 
 ---
 

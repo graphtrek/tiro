@@ -19,7 +19,7 @@ from .models import ProcessedFile
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_KEYWORDS = ["invoice", "bill", "szamla", "számla"]
+DEFAULT_KEYWORDS = ["invoice", "bill", "szamla", "számla", "számviteli bizonylat"]
 
 # In-memory word cache: path → (mtime, csv_data)
 _words_cache: Dict[str, Tuple[float, str]] = {}
@@ -110,9 +110,13 @@ def is_invoice(filename: str, text: str, keywords: Optional[Sequence[str]] = Non
 
 
 def describe_file(pdf_path: str) -> ProcessedFile:
-    """Return the filename and modification date of a PDF file."""
+    """Return the filename, absolute path and modification date of a PDF file."""
     modified = datetime.fromtimestamp(os.path.getmtime(pdf_path))
-    return ProcessedFile(filename=os.path.basename(pdf_path), modified=modified)
+    return ProcessedFile(
+        filename=os.path.basename(pdf_path),
+        path=os.path.abspath(pdf_path),
+        modified=modified,
+    )
 
 
 def _iter_pdf_paths(paths_or_dir) -> List[str]:

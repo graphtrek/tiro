@@ -15,6 +15,7 @@ class ProcessedFile(BaseModel):
     """A single invoice PDF identified by the service."""
 
     filename: str
+    path: str
     modified: datetime
 
 

@@ -86,10 +86,11 @@ def process(
 
     table = Table(show_lines=False)
     table.add_column("Fájl", overflow="fold")
+    table.add_column("Útvonal", overflow="fold")
     table.add_column("Módosítva")
 
     for f in result.files:
-        table.add_row(f.filename, f.modified.strftime("%Y-%m-%d %H:%M"))
+        table.add_row(f.filename, f.path, f.modified.strftime("%Y-%m-%d %H:%M"))
     console.print(table)
 
 

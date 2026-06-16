@@ -24,6 +24,14 @@ Total: 1 234,56
 Currency: EUR
 """
 
+SAMPLE_ACCOUNTING_DOCUMENT = """
+Graphtrek Kft.
+Számviteli bizonylat
+Bizonylat száma: BIZ-2026-007
+Kelt: 2026-06-01
+Összeg: 50 000 Ft
+"""
+
 SAMPLE_NON_INVOICE = """
 Hello,
 This is just a regular memo with no billing information whatsoever.
@@ -39,6 +47,11 @@ def hu_invoice() -> str:
 @pytest.fixture
 def en_invoice() -> str:
     return SAMPLE_INVOICE_EN
+
+
+@pytest.fixture
+def accounting_document() -> str:
+    return SAMPLE_ACCOUNTING_DOCUMENT
 
 
 @pytest.fixture

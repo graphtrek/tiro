@@ -79,9 +79,9 @@ Response:
   "invoice_count": 3,
   "output_dir": "./downloads",
   "files": [
-    {"filename": "invoice_2026_05.pdf", "modified": "2026-05-15T10:30:00"},
-    {"filename": "szamla_2026_05.pdf",  "modified": "2026-05-20T14:00:00"},
-    {"filename": "bill_may.pdf",         "modified": "2026-05-28T09:15:00"}
+    {"filename": "invoice_2026_05.pdf", "path": "/abs/path/downloads/invoice_2026_05.pdf", "modified": "2026-05-15T10:30:00"},
+    {"filename": "szamla_2026_05.pdf",  "path": "/abs/path/downloads/szamla_2026_05.pdf",  "modified": "2026-05-20T14:00:00"},
+    {"filename": "bill_may.pdf",         "path": "/abs/path/downloads/bill_may.pdf",         "modified": "2026-05-28T09:15:00"}
   ]
 }
 ```
@@ -185,6 +185,7 @@ Written to stdout and `logs/invoice-file-filter.log`.
 | `ATTACHMENT_DOWNLOADER_URL` | `http://localhost:8000` | Base URL of the attachment-downloader service |
 | `OUTPUT_DIR` | `../attachment-downloader/downloads` | Default PDF directory |
 | `DOWNLOAD_TIMEOUT` | `120` | Max seconds to wait for attachment-downloader |
+| `INVOICE_KEYWORDS` | `["invoice","bill","szamla","számla","számviteli bizonylat"]` | JSON array of detection keywords (case-insensitive, diacritics-folded) |
 | `API_HOST` | `0.0.0.0` | FastAPI bind address |
 | `API_PORT` | `8001` | FastAPI port |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |

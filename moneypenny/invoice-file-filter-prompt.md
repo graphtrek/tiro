@@ -4,7 +4,7 @@ language: "HU"
 related: [invoice-file-filter-spec.md, nav-invoice-prompt.md, attachment-downloader-prompt.md]
 ---
 
-Készüljön egy microservice ami meghívja a attachment-downloader szolgáltatást az utolsó 30 nap intervallum default paraméterrel kiválogatja a attachment-downloader által letöltött fájlok közül a számlákat (invoice, számla).
+Készüljön egy microservice ami meghívja a attachment-downloader szolgáltatást az utolsó 30 nap intervallum default paraméterrel kiválogatja a attachment-downloader által letöltött fájlok közül a számlákat és számviteli bizonylatokat (invoice, számla, számviteli bizonylat).
 A szolgáltatás adja vissza a számla meta adatait is számla szám stb
 A szolgáltatáshoz készüljön cli és fastapi rest interface
 

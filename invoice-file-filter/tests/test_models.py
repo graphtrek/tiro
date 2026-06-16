@@ -13,8 +13,9 @@ from invoice_file_filter.models import (
 class TestProcessedFile:
     def test_fields(self):
         now = datetime(2026, 5, 1, 12, 0)
-        meta = ProcessedFile(filename="x.pdf", modified=now)
+        meta = ProcessedFile(filename="x.pdf", path="/tmp/x.pdf", modified=now)
         assert meta.filename == "x.pdf"
+        assert meta.path == "/tmp/x.pdf"
         assert meta.modified == now
 
 

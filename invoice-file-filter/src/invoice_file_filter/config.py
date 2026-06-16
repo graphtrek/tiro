@@ -56,7 +56,7 @@ class Settings(BaseSettings):
 
     # ── PDF source / extraction ─────────────────────────────
     output_dir: str = "../attachment-downloader/downloads"
-    invoice_keywords: list[str] = ["invoice", "bill", "szamla", "számla"]
+    invoice_keywords: list[str] = ["invoice", "bill", "szamla", "számla", "számviteli bizonylat"]
 
     # ── Download timeout (seconds) ───────────────────────────
     download_timeout: int = 120
