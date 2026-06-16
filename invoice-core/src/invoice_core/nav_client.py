@@ -49,6 +49,21 @@ class NavClient:
             item["direction"] = direction
         return data
 
+    def clear_cache(self) -> int:
+        """POST /cache/clear → number of cleared entries (0 on error)."""
+        try:
+            resp = self.session.post(
+                f"{self.base_url}/cache/clear",
+                timeout=self.settings.sync_timeout,
+            )
+            resp.raise_for_status()
+            cleared = resp.json().get("cleared", 0)
+            logger.info("nav-invoice cache cleared: %d entry(s)", cleared)
+            return cleared
+        except requests.RequestException as exc:
+            logger.warning("Could not clear nav-invoice cache: %s", exc)
+            return 0
+
     def get_invoices(self, start_date: str, end_date: str) -> list[dict]:
         """Fetch both INBOUND and OUTBOUND invoices and return the combined list."""
         t0 = time.monotonic()

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 import time
 from typing import Optional
@@ -18,14 +20,9 @@ class PdfClientError(RuntimeError):
 
 
 class PdfClient:
-    """Client for invoice-file-filter's extraction endpoint.
+    """Client for invoice-file-filter's extraction and word-search endpoints.
 
-    POSTs to POST /api/v1/invoices/extract and returns the list of matched files.
-    Fields in each file dict: filename, path, modified.
-
-    Note: /api/v1/invoices/search does not exist on invoice-file-filter.
-    Matching against NAV invoice numbers is done locally in service.py
-    by checking whether invoice_number appears in filename.
+    Fields in each file dict from extract(): filename, path, modified.
     """
 
     def __init__(self, settings: Optional[Settings] = None):
@@ -56,3 +53,38 @@ class PdfClient:
             self.base_url, len(files), elapsed_ms,
         )
         return files
+
+    def clear_cache(self) -> int:
+        """DELETE /api/v1/pdf/words/cache → number of cleared entries (0 on error)."""
+        try:
+            resp = self.session.delete(
+                f"{self.base_url}/api/v1/pdf/words/cache",
+                timeout=self.settings.sync_timeout,
+            )
+            resp.raise_for_status()
+            removed = resp.json().get("removed", 0)
+            logger.info("invoice-file-filter cache cleared: %d entry(s)", removed)
+            return removed
+        except requests.RequestException as exc:
+            logger.warning("Could not clear invoice-file-filter cache: %s", exc)
+            return 0
+
+    def get_words_text(self, pdf_path: str) -> str:
+        """POST /api/v1/pdf/words → all words from the PDF joined into one string.
+
+        Returns an empty string on any error so callers can treat it as a no-match.
+        """
+        try:
+            resp = self.session.post(
+                f"{self.base_url}/api/v1/pdf/words",
+                json={"pdf_path": pdf_path},
+                timeout=self.settings.sync_timeout,
+            )
+            resp.raise_for_status()
+        except requests.RequestException as exc:
+            logger.warning("Could not get words for %s: %s", pdf_path, exc)
+            return ""
+        reader = csv.reader(io.StringIO(resp.text))
+        next(reader, None)  # skip header row
+        words = [row[1] for row in reader if len(row) > 1]
+        return " ".join(words)

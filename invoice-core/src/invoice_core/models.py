@@ -23,6 +23,7 @@ class SyncRequest(BaseModel):
     start_date: Optional[str] = Field(None, description="YYYY-MM-DD; default 30 days ago")
     end_date: Optional[str] = Field(None, description="YYYY-MM-DD; default today")
     sync_mode: Optional[SyncMode] = None
+    clear_cache: bool = Field(False, description="Clear all downstream service caches before syncing")
 
 
 class SyncResponse(BaseModel):

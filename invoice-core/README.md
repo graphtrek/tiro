@@ -82,6 +82,14 @@ curl -X POST http://localhost:8004/api/v1/sync \
 | `start_date` | `string` | 30 days ago | Filter start (`YYYY-MM-DD`) |
 | `end_date` | `string` | today | Filter end (`YYYY-MM-DD`) |
 | `sync_mode` | `string` | `full` | `full` / `nav_only` / `pdf_only` / `wise_only` |
+| `clear_cache` | `bool` | `false` | Clear all downstream caches before syncing |
+
+```bash
+# Sync with cache cleared first
+curl -X POST http://localhost:8004/api/v1/sync \
+  -H "Content-Type: application/json" \
+  -d '{"clear_cache": true}'
+```
 
 ### GET /api/v1/invoices
 
@@ -116,24 +124,40 @@ curl http://localhost:8004/api/v1/invoices/INV-2026-042
 ### sync
 
 ```bash
-uv run invoice-core sync [--start DATE] [--end DATE] [--json] [-v]
+uv run invoice-core sync [--start DATE] [--end DATE] [--clear-cache] [--json] [-v]
 ```
 
 ### sync-nav / sync-pdf / sync-wise
 
 ```bash
-uv run invoice-core sync-nav [--start DATE] [--end DATE] [--json] [-v]
-uv run invoice-core sync-pdf [--start DATE] [--end DATE] [--json] [-v]
-uv run invoice-core sync-wise [--json] [-v]
+uv run invoice-core sync-nav [--start DATE] [--end DATE] [--clear-cache] [--json] [-v]
+uv run invoice-core sync-pdf [--start DATE] [--end DATE] [--clear-cache] [--json] [-v]
+uv run invoice-core sync-wise [--clear-cache] [--json] [-v]
 ```
 
 ### report
 
 ```bash
-uv run invoice-core report --month 2026-05 [--json]
+uv run invoice-core report --month 2026-05 [--clear-cache] [--json]
 ```
 
 Runs a full sync for the given calendar month and prints a Rich summary table.
+
+### --clear-cache
+
+Clears all downstream service caches before starting the sync:
+
+| Service | Cache endpoint called |
+|---|---|
+| nav-invoice | `POST /cache/clear` |
+| invoice-file-filter | `DELETE /api/v1/pdf/words/cache` |
+
+Cache clearing is best-effort — if a service is unreachable the warning is logged and sync continues.
+
+```bash
+uv run invoice-core sync --clear-cache
+uv run invoice-core sync-pdf --clear-cache --start 2026-06-01
+```
 
 ## Configuration (`.env`)
 
@@ -202,7 +226,8 @@ invoice-core (this)
   │    GET  nav-invoice:8002 /invoices?direction=INBOUND   → InvoiceDigest list
   │         upsert supplier, customer, invoice (both directions)
   ├── POST invoice-file-filter:8001 /api/v1/invoices/extract → PDF file index
-  │         upsert invoice_file; link to invoice by filename match
+  │         upsert invoice_file
+  │         link to invoice: filename match → fallback to POST /api/v1/pdf/words word search
   └── GET  wise:8003 /balance-statements       → TransactionSummary list
             insert wise_transaction (idempotent); link by counterparty + payment_reference
 ```

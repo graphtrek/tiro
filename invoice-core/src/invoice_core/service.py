@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -17,6 +18,14 @@ from .pdf_client import PdfClient, PdfClientError
 from .wise_client import WiseClient, WiseClientError
 
 logger = logging.getLogger(__name__)
+
+def _norm(s: str) -> str:
+    """Normalize an invoice number or text for fuzzy matching.
+
+    Collapses whitespace around separators and maps /, \\, -, _, ., space → -
+    so that "87/2026", "87-2026", "87 / 2026" all compare equal.
+    """
+    return re.sub(r"\s*[/\\\-_.]\s*", "-", s).lower()
 
 
 def _default_dates(start: Optional[str], end: Optional[str]) -> tuple[str, str]:
@@ -102,15 +111,26 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
 
 
 def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
-    """Fetch PDF file index and upsert InvoiceFile records, then link to Invoice."""
+    """Fetch PDF file index and upsert InvoiceFile records, then link to Invoice.
+
+    Linking strategy (in order):
+    1. Fast: invoice_number appears as substring of filename.
+    2. Fallback: invoice_number appears anywhere in the PDF word list
+       (via invoice-file-filter POST /api/v1/pdf/words).
+    """
     settings = settings or get_settings()
-    files = PdfClient(settings).extract(start, end)
+    pdf_client = PdfClient(settings)
+    files = pdf_client.extract(start, end)
     if not files:
         logger.warning("sync_pdf: no invoice files returned by invoice-file-filter for %s..%s", start, end)
         return 0
+
+    # ── Phase 1: upsert InvoiceFile rows, keep (record, path) for link pass ──
     count = 0
+    records: list[tuple[InvoiceFile, str]] = []
     for f in files:
         filename = f.get("filename", "")
+        path = f.get("path", "")
         if not filename:
             continue
         existing = db.query(InvoiceFile).filter_by(filename=filename).first()
@@ -122,14 +142,31 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
             db.add(invoice_file)
             db.flush()
             count += 1
+        records.append((invoice_file, path))
 
-        # Link to Invoice: check if any invoice_number appears in filename
-        invoices = db.query(Invoice).filter(Invoice.invoice_file_id == None).all()  # noqa: E711
-        for inv in invoices:
-            if inv.invoice_number and inv.invoice_number in filename:
+    # ── Phase 2: link unmatched invoices ─────────────────────────────────────
+    unlinked = db.query(Invoice).filter(Invoice.invoice_file_id == None).all()  # noqa: E711
+    for inv in unlinked:
+        if not inv.invoice_number:
+            continue
+        inv_num = _norm(inv.invoice_number)
+        for invoice_file, path in records:
+            # Fast path: invoice number (separator-normalized) in filename
+            if inv_num in _norm(invoice_file.filename):
                 inv.invoice_file_id = invoice_file.id
                 inv.updated_at = datetime.utcnow()
+                logger.info("Linked %s → %s (filename match)", inv.invoice_number, invoice_file.filename)
                 break
+            # Fallback: search inside PDF text (normalizes OCR-split separators too)
+            if path:
+                pdf_text = pdf_client.get_words_text(path)
+                if inv_num in _norm(pdf_text):
+                    inv.invoice_file_id = invoice_file.id
+                    inv.updated_at = datetime.utcnow()
+                    logger.info("Linked %s → %s (word search)", inv.invoice_number, invoice_file.filename)
+                    break
+        else:
+            logger.warning("No PDF match found for invoice %s", inv.invoice_number)
 
     db.commit()
     logger.info("sync_pdf: %d new invoice_file record(s) from %d file(s)", count, len(files))
@@ -203,6 +240,11 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
     errors: list[str] = []
     nav_count = pdf_count = wise_count = 0
     t0 = time.monotonic()
+
+    if request.clear_cache:
+        logger.info("Clearing downstream caches before sync")
+        NavClient(settings).clear_cache()
+        PdfClient(settings).clear_cache()
 
     if mode in (SyncMode.full, SyncMode.nav_only):
         try:

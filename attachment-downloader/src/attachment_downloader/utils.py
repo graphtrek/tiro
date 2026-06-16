@@ -1,5 +1,6 @@
 import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Tuple
 
@@ -8,6 +9,7 @@ NAME_RE = re.compile(r"^((\d{4})-\d{2}-\d{2})_(\d+)_(.+)$")
 
 def sanitize_filename(name: str) -> str:
     name = os.path.basename(name or "")
+    name = "".join(c for c in unicodedata.normalize("NFKD", name) if not unicodedata.combining(c))
     name = re.sub(r"[^A-Za-z0-9._-]", "_", name)
     return name or "attachment.pdf"
 
