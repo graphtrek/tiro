@@ -71,17 +71,8 @@ class InvoiceFileOut(BaseModel):
 
     id: int
     filename: str
-    invoice_number_raw: Optional[str] = None
-    invoice_date_raw: Optional[str] = None
-    supplier_name_raw: Optional[str] = None
-    supplier_tax_id_raw: Optional[str] = None
-    customer_name_raw: Optional[str] = None
-    customer_tax_id_raw: Optional[str] = None
-    amount_total_raw: Optional[str] = None
-    amount_vat_raw: Optional[str] = None
-    currency: Optional[str] = None
-    payment_due_raw: Optional[str] = None
-    confidence: Optional[float] = None
+    path: Optional[str] = None
+    words: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

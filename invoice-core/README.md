@@ -135,6 +135,18 @@ uv run invoice-core sync-pdf [--start DATE] [--end DATE] [--clear-cache] [--json
 uv run invoice-core sync-wise [--clear-cache] [--json] [-v]
 ```
 
+### link
+
+Manually link an invoice to a PDF file when automatic matching fails:
+
+```bash
+uv run invoice-core link <invoice_number> <filename>
+# e.g.
+uv run invoice-core link "87/2026" "2026-06-04_0020_GRAPHTREK_szamla.pdf"
+```
+
+Both the invoice and the PDF file must already exist in the database (run `sync` first).
+
 ### report
 
 ```bash
@@ -186,9 +198,9 @@ PostgreSQL in production, SQLite in-memory for tests.
 |-------|-------------|
 | `supplier` | Suppliers sourced from NAV invoice data |
 | `customer` | Customers sourced from NAV invoice data |
-| `invoice_file` | Raw PDF metadata from invoice-file-filter |
+| `invoice_file` | PDF files from invoice-file-filter: filename, filesystem path, and extracted word text (NUL bytes stripped) |
 | `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier, customer, and optionally invoice_file |
-| `wise_transaction` | Wise transactions, linked to supplier/customer/invoice where matched |
+| `wise_transaction` | Wise transactions; linked to invoice, supplier, and customer on every sync (see Linking strategy below) |
 
 ### Alembic setup
 
@@ -225,12 +237,34 @@ invoice-core (this)
   ├── GET  nav-invoice:8002 /invoices?direction=OUTBOUND  → InvoiceDigest list
   │    GET  nav-invoice:8002 /invoices?direction=INBOUND   → InvoiceDigest list
   │         upsert supplier, customer, invoice (both directions)
-  ├── POST invoice-file-filter:8001 /api/v1/invoices/extract → PDF file index
-  │         upsert invoice_file
-  │         link to invoice: filename match → fallback to POST /api/v1/pdf/words word search
+  ├── POST invoice-file-filter:8001 /api/v1/invoices/extract → PDF file index (filename + path)
+  │         upsert invoice_file; link to invoice (see PDF linking strategy below)
   └── GET  wise:8003 /balance-statements       → TransactionSummary list
-            insert wise_transaction (idempotent); link by counterparty + payment_reference
+            upsert wise_transaction; link to invoice/supplier/customer (see Wise linking strategy below)
 ```
+
+## Linking strategies
+
+### PDF → Invoice
+
+For each unlinked `invoice` the service tries to match it against every `invoice_file`:
+
+1. **Filename match** — normalised invoice number (separators `/ \ - _ .` → `-`) appears as a substring of the filename.
+2. **Word search fallback** — if no filename match, calls `POST invoice-file-filter:8001 /api/v1/pdf/words` for the PDF and searches the full word list with the same normalised comparison.
+
+Run `invoice-core link <invoice_number> <filename>` to create a manual link when both automatic strategies fail.
+
+### Wise transaction → Invoice / Supplier / Customer
+
+On every `sync-wise` run (including re-syncs of already-imported transactions):
+
+1. **Invoice** — looks up `payment_reference` against `invoice.invoice_number`:
+   - Exact match first.
+   - Separator-normalised fallback: `/`, `\`, `-`, `_`, `.` are all treated as equivalent so e.g. `"SZ/2026/123"` matches `"SZ-2026-123"`.
+2. **Supplier / Customer from invoice** — if an invoice was matched, its `supplier_id` and `customer_id` are reused directly.
+3. **Counterparty name fallback** — if no invoice was found (or the invoice had no supplier/customer), the transaction's `counterparty_name` is matched case-insensitively against `supplier.name` and `customer.name`.
+
+Links are only written when the foreign key is currently `NULL`, so manually corrected rows are never overwritten.
 
 ## Logs
 

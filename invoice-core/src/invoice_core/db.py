@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Text,
     create_engine,
     func,
 )
@@ -101,17 +102,8 @@ class InvoiceFile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False, unique=True)
-    invoice_number_raw = Column(String, nullable=True)
-    invoice_date_raw = Column(String, nullable=True)
-    supplier_name_raw = Column(String, nullable=True)
-    supplier_tax_id_raw = Column(String, nullable=True)
-    customer_name_raw = Column(String, nullable=True)
-    customer_tax_id_raw = Column(String, nullable=True)
-    amount_total_raw = Column(String, nullable=True)
-    amount_vat_raw = Column(String, nullable=True)
-    currency = Column(String, nullable=True)
-    payment_due_raw = Column(String, nullable=True)
-    confidence = Column(Float, nullable=True)
+    path = Column(String, nullable=True)
+    words = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

@@ -87,5 +87,5 @@ class PdfClient:
             return ""
         reader = csv.reader(io.StringIO(resp.text))
         next(reader, None)  # skip header row
-        words = [row[0] for row in reader if row]
+        words = [row[0].replace("\x00", "") for row in reader if row]
         return " ".join(words)

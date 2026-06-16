@@ -135,10 +135,11 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
             continue
         existing = db.query(InvoiceFile).filter_by(filename=filename).first()
         if existing:
+            existing.path = path or existing.path
             existing.updated_at = datetime.utcnow()
             invoice_file = existing
         else:
-            invoice_file = InvoiceFile(filename=filename)
+            invoice_file = InvoiceFile(filename=filename, path=path)
             db.add(invoice_file)
             db.flush()
             count += 1
@@ -159,7 +160,9 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
                 break
             # Fallback: search inside PDF text (normalizes OCR-split separators too)
             if path:
-                pdf_text = pdf_client.get_words_text(path)
+                pdf_text = invoice_file.words or pdf_client.get_words_text(path)
+                if not invoice_file.words and pdf_text:
+                    invoice_file.words = pdf_text.replace("\x00", "")
                 if inv_num in _norm(pdf_text):
                     inv.invoice_file_id = invoice_file.id
                     inv.updated_at = datetime.utcnow()
@@ -173,8 +176,21 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
     return count
 
 
+def _find_invoice_by_ref(db: Session, payment_ref: str) -> Optional[Invoice]:
+    """Exact match first, then separator-normalized fallback."""
+    invoice = db.query(Invoice).filter_by(invoice_number=payment_ref).first()
+    if invoice:
+        return invoice
+    norm_ref = _norm(payment_ref)
+    like_pattern = re.sub(r"[-/\\\\_. ]+", "%", payment_ref)
+    candidates = db.query(Invoice).filter(
+        Invoice.invoice_number.ilike(f"%{like_pattern}%")
+    ).all()
+    return next((inv for inv in candidates if _norm(inv.invoice_number) == norm_ref), None)
+
+
 def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
-    """Fetch Wise transactions and insert new ones with idempotency."""
+    """Fetch Wise transactions, insert new ones, and link to invoice/supplier/customer."""
     settings = settings or get_settings()
     transactions = WiseClient(settings).get_transactions()
     count = 0
@@ -182,50 +198,65 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
         wise_id = t.get("wise_transaction_id", "")
         if not wise_id:
             continue
-        if db.query(WiseTransaction).filter_by(wise_transaction_id=wise_id).first():
-            continue
 
-        txn_date_raw = t.get("transaction_date")
-        try:
-            txn_date = datetime.fromisoformat(str(txn_date_raw)) if txn_date_raw else datetime.utcnow()
-        except ValueError:
-            txn_date = datetime.utcnow()
+        existing = db.query(WiseTransaction).filter_by(wise_transaction_id=wise_id).first()
+        if existing:
+            wtxn = existing
+        else:
+            txn_date_raw = t.get("transaction_date")
+            try:
+                txn_date = datetime.fromisoformat(str(txn_date_raw)) if txn_date_raw else datetime.utcnow()
+            except ValueError:
+                txn_date = datetime.utcnow()
 
-        amount_raw = t.get("amount", 0)
-        try:
-            amount = float(amount_raw)
-        except (TypeError, ValueError):
-            amount = 0.0
+            amount_raw = t.get("amount", 0)
+            try:
+                amount = float(amount_raw)
+            except (TypeError, ValueError):
+                amount = 0.0
 
-        wtxn = WiseTransaction(
-            wise_transaction_id=wise_id,
-            amount=amount,
-            currency=t.get("currency", ""),
-            transaction_date=txn_date,
-            description=t.get("description"),
-        )
+            wtxn = WiseTransaction(
+                wise_transaction_id=wise_id,
+                amount=amount,
+                currency=t.get("currency", ""),
+                transaction_date=txn_date,
+                description=t.get("description"),
+            )
+            db.add(wtxn)
+            count += 1
 
-        counterparty = t.get("counterparty_name", "") or ""
-        if counterparty:
-            supplier = db.query(Supplier).filter(
-                Supplier.name.ilike(f"%{counterparty}%")
-            ).first()
-            customer = db.query(Customer).filter(
-                Customer.name.ilike(f"%{counterparty}%")
-            ).first()
-            if supplier:
-                wtxn.supplier_id = supplier.id
-            if customer:
-                wtxn.customer_id = customer.id
-
+        # ── Link invoice ──────────────────────────────────────────────────────
         payment_ref = t.get("payment_reference", "") or ""
-        if payment_ref:
-            invoice = db.query(Invoice).filter_by(invoice_number=payment_ref).first()
+        if payment_ref and not wtxn.invoice_id:
+            invoice = _find_invoice_by_ref(db, payment_ref)
             if invoice:
                 wtxn.invoice_id = invoice.id
+                logger.info("Linked Wise txn %s → invoice %s", wise_id, invoice.invoice_number)
 
-        db.add(wtxn)
-        count += 1
+        # ── Derive supplier/customer from linked invoice ───────────────────────
+        if wtxn.invoice_id and (not wtxn.supplier_id or not wtxn.customer_id):
+            invoice = db.query(Invoice).filter_by(id=wtxn.invoice_id).first()
+            if invoice:
+                if not wtxn.supplier_id:
+                    wtxn.supplier_id = invoice.supplier_id
+                if not wtxn.customer_id:
+                    wtxn.customer_id = invoice.customer_id
+
+        # ── Link supplier/customer by counterparty name (fallback) ────────────
+        counterparty = t.get("counterparty_name", "") or ""
+        if counterparty:
+            if not wtxn.supplier_id:
+                supplier = db.query(Supplier).filter(
+                    Supplier.name.ilike(f"%{counterparty}%")
+                ).first()
+                if supplier:
+                    wtxn.supplier_id = supplier.id
+            if not wtxn.customer_id:
+                customer = db.query(Customer).filter(
+                    Customer.name.ilike(f"%{counterparty}%")
+                ).first()
+                if customer:
+                    wtxn.customer_id = customer.id
 
     db.commit()
     logger.info("sync_wise: %d new transaction(s) from %d fetched", count, len(transactions))

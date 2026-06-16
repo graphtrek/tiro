@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 71ec47eda947
+Revision ID: a0446f16f8b8
 Revises: 
-Create Date: 2026-06-16 18:45:50.541863
+Create Date: 2026-06-16 21:03:21.431472
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '71ec47eda947'
+revision: str = 'a0446f16f8b8'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -39,17 +39,8 @@ def upgrade() -> None:
     op.create_table('invoice_file',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('filename', sa.String(), nullable=False),
-    sa.Column('invoice_number_raw', sa.String(), nullable=True),
-    sa.Column('invoice_date_raw', sa.String(), nullable=True),
-    sa.Column('supplier_name_raw', sa.String(), nullable=True),
-    sa.Column('supplier_tax_id_raw', sa.String(), nullable=True),
-    sa.Column('customer_name_raw', sa.String(), nullable=True),
-    sa.Column('customer_tax_id_raw', sa.String(), nullable=True),
-    sa.Column('amount_total_raw', sa.String(), nullable=True),
-    sa.Column('amount_vat_raw', sa.String(), nullable=True),
-    sa.Column('currency', sa.String(), nullable=True),
-    sa.Column('payment_due_raw', sa.String(), nullable=True),
-    sa.Column('confidence', sa.Float(), nullable=True),
+    sa.Column('path', sa.String(), nullable=True),
+    sa.Column('words', sa.Text(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
