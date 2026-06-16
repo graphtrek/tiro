@@ -108,6 +108,7 @@ class InvoiceFile(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     invoices = relationship("Invoice", back_populates="invoice_file")
+    wise_transactions = relationship("WiseTransaction", back_populates="invoice_file")
 
 
 class Invoice(Base):
@@ -172,9 +173,11 @@ class WiseTransaction(Base):
     supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=True)
     customer_id = Column(Integer, ForeignKey("customer.id"), nullable=True)
     invoice_id = Column(Integer, ForeignKey("invoice.id"), nullable=True)
+    invoice_file_id = Column(Integer, ForeignKey("invoice_file.id"), nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     supplier = relationship("Supplier", back_populates="wise_transactions")
     customer = relationship("Customer", back_populates="wise_transactions")
     invoice = relationship("Invoice", back_populates="wise_transactions")
+    invoice_file = relationship("InvoiceFile", back_populates="wise_transactions")

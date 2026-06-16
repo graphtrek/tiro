@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.table import Table
 
 from invoice_core.config import configure_logging, get_settings
-from invoice_core.db import Invoice, InvoiceFile, SessionLocal
+from invoice_core.db import Invoice, InvoiceFile, SessionLocal, WiseTransaction
 from invoice_core.models import SyncMode, SyncRequest, SyncResponse
 from invoice_core.service import sync_all
 
@@ -64,6 +64,7 @@ def _print_result(result: SyncResponse, as_json: bool) -> None:
     table.add_row("NAV invoices synced", str(result.nav_invoices_synced))
     table.add_row("PDF files synced", str(result.pdf_files_synced))
     table.add_row("Wise transactions synced", str(result.wise_transactions_synced))
+    table.add_row("Wise files matched", str(result.wise_files_matched))
     table.add_row("Period", f"{result.start_date} → {result.end_date}")
     console.print(table)
     for err in result.errors:
@@ -122,6 +123,16 @@ def sync_wise(
     _print_result(result, as_json)
 
 
+@app.command("sync-match")
+def sync_match(
+    as_json: bool = typer.Option(False, "--json"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+):
+    """Best-match existing Wise transactions to invoice files (no fetching)."""
+    result = _run_sync(SyncMode.match_only, verbose=verbose)
+    _print_result(result, as_json)
+
+
 @app.command()
 def report(
     month: str = typer.Option(..., "--month", help="Month in YYYY-MM format"),
@@ -158,6 +169,30 @@ def link(
         invoice.invoice_file_id = invoice_file.id
         db.commit()
         console.print(f"[green]✓ Linked {invoice_number} → {filename}[/green]")
+    finally:
+        db.close()
+
+
+@app.command("link-wise")
+def link_wise(
+    wise_transaction_id: str = typer.Argument(help="Wise transaction id (e.g. 'CARD-3868107236')"),
+    filename: str = typer.Argument(help="PDF filename as stored in invoice_file (e.g. '2026-06-02_0017_scaleway-invoice-2026-05.pdf')"),
+):
+    """Manually link a Wise transaction to a PDF file."""
+    db = SessionLocal()
+    try:
+        txn = db.query(WiseTransaction).filter_by(wise_transaction_id=wise_transaction_id).first()
+        if not txn:
+            console.print(f"[red]Wise transaction not found: {wise_transaction_id}[/red]")
+            raise typer.Exit(1)
+        invoice_file = db.query(InvoiceFile).filter_by(filename=filename).first()
+        if not invoice_file:
+            console.print(f"[red]InvoiceFile not found: {filename}[/red]")
+            console.print("[yellow]Run sync-pdf first to import the file.[/yellow]")
+            raise typer.Exit(1)
+        txn.invoice_file_id = invoice_file.id
+        db.commit()
+        console.print(f"[green]✓ Linked {wise_transaction_id} → {filename}[/green]")
     finally:
         db.close()
 

@@ -17,6 +17,7 @@ class SyncMode(str, Enum):
     nav_only = "nav_only"
     pdf_only = "pdf_only"
     wise_only = "wise_only"
+    match_only = "match_only"
 
 
 class SyncRequest(BaseModel):
@@ -32,6 +33,7 @@ class SyncResponse(BaseModel):
     nav_invoices_synced: int = 0
     pdf_files_synced: int = 0
     wise_transactions_synced: int = 0
+    wise_files_matched: int = 0
     errors: List[str] = Field(default_factory=list)
 
 
@@ -136,5 +138,6 @@ class WiseTransactionOut(BaseModel):
     supplier_id: Optional[int] = None
     customer_id: Optional[int] = None
     invoice_id: Optional[int] = None
+    invoice_file_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime

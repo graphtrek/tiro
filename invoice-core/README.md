@@ -19,6 +19,7 @@ uv run invoice-core sync --start 2026-05-01 --end 2026-05-31
 uv run invoice-core sync-nav                    # NAV only
 uv run invoice-core sync-pdf                    # PDF only
 uv run invoice-core sync-wise                   # Wise only
+uv run invoice-core sync-match                  # match existing Wise txns to invoice files (no fetching)
 uv run invoice-core report --month 2026-05      # full sync for one month + summary table
 
 # Tests
@@ -40,6 +41,7 @@ uv run alembic upgrade head
 | `POST` | `/api/v1/sync/nav` | Sync NAV invoices only |
 | `POST` | `/api/v1/sync/pdf` | Sync PDF file index only |
 | `POST` | `/api/v1/sync/wise` | Sync Wise transactions only |
+| `POST` | `/api/v1/sync/match` | Match existing Wise transactions to invoice files (no fetching) |
 | `GET`  | `/api/v1/invoices` | Invoice list (filter: `date_from`, `date_to`, `status`, `direction`) |
 | `GET`  | `/api/v1/invoices/{invoice_number}` | Single invoice |
 | `GET`  | `/api/v1/partners/suppliers` | Supplier list |
@@ -71,6 +73,7 @@ curl -X POST http://localhost:8004/api/v1/sync \
   "nav_invoices_synced": 12,
   "pdf_files_synced": 9,
   "wise_transactions_synced": 34,
+  "wise_files_matched": 27,
   "errors": []
 }
 ```
@@ -81,7 +84,7 @@ curl -X POST http://localhost:8004/api/v1/sync \
 |-------|------|---------|-------------|
 | `start_date` | `string` | 30 days ago | Filter start (`YYYY-MM-DD`) |
 | `end_date` | `string` | today | Filter end (`YYYY-MM-DD`) |
-| `sync_mode` | `string` | `full` | `full` / `nav_only` / `pdf_only` / `wise_only` |
+| `sync_mode` | `string` | `full` | `full` / `nav_only` / `pdf_only` / `wise_only` / `match_only` |
 | `clear_cache` | `bool` | `false` | Clear all downstream caches before syncing |
 
 ```bash
@@ -127,13 +130,18 @@ curl http://localhost:8004/api/v1/invoices/INV-2026-042
 uv run invoice-core sync [--start DATE] [--end DATE] [--clear-cache] [--json] [-v]
 ```
 
-### sync-nav / sync-pdf / sync-wise
+### sync-nav / sync-pdf / sync-wise / sync-match
 
 ```bash
 uv run invoice-core sync-nav [--start DATE] [--end DATE] [--clear-cache] [--json] [-v]
 uv run invoice-core sync-pdf [--start DATE] [--end DATE] [--clear-cache] [--json] [-v]
 uv run invoice-core sync-wise [--clear-cache] [--json] [-v]
+uv run invoice-core sync-match [--json] [-v]      # match existing Wise txns to invoice files
 ```
+
+`sync-match` fetches nothing — it re-evaluates every `wise_transaction` whose
+`invoice_file_id` is still `NULL` and links it to the best matching `invoice_file`
+(see the Wise → invoice file linking strategy below).
 
 ### link
 
@@ -146,6 +154,18 @@ uv run invoice-core link "87/2026" "2026-06-04_0020_GRAPHTREK_szamla.pdf"
 ```
 
 Both the invoice and the PDF file must already exist in the database (run `sync` first).
+
+### link-wise
+
+Manually link a Wise transaction to a PDF file when automatic matching leaves it unlinked:
+
+```bash
+uv run invoice-core link-wise <wise_transaction_id> <filename>
+# e.g.
+uv run invoice-core link-wise "CARD-3867572380" "2026-06-02_0017_scaleway-invoice-2026-05.pdf"
+```
+
+Both the transaction and the PDF file must already exist in the database (run `sync` first).
 
 ### report
 
@@ -200,7 +220,7 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `customer` | Customers sourced from NAV invoice data |
 | `invoice_file` | PDF files from invoice-file-filter: filename, filesystem path, and extracted word text (NUL bytes stripped) |
 | `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier, customer, and optionally invoice_file |
-| `wise_transaction` | Wise transactions; linked to invoice, supplier, and customer on every sync (see Linking strategy below) |
+| `wise_transaction` | Wise transactions; linked to invoice, supplier, customer, and invoice_file (see Linking strategies below) |
 
 ### Alembic setup
 
@@ -239,8 +259,9 @@ invoice-core (this)
   │         upsert supplier, customer, invoice (both directions)
   ├── POST invoice-file-filter:8001 /api/v1/invoices/extract → PDF file index (filename + path)
   │         upsert invoice_file; link to invoice (see PDF linking strategy below)
-  └── GET  wise:8003 /balance-statements       → TransactionSummary list
-            upsert wise_transaction; link to invoice/supplier/customer (see Wise linking strategy below)
+  ├── GET  wise:8003 /balance-statements       → TransactionSummary list
+  │         upsert wise_transaction; link to invoice/supplier/customer (see Wise linking strategy below)
+  └── match wise_transaction → invoice_file     (local DB pass, no HTTP; see Wise → invoice file below)
 ```
 
 ## Linking strategies
@@ -266,6 +287,23 @@ On every `sync-wise` run (including re-syncs of already-imported transactions):
 
 Links are only written when the foreign key is currently `NULL`, so manually corrected rows are never overwritten.
 
+### Wise transaction → invoice file
+
+The `sync-match` step (also run automatically at the end of a full `sync`) links each
+`wise_transaction` whose `invoice_file_id` is still `NULL` to the best matching
+`invoice_file`. This is what reaches card payments to foreign vendors (Anthropic,
+Scaleway, Google, etc.) that have **no NAV invoice** but do have a PDF receipt. In
+priority order:
+
+1. **Transitive** — if the transaction already links to an invoice that has a PDF, reuse that file (highest confidence).
+2. **Authoritative reference** — a bank transfer with an invoice-like `payment_reference` (contains a digit) must match a file that *contains* that reference. If no file does, the transaction is left unlinked rather than guessed from a coincidental amount/name — the reference is ground truth.
+3. **Scored best-match** — for card payments (no reference), every `(transaction, file)` pair is scored on:
+   - **Vendor name** — distinctive merchant / payee / payer tokens found in the filename or extracted words (our own company name, corporate-form words, and city names are ignored as noise).
+   - **Amount** — both the HUF `amount` (plain and Hungarian-grouped, e.g. `3400` / `3.400,00`) and the original amount embedded in the description for foreign card payments (`"15,19 EUR …"` → `15,19`; `"3,25 EUR …"` → `3.25`, matching `€3.25`).
+   - **Date proximity** — the `YYYY-MM-DD` filename prefix vs the transaction date.
+
+   Pairs are assigned greedily, highest score first, so each file is claimed by at most one transaction (e.g. two identical Simplepay charges land on two distinct receipts). A link is written only above the confidence threshold and never on date alone; the rest stay `NULL` for the manual `link-wise` fallback.
+
 ## Logs
 
 Written to stdout and `logs/invoice-core.log`.
@@ -273,7 +311,8 @@ Written to stdout and `logs/invoice-core.log`.
 ```
 2026-06-16 10:00:01 INFO  invoice_core/nav_client.py:48  GET http://localhost:8002/invoices → 8 outbound + 4 inbound = 12 invoice(s) in 234ms
 2026-06-16 10:00:02 INFO  invoice_core/service.py:56     sync_nav: 3 new invoice(s) from 12 digest(s)
-2026-06-16 10:00:05 INFO  invoice_core/service.py:125    sync_all [full] 2026-05-17..2026-06-16: nav=3 pdf=2 wise=5 errors=0 in 4210ms
+2026-06-16 10:00:04 INFO  invoice_core/service.py:499    sync_match: 4 Wise transaction(s) linked to a file
+2026-06-16 10:00:05 INFO  invoice_core/service.py:125    sync_all [full] 2026-05-17..2026-06-16: nav=3 pdf=2 wise=5 match=4 errors=0 in 4210ms
 ```
 
 ## Pipeline

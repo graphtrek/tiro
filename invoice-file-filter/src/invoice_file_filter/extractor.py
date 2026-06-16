@@ -74,7 +74,7 @@ def extract_words_csv(pdf_path: str) -> str:
             from .ocr import ocr_extract_words
             raw_words = ocr_extract_words(pdf_path, settings.ocr_language)
 
-    normalised = sorted({_fold(w).lower() for w in raw_words if len(w.strip()) >= 4})
+    normalised = sorted({_fold(w).lower() for w in raw_words if len(w.strip()) >= 3})
 
     buf = io.StringIO()
     writer = csv.writer(buf)

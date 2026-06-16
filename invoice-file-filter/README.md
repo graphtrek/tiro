@@ -121,7 +121,7 @@ Response:
 ### POST /api/v1/pdf/words
 
 Extract distinct, normalised words from a PDF and return them as a single-column CSV download.
-Words are lower-cased, diacritics are stripped, tokens shorter than 4 characters are dropped,
+Words are lower-cased, diacritics are stripped, tokens shorter than 3 characters are dropped,
 duplicates are removed, and results are sorted alphabetically.
 
 ```bash
@@ -185,7 +185,7 @@ uv run invoice-file-filter words PDF_PATH [--output FILE]
 
 Outputs a single-column CSV (`word` header) with one distinct, normalised word per line.
 Words are lower-cased and diacritics are stripped (`á`→`a`, `ő`→`o`, etc.); words shorter
-than 4 characters are dropped; duplicates are removed and the list is sorted alphabetically.
+than 3 characters are dropped; duplicates are removed and the list is sorted alphabetically.
 
 For PDFs with an embedded text layer pdfplumber is used directly.
 For scanned / image-only PDFs the command falls back to Tesseract OCR automatically

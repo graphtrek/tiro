@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Optional
 
@@ -26,6 +27,12 @@ def _norm(s: str) -> str:
     so that "87/2026", "87-2026", "87 / 2026" all compare equal.
     """
     return re.sub(r"\s*[/\\\-_.]\s*", "-", s).lower()
+
+
+def _ascii_lower(s: str) -> str:
+    """Lowercase and strip accents so 'ÜGYNÖKSÉG' → 'ugynokseg'."""
+    decomposed = unicodedata.normalize("NFKD", s or "")
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
 
 
 def _default_dates(start: Optional[str], end: Optional[str]) -> tuple[str, str]:
@@ -300,13 +307,231 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
     return count
 
 
+# ── Wise ↔ invoice_file matching ───────────────────────────────────────────────
+
+# Generic tokens that must never count as a vendor signal: corporate-form words,
+# cities, payment boilerplate, and our own company (appears in most PDFs).
+_VENDOR_STOPWORDS = {
+    "kommunikacios", "ugynokseg", "zartkoruen", "mukodo", "reszvenytarsasag",
+    "subscription", "payment", "fizetes", "budapest", "paris", "dublin",
+    "graphtrek", "graphtre", "invoice", "receipt", "szamla",
+}
+
+# A number (optionally grouped with space/.,) immediately followed by a currency.
+_CURRENCY_RE = re.compile(r"(\d[\d\s.,]*\d|\d)\s*(?:EUR|USD|HUF|GBP|CHF)", re.IGNORECASE)
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+_MATCH_THRESHOLD = 0.6
+_W_VENDOR = 0.4
+_W_AMOUNT = 0.4
+
+
+def _amount_candidates(txn: WiseTransaction) -> set[str]:
+    """Substrings to look for in a PDF's word list that would prove an amount match.
+
+    Covers both the HUF ``amount`` field (plain + Hungarian-grouped) and the
+    original amount embedded in the description for foreign card payments
+    (``"15,19 EUR …"`` → file uses ``15,19``; ``"3,25 EUR …"`` → file uses ``€3.25``).
+    """
+    cands: set[str] = set()
+
+    def _variants(num: str) -> None:
+        s = num.strip()
+        if not s:
+            return
+        cands.add(s)
+        cands.add(s.replace(" ", ""))
+        cands.add(s.replace(" ", "."))
+        # decimal-comma → decimal-dot, e.g. "3,25" matches "€3.25"
+        if "," in s and "." not in s:
+            cands.add(s.replace(",", "."))
+
+    for m in _CURRENCY_RE.finditer(txn.description or ""):
+        _variants(m.group(1))
+
+    amt = abs(txn.amount or 0.0)
+    if amt >= 1:
+        ival = int(round(amt))
+        cands.add(str(ival))
+        grouped = f"{ival:,}".replace(",", ".")  # 3400 → "3.400"
+        cands.add(grouped)
+        cands.add(f"{grouped},00")               # "3.400,00"
+
+    return {c for c in cands if len(c) >= 2 and c not in ("0", "00")}
+
+
+def _vendor_tokens(txn: WiseTransaction) -> set[str]:
+    """Distinctive vendor name tokens from merchant / payee / payer fields."""
+    raw = " ".join(filter(None, [txn.merchant, txn.payee_name, txn.payer_name]))
+    return {
+        tok for tok in _TOKEN_RE.findall(_ascii_lower(raw))
+        if len(tok) >= 4 and tok not in _VENDOR_STOPWORDS
+    }
+
+
+def _file_date(filename: str) -> Optional[date]:
+    """Parse the ``YYYY-MM-DD`` prefix that invoice-file-filter prepends."""
+    m = re.match(r"(\d{4}-\d{2}-\d{2})", filename or "")
+    if not m:
+        return None
+    try:
+        return date.fromisoformat(m.group(1))
+    except ValueError:
+        return None
+
+
+def _file_score(
+    amount_cands: set[str],
+    vendor_toks: set[str],
+    txn_date: Optional[date],
+    haystack: str,
+    filename_norm: str,
+    file_date: Optional[date],
+) -> tuple[float, bool, bool]:
+    """Weighted match score for one (transaction, file) pair.
+
+    ``haystack`` is the accent-stripped, lowercased ``filename + words`` blob.
+    Returns ``(score, hit_vendor, hit_amount)``.
+    """
+    hit_vendor = any(t in haystack for t in vendor_toks)
+    hit_amount = any(a in haystack for a in amount_cands)
+
+    score = 0.0
+    if hit_vendor:
+        score += _W_VENDOR
+    if hit_amount:
+        score += _W_AMOUNT
+    if file_date and txn_date:
+        days = abs((file_date - txn_date).days)
+        if days == 0:
+            score += 0.2
+        elif days <= 3:
+            score += 0.1
+        elif days <= 7:
+            score += 0.05
+    return score, hit_vendor, hit_amount
+
+
+def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
+    """Best-match unlinked Wise transactions to invoice files.
+
+    1. Transitive shortcut: if the txn already links to an invoice that has a PDF,
+       reuse that file (highest confidence).
+    2. Authoritative reference: a bank transfer with an explicit invoice-like
+       ``payment_reference`` (contains a digit) must match a file that *contains*
+       that reference. If no file does, the txn is left unlinked rather than
+       guessed from a coincidental amount/name — the reference is ground truth.
+    3. Otherwise score every (txn, file) pair on vendor name, amount, and date
+       proximity; greedily assign in descending-score order so each file is
+       claimed by at most one transaction. Only links at or above the confidence
+       threshold (and never on date alone) are written; the rest stay NULL for
+       the manual ``link-wise`` fallback.
+    """
+    settings = settings or get_settings()  # noqa: F841 — kept for signature parity
+    unmatched = db.query(WiseTransaction).filter(
+        WiseTransaction.invoice_file_id == None  # noqa: E711
+    ).all()
+    if not unmatched:
+        return 0
+
+    files = db.query(InvoiceFile).all()
+    file_feats = {
+        f.id: (_ascii_lower(f.filename) + " " + _ascii_lower(f.words or ""),
+               _norm(f.filename) + " " + _norm(f.words or ""), _file_date(f.filename))
+        for f in files
+    }
+    used_files: set[int] = set()
+    count = 0
+
+    def _assign(txn: WiseTransaction, file_id: int, why: str) -> None:
+        nonlocal count
+        txn.invoice_file_id = file_id
+        txn.updated_at = datetime.utcnow()
+        used_files.add(file_id)
+        count += 1
+        logger.info("Matched Wise txn %s → file_id %s (%s)", txn.wise_transaction_id, file_id, why)
+
+    # ── Phase 1: transitive shortcut + authoritative payment reference ───────
+    remaining: list[WiseTransaction] = []
+    for txn in unmatched:
+        # 1a. via the already-linked invoice
+        if txn.invoice_id:
+            invoice = db.query(Invoice).filter_by(id=txn.invoice_id).first()
+            if invoice and invoice.invoice_file_id:
+                _assign(txn, invoice.invoice_file_id, f"via invoice {invoice.invoice_number}")
+                continue
+
+        # 1b. explicit invoice-like reference → require a file that contains it
+        ref = (txn.payment_reference or "").strip()
+        if ref and any(ch.isdigit() for ch in ref):
+            norm_ref = _norm(ref)
+            hit = next(
+                (f.id for f in files
+                 if f.id not in used_files and norm_ref in file_feats[f.id][1]),
+                None,
+            )
+            if hit is not None:
+                _assign(txn, hit, f"reference {ref}")
+            else:
+                logger.warning(
+                    "Wise txn %s reference %s not found in any file — left unlinked",
+                    txn.wise_transaction_id, ref,
+                )
+            continue
+
+        remaining.append(txn)
+
+    # ── Phase 2: scored candidates ───────────────────────────────────────────
+    candidates: list[tuple[float, int, int]] = []  # (score, txn_id, file_id)
+    txn_by_id = {t.id: t for t in remaining}
+    for txn in remaining:
+        amount_cands = _amount_candidates(txn)
+        vendor_toks = _vendor_tokens(txn)
+        txn_date = txn.transaction_date.date() if txn.transaction_date else None
+        for f in files:
+            haystack, fname_norm, fdate = file_feats[f.id]
+            score, hit_vendor, hit_amount = _file_score(
+                amount_cands, vendor_toks, txn_date, haystack, fname_norm, fdate
+            )
+            if score >= _MATCH_THRESHOLD and (hit_vendor or hit_amount):
+                candidates.append((score, txn.id, f.id))
+
+    # Greedy 1:1 assignment: highest-scoring pairs win first.
+    candidates.sort(key=lambda c: c[0], reverse=True)
+    used_txns: set[int] = set()
+    for score, txn_id, file_id in candidates:
+        if txn_id in used_txns or file_id in used_files:
+            continue
+        txn = txn_by_id[txn_id]
+        txn.invoice_file_id = file_id
+        txn.updated_at = datetime.utcnow()
+        used_txns.add(txn_id)
+        used_files.add(file_id)
+        count += 1
+        logger.info(
+            "Matched Wise txn %s → file_id %s (score %.2f)",
+            txn.wise_transaction_id, file_id, score,
+        )
+
+    for txn in remaining:
+        if txn.id not in used_txns:
+            logger.warning(
+                "No confident invoice_file match for Wise txn %s (%s)",
+                txn.wise_transaction_id, txn.merchant or txn.payee_name or txn.payer_name or "",
+            )
+
+    db.commit()
+    logger.info("sync_match: %d Wise transaction(s) linked to a file", count)
+    return count
+
+
 def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = None) -> SyncResponse:
     """Run the full or partial sync pipeline."""
     settings = settings or get_settings()
     start, end = _default_dates(request.start_date, request.end_date)
     mode = request.sync_mode or SyncMode.full
     errors: list[str] = []
-    nav_count = pdf_count = wise_count = 0
+    nav_count = pdf_count = wise_count = match_count = 0
     t0 = time.monotonic()
 
     if request.clear_cache:
@@ -335,10 +560,17 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
             logger.error("Wise sync failed: %s", exc)
             errors.append(f"Wise: {exc}")
 
+    if mode in (SyncMode.full, SyncMode.match_only):
+        try:
+            match_count = sync_match(db, settings)
+        except Exception as exc:  # noqa: BLE001 — matching is local DB work; never fail the whole sync
+            logger.error("Wise↔file matching failed: %s", exc)
+            errors.append(f"Match: {exc}")
+
     elapsed_ms = (time.monotonic() - t0) * 1000
     logger.info(
-        "sync_all [%s] %s..%s: nav=%d pdf=%d wise=%d errors=%d in %.0fms",
-        mode.value, start, end, nav_count, pdf_count, wise_count, len(errors), elapsed_ms,
+        "sync_all [%s] %s..%s: nav=%d pdf=%d wise=%d match=%d errors=%d in %.0fms",
+        mode.value, start, end, nav_count, pdf_count, wise_count, match_count, len(errors), elapsed_ms,
     )
     return SyncResponse(
         start_date=start,
@@ -346,5 +578,6 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
         nav_invoices_synced=nav_count,
         pdf_files_synced=pdf_count,
         wise_transactions_synced=wise_count,
+        wise_files_matched=match_count,
         errors=errors,
     )

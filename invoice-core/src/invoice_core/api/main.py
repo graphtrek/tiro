@@ -78,6 +78,12 @@ def wise_sync(request: SyncRequest, db: Session = Depends(get_db)):
     return sync_all(request, db)
 
 
+@app.post("/api/v1/sync/match", response_model=SyncResponse)
+def match_sync(request: SyncRequest, db: Session = Depends(get_db)):
+    request.sync_mode = SyncMode.match_only
+    return sync_all(request, db)
+
+
 # ── Query endpoints ───────────────────────────────────────────────────────────
 
 @app.get("/api/v1/invoices", response_model=List[InvoiceOut])
