@@ -11,13 +11,13 @@ last_updated: "2026-06-15"
 
 A **Moneypenny** egy öt Python mikroszervizből álló számla-automatizálási rendszer, amely a Graphtrek számlázási folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti a Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva.
 
-| #   | Mikroszerviz      | Port | Szerep                                               |
-| --- | ----------------- | ---- | ---------------------------------------------------- |
-| 5   | `invoice-core`       | 8004 | MASTER orchestrator – DB persistálás, reconciliation |
-| 3   | `nav-invoice`      | 8002 | NAV Online Számla API lekérdezés                     |
-| 2   | `invoice-file-filter`      | 8001 | PDF metaadat kinyerés (OCR/Regex)                    |
+| #   | Mikroszerviz            | Port | Szerep                                               |
+| --- | ----------------------- | ---- | ---------------------------------------------------- |
+| 5   | `invoice-core`          | 8004 | MASTER orchestrator – DB persistálás, reconciliation |
+| 3   | `nav-invoice`           | 8002 | NAV Online Számla API lekérdezés                     |
+| 2   | `invoice-file-filter`   | 8001 | PDF metaadat kinyerés (OCR/Regex)                    |
 | 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                      |
-| 4   | `wise`            | 8003 | Wise bankkivonatok feldolgozása (CSV import)         |
+| 4   | `wise`                  | 8003 | Wise bankkivonatok feldolgozása (CSV import)         |
 
 Belépési pont: `POST /api/v1/sync` → `invoice-core` (8004). Minden mikroszerviznek van FastAPI REST interfésze és Typer CLI-je is.
 
