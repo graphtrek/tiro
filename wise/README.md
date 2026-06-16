@@ -28,6 +28,9 @@ uv run wise-szamla sync --json                                   # géppel olvas
 uv run wise-szamla --verbose sync --start 2026-05-01            # DEBUG szintű napló
 uv run wise-szamla statements                                    # letöltött kivonat CSV-k listázása
 uv run wise-szamla statements --currency HUF --from 2026-05-01
+uv run wise-szamla balance-statements                            # legfrissebb kivonat tranzakciói (mint GET /balance-statements)
+uv run wise-szamla balance-statements --currency HUF --from 2026-05-01  # fájllista szűréssel
+uv run wise-szamla balance-statements --json                     # JSON kimenet
 uv run wise-szamla import statement_25546267_HUF_2026-05-19_2026-06-02.csv
 uv run wise-szamla import statement_25546267_HUF_2026-05-19_2026-06-02.csv --json
 
@@ -298,6 +301,45 @@ Példa kimenet:
 ```
  Fájl                                              Balance ID  Pénznem  Időszak                     Méret
  statement_25546267_HUF_2026-05-19_2026-06-02.csv  25546267    HUF      2026-05-19 .. 2026-06-02   12,345 B
+```
+
+### balance-statements
+
+API-paritásos parancs — ugyanaz a viselkedés, mint a `GET /balance-statements` végpont:
+
+- **Szűrő nélkül**: a legfrissebb CSV-t olvassa be (`to_date` szerint) és a tranzakciókat listázza.
+- **Szűrőkkel** (`--from` / `--to` / `--currency`): a megfelelő fájlok metaadatait listázza (mint a `statements` parancs).
+
+```bash
+uv run wise-szamla balance-statements [OPTIONS]
+```
+
+| Opció             | Default  | Leírás                                   |
+|-------------------|----------|------------------------------------------|
+| `--from DATE`     | —        | Szűrés kezdete (`YYYY-MM-DD`)            |
+| `--to DATE`       | —        | Szűrés vége (`YYYY-MM-DD`)              |
+| `--currency TEXT` | —        | Pénznem szűrő (pl. `HUF`)               |
+| `--json`          | ki       | JSON kimenet (mindkét módban)            |
+
+```bash
+# Legfrissebb kivonat tranzakciói
+uv run wise-szamla balance-statements
+
+# Fájllista szűréssel
+uv run wise-szamla balance-statements --currency HUF --from 2026-05-01
+
+# JSON kimenet
+uv run wise-szamla balance-statements --json
+```
+
+Példa kimenet (szűrő nélkül):
+
+```
+✓ 3 tranzakció (2026-05-19..2026-06-02, HUF) — statement_25546267_HUF_2026-05-19_2026-06-02.csv
+
+ Azonosító       Típus   Dátum        Összeg          Partner
+ TRANSFER-AAA    CREDIT  2026-05-20   150,000.00 HUF  ACME Kft.
+ CARD-BBB        DEBIT   2026-05-25     4,990.00 HUF  Netflix
 ```
 
 ### import

@@ -183,6 +183,97 @@ def statements(
     console.print(table)
 
 
+@app.command(name="balance-statements")
+def balance_statements(
+    from_: Optional[str] = typer.Option(
+        None, "--from", help="Szűrés kezdete (YYYY-MM-DD)"
+    ),
+    to: Optional[str] = typer.Option(
+        None, "--to", help="Szűrés vége (YYYY-MM-DD)"
+    ),
+    currency: Optional[str] = typer.Option(
+        None, "--currency", help="Pénznem szűrő (pl. HUF)"
+    ),
+    as_json: bool = typer.Option(False, "--json", help="JSON kimenet"),
+):
+    """GET /balance-statements: szűrő nélkül a legfrissebb kivonat tranzakcióit, szűrővel a fájllistát adja vissza."""
+    from wise_szamla.csv_import import StatementCsvError
+
+    if from_ is None and to is None and currency is None:
+        files = list_statement_files()
+        if not files:
+            console.print("[red]✗[/red] Nincs elérhető kivonat CSV.")
+            raise typer.Exit(code=1)
+        latest = max(files, key=lambda f: f.to_date)
+        try:
+            result = parse_statement_csv(latest.filename)
+        except StatementCsvError as exc:
+            console.print(f"[red]✗ CSV hiba:[/red] {exc}")
+            raise typer.Exit(code=1)
+
+        if as_json:
+            console.print_json(_json.dumps(result.model_dump(), default=str))
+            return
+
+        console.print(
+            f"[green]✓[/green] {result.fetched} tranzakció "
+            f"({result.from_date}..{result.to_date}, {result.currency}) "
+            f"— [dim]{latest.filename}[/dim]\n"
+        )
+        if not result.transactions:
+            console.print("Nincs tranzakció a fájlban.")
+            return
+
+        table = Table(show_lines=False)
+        table.add_column("Azonosító", overflow="fold")
+        table.add_column("Típus", width=7)
+        table.add_column("Dátum", width=12)
+        table.add_column("Összeg", justify="right")
+        table.add_column("Partner", overflow="fold")
+
+        for txn in result.transactions:
+            color = "green" if txn.type == TransactionType.CREDIT else "red"
+            table.add_row(
+                txn.wise_transaction_id,
+                f"[{color}]{txn.type.value}[/{color}]",
+                txn.transaction_date.strftime("%Y-%m-%d"),
+                f"{txn.amount:,.2f} {txn.currency}",
+                txn.counterparty_name or "[dim]–[/dim]",
+            )
+        console.print(table)
+        return
+
+    files = list_statement_files(
+        from_date=date.fromisoformat(from_) if from_ else None,
+        to_date=date.fromisoformat(to) if to else None,
+        currency=currency,
+    )
+    if not files:
+        console.print("Nincs a szűrésnek megfelelő kivonat CSV.")
+        return
+
+    if as_json:
+        console.print_json(_json.dumps([f.model_dump() for f in files], default=str))
+        return
+
+    table = Table(show_lines=False)
+    table.add_column("Fájl", overflow="fold")
+    table.add_column("Balance ID", justify="right")
+    table.add_column("Pénznem", width=8)
+    table.add_column("Időszak")
+    table.add_column("Méret", justify="right")
+
+    for f in files:
+        table.add_row(
+            f.filename,
+            str(f.balance_id),
+            f.currency,
+            f"{f.from_date} .. {f.to_date}",
+            f"{f.size_bytes:,} B",
+        )
+    console.print(table)
+
+
 @app.command(name="import")
 def import_csv(
     filename: str = typer.Argument(
