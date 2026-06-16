@@ -98,7 +98,7 @@ class TestParseStatementCsv:
         assert txn.type == TransactionType.DEBIT
         assert txn.amount == Decimal("-71440.00")
         assert txn.counterparty_name == "Őrszem Services Kft."
-        assert txn.counterparty_account == "11600006-00000000-94346200"
+        assert txn.payee_account_number == "11600006-00000000-94346200"
         assert txn.payment_reference == "2026-000064"
 
     def test_card_uses_merchant(self, settings):

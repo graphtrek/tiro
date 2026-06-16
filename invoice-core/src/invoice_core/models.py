@@ -116,6 +116,23 @@ class WiseTransactionOut(BaseModel):
     currency: str
     transaction_date: datetime
     description: Optional[str] = None
+    payment_reference: Optional[str] = None
+    running_balance: Optional[float] = None
+    exchange_from: Optional[str] = None
+    exchange_to: Optional[str] = None
+    exchange_rate: Optional[float] = None
+    payer_name: Optional[str] = None
+    payee_name: Optional[str] = None
+    payee_account_number: Optional[str] = None
+    merchant: Optional[str] = None
+    card_last_four_digits: Optional[str] = None
+    card_holder_full_name: Optional[str] = None
+    attachment: Optional[str] = None
+    note: Optional[str] = None
+    total_fees: Optional[float] = None
+    exchange_to_amount: Optional[float] = None
+    transaction_type: Optional[str] = None
+    transaction_details_type: Optional[str] = None
     supplier_id: Optional[int] = None
     customer_id: Optional[int] = None
     invoice_id: Optional[int] = None

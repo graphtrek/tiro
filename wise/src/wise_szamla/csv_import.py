@@ -146,27 +146,53 @@ def _row_type(row: dict, amount: Decimal) -> TransactionType:
     return TransactionType.CREDIT if amount >= 0 else TransactionType.DEBIT
 
 
-def _counterparty_name(row: dict) -> Optional[str]:
-    for col in ("Payer Name", "Payee Name", "Merchant"):
-        val = (row.get(col) or "").strip()
-        if val:
-            return val
-    return None
+
+def _opt_str(row: dict, col: str) -> Optional[str]:
+    return (row.get(col) or "").strip() or None
+
+
+def _opt_decimal(row: dict, col: str) -> Optional[Decimal]:
+    raw = (row.get(col) or "").strip()
+    if not raw:
+        return None
+    try:
+        v = Decimal(raw)
+        return v if v != 0 else None
+    except InvalidOperation:
+        return None
 
 
 def _row_to_summary(row: dict) -> TransactionSummary:
     amount = _parse_amount(row.get("Amount", "0"))
     raw_date = row.get("Date Time") or row.get("Date") or ""
+    payer_name = _opt_str(row, "Payer Name")
+    payee_name = _opt_str(row, "Payee Name")
+    merchant = _opt_str(row, "Merchant")
+    counterparty_name = payer_name or payee_name or merchant
     return TransactionSummary(
         wise_transaction_id=(row.get("TransferWise ID") or "").strip(),
         type=_row_type(row, amount),
         transaction_date=_parse_date(raw_date),
         amount=amount,
         currency=(row.get("Currency") or "").strip(),
-        description=(row.get("Description") or "").strip() or None,
-        counterparty_name=_counterparty_name(row),
-        counterparty_account=(row.get("Payee Account Number") or "").strip() or None,
-        payment_reference=(row.get("Payment Reference") or "").strip() or None,
+        description=_opt_str(row, "Description"),
+        payment_reference=_opt_str(row, "Payment Reference"),
+        running_balance=_opt_decimal(row, "Running Balance"),
+        exchange_from=_opt_str(row, "Exchange From"),
+        exchange_to=_opt_str(row, "Exchange To"),
+        exchange_rate=_opt_decimal(row, "Exchange Rate"),
+        payer_name=payer_name,
+        payee_name=payee_name,
+        payee_account_number=_opt_str(row, "Payee Account Number"),
+        merchant=merchant,
+        card_last_four_digits=_opt_str(row, "Card Last Four Digits"),
+        card_holder_full_name=_opt_str(row, "Card Holder Full Name"),
+        attachment=_opt_str(row, "Attachment"),
+        note=_opt_str(row, "Note"),
+        total_fees=_opt_decimal(row, "Total fees"),
+        exchange_to_amount=_opt_decimal(row, "Exchange To Amount"),
+        transaction_details_type=_opt_str(row, "Transaction Details Type"),
+        counterparty_name=counterparty_name,
     )
 
 

@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: a0446f16f8b8
+Revision ID: b88ba50b0563
 Revises: 
-Create Date: 2026-06-16 21:03:21.431472
+Create Date: 2026-06-16 21:12:27.051126
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'a0446f16f8b8'
+revision: str = 'b88ba50b0563'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -91,6 +91,23 @@ def upgrade() -> None:
     sa.Column('currency', sa.String(), nullable=False),
     sa.Column('transaction_date', sa.DateTime(), nullable=False),
     sa.Column('description', sa.String(), nullable=True),
+    sa.Column('payment_reference', sa.String(), nullable=True),
+    sa.Column('running_balance', sa.Float(), nullable=True),
+    sa.Column('exchange_from', sa.String(), nullable=True),
+    sa.Column('exchange_to', sa.String(), nullable=True),
+    sa.Column('exchange_rate', sa.Float(), nullable=True),
+    sa.Column('payer_name', sa.String(), nullable=True),
+    sa.Column('payee_name', sa.String(), nullable=True),
+    sa.Column('payee_account_number', sa.String(), nullable=True),
+    sa.Column('merchant', sa.String(), nullable=True),
+    sa.Column('card_last_four_digits', sa.String(), nullable=True),
+    sa.Column('card_holder_full_name', sa.String(), nullable=True),
+    sa.Column('attachment', sa.String(), nullable=True),
+    sa.Column('note', sa.Text(), nullable=True),
+    sa.Column('total_fees', sa.Float(), nullable=True),
+    sa.Column('exchange_to_amount', sa.Float(), nullable=True),
+    sa.Column('transaction_type', sa.String(), nullable=True),
+    sa.Column('transaction_details_type', sa.String(), nullable=True),
     sa.Column('supplier_id', sa.Integer(), nullable=True),
     sa.Column('customer_id', sa.Integer(), nullable=True),
     sa.Column('invoice_id', sa.Integer(), nullable=True),

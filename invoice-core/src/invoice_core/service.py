@@ -84,11 +84,20 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
         direction_str = d.get("direction", "OUTBOUND")
         direction = _InvoiceDirection[direction_str] if direction_str in _InvoiceDirection.__members__ else _InvoiceDirection.OUTBOUND
 
+        amount_net = d.get("invoice_net_amount")
+        amount_vat = d.get("invoice_vat_amount")
+        amount_total = (
+            (amount_net or 0.0) + (amount_vat or 0.0)
+            if amount_net is not None or amount_vat is not None
+            else None
+        )
+
         existing = db.query(Invoice).filter_by(invoice_number=invoice_number).first()
         if existing:
             existing.invoice_date = issue_date
-            existing.amount_net = d.get("invoice_net_amount")
-            existing.amount_vat = d.get("invoice_vat_amount")
+            existing.amount_net = amount_net
+            existing.amount_vat = amount_vat
+            existing.amount_total = amount_total
             existing.direction = direction
             existing.updated_at = datetime.utcnow()
         else:
@@ -97,8 +106,9 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
                 invoice_date=issue_date,
                 supplier_id=supplier.id,
                 customer_id=customer.id,
-                amount_net=d.get("invoice_net_amount"),
-                amount_vat=d.get("invoice_vat_amount"),
+                amount_net=amount_net,
+                amount_vat=amount_vat,
+                amount_total=amount_total,
                 payment_status=_PaymentStatus.UNPAID,
                 direction=direction,
                 nav_transaction_id=d.get("ins_date"),
@@ -215,12 +225,39 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
             except (TypeError, ValueError):
                 amount = 0.0
 
+            def _opt_float(key: str) -> Optional[float]:
+                raw = t.get(key)
+                if raw is None:
+                    return None
+                try:
+                    v = float(raw)
+                    return v if v != 0.0 else None
+                except (TypeError, ValueError):
+                    return None
+
             wtxn = WiseTransaction(
                 wise_transaction_id=wise_id,
                 amount=amount,
                 currency=t.get("currency", ""),
                 transaction_date=txn_date,
                 description=t.get("description"),
+                payment_reference=t.get("payment_reference"),
+                running_balance=_opt_float("running_balance"),
+                exchange_from=t.get("exchange_from"),
+                exchange_to=t.get("exchange_to"),
+                exchange_rate=_opt_float("exchange_rate"),
+                payer_name=t.get("payer_name"),
+                payee_name=t.get("payee_name"),
+                payee_account_number=t.get("payee_account_number"),
+                merchant=t.get("merchant"),
+                card_last_four_digits=t.get("card_last_four_digits"),
+                card_holder_full_name=t.get("card_holder_full_name"),
+                attachment=t.get("attachment"),
+                note=t.get("note"),
+                total_fees=_opt_float("total_fees"),
+                exchange_to_amount=_opt_float("exchange_to_amount"),
+                transaction_type=t.get("type"),
+                transaction_details_type=t.get("transaction_details_type"),
             )
             db.add(wtxn)
             count += 1

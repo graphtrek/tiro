@@ -91,9 +91,23 @@ class TransactionSummary(BaseModel):
     amount: Decimal
     currency: str
     description: Optional[str] = None
-    counterparty_name: Optional[str] = None
-    counterparty_account: Optional[str] = None
     payment_reference: Optional[str] = None
+    running_balance: Optional[Decimal] = None
+    exchange_from: Optional[str] = None
+    exchange_to: Optional[str] = None
+    exchange_rate: Optional[Decimal] = None
+    payer_name: Optional[str] = None
+    payee_name: Optional[str] = None
+    payee_account_number: Optional[str] = None
+    merchant: Optional[str] = None
+    card_last_four_digits: Optional[str] = None
+    card_holder_full_name: Optional[str] = None
+    attachment: Optional[str] = None
+    note: Optional[str] = None
+    total_fees: Optional[Decimal] = None
+    exchange_to_amount: Optional[Decimal] = None
+    transaction_details_type: Optional[str] = None
+    counterparty_name: Optional[str] = None
 
     @field_serializer("transaction_date")
     def _serialize_datetime(self, value: datetime) -> str:
