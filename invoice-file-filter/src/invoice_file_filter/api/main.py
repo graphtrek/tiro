@@ -61,7 +61,7 @@ def extract_invoices(request: ExtractRequest):
 
 @app.post("/api/v1/pdf/words")
 def get_pdf_words(request: WordsRequest):
-    """Extract all words from a PDF and return them as CSV (page,word,x0,top,x1,bottom)."""
+    """Extract distinct normalised words from a PDF and return them as single-column CSV (word)."""
     csv_content = extract_words_csv(request.pdf_path)
     filename = request.pdf_path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1] or "words"
     filename = filename.removesuffix(".pdf") + "_words.csv"

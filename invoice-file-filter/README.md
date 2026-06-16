@@ -4,6 +4,29 @@ Moneypenny pipeline microservice #2 (port 8001). Calls **attachment-downloader**
 invoice PDF attachments, selects invoices among the downloaded files by keyword matching,
 and exposes the result through a **FastAPI** REST API and a **Typer** CLI.
 
+## System dependencies
+
+The OCR fallback (for scanned/image-only PDFs) requires **Poppler** and **Tesseract** to be
+installed on the host. The Python packages (`pdf2image`, `pytesseract`, `Pillow`) are already
+in `pyproject.toml` — only the system binaries need to be added.
+
+### macOS
+
+```bash
+brew install poppler tesseract tesseract-lang
+```
+
+`tesseract-lang` adds the Hungarian language pack (`hun`) used by the default `hun+eng` OCR mode.
+
+### Debian / Ubuntu
+
+```bash
+sudo apt-get update
+sudo apt-get install -y poppler-utils tesseract-ocr tesseract-ocr-hun tesseract-ocr-eng
+```
+
+---
+
 ## Running
 
 ```bash
@@ -97,7 +120,9 @@ Response:
 
 ### POST /api/v1/pdf/words
 
-Extract every word from a PDF file and return them as a CSV download with positional metadata.
+Extract distinct, normalised words from a PDF and return them as a single-column CSV download.
+Words are lower-cased, diacritics are stripped, tokens shorter than 4 characters are dropped,
+duplicates are removed, and results are sorted alphabetically.
 
 ```bash
 curl -X POST http://localhost:8001/api/v1/pdf/words \
@@ -109,9 +134,10 @@ curl -X POST http://localhost:8001/api/v1/pdf/words \
 Response — `text/csv` attachment (`<basename>_words.csv`):
 
 ```
-page,word,x0,top,x1,bottom
-1,Invoice,72.0,48.2,108.5,60.1
-1,Number:,110.0,48.2,148.3,60.1
+word
+afa
+graphtrek
+szamla
 ```
 
 ### GET /api/v1/pdf/words/cache
@@ -157,7 +183,13 @@ uv run invoice-file-filter process [OPTIONS]
 uv run invoice-file-filter words PDF_PATH [--output FILE]
 ```
 
-Columns: `page`, `word`, `x0`, `top`, `x1`, `bottom`.
+Outputs a single-column CSV (`word` header) with one distinct, normalised word per line.
+Words are lower-cased and diacritics are stripped (`á`→`a`, `ő`→`o`, etc.); words shorter
+than 4 characters are dropped; duplicates are removed and the list is sorted alphabetically.
+
+For PDFs with an embedded text layer pdfplumber is used directly.
+For scanned / image-only PDFs the command falls back to Tesseract OCR automatically
+(requires Poppler and Tesseract — see [System dependencies](#system-dependencies)).
 
 ### cache-info / cache-clear
 
@@ -189,6 +221,9 @@ Written to stdout and `logs/invoice-file-filter.log`.
 | `API_HOST` | `0.0.0.0` | FastAPI bind address |
 | `API_PORT` | `8001` | FastAPI port |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
+| `OCR_ENABLED` | `true` | Enable Tesseract OCR fallback for scanned PDFs |
+| `OCR_LANGUAGE` | `hun+eng` | Tesseract language(s) — `+`-separated Tesseract lang codes |
+| `OCR_MIN_CHARS` | `50` | pdfplumber char count below which OCR is attempted |
 
 ## Pipeline
 

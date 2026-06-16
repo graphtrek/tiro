@@ -72,6 +72,7 @@ class PdfClient:
     def get_words_text(self, pdf_path: str) -> str:
         """POST /api/v1/pdf/words → all words from the PDF joined into one string.
 
+        The response is a single-column CSV (header: word); one normalised word per row.
         Returns an empty string on any error so callers can treat it as a no-match.
         """
         try:
@@ -86,5 +87,5 @@ class PdfClient:
             return ""
         reader = csv.reader(io.StringIO(resp.text))
         next(reader, None)  # skip header row
-        words = [row[1] for row in reader if len(row) > 1]
+        words = [row[0] for row in reader if row]
         return " ".join(words)

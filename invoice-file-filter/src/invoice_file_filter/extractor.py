@@ -43,9 +43,10 @@ def get_page_count(pdf_path: str) -> int:
 
 
 def extract_words_csv(pdf_path: str) -> str:
-    """Return all words from a PDF as CSV with columns: page,word,x0,top,x1,bottom.
+    """Return distinct, normalised words from a PDF as single-column CSV (header: word).
 
-    Results are cached by file path keyed on mtime; stale entries are evicted automatically.
+    Words are lower-cased and diacritics are stripped so accented and unaccented
+    variants collapse to the same token.  Results are cached by mtime.
     """
     try:
         mtime = os.path.getmtime(pdf_path)
@@ -57,18 +58,30 @@ def extract_words_csv(pdf_path: str) -> str:
         logger.debug("words cache hit: %s", pdf_path)
         return cached_csv
 
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(["page", "word", "x0", "top", "x1", "bottom"])
+    raw_words: list[str] = []
     try:
         with pdfplumber.open(pdf_path) as pdf:
-            for page_num, page in enumerate(pdf.pages, start=1):
+            for page in pdf.pages:
                 for word in page.extract_words():
-                    writer.writerow(
-                        [page_num, word["text"], word["x0"], word["top"], word["x1"], word["bottom"]]
-                    )
+                    raw_words.append(word["text"])
     except Exception as exc:
         logger.warning("Could not extract words from %s: %s", pdf_path, exc)
+
+    if not raw_words:
+        settings = get_settings()
+        if settings.ocr_enabled:
+            logger.info("No words from pdfplumber in %s — falling back to OCR", pdf_path)
+            from .ocr import ocr_extract_words
+            raw_words = ocr_extract_words(pdf_path, settings.ocr_language)
+
+    normalised = sorted({_fold(w).lower() for w in raw_words if len(w.strip()) >= 4})
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["word"])
+    for w in normalised:
+        writer.writerow([w])
+
     csv_data = buf.getvalue()
     _words_cache[pdf_path] = (mtime, csv_data)
     return csv_data
@@ -87,14 +100,26 @@ def clear_words_cache() -> int:
 
 
 def extract_text(pdf_path: str) -> str:
-    """Return all text from a PDF (empty string if it cannot be read)."""
+    """Return all text from a PDF, falling back to OCR for scanned pages.
+
+    pdfplumber is tried first. If the extracted text is shorter than
+    ``settings.ocr_min_chars`` and OCR is enabled, Tesseract is used instead.
+    """
     try:
         with pdfplumber.open(pdf_path) as pdf:
             parts = [page.extract_text() or "" for page in pdf.pages]
-        return "\n".join(parts)
-    except Exception as exc:  # corrupt/locked/scanned PDF
+        text = "\n".join(parts)
+    except Exception as exc:
         logger.warning("Could not extract text from %s: %s", pdf_path, exc)
-        return ""
+        text = ""
+
+    settings = get_settings()
+    if len(text.strip()) < settings.ocr_min_chars and settings.ocr_enabled:
+        logger.info("Sparse text (%d chars) in %s — trying OCR", len(text.strip()), pdf_path)
+        from .ocr import ocr_pdf
+        text = ocr_pdf(pdf_path, settings.ocr_language)
+
+    return text
 
 
 def is_invoice(filename: str, text: str, keywords: Optional[Sequence[str]] = None) -> bool:

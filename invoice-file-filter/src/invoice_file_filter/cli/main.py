@@ -102,7 +102,17 @@ def words(
     ),
 ):
     """Extract all words from a PDF and output them as CSV (page,word,x0,top,x1,bottom)."""
-    csv_content = extract_words_csv(pdf_path)
+    from pathlib import Path
+
+    resolved = Path(pdf_path)
+    if not resolved.exists():
+        candidate = Path(get_settings().output_dir) / pdf_path
+        if candidate.exists():
+            resolved = candidate
+        else:
+            console.print(f"[red]✗ Fájl nem található:[/red] {pdf_path}")
+            raise typer.Exit(code=1)
+    csv_content = extract_words_csv(str(resolved))
     if output:
         from pathlib import Path
         Path(output).write_text(csv_content, encoding="utf-8")

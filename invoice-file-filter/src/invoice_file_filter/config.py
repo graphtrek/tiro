@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     output_dir: str = "../attachment-downloader/downloads"
     invoice_keywords: list[str] = ["invoice", "bill", "szamla", "számla", "számviteli bizonylat"]
 
+    # ── OCR fallback (Tesseract) ─────────────────────────────
+    ocr_enabled: bool = True
+    ocr_language: str = "hun+eng"
+    ocr_min_chars: int = 50  # pdfplumber chars below this → try OCR
+
     # ── Download timeout (seconds) ───────────────────────────
     download_timeout: int = 120
 
