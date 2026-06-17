@@ -103,7 +103,10 @@ class InvoiceOut(BaseModel):
     amount_total: Optional[float] = None
     payment_status: PaymentStatus
     direction: InvoiceDirection
-    nav_transaction_id: Optional[str] = None
+    currency: Optional[str] = None
+    invoice_operation: Optional[str] = None
+    invoice_category: Optional[str] = None
+    nav_ins_date: Optional[str] = None
     invoice_file_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime

@@ -134,7 +134,10 @@ class Invoice(Base):
         nullable=False,
         default=_InvoiceDirection.OUTBOUND,
     )
-    nav_transaction_id = Column(String, nullable=True)
+    currency = Column(String, nullable=True)
+    invoice_operation = Column(String, nullable=True)
+    invoice_category = Column(String, nullable=True)
+    nav_ins_date = Column(String, nullable=True)
     invoice_file_id = Column(Integer, ForeignKey("invoice_file.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)

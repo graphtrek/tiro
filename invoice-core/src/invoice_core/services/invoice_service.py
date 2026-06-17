@@ -25,6 +25,7 @@ class InvoiceRow:
     amount_total: Optional[float]
     payment_status: str
     direction: str
+    currency: Optional[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
     wise_count: int
@@ -79,7 +80,10 @@ class InvoiceDetail:
     amount_total: Optional[float]
     payment_status: str
     direction: str
-    nav_transaction_id: Optional[str]
+    currency: Optional[str]
+    invoice_operation: Optional[str]
+    invoice_category: Optional[str]
+    nav_ins_date: Optional[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
     created_at: datetime
@@ -164,6 +168,7 @@ def list_invoices(
                 amount_total=inv.amount_total,
                 payment_status=status,
                 direction=inv.direction.value if hasattr(inv.direction, "value") else str(inv.direction),
+                currency=inv.currency,
                 invoice_file_id=inv.invoice_file_id,
                 invoice_file_filename=file_filename,
                 wise_count=wise_cnt or 0,
@@ -231,7 +236,10 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
             else (inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status))
         ),
         direction=inv.direction.value if hasattr(inv.direction, "value") else str(inv.direction),
-        nav_transaction_id=inv.nav_transaction_id,
+        currency=inv.currency,
+        invoice_operation=inv.invoice_operation,
+        invoice_category=inv.invoice_category,
+        nav_ins_date=inv.nav_ins_date,
         invoice_file_id=inv.invoice_file_id,
         invoice_file_filename=filename,
         created_at=inv.created_at,

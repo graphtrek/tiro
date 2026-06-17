@@ -98,6 +98,9 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
             if amount_net is not None or amount_vat is not None
             else None
         )
+        currency = d.get("currency") or None
+        invoice_operation = d.get("invoice_operation") or None
+        invoice_category = d.get("invoice_category") or None
 
         existing = db.query(Invoice).filter_by(invoice_number=invoice_number).first()
         if existing:
@@ -106,6 +109,9 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
             existing.amount_vat = amount_vat
             existing.amount_total = amount_total
             existing.direction = direction
+            existing.currency = currency
+            existing.invoice_operation = invoice_operation
+            existing.invoice_category = invoice_category
             existing.updated_at = datetime.utcnow()
         else:
             db.add(Invoice(
@@ -118,7 +124,10 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
                 amount_total=amount_total,
                 payment_status=_PaymentStatus.UNPAID,
                 direction=direction,
-                nav_transaction_id=d.get("ins_date"),
+                currency=currency,
+                invoice_operation=invoice_operation,
+                invoice_category=invoice_category,
+                nav_ins_date=d.get("ins_date"),
             ))
             count += 1
 

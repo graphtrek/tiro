@@ -30,8 +30,21 @@
           <dt class="col-sm-4">Dátum</dt>
           <dd class="col-sm-8">{{ invoice.invoice_date or '—' }}</dd>
 
-          <dt class="col-sm-4">NAV ID</dt>
-          <dd class="col-sm-8 text-muted">{{ invoice.nav_transaction_id or '—' }}</dd>
+          <dt class="col-sm-4">Deviza</dt>
+          <dd class="col-sm-8">{{ invoice.currency or 'HUF' }}</dd>
+
+          {% if invoice.invoice_operation %}
+          <dt class="col-sm-4">NAV művelet</dt>
+          <dd class="col-sm-8 text-muted">{{ invoice.invoice_operation }}</dd>
+          {% endif %}
+
+          {% if invoice.invoice_category %}
+          <dt class="col-sm-4">Számla típus</dt>
+          <dd class="col-sm-8 text-muted">{{ invoice.invoice_category }}</dd>
+          {% endif %}
+
+          <dt class="col-sm-4">NAV beérkezés</dt>
+          <dd class="col-sm-8 text-muted">{{ invoice.nav_ins_date or '—' }}</dd>
 
           <dt class="col-sm-4">Státusz</dt>
           <dd class="col-sm-8">{{ payment_badge(invoice.payment_status) }}</dd>

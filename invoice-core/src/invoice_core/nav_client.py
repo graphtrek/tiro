@@ -23,7 +23,8 @@ class NavClient:
     Returns raw dicts (InvoiceDigest fields) — no cross-package Pydantic import.
     Fields consumed by service.py:
         invoice_number, invoice_issue_date, supplier_tax_number, supplier_name,
-        customer_tax_number, customer_name, invoice_net_amount, invoice_vat_amount, currency
+        customer_tax_number, customer_name, invoice_net_amount, invoice_vat_amount,
+        currency, invoice_operation, invoice_category, ins_date
     """
 
     def __init__(self, settings: Optional[Settings] = None):
