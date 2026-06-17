@@ -9,10 +9,10 @@
       <th class="text-end">Nettó</th>
       <th class="text-end">ÁFA</th>
       <th class="text-end">Bruttó</th>
-      <th>Irány</th>
-      <th>Státusz</th>
       <th>PDF</th>
       <th class="text-center">Wise</th>
+      <th>Irány</th>
+      <th>Státusz</th>
     </tr>
   </thead>
   <tbody>
@@ -25,8 +25,6 @@
       <td class="text-end">{{ amount_fmt(row.amount_net) }}</td>
       <td class="text-end">{{ amount_fmt(row.amount_vat) }}</td>
       <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>
-      <td>{{ direction_badge(row.direction) }}</td>
-      <td>{{ payment_badge(row.payment_status) }}</td>
       <td>
         {% if row.invoice_file_id and row.invoice_file_filename %}
           <a href="/ui/invoice-files" title="{{ row.invoice_file_filename }}">
@@ -37,7 +35,23 @@
           <span class="text-muted">—</span>
         {% endif %}
       </td>
-      <td class="text-center">{{ wise_icon(row.wise_count) }}</td>
+      <td>
+        {% if row.wise_transaction_ids %}
+          {% if row.wise_count == 1 %}
+            <a href="/ui/transactions" class="font-monospace text-decoration-none" style="font-size:.8rem" title="Wise tranzakció">
+              <i class="bi bi-bank text-info"></i> {{ row.wise_transaction_ids[0] }}
+            </a>
+          {% else %}
+            <a href="/ui/transactions" class="badge bg-info text-dark text-decoration-none" title="{{ row.wise_transaction_ids | join(', ') }}">
+              <i class="bi bi-bank"></i> {{ row.wise_count }}
+            </a>
+          {% endif %}
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td>{{ direction_badge(row.direction) }}</td>
+      <td>{{ payment_badge(row.payment_status) }}</td>
     </tr>
     {% else %}
     <tr><td colspan="11" class="text-center text-muted">Nincs találat</td></tr>
@@ -58,7 +72,7 @@
       autoWidth: false,
       columnDefs: [
         { targets: [4, 5, 6], className: "text-end" },
-        { targets: [9, 10], orderable: false },
+        { targets: [7, 8], orderable: false },
       ],
     });
   })();

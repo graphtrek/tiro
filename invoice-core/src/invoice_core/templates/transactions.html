@@ -16,4 +16,25 @@
 <div id="table-container">
   {% include "partials/transaction_table.html" %}
 </div>
+
+<!-- Transaction detail offcanvas -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="txOffcanvas" style="width:420px">
+  <div class="offcanvas-header border-bottom">
+    <h5 class="offcanvas-title"><i class="bi bi-bank me-2 text-info"></i>Tranzakció részletei</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body" id="tx-offcanvas-body">
+    <p class="text-muted">Válasszon ki egy tranzakciót a listából.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.body.addEventListener("htmx:afterSwap", function(evt) {
+    if (evt.detail.target.id === "tx-offcanvas-body") {
+      bootstrap.Offcanvas.getOrCreateInstance(document.getElementById("txOffcanvas")).show();
+    }
+  });
+</script>
 {% endblock %}

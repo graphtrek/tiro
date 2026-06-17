@@ -5,32 +5,32 @@
       <th>Tranzakció ID</th>
       <th>Dátum</th>
       <th class="text-end">Összeg</th>
+      <th>Kapcsolt számla</th>
+      <th>PDF</th>
       <th>Leírás</th>
       <th>Referencia</th>
       <th>Partner</th>
-      <th>Kapcsolt számla</th>
-      <th>PDF</th>
     </tr>
   </thead>
   <tbody>
     {% for row in rows %}
-    <tr>
+    <tr style="cursor:pointer"
+        hx-get="/ui/transactions/{{ row.id }}"
+        hx-target="#tx-offcanvas-body"
+        hx-swap="innerHTML">
       <td><small class="text-muted font-monospace">{{ row.wise_transaction_id }}</small></td>
       <td>{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
       <td class="text-end">{{ amount_fmt(row.amount, row.currency) }}</td>
-      <td>{{ row.description or '—' }}</td>
-      <td>{{ row.payment_reference or '—' }}</td>
-      <td>{{ row.partner_name or '—' }}</td>
       <td>
         {% if row.invoice_id and row.invoice_number %}
-          <a href="/ui/invoices/{{ row.invoice_id }}">{{ row.invoice_number }}</a>
+          <a href="/ui/invoices/{{ row.invoice_id }}" onclick="event.stopPropagation()">{{ row.invoice_number }}</a>
         {% else %}
           <span class="text-muted">—</span>
         {% endif %}
       </td>
       <td>
         {% if row.invoice_file_id and row.invoice_file_filename %}
-          <a href="/ui/invoice-files" title="{{ row.invoice_file_filename }}">
+          <a href="/ui/invoice-files" title="{{ row.invoice_file_filename }}" onclick="event.stopPropagation()">
             <i class="bi bi-file-earmark-pdf text-danger"></i>
             <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
           </a>
@@ -38,6 +38,9 @@
           <span class="text-muted">—</span>
         {% endif %}
       </td>
+      <td>{{ row.description or '—' }}</td>
+      <td>{{ row.payment_reference or '—' }}</td>
+      <td>{{ row.partner_name or '—' }}</td>
     </tr>
     {% else %}
     <tr><td colspan="8" class="text-center text-muted">Nincs találat</td></tr>
@@ -58,7 +61,7 @@
       autoWidth: false,
       columnDefs: [
         { targets: [2], className: "text-end" },
-        { targets: [7], orderable: false },
+        { targets: [4], orderable: false },
       ],
     });
   })();

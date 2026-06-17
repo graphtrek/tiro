@@ -28,6 +28,7 @@ class InvoiceRow:
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
     wise_count: int
+    wise_transaction_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -148,6 +149,21 @@ def list_invoices(
                 wise_count=wise_cnt or 0,
             )
         )
+
+    if rows:
+        invoice_ids = [r.id for r in rows]
+        txn_rows = (
+            db.query(WiseTransaction.invoice_id, WiseTransaction.wise_transaction_id)
+            .filter(WiseTransaction.invoice_id.in_(invoice_ids))
+            .order_by(WiseTransaction.transaction_date.desc())
+            .all()
+        )
+        txn_map: dict[int, list[str]] = {}
+        for inv_id, txn_id in txn_rows:
+            txn_map.setdefault(inv_id, []).append(txn_id)
+        for row in rows:
+            row.wise_transaction_ids = txn_map.get(row.id, [])
+
     return rows
 
 

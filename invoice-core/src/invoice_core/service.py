@@ -267,6 +267,7 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
                 transaction_details_type=t.get("transaction_details_type"),
             )
             db.add(wtxn)
+            db.flush()  # make visible to subsequent queries (handles duplicate wise_transaction_ids in CSV)
             count += 1
 
         # ── Link invoice ──────────────────────────────────────────────────────

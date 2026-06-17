@@ -11,6 +11,43 @@ from invoice_core.db import Invoice, InvoiceFile, WiseTransaction
 
 
 @dataclass
+class TransactionDetail:
+    id: int
+    wise_transaction_id: str
+    transaction_date: datetime
+    amount: float
+    currency: str
+    description: Optional[str]
+    payment_reference: Optional[str]
+    running_balance: Optional[float]
+    exchange_from: Optional[str]
+    exchange_to: Optional[str]
+    exchange_rate: Optional[float]
+    exchange_to_amount: Optional[float]
+    payer_name: Optional[str]
+    payee_name: Optional[str]
+    payee_account_number: Optional[str]
+    merchant: Optional[str]
+    card_last_four_digits: Optional[str]
+    card_holder_full_name: Optional[str]
+    attachment: Optional[str]
+    note: Optional[str]
+    total_fees: Optional[float]
+    transaction_type: Optional[str]
+    transaction_details_type: Optional[str]
+    invoice_id: Optional[int]
+    invoice_number: Optional[str]
+    invoice_file_id: Optional[int]
+    invoice_file_filename: Optional[str]
+    supplier_id: Optional[int]
+    supplier_name: Optional[str]
+    customer_id: Optional[int]
+    customer_name: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass
 class TransactionRow:
     id: int
     wise_transaction_id: str
@@ -95,3 +132,51 @@ def list_transactions(
         )
         for t, inv_num, inv_file in q.all()
     ]
+
+
+def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDetail]:
+    row = (
+        db.query(WiseTransaction, Invoice.invoice_number, InvoiceFile.filename)
+        .outerjoin(Invoice, WiseTransaction.invoice_id == Invoice.id)
+        .outerjoin(InvoiceFile, WiseTransaction.invoice_file_id == InvoiceFile.id)
+        .filter(WiseTransaction.id == transaction_id)
+        .first()
+    )
+    if not row:
+        return None
+    t, inv_num, inv_file = row
+    return TransactionDetail(
+        id=t.id,
+        wise_transaction_id=t.wise_transaction_id,
+        transaction_date=t.transaction_date,
+        amount=t.amount,
+        currency=t.currency,
+        description=t.description,
+        payment_reference=t.payment_reference,
+        running_balance=t.running_balance,
+        exchange_from=t.exchange_from,
+        exchange_to=t.exchange_to,
+        exchange_rate=t.exchange_rate,
+        exchange_to_amount=t.exchange_to_amount,
+        payer_name=t.payer_name,
+        payee_name=t.payee_name,
+        payee_account_number=t.payee_account_number,
+        merchant=t.merchant,
+        card_last_four_digits=t.card_last_four_digits,
+        card_holder_full_name=t.card_holder_full_name,
+        attachment=t.attachment,
+        note=t.note,
+        total_fees=t.total_fees,
+        transaction_type=t.transaction_type,
+        transaction_details_type=t.transaction_details_type,
+        invoice_id=t.invoice_id,
+        invoice_number=inv_num,
+        invoice_file_id=t.invoice_file_id,
+        invoice_file_filename=inv_file,
+        supplier_id=t.supplier_id,
+        supplier_name=t.supplier.name if t.supplier else None,
+        customer_id=t.customer_id,
+        customer_name=t.customer.name if t.customer else None,
+        created_at=t.created_at,
+        updated_at=t.updated_at,
+    )

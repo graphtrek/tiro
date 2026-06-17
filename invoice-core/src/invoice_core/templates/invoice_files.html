@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "_macros.html" import amount_fmt, wise_icon %}
 {% block title %}Szla Fájlok — Moneypenny{% endblock %}
 
 {% block breadcrumb %}
@@ -14,74 +13,7 @@
 {% block content %}
 <h1 class="h3 mb-4"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Szla Fájlok</h1>
 
-
-<div id="table-container" class="table-responsive">
-  <table id="file-table" class="table table-hover table-sm" style="width:100%">
-    <thead class="table-dark">
-      <tr>
-        <th>Fájlnév</th>
-        <th>Kapcsolt számla</th>
-        <th>Szállító</th>
-        <th class="text-end">Összeg</th>
-        <th>Wise tranzakció</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in rows %}
-      <tr>
-        <td><span class="font-monospace small">{{ row.filename }}</span></td>
-        <td>
-          {% if row.linked_invoice_id %}
-            <a href="/ui/invoices/{{ row.linked_invoice_id }}">{{ row.linked_invoice_number }}</a>
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </td>
-        <td>{{ row.supplier_name or '—' }}</td>
-        <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>
-        <td>
-          {% if row.is_wise_linked %}
-            <div class="d-flex align-items-center gap-2">
-              {{ wise_icon(row.wise_count) }}
-              <span class="small">
-                <span class="font-monospace">{{ row.wise_transaction_id }}</span>
-                <span class="text-muted">{{ amount_fmt(row.wise_amount, row.wise_currency or 'HUF') }}</span>
-              </span>
-            </div>
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="5" class="text-center text-muted">Nincs találat</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div id="table-container">
+  {% include "partials/invoice_file_table.html" %}
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-  const dtConfig = {
-    language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
-    pageLength: 25,
-    scrollX: true,
-    columnDefs: [
-      { targets: [3], className: "text-end" },
-      { targets: [4], orderable: false },
-    ],
-  };
-  document.addEventListener("DOMContentLoaded", function() {
-    new DataTable("#file-table", dtConfig);
-  });
-  document.addEventListener("htmx:afterSwap", function(e) {
-    if (e.target.id === "table-container") {
-      if ($.fn.DataTable && $.fn.DataTable.isDataTable("#file-table")) {
-        $("#file-table").DataTable().destroy();
-      }
-      new DataTable("#file-table", dtConfig);
-    }
-  });
-</script>
 {% endblock %}

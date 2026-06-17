@@ -149,6 +149,14 @@ def transactions_page(
     return _resp(request, template, db, rows=rows)
 
 
+@router.get("/transactions/{transaction_id:int}")
+def transaction_detail_partial(request: Request, transaction_id: int, db: Session = Depends(get_db)):
+    tx = transaction_service.get_transaction(db, transaction_id)
+    if not tx:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", db, tx=tx)
+
+
 # ── Sync ──────────────────────────────────────────────────────────────────────
 
 @router.get("/sync")
