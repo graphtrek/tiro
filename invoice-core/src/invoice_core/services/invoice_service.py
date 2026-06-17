@@ -5,10 +5,10 @@ from datetime import date, datetime
 from typing import Optional
 
 from fastapi import Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from invoice_core.db import Customer, Invoice, Supplier, WiseTransaction, _PaymentStatus
+from invoice_core.db import Customer, Invoice, InvoiceFile, Supplier, WiseTransaction, _PaymentStatus, invoice_has_wise_txn
 
 
 @dataclass
@@ -26,6 +26,7 @@ class InvoiceRow:
     payment_status: str
     direction: str
     invoice_file_id: Optional[int]
+    invoice_file_filename: Optional[str]
     wise_count: int
 
 
@@ -96,18 +97,23 @@ def list_invoices(
         .subquery()
     )
     q = (
-        db.query(Invoice, Supplier.name, Customer.name, func.coalesce(wise_sub.c.cnt, 0))
+        db.query(Invoice, Supplier.name, Customer.name, func.coalesce(wise_sub.c.cnt, 0), InvoiceFile.filename)
         .join(Supplier, Invoice.supplier_id == Supplier.id)
         .join(Customer, Invoice.customer_id == Customer.id)
         .outerjoin(wise_sub, Invoice.id == wise_sub.c.invoice_id)
+        .outerjoin(InvoiceFile, Invoice.invoice_file_id == InvoiceFile.id)
     )
     if date_from:
         q = q.filter(Invoice.invoice_date >= date_from)
     if date_to:
         q = q.filter(Invoice.invoice_date <= date_to)
-    if payment_status:
+    if payment_status == "PAID":
+        # Paid = stored PAID OR settled by a linked Wise transaction.
+        q = q.filter(or_(Invoice.payment_status == _PaymentStatus.PAID, invoice_has_wise_txn()))
+    elif payment_status:
         try:
-            q = q.filter(Invoice.payment_status == _PaymentStatus[payment_status])
+            # A Wise-linked invoice is paid, so it can't be UNPAID/PARTIAL.
+            q = q.filter(Invoice.payment_status == _PaymentStatus[payment_status], ~invoice_has_wise_txn())
         except KeyError:
             pass
     if has_pdf == "true":
@@ -119,7 +125,10 @@ def list_invoices(
 
     q = q.order_by(Invoice.invoice_date.desc().nullslast(), Invoice.id.desc())
     rows = []
-    for inv, sup_name, cust_name, wise_cnt in q.all():
+    for inv, sup_name, cust_name, wise_cnt, file_filename in q.all():
+        status = inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status)
+        if (wise_cnt or 0) > 0:
+            status = _PaymentStatus.PAID.value
         rows.append(
             InvoiceRow(
                 id=inv.id,
@@ -132,9 +141,10 @@ def list_invoices(
                 amount_net=inv.amount_net,
                 amount_vat=inv.amount_vat,
                 amount_total=inv.amount_total,
-                payment_status=inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status),
+                payment_status=status,
                 direction=inv.direction.value if hasattr(inv.direction, "value") else str(inv.direction),
                 invoice_file_id=inv.invoice_file_id,
+                invoice_file_filename=file_filename,
                 wise_count=wise_cnt or 0,
             )
         )
@@ -180,7 +190,10 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         amount_net=inv.amount_net,
         amount_vat=inv.amount_vat,
         amount_total=inv.amount_total,
-        payment_status=inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status),
+        payment_status=(
+            _PaymentStatus.PAID.value if wise_txns
+            else (inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status))
+        ),
         direction=inv.direction.value if hasattr(inv.direction, "value") else str(inv.direction),
         nav_transaction_id=inv.nav_transaction_id,
         invoice_file_id=inv.invoice_file_id,

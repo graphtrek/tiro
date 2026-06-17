@@ -194,3 +194,17 @@ class SyncLog(Base):
     wise_count = Column(Integer, default=0, nullable=False)
     error_count = Column(Integer, default=0, nullable=False)
     errors = Column(Text, nullable=True)
+
+
+# ── Business rules ──────────────────────────────────────────────────────────
+
+def invoice_has_wise_txn():
+    """Correlated EXISTS: the invoice has at least one linked Wise transaction.
+
+    An invoice that has been paid via Wise is reflected by a WiseTransaction
+    whose ``invoice_id`` points at it. Such an invoice is considered PAID
+    regardless of its stored ``payment_status`` column.
+    """
+    from sqlalchemy import exists
+
+    return exists().where(WiseTransaction.invoice_id == Invoice.id)

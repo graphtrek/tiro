@@ -275,7 +275,10 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
             invoice = _find_invoice_by_ref(db, payment_ref)
             if invoice:
                 wtxn.invoice_id = invoice.id
-                logger.info("Linked Wise txn %s → invoice %s", wise_id, invoice.invoice_number)
+                # A Wise transaction settles the invoice → mark it paid.
+                invoice.payment_status = _PaymentStatus.PAID
+                invoice.updated_at = datetime.utcnow()
+                logger.info("Linked Wise txn %s → invoice %s (paid)", wise_id, invoice.invoice_number)
 
         # ── Derive supplier/customer from linked invoice ───────────────────────
         if wtxn.invoice_id and (not wtxn.supplier_id or not wtxn.customer_id):
@@ -301,6 +304,18 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
                 ).first()
                 if customer:
                     wtxn.customer_id = customer.id
+
+    # Backfill: any invoice with a linked Wise transaction is paid. Covers links
+    # made in prior syncs (or this run) that are not yet reflected on the column.
+    db.query(Invoice).filter(
+        Invoice.payment_status != _PaymentStatus.PAID,
+        Invoice.id.in_(
+            db.query(WiseTransaction.invoice_id).filter(WiseTransaction.invoice_id.isnot(None))
+        ),
+    ).update(
+        {Invoice.payment_status: _PaymentStatus.PAID, Invoice.updated_at: datetime.utcnow()},
+        synchronize_session=False,
+    )
 
     db.commit()
     logger.info("sync_wise: %d new transaction(s) from %d fetched", count, len(transactions))

@@ -15,6 +15,7 @@ from invoice_core.db import (
     SyncLog,
     WiseTransaction,
     _PaymentStatus,
+    invoice_has_wise_txn,
 )
 
 
@@ -66,15 +67,16 @@ class SyncLogRow:
 
 def get_kpis(db: Session) -> DashboardKpis:
     total_invoices = db.query(func.count(Invoice.id)).scalar() or 0
+    # A Wise-linked invoice is paid, so it never counts toward "unpaid".
     unpaid_invoices = (
         db.query(func.count(Invoice.id))
-        .filter(Invoice.payment_status == _PaymentStatus.UNPAID)
+        .filter(Invoice.payment_status == _PaymentStatus.UNPAID, ~invoice_has_wise_txn())
         .scalar()
         or 0
     )
     unpaid_amount = (
         db.query(func.coalesce(func.sum(Invoice.amount_total), 0.0))
-        .filter(Invoice.payment_status == _PaymentStatus.UNPAID)
+        .filter(Invoice.payment_status == _PaymentStatus.UNPAID, ~invoice_has_wise_txn())
         .scalar()
         or 0.0
     )
@@ -114,6 +116,12 @@ def get_recent_invoices(db: Session, limit: int = 10) -> list[RecentInvoiceRow]:
         .limit(limit)
         .all()
     )
+    paid_via_wise = {
+        r[0]
+        for r in db.query(WiseTransaction.invoice_id)
+        .filter(WiseTransaction.invoice_id.isnot(None))
+        .distinct()
+    }
     return [
         RecentInvoiceRow(
             id=inv.id,
@@ -121,7 +129,10 @@ def get_recent_invoices(db: Session, limit: int = 10) -> list[RecentInvoiceRow]:
             invoice_date=inv.invoice_date,
             supplier_name=name,
             amount_total=inv.amount_total,
-            payment_status=inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status),
+            payment_status=(
+                _PaymentStatus.PAID.value if inv.id in paid_via_wise
+                else (inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status))
+            ),
         )
         for inv, name in rows
     ]
