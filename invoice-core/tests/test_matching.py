@@ -229,6 +229,80 @@ def test_fee_adjusted_amount_matches_transfer(mdb):
     assert t.invoice_file_id == f.id
 
 
+def test_file_shared_backlinks_transaction_to_invoice(mdb):
+    """Pre-existing file link on both sides triggers Phase 3 back-link."""
+    supplier = Supplier(name="Teszt Szállító", tax_id="12345678-1-42")
+    customer = Customer(name="Teszt Vevő", tax_id="87654321-2-13")
+    pdf = InvoiceFile(filename="2026-06-05_0025_GRPHT-2026-15.pdf", words="2026-15 teszt")
+    mdb.add_all([supplier, customer, pdf])
+    mdb.flush()
+    inv = Invoice(
+        invoice_number="GRPHT-2026-15",
+        supplier_id=supplier.id,
+        customer_id=customer.id,
+        payment_status=_PaymentStatus.UNPAID,
+        direction=_InvoiceDirection.OUTBOUND,
+        invoice_file_id=pdf.id,
+    )
+    mdb.add(inv)
+    mdb.flush()
+    # Transaction already linked to the same file (e.g. from a prior sync) but
+    # not yet linked to the invoice.
+    t = WiseTransaction(
+        wise_transaction_id="TRANSFER-99",
+        amount=-127000,
+        currency="HUF",
+        transaction_date=datetime(2026, 6, 5),
+        invoice_file_id=pdf.id,
+    )
+    mdb.add(t)
+    mdb.flush()
+
+    sync_match(mdb)
+
+    assert t.invoice_id == inv.id
+    assert inv.payment_status == _PaymentStatus.PAID
+
+
+def test_file_assigned_then_backlinked_in_same_call(mdb):
+    """Phase 2 assigns the file; Phase 3 immediately links the invoice in the same sync_match call."""
+    supplier = Supplier(name="Orzsem Services Kft", tax_id="11223344-1-01")
+    customer = Customer(name="Graphtrek Kft", tax_id="99887766-2-02")
+    pdf = InvoiceFile(
+        filename="2026-06-04_0020_orzsem-services.pdf",
+        words="94.200,00 94200 orzsem services kft",
+    )
+    mdb.add_all([supplier, customer, pdf])
+    mdb.flush()
+    inv = Invoice(
+        invoice_number="ORZSEM-2026-42",
+        supplier_id=supplier.id,
+        customer_id=customer.id,
+        payment_status=_PaymentStatus.UNPAID,
+        direction=_InvoiceDirection.INBOUND,
+        invoice_file_id=pdf.id,
+    )
+    mdb.add(inv)
+    mdb.flush()
+    # Transaction has no file link yet; Phase 2 will match it by amount + vendor.
+    t = _txn(
+        wise_transaction_id="TRANSFER-ORZSEM",
+        amount=-94624,
+        total_fees=424,
+        payee_name="Őrszem Services Kft",
+        transaction_date=datetime(2026, 6, 4),
+        description="Küldött utalás Őrszem Services Kft. részére",
+    )
+    mdb.add(t)
+    mdb.flush()
+
+    sync_match(mdb)
+
+    assert t.invoice_file_id == pdf.id    # Phase 2 matched the file
+    assert t.invoice_id == inv.id         # Phase 3 back-linked the invoice
+    assert inv.payment_status == _PaymentStatus.PAID
+
+
 def test_transitive_shortcut_via_invoice(mdb):
     supplier = Supplier(name="Szállító", tax_id="11111111-1-11")
     customer = Customer(name="Vevő", tax_id="22222222-2-22")

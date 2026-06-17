@@ -20,7 +20,14 @@
         hx-swap="innerHTML">
       <td><small class="text-muted font-monospace">{{ row.wise_transaction_id }}</small></td>
       <td>{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
-      <td class="text-end">{{ amount_fmt(row.amount, row.currency) }}</td>
+      <td class="text-end">
+        {%- if row.total_fees -%}
+          {%- set sign = -1 if row.amount < 0 else 1 -%}
+          {{- amount_fmt(sign * ((row.amount | abs) - (row.total_fees | abs)), row.currency) -}}
+        {%- else -%}
+          {{- amount_fmt(row.amount, row.currency) -}}
+        {%- endif -%}
+      </td>
       <td>
         {% if row.invoice_id and row.invoice_number %}
           <a href="/ui/invoices/{{ row.invoice_id }}" onclick="event.stopPropagation()">{{ row.invoice_number }}</a>

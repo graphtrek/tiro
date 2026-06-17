@@ -150,8 +150,10 @@ uv run invoice-core sync-wise [--clear-cache] [--json] [-v]
 uv run invoice-core sync-match [--json] [-v]      # match existing Wise txns to invoice files
 ```
 
-`sync-match` fetches nothing — it re-evaluates every `wise_transaction` whose
-`invoice_file_id` is still `NULL` and links it to the best matching `invoice_file`.
+`sync-match` fetches nothing. It links unmatched `wise_transaction` records to
+`invoice_file` rows (via transitive invoice link, payment reference, or scored
+vendor/amount/date matching), then back-links any transaction that now shares an
+`invoice_file` with an `invoice` to that invoice and marks it PAID.
 
 ### link
 
@@ -283,11 +285,12 @@ Run `invoice-core link <invoice_number> <filename>` to create a manual link when
 
 ### Wise transaction → invoice file
 
-The `sync-match` step links each unlinked `wise_transaction` to the best matching `invoice_file` in priority order:
+The `sync-match` step runs in three phases:
 
 1. **Transitive** — reuse the file from an already-linked invoice.
 2. **Authoritative reference** — a bank transfer with an invoice-like `payment_reference` must match a file that *contains* that reference; left unlinked if none found.
 3. **Scored best-match** — for card payments, scores vendor name tokens + amount variants + date proximity; greedy 1:1 assignment above the confidence threshold.
+4. **Invoice back-link** — after all file assignments, any `wise_transaction` that shares an `invoice_file` with an `invoice` (but has no `invoice_id` yet) is linked to that invoice and the invoice is marked PAID. Covers both file links just established and pre-existing ones from prior syncs.
 
 Run `invoice-core link-wise <wise_transaction_id> <filename>` to create a manual link.
 

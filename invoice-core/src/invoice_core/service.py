@@ -455,8 +455,6 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     unmatched = db.query(WiseTransaction).filter(
         WiseTransaction.invoice_file_id == None  # noqa: E711
     ).all()
-    if not unmatched:
-        return 0
 
     files = db.query(InvoiceFile).all()
     file_feats = {
@@ -554,6 +552,25 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
             logger.warning(
                 "No confident invoice_file match for Wise txn %s (%s)",
                 txn.wise_transaction_id, txn.merchant or txn.payee_name or txn.payer_name or "",
+            )
+
+    # ── Phase 3: back-link transactions to invoices via shared invoice_file ────
+    # Covers both transactions whose file was just assigned (Phases 1/2) and
+    # pre-existing file links that were never reconciled against an invoice.
+    to_backlink = db.query(WiseTransaction).filter(
+        WiseTransaction.invoice_file_id.isnot(None),
+        WiseTransaction.invoice_id.is_(None),
+    ).all()
+    for txn in to_backlink:
+        invoice = db.query(Invoice).filter_by(invoice_file_id=txn.invoice_file_id).first()
+        if invoice:
+            txn.invoice_id = invoice.id
+            txn.updated_at = datetime.utcnow()
+            invoice.payment_status = _PaymentStatus.PAID
+            invoice.updated_at = datetime.utcnow()
+            logger.info(
+                "Backlinked Wise txn %s → invoice %s via shared file_id %s",
+                txn.wise_transaction_id, invoice.invoice_number, txn.invoice_file_id,
             )
 
     db.commit()

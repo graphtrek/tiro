@@ -61,6 +61,7 @@ class TransactionRow:
     invoice_number: Optional[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
+    total_fees: Optional[float] = None
 
 
 class TransactionFilters:
@@ -129,6 +130,7 @@ def list_transactions(
             invoice_number=inv_num,
             invoice_file_id=t.invoice_file_id,
             invoice_file_filename=inv_file,
+            total_fees=t.total_fees,
         )
         for t, inv_num, inv_file in q.all()
     ]
