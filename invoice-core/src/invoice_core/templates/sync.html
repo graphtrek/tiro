@@ -88,7 +88,7 @@
                 <span class="text-muted small ms-auto">{{ log.invoice_count }}i / {{ log.wise_count }}w</span>
               </button>
             </h2>
-            <div id="log-{{ log.id }}" class="accordion-collapse collapse">
+            <div id="log-{{ log.id }}" class="accordion-collapse collapse" data-bs-parent="#syncLogAccordion">
               <div class="accordion-body py-2">
                 <div class="row g-2">
                   <div class="col-6"><small class="text-muted">NAV számla:</small> {{ log.invoice_count }}</div>
@@ -113,4 +113,18 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function initSyncAccordion() {
+    document.querySelectorAll('#syncLogAccordion .accordion-collapse').forEach(function(el) {
+        if (!bootstrap.Collapse.getInstance(el)) {
+            new bootstrap.Collapse(el, { toggle: false });
+        }
+    });
+}
+document.addEventListener('DOMContentLoaded', initSyncAccordion);
+document.addEventListener('htmx:afterSettle', initSyncAccordion);
+</script>
 {% endblock %}
