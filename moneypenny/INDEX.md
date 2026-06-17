@@ -48,7 +48,7 @@ MASTER ORCHESTRATOR
 ## 📋 Mikorszervízek Wiki
 
 ### 4️⃣ MASTER - Számla Adatbázis
-**[[invoice-core-spec.md|📄 Specifikáció]]** | **[[invoice-core-prompt.md|💭 Prompt]]**
+**[[invoice-core-spec.md|📄 Specifikáció]]** | **[[invoice-core-prompt.md|💭 Prompt]]** | **[[invoice-core-ui-prompt.md|🖥️ UI Prompt]]** | **[[invoice-core-ui-spec.md|🖥️ UI Spec]]**
 
 - **Szerepe**: Orchestrator (szinkronizálás indítása)
 - **Meghívja**: [[nav-invoice-spec.md|NAV API]], [[invoice-file-filter-spec.md|invoice-file-filter]], [[wise-spec.md|wise]]
@@ -144,7 +144,7 @@ Hívási Lánc (Szinkron):
 - **wise**: [[wise-spec.md|spec]] (Bankkivonatok integráció)
 
 ### Promptok
-- **invoice-core**: [[invoice-core-prompt.md|prompt]]
+- **invoice-core**: [[invoice-core-prompt.md|prompt]] | [[invoice-core-ui-prompt.md|UI prompt]] | [[invoice-core-ui-spec.md|UI spec]]
 - **nav-invoice**: [[nav-invoice-prompt.md|prompt]]
 - **invoice-file-filter**: [[invoice-file-filter-prompt.md|prompt]]
 - **attachment-downloader**: [[attachment-downloader-prompt.md|prompt]]
