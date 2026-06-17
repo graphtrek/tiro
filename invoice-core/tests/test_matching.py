@@ -60,6 +60,15 @@ class TestAmountCandidates:
         t = _txn(wise_transaction_id="x", amount=-1163.08, description="3,25 EUR értékű kártyahasználat")
         assert "3.25" in _amount_candidates(t)
 
+    def test_fee_adjusted_net_amount(self):
+        # Wise deducted 94 624 HUF (of which 424 HUF is their fee); invoice shows 94 200 HUF
+        t = _txn(wise_transaction_id="x", amount=-94624, total_fees=424,
+                 description="Küldött utalás")
+        cands = _amount_candidates(t)
+        assert "94200" in cands
+        assert "94.200" in cands
+        assert "94.200,00" in cands
+
 
 class TestVendorTokens:
     def test_brand_tokens_extracted(self):
@@ -165,6 +174,54 @@ def test_reference_found_in_file_links_directly(mdb):
     mdb.flush()
     t = _txn(wise_transaction_id="TRANSFER-8b", amount=127000, payment_reference="GRPHT-2026-11",
              transaction_date=datetime(2026, 5, 21))
+    mdb.add(t)
+    mdb.flush()
+
+    assert sync_match(mdb) == 1
+    assert t.invoice_file_id == f.id
+
+
+def test_payment_reference_company_prefix_stripped(mdb):
+    # "Graphtrek 87/2026" is the bank transfer közlemény; the PDF only has "87/2026".
+    # Full norm "graphtrek 87-2026" won't be a substring, but subtoken "87-2026" must match.
+    f = InvoiceFile(
+        filename="2026-06-04_0020_GRAPHTREK_szamla.pdf",
+        words="87/2026 94200 fazekas ugyvedi iroda",
+    )
+    mdb.add(f)
+    mdb.flush()
+    t = _txn(
+        wise_transaction_id="TRANSFER-2173212738",
+        amount=-94624,
+        total_fees=424,
+        payment_reference="Graphtrek 87/2026",
+        payee_name="Fazekas ugyvedi iroda",
+        description="Utalás Fazekas ugyvedi iroda részére",
+    )
+    mdb.add(t)
+    mdb.flush()
+
+    assert sync_match(mdb) == 1
+    assert t.invoice_file_id == f.id
+
+
+def test_fee_adjusted_amount_matches_transfer(mdb):
+    # TRANSFER-2173212738: Wise debited 94 624 HUF (fee 424 HUF); the PDF has 94 200 HUF.
+    # "graphtrek" and "szamla" are stopwords, so the match must come via amount.
+    f = InvoiceFile(
+        filename="2026-06-04_0020_GRAPHTREK_szamla.pdf",
+        words="94.200,00 94200 orzsem services kft",
+    )
+    mdb.add(f)
+    mdb.flush()
+    t = _txn(
+        wise_transaction_id="TRANSFER-2173212738",
+        amount=-94624,
+        total_fees=424,
+        payee_name="Őrszem Services Kft",
+        transaction_date=datetime(2026, 6, 4),
+        description="Küldött utalás Őrszem Services Kft. részére",
+    )
     mdb.add(t)
     mdb.flush()
 

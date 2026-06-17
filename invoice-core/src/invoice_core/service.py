@@ -365,13 +365,21 @@ def _amount_candidates(txn: WiseTransaction) -> set[str]:
     for m in _CURRENCY_RE.finditer(txn.description or ""):
         _variants(m.group(1))
 
-    amt = abs(txn.amount or 0.0)
-    if amt >= 1:
-        ival = int(round(amt))
+    def _int_variants(n: float) -> None:
+        ival = int(round(n))
         cands.add(str(ival))
         grouped = f"{ival:,}".replace(",", ".")  # 3400 → "3.400"
         cands.add(grouped)
         cands.add(f"{grouped},00")               # "3.400,00"
+
+    amt = abs(txn.amount or 0.0)
+    if amt >= 1:
+        _int_variants(amt)
+        fees = abs(txn.total_fees or 0.0)
+        if fees > 0:
+            net = amt - fees
+            if net >= 1:
+                _int_variants(net)
 
     return {c for c in cands if len(c) >= 2 and c not in ("0", "00")}
 
@@ -477,15 +485,27 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
                 _assign(txn, invoice.invoice_file_id, f"via invoice {invoice.invoice_number}")
                 continue
 
-        # 1b. explicit invoice-like reference → require a file that contains it
+        # 1b. explicit invoice-like reference → require a file that contains it.
+        # Try the full normalized reference first; if that fails, try each
+        # space-separated subtoken that contains digits (handles refs like
+        # "Graphtrek 87/2026" where the PDF only stores "87/2026").
         ref = (txn.payment_reference or "").strip()
         if ref and any(ch.isdigit() for ch in ref):
             norm_ref = _norm(ref)
-            hit = next(
-                (f.id for f in files
-                 if f.id not in used_files and norm_ref in file_feats[f.id][1]),
-                None,
-            )
+            subtokens = [
+                p for p in norm_ref.split()
+                if any(ch.isdigit() for ch in p) and p not in _VENDOR_STOPWORDS
+            ]
+            search_parts = list(dict.fromkeys([norm_ref] + subtokens))
+            hit = None
+            for part in search_parts:
+                hit = next(
+                    (f.id for f in files
+                     if f.id not in used_files and part in file_feats[f.id][1]),
+                    None,
+                )
+                if hit is not None:
+                    break
             if hit is not None:
                 _assign(txn, hit, f"reference {ref}")
             else:
