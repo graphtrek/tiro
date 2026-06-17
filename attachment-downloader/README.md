@@ -32,8 +32,9 @@ uv sync --extra gmail
 ## Running
 
 ```bash
-# REST API — listens on 127.0.0.1:8000
-uv run uvicorn attachment_downloader.api.main:app --host 0.0.0.0 --port 8000 --reload
+# REST API — listens on 0.0.0.0:8000
+python run_api.py
+# or: uv run uvicorn attachment_downloader.api.main:app --host 0.0.0.0 --port 8000 --reload
 
 # CLI (defaults to --provider gmail)
 uv run attachment-downloader --start 2026-05-01 --end 2026-05-31
@@ -48,9 +49,20 @@ uv run pytest tests/ -v
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET`    | `/health`       | Health check |
 | `POST`   | `/api/v1/jobs`  | Download PDF attachments for a date range; blocks until done |
 | `GET`    | `/api/v1/cache` | Return cache stats (entries, hits, misses) |
 | `DELETE` | `/api/v1/cache` | Evict all cached results |
+
+### GET /health
+
+```bash
+curl http://localhost:8000/health
+```
+
+```json
+{"status": "ok", "timestamp": "2026-06-17T12:00:00.000000"}
+```
 
 ### POST /api/v1/jobs
 
@@ -105,8 +117,8 @@ curl -X POST "http://localhost:8000/api/v1/jobs?provider=gmail" \
 
 Files are named `YYYY-MM-DD_NNNN_<sanitized_original>.pdf`. `NNNN` is a
 per-year counter that resumes across runs from the highest number already in
-`output_dir`. Attachments already present (matched by email date + original
-filename, counter ignored) are skipped without re-downloading.
+`output_dir`. Attachments already present (matched by original filename + size,
+counter ignored) are skipped without re-downloading.
 
 `output_dir` (and `--output` on the CLI) is a subdirectory name relative to
 `DOWNLOAD_ROOT_DIR` (project root `downloads/` by default). Omit it to save
@@ -136,18 +148,13 @@ Returns `204 No Content`.
 
 ## Configuration (`.env`)
 
-**Shared:**
-
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DOWNLOAD_ROOT_DIR` | `downloads` | Root download folder, relative to the project root |
 | `CACHE_TTL_SECONDS` | `3600` | How long (seconds) to keep a cached `DownloadResult` |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
-
-**Gmail provider:**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
+| `API_HOST` | `0.0.0.0` | Bind address for the FastAPI server |
+| `API_PORT` | `8000` | Port for the FastAPI server |
 | `GOOGLE_CREDENTIALS_FILE` | `credentials.json` | Path to OAuth2 Desktop credentials JSON |
 | `GOOGLE_TOKEN_FILE` | `token.json` | Path to generated token (auto-created on first auth) |
 
@@ -158,17 +165,16 @@ Logs are written to stdout and `logs/attachment-downloader.log`.
 ```
 src/attachment_downloader/
 ├── base.py              # EmailClient Protocol — the provider interface
-├── utils.py             # Shared helpers (filename sanitization, output scanning)
-├── config.py            # Shared settings (download dir, cache TTL, logging)
+├── config.py            # Pydantic Settings (all env vars) + configure_logging()
 ├── models.py            # Pydantic models (DownloadRequest, DownloadResult, …)
 ├── cache.py             # Thread-safe TTL cache
+├── utils.py             # Helpers: filename sanitization, output directory scanning
 ├── providers/
-│   ├── __init__.py      # get_client(provider) factory
+│   ├── __init__.py      # get_client(provider, settings) factory
 │   └── gmail/
-│       ├── client.py    # GmailClient — Google OAuth2 + Gmail API v1
-│       └── config.py    # Gmail-specific settings (credential paths)
-├── cli/main.py          # Typer CLI (--provider flag)
-└── api/main.py          # FastAPI app (provider query param on /jobs)
+│       └── client.py    # GmailClient — Google OAuth2 + Gmail API v1
+├── cli/main.py          # Typer CLI
+└── api/main.py          # FastAPI app
 ```
 
 ## Adding a provider

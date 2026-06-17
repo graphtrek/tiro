@@ -1,12 +1,18 @@
 from typing import Optional
 
 import typer
+from attachment_downloader.config import configure_logging, get_settings
 from attachment_downloader.providers import get_client
 from rich.console import Console
 from rich.table import Table
 
 app = typer.Typer(help="Attachment Downloader CLI")
 console = Console()
+
+
+@app.callback()
+def _main() -> None:
+    configure_logging(get_settings().log_level)
 
 
 @app.command()

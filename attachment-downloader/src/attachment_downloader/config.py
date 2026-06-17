@@ -1,15 +1,10 @@
 import logging
-import os
 from pathlib import Path
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-
-
-LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+_BASE_DIR = Path(__file__).resolve().parent.parent.parent
+_LOG_DIR = _BASE_DIR / "logs"
 _SRC_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -22,29 +17,46 @@ class _Formatter(logging.Formatter):
         return super().format(record)
 
 
-def configure_logging() -> None:
-    LOG_DIR.mkdir(exist_ok=True)
-    level = getattr(logging, LOG_LEVEL, logging.INFO)
+def configure_logging(log_level: str = "INFO") -> None:
+    _LOG_DIR.mkdir(exist_ok=True)
+    level = getattr(logging, log_level.upper(), logging.INFO)
     fmt = _Formatter(
         "%(asctime)s %(levelname)-8s %(relpath)s:%(lineno)d %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(fmt)
-
-    file_handler = logging.FileHandler(LOG_DIR / "attachment-downloader.log", encoding="utf-8")
+    file_handler = logging.FileHandler(_LOG_DIR / "attachment-downloader.log", encoding="utf-8")
     file_handler.setFormatter(fmt)
-
     root = logging.getLogger()
     root.setLevel(level)
     root.addHandler(stream_handler)
     root.addHandler(file_handler)
 
-# Project root directory (config.py lives at attachment_downloader/config/config.py)
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Google API configuration — attachment-downloader's own OAuth client, independent of any other project
-CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
-DOWNLOAD_ROOT_DIR = BASE_DIR / os.getenv("DOWNLOAD_ROOT_DIR", "downloads")
+    google_credentials_file: str = "credentials.json"
+    google_token_file: str = "token.json"
+    cache_ttl_seconds: int = 3600
+    download_root_dir: str = "downloads"
+    log_level: str = "INFO"
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+
+    @property
+    def credentials_path(self) -> Path:
+        return _BASE_DIR / self.google_credentials_file
+
+    @property
+    def token_path(self) -> Path:
+        return _BASE_DIR / self.google_token_file
+
+    @property
+    def download_root(self) -> Path:
+        return _BASE_DIR / self.download_root_dir
+
+
+def get_settings() -> Settings:
+    return Settings()

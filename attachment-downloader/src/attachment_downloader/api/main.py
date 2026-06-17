@@ -1,17 +1,19 @@
 import asyncio
 import logging
 import time
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from attachment_downloader.config import configure_logging
+from attachment_downloader.config import configure_logging, get_settings
 from attachment_downloader.models import CacheInfo, DownloadRequest, DownloadResult
 from attachment_downloader.providers import get_client
 
-configure_logging()
+_settings = get_settings()
+configure_logging(_settings.log_level)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Attachment Downloader API")
-client = get_client("gmail")
+client = get_client("gmail", settings=_settings)
 
 
 @app.middleware("http")
@@ -26,16 +28,21 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
+
 @app.get("/api/v1/cache", response_model=CacheInfo)
 async def get_cache_info():
     """Return cache hit/miss stats and number of cached entries."""
-    return CacheInfo(**client._cache.stats)
+    return CacheInfo(**client.cache_stats())
 
 
 @app.delete("/api/v1/cache", status_code=204)
 async def clear_cache():
     """Evict all cached download results."""
-    client._cache.clear()
+    client.cache_clear()
 
 
 @app.post("/api/v1/jobs", response_model=DownloadResult)
@@ -44,7 +51,7 @@ async def create_download_job(
     provider: str = Query("gmail", description="Email provider (gmail)"),
 ):
     """Download PDF attachments synchronously; returns the result when done."""
-    active_client = client if provider == "gmail" else get_client(provider)
+    active_client = client if provider == "gmail" else get_client(provider, settings=_settings)
     loop = asyncio.get_event_loop()
     try:
         return await loop.run_in_executor(
