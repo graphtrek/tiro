@@ -2,13 +2,18 @@
 
 Moneypenny pipeline microservice #4 (port 8004). Master orchestrator — calls **nav-invoice**, **invoice-file-filter**, and **wise**, merges the results, and persists everything to PostgreSQL.
 
+Includes a full **web UI** (HTMX + Bootstrap + DataTables) served at `/ui/`.
+
 ## Running
 
 ```bash
 cd invoice-core
 uv sync
 
-# REST API (port 8004)
+# Apply DB migrations (first time, and after updates)
+uv run alembic upgrade head
+
+# REST API + UI (port 8004)
 python run_api.py
 # or
 uv run uvicorn invoice_core.api.main:app --host 0.0.0.0 --port 8004 --reload
@@ -24,13 +29,28 @@ uv run invoice-core report --month 2026-05      # full sync for one month + summ
 
 # Tests
 uv run pytest tests/ -v
-
-# Alembic migrations (first-time setup)
-uv run alembic init alembic
-# → edit alembic/env.py (see Database section below)
-uv run alembic revision --autogenerate -m "initial schema"
-uv run alembic upgrade head
 ```
+
+## Web UI
+
+Open `http://localhost:8004/ui/` in a browser.
+
+| Page | URL | Description |
+|------|-----|-------------|
+| Dashboard | `/ui/` | KPI cards, recent invoices, recent Wise transactions, last sync status |
+| Számlák | `/ui/invoices` | Invoice list — filterable by date, status, PDF, supplier; DataTable |
+| Számla részlet | `/ui/invoices/{id}` | Invoice detail with supplier/customer cards, linked PDF, Wise transactions |
+| PDF Fájlok | `/ui/invoice-files` | Invoice file list with linked invoice and supplier |
+| Szállítók | `/ui/suppliers` | Supplier list with invoice stats |
+| Szállító részlet | `/ui/suppliers/{id}` | Supplier detail with invoice and Wise DataTables |
+| Vevők | `/ui/customers` | Customer list with invoice stats |
+| Vevő részlet | `/ui/customers/{id}` | Customer detail with invoice and Wise DataTables |
+| Wise tranzakciók | `/ui/transactions` | Transaction list — filterable by date, linked status, partner, amount |
+| Sync | `/ui/sync` | Trigger sync with mode selection; sync log accordion |
+
+**Tech stack**: Jinja2 SSR, HTMX 2.x (boost + partial swap + OOB), Bootstrap 5.3, DataTables 2.x — no separate build step, all assets from CDN.
+
+Filter forms use `hx-trigger="change delay:300ms"` for live HTMX updates with URL push, so filtered views are bookmarkable.
 
 ## REST API
 
@@ -102,9 +122,6 @@ curl "http://localhost:8004/api/v1/invoices?date_from=2026-05-01&date_to=2026-05
 
 # Unpaid inbound invoices only
 curl "http://localhost:8004/api/v1/invoices?status=UNPAID&direction=INBOUND"
-
-# Outbound invoices only
-curl "http://localhost:8004/api/v1/invoices?direction=OUTBOUND"
 ```
 
 **Query parameters:**
@@ -115,12 +132,6 @@ curl "http://localhost:8004/api/v1/invoices?direction=OUTBOUND"
 | `date_to` | `YYYY-MM-DD` | Filter by invoice date (inclusive) |
 | `status` | `PAID` / `UNPAID` / `PARTIAL` | Filter by payment status |
 | `direction` | `INBOUND` / `OUTBOUND` | Filter by invoice direction |
-
-### GET /api/v1/invoices/{invoice_number}
-
-```bash
-curl http://localhost:8004/api/v1/invoices/INV-2026-042
-```
 
 ## CLI
 
@@ -140,8 +151,7 @@ uv run invoice-core sync-match [--json] [-v]      # match existing Wise txns to 
 ```
 
 `sync-match` fetches nothing — it re-evaluates every `wise_transaction` whose
-`invoice_file_id` is still `NULL` and links it to the best matching `invoice_file`
-(see the Wise → invoice file linking strategy below).
+`invoice_file_id` is still `NULL` and links it to the best matching `invoice_file`.
 
 ### link
 
@@ -153,19 +163,15 @@ uv run invoice-core link <invoice_number> <filename>
 uv run invoice-core link "87/2026" "2026-06-04_0020_GRAPHTREK_szamla.pdf"
 ```
 
-Both the invoice and the PDF file must already exist in the database (run `sync` first).
-
 ### link-wise
 
-Manually link a Wise transaction to a PDF file when automatic matching leaves it unlinked:
+Manually link a Wise transaction to a PDF file:
 
 ```bash
 uv run invoice-core link-wise <wise_transaction_id> <filename>
 # e.g.
 uv run invoice-core link-wise "CARD-3867572380" "2026-06-02_0017_scaleway-invoice-2026-05.pdf"
 ```
-
-Both the transaction and the PDF file must already exist in the database (run `sync` first).
 
 ### report
 
@@ -174,22 +180,6 @@ uv run invoice-core report --month 2026-05 [--clear-cache] [--json]
 ```
 
 Runs a full sync for the given calendar month and prints a Rich summary table.
-
-### --clear-cache
-
-Clears all downstream service caches before starting the sync:
-
-| Service | Cache endpoint called |
-|---|---|
-| nav-invoice | `POST /cache/clear` |
-| invoice-file-filter | `DELETE /api/v1/pdf/words/cache` |
-
-Cache clearing is best-effort — if a service is unreachable the warning is logged and sync continues.
-
-```bash
-uv run invoice-core sync --clear-cache
-uv run invoice-core sync-pdf --clear-cache --start 2026-06-01
-```
 
 ## Configuration (`.env`)
 
@@ -218,36 +208,46 @@ PostgreSQL in production, SQLite in-memory for tests.
 |-------|-------------|
 | `supplier` | Suppliers sourced from NAV invoice data |
 | `customer` | Customers sourced from NAV invoice data |
-| `invoice_file` | PDF files from invoice-file-filter: filename, filesystem path, and extracted word text (NUL bytes stripped) |
+| `invoice_file` | PDF files from invoice-file-filter: filename, filesystem path, and extracted word text |
 | `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier, customer, and optionally invoice_file |
-| `wise_transaction` | Wise transactions; linked to invoice, supplier, customer, and invoice_file (see Linking strategies below) |
+| `wise_transaction` | Wise transactions; linked to invoice, supplier, customer, and invoice_file |
+| `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
 
-### Alembic setup
-
-After `uv sync`, initialise Alembic once:
-
-```bash
-uv run alembic init alembic
-```
-
-Edit `alembic/env.py` — replace the metadata and engine wiring with:
-
-```python
-from invoice_core.db import Base, engine
-target_metadata = Base.metadata
-
-def run_migrations_online():
-    with engine.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
-        with context.begin_transaction():
-            context.run_migrations()
-```
-
-Then generate and apply the initial migration:
+### Alembic migrations
 
 ```bash
-uv run alembic revision --autogenerate -m "initial schema"
+# Apply all pending migrations (run after uv sync and after pulling new changes)
 uv run alembic upgrade head
+
+# Generate a new migration after changing ORM models
+uv run alembic revision --autogenerate -m "describe change"
+```
+
+## Code structure
+
+```
+src/invoice_core/
+├── api/main.py              ← FastAPI app: REST endpoints + mounts UI router + static files
+├── ui/router.py             ← UI endpoints (GET /ui/*, POST /ui/sync/trigger)
+├── services/                ← Shared service layer used by both REST and UI routers
+│   ├── dashboard_service.py ← KPI aggregations, recent data, sync log
+│   ├── invoice_service.py   ← Invoice list/detail with joined supplier/customer/wise data
+│   ├── partner_service.py   ← Supplier and customer list + detail
+│   ├── transaction_service.py ← Wise transaction list with filters
+│   └── invoice_file_service.py ← PDF file list
+├── templates/               ← Jinja2 templates
+│   ├── base.html            ← Layout: navbar + sidebar + main content blocks
+│   ├── _macros.html         ← Reusable macros: payment_badge, amount_fmt, pdf_icon, …
+│   ├── partials/            ← HTMX partial responses (no base.html extension)
+│   └── *.html               ← Page templates
+├── static/custom.css        ← HTMX indicator + sidebar + KPI styles
+├── db.py                    ← SQLAlchemy ORM models + session
+├── service.py               ← Sync orchestration (sync_nav, sync_pdf, sync_wise, sync_match)
+├── models.py                ← Pydantic request/response schemas
+├── config.py                ← Pydantic settings (reads .env)
+├── nav_client.py            ← HTTP client for nav-invoice service
+├── pdf_client.py            ← HTTP client for invoice-file-filter service
+└── wise_client.py           ← HTTP client for wise service
 ```
 
 ## Orchestration flow
@@ -258,10 +258,10 @@ invoice-core (this)
   │    GET  nav-invoice:8002 /invoices?direction=INBOUND   → InvoiceDigest list
   │         upsert supplier, customer, invoice (both directions)
   ├── POST invoice-file-filter:8001 /api/v1/invoices/extract → PDF file index (filename + path)
-  │         upsert invoice_file; link to invoice (see PDF linking strategy below)
+  │         upsert invoice_file; link to invoice
   ├── GET  wise:8003 /balance-statements       → TransactionSummary list
-  │         upsert wise_transaction; link to invoice/supplier/customer (see Wise linking strategy below)
-  └── match wise_transaction → invoice_file     (local DB pass, no HTTP; see Wise → invoice file below)
+  │         upsert wise_transaction; link to invoice/supplier/customer
+  └── match wise_transaction → invoice_file     (local DB pass, no HTTP)
 ```
 
 ## Linking strategies
@@ -271,38 +271,25 @@ invoice-core (this)
 For each unlinked `invoice` the service tries to match it against every `invoice_file`:
 
 1. **Filename match** — normalised invoice number (separators `/ \ - _ .` → `-`) appears as a substring of the filename.
-2. **Word search fallback** — if no filename match, calls `POST invoice-file-filter:8001 /api/v1/pdf/words` for the PDF and searches the full word list with the same normalised comparison.
+2. **Word search fallback** — searches the full extracted word list with the same normalised comparison.
 
 Run `invoice-core link <invoice_number> <filename>` to create a manual link when both automatic strategies fail.
 
 ### Wise transaction → Invoice / Supplier / Customer
 
-On every `sync-wise` run (including re-syncs of already-imported transactions):
-
-1. **Invoice** — looks up `payment_reference` against `invoice.invoice_number`:
-   - Exact match first.
-   - Separator-normalised fallback: `/`, `\`, `-`, `_`, `.` are all treated as equivalent so e.g. `"SZ/2026/123"` matches `"SZ-2026-123"`.
-2. **Supplier / Customer from invoice** — if an invoice was matched, its `supplier_id` and `customer_id` are reused directly.
-3. **Counterparty name fallback** — if no invoice was found (or the invoice had no supplier/customer), the transaction's `counterparty_name` is matched case-insensitively against `supplier.name` and `customer.name`.
-
-Links are only written when the foreign key is currently `NULL`, so manually corrected rows are never overwritten.
+1. **Invoice** — exact match on `payment_reference` vs `invoice_number`, then separator-normalised fallback.
+2. **Supplier / Customer from invoice** — reuses the linked invoice's `supplier_id` and `customer_id`.
+3. **Counterparty name fallback** — case-insensitive match against `supplier.name` / `customer.name`.
 
 ### Wise transaction → invoice file
 
-The `sync-match` step (also run automatically at the end of a full `sync`) links each
-`wise_transaction` whose `invoice_file_id` is still `NULL` to the best matching
-`invoice_file`. This is what reaches card payments to foreign vendors (Anthropic,
-Scaleway, Google, etc.) that have **no NAV invoice** but do have a PDF receipt. In
-priority order:
+The `sync-match` step links each unlinked `wise_transaction` to the best matching `invoice_file` in priority order:
 
-1. **Transitive** — if the transaction already links to an invoice that has a PDF, reuse that file (highest confidence).
-2. **Authoritative reference** — a bank transfer with an invoice-like `payment_reference` (contains a digit) must match a file that *contains* that reference. If no file does, the transaction is left unlinked rather than guessed from a coincidental amount/name — the reference is ground truth.
-3. **Scored best-match** — for card payments (no reference), every `(transaction, file)` pair is scored on:
-   - **Vendor name** — distinctive merchant / payee / payer tokens found in the filename or extracted words (our own company name, corporate-form words, and city names are ignored as noise).
-   - **Amount** — both the HUF `amount` (plain and Hungarian-grouped, e.g. `3400` / `3.400,00`) and the original amount embedded in the description for foreign card payments (`"15,19 EUR …"` → `15,19`; `"3,25 EUR …"` → `3.25`, matching `€3.25`).
-   - **Date proximity** — the `YYYY-MM-DD` filename prefix vs the transaction date.
+1. **Transitive** — reuse the file from an already-linked invoice.
+2. **Authoritative reference** — a bank transfer with an invoice-like `payment_reference` must match a file that *contains* that reference; left unlinked if none found.
+3. **Scored best-match** — for card payments, scores vendor name tokens + amount variants + date proximity; greedy 1:1 assignment above the confidence threshold.
 
-   Pairs are assigned greedily, highest score first, so each file is claimed by at most one transaction (e.g. two identical Simplepay charges land on two distinct receipts). A link is written only above the confidence threshold and never on date alone; the rest stay `NULL` for the manual `link-wise` fallback.
+Run `invoice-core link-wise <wise_transaction_id> <filename>` to create a manual link.
 
 ## Logs
 

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Vevők — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item active">Vevők</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4"><i class="bi bi-people me-2"></i>Vevők</h1>
+
+<table id="customer-table" class="table table-hover table-sm">
+  <thead class="table-dark">
+    <tr>
+      <th>Név</th>
+      <th>Adószám</th>
+      <th class="text-end">Számlák</th>
+      <th class="text-end">Fizetetlen</th>
+      <th class="text-end">Wise</th>
+      <th>Utolsó számla</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><a href="/ui/customers/{{ row.id }}">{{ row.name }}</a></td>
+      <td>{{ row.tax_id or '—' }}</td>
+      <td class="text-end">{{ row.invoice_count }}</td>
+      <td class="text-end">
+        {% if row.unpaid_count > 0 %}
+          <span class="badge bg-danger">{{ row.unpaid_count }}</span>
+        {% else %}
+          <span class="text-muted">0</span>
+        {% endif %}
+      </td>
+      <td class="text-end">{{ row.wise_count }}</td>
+      <td>{{ row.last_invoice_date or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center text-muted">Nincs találat</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    new DataTable("#customer-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 25,
+      order: [[0, "asc"]],
+      columnDefs: [{ targets: [2, 3, 4], className: "text-end" }],
+    });
+  });
+</script>
+{% endblock %}

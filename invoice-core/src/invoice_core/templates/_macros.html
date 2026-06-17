@@ -1,0 +1,63 @@
+{% macro payment_badge(status) %}
+  {% set cfg = {
+    "PAID":    ("bg-success", "Fizetve"),
+    "UNPAID":  ("bg-danger",  "Fizetetlen"),
+    "PARTIAL": ("bg-warning text-dark", "Részleges"),
+  } %}
+  {% if status in cfg %}
+    <span class="badge {{ cfg[status][0] }}">{{ cfg[status][1] }}</span>
+  {% else %}
+    <span class="badge bg-secondary">{{ status }}</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro confidence_bar(value) %}
+  {% if value is not none %}
+    {% set pct = (value * 100) | round(0) | int %}
+    {% if value > 0.8 %}{% set color = "bg-success" %}
+    {% elif value > 0.5 %}{% set color = "bg-warning" %}
+    {% else %}{% set color = "bg-danger" %}{% endif %}
+    <div class="progress" style="min-width:80px">
+      <div class="progress-bar {{ color }}" role="progressbar"
+           style="width:{{ pct }}%" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100">
+        {{ pct }}%
+      </div>
+    </div>
+  {% else %}
+    <span class="text-muted">—</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro pdf_icon(has_pdf) %}
+  {% if has_pdf %}
+    <i class="bi bi-file-earmark-check text-success" title="Van PDF"></i>
+  {% else %}
+    <i class="bi bi-file-earmark-x text-secondary" title="Nincs PDF"></i>
+  {% endif %}
+{% endmacro %}
+
+{% macro wise_icon(count) %}
+  {% if count and count > 0 %}
+    <span class="badge bg-info text-dark" title="{{ count }} Wise tranzakció">
+      <i class="bi bi-bank"></i> {{ count }}
+    </span>
+  {% else %}
+    <span class="text-muted">—</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro amount_fmt(value, currency="HUF") %}
+  {% if value is not none %}
+    {{ "{:,.0f}".format(value) | replace(",", " ") }} {{ currency }}
+  {% else %}
+    <span class="text-muted">—</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro direction_badge(direction) %}
+  {% if direction == "INBOUND" %}
+    <span class="badge bg-primary">Bejövő</span>
+  {% else %}
+    <span class="badge bg-secondary">Kimenő</span>
+  {% endif %}
+{% endmacro %}

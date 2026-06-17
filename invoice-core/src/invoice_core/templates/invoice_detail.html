@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% from "_macros.html" import payment_badge, direction_badge, amount_fmt %}
+{% block title %}{{ invoice.invoice_number }} — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="/ui/invoices">Számlák</a></li>
+    <li class="breadcrumb-item active">{{ invoice.invoice_number }}</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4">
+  <i class="bi bi-file-earmark-text me-2"></i>{{ invoice.invoice_number }}
+</h1>
+
+<div class="row g-4 mb-4">
+  <!-- Bal: számla adatok -->
+  <div class="col-12 col-lg-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-header"><strong>Számla adatok</strong></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Számlaszám</dt>
+          <dd class="col-sm-8 font-monospace">{{ invoice.invoice_number }}</dd>
+
+          <dt class="col-sm-4">Dátum</dt>
+          <dd class="col-sm-8">{{ invoice.invoice_date or '—' }}</dd>
+
+          <dt class="col-sm-4">NAV ID</dt>
+          <dd class="col-sm-8 text-muted">{{ invoice.nav_transaction_id or '—' }}</dd>
+
+          <dt class="col-sm-4">Státusz</dt>
+          <dd class="col-sm-8">{{ payment_badge(invoice.payment_status) }}</dd>
+
+          <dt class="col-sm-4">Irány</dt>
+          <dd class="col-sm-8">{{ direction_badge(invoice.direction) }}</dd>
+        </dl>
+        <hr>
+        <table class="table table-sm mb-0">
+          <tbody>
+            <tr><td>Nettó</td><td class="text-end">{{ amount_fmt(invoice.amount_net) }}</td></tr>
+            <tr><td>ÁFA</td><td class="text-end">{{ amount_fmt(invoice.amount_vat) }}</td></tr>
+            <tr class="table-light fw-bold"><td>Bruttó</td><td class="text-end">{{ amount_fmt(invoice.amount_total) }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jobb: szállító + vevő -->
+  <div class="col-12 col-lg-5">
+    <div class="row g-3 h-100">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header">
+            <i class="bi bi-building me-1"></i><strong>Szállító</strong>
+          </div>
+          <div class="card-body">
+            <a href="/ui/suppliers/{{ invoice.supplier_id }}" class="fw-bold fs-5 text-decoration-none">
+              {{ invoice.supplier_name }}
+            </a>
+            {% if invoice.supplier_tax_id %}
+              <div class="text-muted small mt-1">Adószám: {{ invoice.supplier_tax_id }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header">
+            <i class="bi bi-person me-1"></i><strong>Vevő</strong>
+          </div>
+          <div class="card-body">
+            <a href="/ui/customers/{{ invoice.customer_id }}" class="fw-bold fs-5 text-decoration-none">
+              {{ invoice.customer_name }}
+            </a>
+            {% if invoice.customer_tax_id %}
+              <div class="text-muted small mt-1">Adószám: {{ invoice.customer_tax_id }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PDF szekció -->
+{% if invoice.invoice_file_id %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header">
+    <i class="bi bi-file-earmark-pdf me-1 text-danger"></i><strong>Kapcsolt PDF</strong>
+  </div>
+  <div class="card-body">
+    <span class="font-monospace">{{ invoice.invoice_file_filename or ('file_id: ' ~ invoice.invoice_file_id) }}</span>
+  </div>
+</div>
+{% endif %}
+
+<!-- Wise tranzakciók -->
+{% if invoice.wise_transactions %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header">
+    <i class="bi bi-bank me-1 text-info"></i>
+    <strong>Wise tranzakciók ({{ invoice.wise_transactions | length }})</strong>
+  </div>
+  <div class="card-body p-0">
+    <table id="inv-wise-table" class="table table-sm table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Dátum</th>
+          <th class="text-end">Összeg</th>
+          <th>Leírás</th>
+          <th>Referencia</th>
+          <th>Partner</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in invoice.wise_transactions %}
+        <tr>
+          <td>{{ t.transaction_date.strftime('%Y-%m-%d') if t.transaction_date else '—' }}</td>
+          <td class="text-end">{{ amount_fmt(t.amount, t.currency) }}</td>
+          <td>{{ t.description or '—' }}</td>
+          <td>{{ t.payment_reference or '—' }}</td>
+          <td>{{ t.partner_name or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    var wt = document.getElementById("inv-wise-table");
+    if (wt) {
+      new DataTable("#inv-wise-table", {
+        language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+        pageLength: 10,
+        order: [[0, "desc"]],
+        columnDefs: [{ targets: [1], className: "text-end" }],
+      });
+    }
+  });
+</script>
+{% endblock %}

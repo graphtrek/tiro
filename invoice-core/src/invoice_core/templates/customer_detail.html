@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% from "_macros.html" import payment_badge, amount_fmt %}
+{% block title %}{{ customer.name }} — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="/ui/customers">Vevők</a></li>
+    <li class="breadcrumb-item active">{{ customer.name }}</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4"><i class="bi bi-people me-2"></i>{{ customer.name }}</h1>
+
+<div class="row g-4 mb-4">
+  <div class="col-12 col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-header"><strong>Adatok</strong></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-5">Adószám</dt><dd class="col-7">{{ customer.tax_id or '—' }}</dd>
+          <dt class="col-5">Cím</dt><dd class="col-7">{{ customer.address or '—' }}</dd>
+          <dt class="col-5">Email</dt><dd class="col-7">{{ customer.email or '—' }}</dd>
+          <dt class="col-5">Telefon</dt><dd class="col-7">{{ customer.phone or '—' }}</dd>
+          {% if customer.payment_terms %}
+          <dt class="col-5">Fizetési határidő</dt><dd class="col-7">{{ customer.payment_terms }} nap</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header">
+    <i class="bi bi-file-earmark-text me-1"></i>
+    <strong>Számlák ({{ customer.invoices | length }})</strong>
+  </div>
+  <div class="card-body p-0">
+    <table id="cust-inv-table" class="table table-sm table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Számlaszám</th>
+          <th>Dátum</th>
+          <th class="text-end">Bruttó</th>
+          <th>Státusz</th>
+          <th class="text-center">PDF</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in customer.invoices %}
+        <tr>
+          <td><a href="/ui/invoices/{{ inv.id }}">{{ inv.invoice_number }}</a></td>
+          <td>{{ inv.invoice_date or '—' }}</td>
+          <td class="text-end">{{ amount_fmt(inv.amount_total) }}</td>
+          <td>{{ payment_badge(inv.payment_status) }}</td>
+          <td class="text-center">
+            {% if inv.invoice_file_id %}
+              <i class="bi bi-file-earmark-check text-success"></i>
+            {% else %}
+              <i class="bi bi-file-earmark-x text-secondary"></i>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-muted text-center">Nincs számla</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if customer.wise_transactions %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header">
+    <i class="bi bi-bank me-1 text-info"></i>
+    <strong>Wise tranzakciók ({{ customer.wise_transactions | length }})</strong>
+  </div>
+  <div class="card-body p-0">
+    <table id="cust-wise-table" class="table table-sm table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Dátum</th>
+          <th class="text-end">Összeg</th>
+          <th>Leírás</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in customer.wise_transactions %}
+        <tr>
+          <td>{{ t.transaction_date.strftime('%Y-%m-%d') if t.transaction_date else '—' }}</td>
+          <td class="text-end">{{ amount_fmt(t.amount, t.currency) }}</td>
+          <td>{{ t.description or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    new DataTable("#cust-inv-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 10, order: [[1, "desc"]],
+      columnDefs: [{ targets: [2], className: "text-end" }, { targets: [4], orderable: false }],
+    });
+    var wt = document.getElementById("cust-wise-table");
+    if (wt) {
+      new DataTable("#cust-wise-table", {
+        language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+        pageLength: 10, order: [[0, "desc"]],
+        columnDefs: [{ targets: [1], className: "text-end" }],
+      });
+    }
+  });
+</script>
+{% endblock %}

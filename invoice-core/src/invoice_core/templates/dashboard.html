@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% from "_macros.html" import payment_badge, amount_fmt %}
+{% block title %}Dashboard — Moneypenny{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+  <a href="/ui/sync" class="btn btn-primary btn-sm">
+    <i class="bi bi-arrow-repeat me-1"></i>Sync indítása
+  </a>
+</div>
+
+<!-- KPI kártyák -->
+<div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3 mb-4">
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="card-title">Összes számla</div>
+        <div class="kpi-value text-primary">{{ kpis.total_invoices }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100 border-danger">
+      <div class="card-body">
+        <div class="card-title">Fizetetlen számlák</div>
+        <div class="kpi-value text-danger">{{ kpis.unpaid_invoices }}</div>
+        <div class="text-muted small">{{ "{:,.0f}".format(kpis.unpaid_amount) | replace(",", " ") }} HUF</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="card-title">PDF fájlok</div>
+        <div class="kpi-value text-success">{{ kpis.linked_pdfs }}</div>
+        <div class="text-muted small">{{ kpis.unlinked_pdfs }} nem linkelt</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="card-title">Wise (30 nap)</div>
+        <div class="kpi-value text-info">{{ kpis.recent_wise_count }}</div>
+        <div class="text-muted small">tranzakció</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="card-title">Szállítók</div>
+        <div class="kpi-value">{{ kpis.supplier_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="card-title">Vevők</div>
+        <div class="kpi-value">{{ kpis.customer_count }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Legutóbbi sync -->
+{% if last_sync %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header d-flex align-items-center">
+    <i class="bi bi-clock-history me-2"></i>
+    <strong>Legutóbbi szinkronizálás</strong>
+    <span class="ms-auto text-muted small">{{ last_sync.started_at.strftime('%Y-%m-%d %H:%M') }}</span>
+  </div>
+  <div class="card-body d-flex gap-4 flex-wrap">
+    <span><i class="bi bi-file-earmark-text me-1"></i>NAV: {{ last_sync.invoice_count }}</span>
+    <span><i class="bi bi-bank me-1"></i>Wise: {{ last_sync.wise_count }}</span>
+    {% if last_sync.error_count > 0 %}
+      <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>{{ last_sync.error_count }} hiba</span>
+    {% endif %}
+    {% if last_sync.mode %}<span class="badge bg-secondary">{{ last_sync.mode }}</span>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <!-- Legutóbbi 10 számla -->
+  <div class="col-12 col-xl-7">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex align-items-center">
+        <i class="bi bi-file-earmark-text me-2"></i>
+        <strong>Legutóbbi számlák</strong>
+        <a href="/ui/invoices" class="ms-auto btn btn-link btn-sm p-0">Mind</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Számlaszám</th>
+              <th>Dátum</th>
+              <th>Szállító</th>
+              <th class="text-end">Bruttó</th>
+              <th>Státusz</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in recent_invoices %}
+            <tr>
+              <td><a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a></td>
+              <td>{{ row.invoice_date or '—' }}</td>
+              <td>{{ row.supplier_name }}</td>
+              <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>
+              <td>{{ payment_badge(row.payment_status) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted">Nincs adat</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legutóbbi 5 Wise tranzakció -->
+  <div class="col-12 col-xl-5">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex align-items-center">
+        <i class="bi bi-bank me-2"></i>
+        <strong>Legutóbbi Wise tranzakciók</strong>
+        <a href="/ui/transactions" class="ms-auto btn btn-link btn-sm p-0">Mind</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Dátum</th>
+              <th class="text-end">Összeg</th>
+              <th>Partner</th>
+              <th>Számla</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in recent_transactions %}
+            <tr>
+              <td>{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
+              <td class="text-end">{{ amount_fmt(row.amount, row.currency) }}</td>
+              <td>{{ row.partner_name or '—' }}</td>
+              <td>
+                {% if row.invoice_id and row.invoice_number %}
+                  <a href="/ui/invoices/{{ row.invoice_id }}">{{ row.invoice_number }}</a>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted">Nincs adat</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

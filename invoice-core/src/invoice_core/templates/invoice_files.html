@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "_macros.html" import amount_fmt %}
+{% block title %}PDF Fájlok — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item active">PDF Fájlok</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF Fájlok</h1>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form id="filter-form"
+          hx-get="/ui/invoice-files"
+          hx-trigger="change delay:300ms"
+          hx-target="#table-container"
+          hx-swap="innerHTML"
+          hx-push-url="true"
+          class="row g-2 align-items-end">
+      <div class="col-12 col-sm-auto">
+        <label class="form-label form-label-sm mb-1">Kapcsolat</label>
+        <select name="linked" class="form-select form-select-sm">
+          <option value="">Mind</option>
+          <option value="yes" {% if request.query_params.get('linked') == 'yes' %}selected{% endif %}>Kapcsolt</option>
+          <option value="no" {% if request.query_params.get('linked') == 'no' %}selected{% endif %}>Nem kapcsolt</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <a href="/ui/invoice-files" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-x-circle"></i>
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="table-container">
+  <table id="file-table" class="table table-hover table-sm">
+    <thead class="table-dark">
+      <tr>
+        <th>Fájlnév</th>
+        <th>Kapcsolt számla</th>
+        <th>Szállító</th>
+        <th class="text-end">Összeg</th>
+        <th class="text-center">Kapcsolt</th>
+        <th>Dátum</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><span class="font-monospace small">{{ row.filename }}</span></td>
+        <td>
+          {% if row.linked_invoice_id %}
+            <a href="/ui/invoices/{{ row.linked_invoice_id }}">{{ row.linked_invoice_number }}</a>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>{{ row.supplier_name or '—' }}</td>
+        <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>
+        <td class="text-center">
+          {% if row.is_linked %}
+            <i class="bi bi-link-45deg text-success"></i>
+          {% else %}
+            <i class="bi bi-dash-circle text-muted"></i>
+          {% endif %}
+        </td>
+        <td>{{ row.created_at.strftime('%Y-%m-%d') if row.created_at else '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="text-center text-muted">Nincs találat</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    new DataTable("#file-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 25,
+      order: [[5, "desc"]],
+      columnDefs: [
+        { targets: [3], className: "text-end" },
+        { targets: [4], orderable: false },
+      ],
+    });
+  });
+  document.addEventListener("htmx:afterSwap", function(e) {
+    if (e.target.id === "table-container") {
+      if ($.fn.DataTable && $.fn.DataTable.isDataTable("#file-table")) {
+        $("#file-table").DataTable().destroy();
+      }
+      new DataTable("#file-table", {
+        language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+        pageLength: 25,
+        order: [[5, "desc"]],
+        columnDefs: [
+          { targets: [3], className: "text-end" },
+          { targets: [4], orderable: false },
+        ],
+      });
+    }
+  });
+</script>
+{% endblock %}

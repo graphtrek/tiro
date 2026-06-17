@@ -1,0 +1,65 @@
+/* HTMX loading indicator */
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
+
+/* Sidebar */
+#sidebar {
+    min-width: 220px;
+    max-width: 220px;
+    min-height: 100vh;
+    background-color: #212529;
+}
+#sidebar .nav-link {
+    color: #adb5bd;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+}
+#sidebar .nav-link:hover,
+#sidebar .nav-link.active {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+#sidebar .nav-link i {
+    width: 1.25rem;
+}
+
+/* KPI cards */
+.kpi-card .card-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+}
+.kpi-card .kpi-value {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+/* Progress bar min width */
+.progress {
+    min-width: 80px;
+}
+
+/* Compact table font */
+.table-sm td, .table-sm th {
+    font-size: 0.875rem;
+}
+
+/* Make main content scrollable */
+main {
+    overflow-x: hidden;
+}
+
+/* Allow word-wrap in DataTables cells that have .text-wrap.
+   overflow-wrap:anywhere also breaks long unbreakable monospace strings
+   (transaction IDs, PDF filenames) so the table never overflows the page. */
+table.dataTable tbody td.text-wrap {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+}

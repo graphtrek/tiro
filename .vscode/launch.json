@@ -37,6 +37,15 @@
       "python": "${workspaceFolder}/wise/.venv/bin/python",
       "cwd": "${workspaceFolder}/wise",
       "console": "integratedTerminal"
+    },
+    {
+      "name": "invoice-core API",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/invoice-core/run_api.py",
+      "python": "${workspaceFolder}/invoice-core/.venv/bin/python",
+      "cwd": "${workspaceFolder}/invoice-core",
+      "console": "integratedTerminal"
     }
   ]
 }

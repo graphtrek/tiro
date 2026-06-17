@@ -181,3 +181,16 @@ class WiseTransaction(Base):
     customer = relationship("Customer", back_populates="wise_transactions")
     invoice = relationship("Invoice", back_populates="wise_transactions")
     invoice_file = relationship("InvoiceFile", back_populates="wise_transactions")
+
+
+class SyncLog(Base):
+    __tablename__ = "sync_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    started_at = Column(DateTime, server_default=func.now(), nullable=False)
+    finished_at = Column(DateTime, nullable=True)
+    mode = Column(String, nullable=True)
+    invoice_count = Column(Integer, default=0, nullable=False)
+    wise_count = Column(Integer, default=0, nullable=False)
+    error_count = Column(Integer, default=0, nullable=False)
+    errors = Column(Text, nullable=True)

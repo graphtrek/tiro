@@ -1,0 +1,65 @@
+{% from "_macros.html" import amount_fmt %}
+<table id="transaction-table" class="table table-hover table-sm nowrap" style="width:100%">
+  <thead class="table-dark">
+    <tr>
+      <th>Tranzakció ID</th>
+      <th>Dátum</th>
+      <th class="text-end">Összeg</th>
+      <th>Leírás</th>
+      <th>Referencia</th>
+      <th>Partner</th>
+      <th>Kapcsolt számla</th>
+      <th>PDF</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><small class="text-muted font-monospace">{{ row.wise_transaction_id }}</small></td>
+      <td>{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
+      <td class="text-end">{{ amount_fmt(row.amount, row.currency) }}</td>
+      <td>{{ row.description or '—' }}</td>
+      <td>{{ row.payment_reference or '—' }}</td>
+      <td>{{ row.partner_name or '—' }}</td>
+      <td>
+        {% if row.invoice_id and row.invoice_number %}
+          <a href="/ui/invoices/{{ row.invoice_id }}">{{ row.invoice_number }}</a>
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if row.invoice_file_id and row.invoice_file_filename %}
+          <a href="/ui/invoice-files" title="{{ row.invoice_file_filename }}">
+            <i class="bi bi-file-earmark-pdf text-danger"></i>
+            <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
+          </a>
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="text-center text-muted">Nincs találat</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+  (function() {
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable("#transaction-table")) {
+      $("#transaction-table").DataTable().destroy();
+    }
+    new DataTable("#transaction-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 25,
+      order: [[1, "desc"]],
+      scrollX: true,
+      autoWidth: false,
+      columnDefs: [
+        { targets: [2], className: "text-end" },
+        { targets: [7], orderable: false },
+      ],
+    });
+  })();
+</script>

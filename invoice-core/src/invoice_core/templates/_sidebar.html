@@ -1,0 +1,40 @@
+<nav id="sidebar" class="d-flex flex-column py-3 px-2">
+  <ul class="nav flex-column gap-1">
+    <li class="nav-item">
+      <a class="nav-link {% if request.url.path == '/ui/' %}active{% endif %}" href="/ui/">
+        <i class="bi bi-speedometer2"></i> Dashboard
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/ui/invoices' in request.url.path %}active{% endif %}" href="/ui/invoices">
+        <i class="bi bi-file-earmark-text"></i> Számlák
+        <span id="invoice-count-badge" class="badge bg-secondary ms-1">{{ invoice_count | default('') }}</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/ui/invoice-files' in request.url.path %}active{% endif %}" href="/ui/invoice-files">
+        <i class="bi bi-file-earmark-pdf"></i> PDF Fájlok
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/ui/suppliers' in request.url.path %}active{% endif %}" href="/ui/suppliers">
+        <i class="bi bi-building"></i> Szállítók
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/ui/customers' in request.url.path %}active{% endif %}" href="/ui/customers">
+        <i class="bi bi-people"></i> Vevők
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/ui/transactions' in request.url.path %}active{% endif %}" href="/ui/transactions">
+        <i class="bi bi-bank"></i> Wise
+      </a>
+    </li>
+    <li class="nav-item mt-3">
+      <a class="nav-link {% if '/ui/sync' in request.url.path %}active{% endif %}" href="/ui/sync">
+        <i class="bi bi-arrow-repeat"></i> Sync
+      </a>
+    </li>
+  </ul>
+</nav>

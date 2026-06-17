@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from invoice_core.config import configure_logging, get_settings
@@ -24,16 +26,22 @@ from invoice_core.models import (
     WiseTransactionOut,
 )
 from invoice_core.service import sync_all
+from invoice_core.ui.router import router as ui_router
 
 _settings = get_settings()
 configure_logging(_settings.log_level)
 logger = logging.getLogger(__name__)
+
+_STATIC_DIR = Path(__file__).parent.parent / "static"
 
 app = FastAPI(
     title="Invoice Core",
     description="Master orchestrator for the Moneypenny invoice automation pipeline.",
     version="0.1.0",
 )
+
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+app.include_router(ui_router)
 
 
 @app.middleware("http")
