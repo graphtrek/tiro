@@ -1,32 +1,49 @@
-"""Typer CLI a wise-szamla mikroszervizhez."""
+"""Typer CLI a wise-invoice mikroszervizhez."""
 
 from __future__ import annotations
 
 import json as _json
 import logging
-from typing import Optional
+from datetime import date
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
-from datetime import date
-
-from wise_szamla.client import WiseApiError, WiseClient
-from wise_szamla.config import configure_logging, get_settings
-from wise_szamla.csv_import import (
+from wise_invoice.client import WiseApiError, WiseClient
+from wise_invoice.config import configure_logging, get_settings
+from wise_invoice.csv_import import (
     StatementCsvError,
     list_statement_files,
     parse_statement_csv,
 )
-from wise_szamla.models import SyncRequest, TransactionType
-from wise_szamla.sync import run_sync
+from wise_invoice.models import SyncRequest, TransactionSummary, TransactionType
+from wise_invoice.sync import run_sync
 
 app = typer.Typer(
     help="Wise Banki Mikorszerviz — bankkivonat letöltés.",
     no_args_is_help=True,
 )
 console = Console()
+
+
+def _print_transaction_table(transactions: list[TransactionSummary]) -> None:
+    table = Table(show_lines=False)
+    table.add_column("Azonosító", overflow="fold")
+    table.add_column("Típus", width=7)
+    table.add_column("Dátum", width=12)
+    table.add_column("Összeg", justify="right")
+    table.add_column("Partner", overflow="fold")
+    for txn in transactions:
+        color = "green" if txn.type == TransactionType.CREDIT else "red"
+        table.add_row(
+            txn.wise_transaction_id,
+            f"[{color}]{txn.type.value}[/{color}]",
+            txn.transaction_date.strftime("%Y-%m-%d"),
+            f"{txn.amount:,.2f} {txn.currency}",
+            txn.counterparty_name or "[dim]–[/dim]",
+        )
+    console.print(table)
 
 
 @app.callback()
@@ -39,13 +56,13 @@ def _main(
 
 @app.command()
 def sync(
-    start: Optional[str] = typer.Option(
+    start: str | None = typer.Option(
         None, "--start", help="Szűrés kezdete (YYYY-MM-DD); default 30 napja"
     ),
-    end: Optional[str] = typer.Option(
+    end: str | None = typer.Option(
         None, "--end", help="Szűrés vége (YYYY-MM-DD); default ma"
     ),
-    currency: Optional[str] = typer.Option(
+    currency: str | None = typer.Option(
         None, "--currency", help="Pénznem (pl. EUR, GBP, HUF)"
     ),
     as_json: bool = typer.Option(False, "--json", help="JSON kimenet"),
@@ -70,23 +87,7 @@ def sync(
         console.print("Nincs tranzakció a megadott időszakban.")
         return
 
-    table = Table(show_lines=False)
-    table.add_column("Azonosító", overflow="fold")
-    table.add_column("Típus", width=7)
-    table.add_column("Dátum", width=12)
-    table.add_column("Összeg", justify="right")
-    table.add_column("Partner", overflow="fold")
-
-    for txn in result.transactions:
-        color = "green" if txn.type == TransactionType.CREDIT else "red"
-        table.add_row(
-            txn.wise_transaction_id,
-            f"[{color}]{txn.type.value}[/{color}]",
-            txn.transaction_date.strftime("%Y-%m-%d"),
-            f"{txn.amount:,.2f} {txn.currency}",
-            txn.counterparty_name or "[dim]–[/dim]",
-        )
-    console.print(table)
+    _print_transaction_table(result.transactions)
 
 
 @app.command()
@@ -145,13 +146,13 @@ def status():
 
 @app.command()
 def statements(
-    from_: Optional[str] = typer.Option(
+    from_: str | None = typer.Option(
         None, "--from", help="Csak az ettől a dátumtól adatot tartalmazó fájlok (YYYY-MM-DD)"
     ),
-    to: Optional[str] = typer.Option(
+    to: str | None = typer.Option(
         None, "--to", help="Csak az eddig a dátumig adatot tartalmazó fájlok (YYYY-MM-DD)"
     ),
-    currency: Optional[str] = typer.Option(
+    currency: str | None = typer.Option(
         None, "--currency", help="Pénznem szűrő (pl. HUF)"
     ),
 ):
@@ -185,20 +186,18 @@ def statements(
 
 @app.command(name="balance-statements")
 def balance_statements(
-    from_: Optional[str] = typer.Option(
+    from_: str | None = typer.Option(
         None, "--from", help="Szűrés kezdete (YYYY-MM-DD)"
     ),
-    to: Optional[str] = typer.Option(
+    to: str | None = typer.Option(
         None, "--to", help="Szűrés vége (YYYY-MM-DD)"
     ),
-    currency: Optional[str] = typer.Option(
+    currency: str | None = typer.Option(
         None, "--currency", help="Pénznem szűrő (pl. HUF)"
     ),
     as_json: bool = typer.Option(False, "--json", help="JSON kimenet"),
 ):
     """GET /balance-statements: szűrő nélkül a legfrissebb kivonat tranzakcióit, szűrővel a fájllistát adja vissza."""
-    from wise_szamla.csv_import import StatementCsvError
-
     if from_ is None and to is None and currency is None:
         files = list_statement_files()
         if not files:
@@ -224,23 +223,7 @@ def balance_statements(
             console.print("Nincs tranzakció a fájlban.")
             return
 
-        table = Table(show_lines=False)
-        table.add_column("Azonosító", overflow="fold")
-        table.add_column("Típus", width=7)
-        table.add_column("Dátum", width=12)
-        table.add_column("Összeg", justify="right")
-        table.add_column("Partner", overflow="fold")
-
-        for txn in result.transactions:
-            color = "green" if txn.type == TransactionType.CREDIT else "red"
-            table.add_row(
-                txn.wise_transaction_id,
-                f"[{color}]{txn.type.value}[/{color}]",
-                txn.transaction_date.strftime("%Y-%m-%d"),
-                f"{txn.amount:,.2f} {txn.currency}",
-                txn.counterparty_name or "[dim]–[/dim]",
-            )
-        console.print(table)
+        _print_transaction_table(result.transactions)
         return
 
     files = list_statement_files(
@@ -300,23 +283,7 @@ def import_csv(
         console.print("Nincs tranzakció a fájlban.")
         return
 
-    table = Table(show_lines=False)
-    table.add_column("Azonosító", overflow="fold")
-    table.add_column("Típus", width=7)
-    table.add_column("Dátum", width=12)
-    table.add_column("Összeg", justify="right")
-    table.add_column("Partner", overflow="fold")
-
-    for txn in result.transactions:
-        color = "green" if txn.type == TransactionType.CREDIT else "red"
-        table.add_row(
-            txn.wise_transaction_id,
-            f"[{color}]{txn.type.value}[/{color}]",
-            txn.transaction_date.strftime("%Y-%m-%d"),
-            f"{txn.amount:,.2f} {txn.currency}",
-            txn.counterparty_name or "[dim]–[/dim]",
-        )
-    console.print(table)
+    _print_transaction_table(result.transactions)
 
 
 if __name__ == "__main__":

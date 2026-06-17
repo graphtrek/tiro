@@ -13,8 +13,11 @@ _BALANCE_STATEMENTS_DIR = _PROJECT_ROOT / "balance-statements"
 
 
 def configure_logging(log_level: str = "INFO") -> None:
-    _LOG_DIR.mkdir(exist_ok=True)
     level = getattr(logging, log_level.upper(), logging.INFO)
+    root = logging.getLogger()
+    if root.handlers and root.level == level:
+        return
+    _LOG_DIR.mkdir(exist_ok=True)
     fmt = logging.Formatter(
         "%(asctime)s %(levelname)-8s %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -23,7 +26,6 @@ def configure_logging(log_level: str = "INFO") -> None:
     stream_handler.setFormatter(fmt)
     file_handler = logging.FileHandler(_LOG_DIR / "wise.log", encoding="utf-8")
     file_handler.setFormatter(fmt)
-    root = logging.getLogger()
     root.setLevel(level)
     root.handlers.clear()
     root.addHandler(stream_handler)
@@ -45,7 +47,7 @@ class Settings(BaseSettings):
 
     # ── FastAPI szerver ─────────────────────────────────────────
     api_host: str = "0.0.0.0"
-    api_port: int = 8004
+    api_port: int = 8003
     log_level: str = "INFO"
 
     # ── SCA (Strong Customer Authentication) ────────────────────

@@ -1,5 +1,5 @@
 [project]
-name = "wise-szamla"
+name = "wise-invoice"
 version = "0.1.0"
 description = "Wise bank statement sync microservice (Moneypenny wise) with FastAPI and CLI"
 readme = "README.md"
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-wise-szamla = "wise_szamla.cli.main:app"
+wise-invoice = "wise_invoice.cli.main:app"
 
 [dependency-groups]
 dev = [

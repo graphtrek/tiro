@@ -7,13 +7,13 @@ from decimal import Decimal
 
 import pytest
 
-from wise_szamla.config import Settings
-from wise_szamla.csv_import import (
+from wise_invoice.config import Settings
+from wise_invoice.csv_import import (
     StatementCsvError,
     list_statement_files,
     parse_statement_csv,
 )
-from wise_szamla.models import TransactionType
+from wise_invoice.models import TransactionType
 
 CSV_HEADER = (
     '"TransferWise ID",Date,"Date Time",Amount,Currency,Description,'

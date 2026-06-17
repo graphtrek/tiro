@@ -68,10 +68,10 @@
 
 ## wise — Wise bank-statement service
 - **Purpose**: Fetches Wise balance statements via the Wise API and returns structured transactions as JSON. Leaf service — calls only the Wise API, holds no DB.
-- **Layout**: `src/wise_szamla/` — `api/main.py` (FastAPI: `POST /sync`, `GET /balance-statements`, `GET /balances`, `GET /profiles`, `GET /settings`), `cli/main.py` (Typer: `status`, `balances`, `sync`, `statements`, `balance-statements`, `import`), `client.py` (Bearer auth + retry), `sync.py`, `csv_import.py` (manual CSV fallback). `requires-python >=3.11`.
+- **Layout**: `src/wise_invoice/` — `api/main.py` (FastAPI: `POST /sync`, `GET /balance-statements`, `GET /balances`, `GET /profiles`, `GET /settings`), `cli/main.py` (Typer: `status`, `balances`, `sync`, `statements`, `balance-statements`, `import`), `client.py` (Bearer auth + retry), `sync.py`, `csv_import.py` (manual CSV fallback). `requires-python >=3.11`.
 - **Run**:
   - API: `cd wise && python run_api.py` (port 8003).
-  - CLI: `uv run wise-szamla sync [--start DATE] [--end DATE] [--currency HUF] [--json]`.
+  - CLI: `uv run wise-invoice sync [--start DATE] [--end DATE] [--currency HUF] [--json]`.
   - Tests: `uv run pytest tests/ -v`.
 - **SCA**: balance-statement download requires an RSA keypair registered in Wise. Generate with `openssl genrsa`, upload public key in Wise dashboard, set `WISE_SCA_PRIVATE_KEY_PATH` in `.env`. Manual CSV download to `balance-statements/` is the fallback.
 - **Env**: `WISE_API_KEY`, `WISE_PROFILE_ID`, `WISE_ACCOUNT_CURRENCY`, `WISE_SANDBOX`, `WISE_SCA_PRIVATE_KEY_PATH`, `BALANCE_STATEMENTS_DIR`, `API_HOST`/`API_PORT` (8003), `LOG_LEVEL`, `REQUEST_TIMEOUT`, `MAX_RETRIES`.

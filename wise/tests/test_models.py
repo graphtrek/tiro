@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from wise_szamla.models import (
+from wise_invoice.models import (
     SyncRequest,
     SyncResponse,
     TransactionSummary,
@@ -14,7 +14,7 @@ from wise_szamla.models import (
     WiseTransaction,
     WiseTransactionDetails,
 )
-from wise_szamla.sync import _partner_name, _to_summary
+from wise_invoice.sync import _partner_name, _to_summary
 
 
 class TestWiseAmount:

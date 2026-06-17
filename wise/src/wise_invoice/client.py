@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -14,6 +14,8 @@ from .config import Settings, get_settings
 from .models import WiseStatement
 
 logger = logging.getLogger(__name__)
+
+_RETRY_STATUS_CODES = (429, 500, 502, 503, 504)
 
 
 class WiseApiError(RuntimeError):
@@ -29,7 +31,7 @@ class WiseClient:
     LIVE_URL = "https://api.wise.com"
     SANDBOX_URL = "https://api.sandbox.transferwise.tech"
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = (
             self.SANDBOX_URL if self.settings.wise_sandbox else self.LIVE_URL
@@ -48,7 +50,7 @@ class WiseClient:
         retry = Retry(
             total=self.settings.max_retries,
             backoff_factor=self.settings.retry_delay,
-            status_forcelist=[429, 500, 502, 503, 504],
+            status_forcelist=list(_RETRY_STATUS_CODES),
             allowed_methods=["GET"],
         )
         adapter = HTTPAdapter(max_retries=retry)
@@ -57,11 +59,11 @@ class WiseClient:
 
     # ── Publikus metódusok ────────────────────────────────────────────────────
 
-    def get_profiles(self) -> List[Dict[str, Any]]:
+    def get_profiles(self) -> list[dict[str, Any]]:
         """Visszaadja a hitelesített felhasználó profillistáját."""
         return self._get("/v2/profiles").json()
 
-    def get_balances(self) -> List[Dict[str, Any]]:
+    def get_balances(self) -> list[dict[str, Any]]:
         """Visszaadja a profil borderless számla egyenlegeit.
 
         Wise v1 borderless-accounts API-t használ, amely minden
@@ -74,7 +76,7 @@ class WiseClient:
         self,
         start_date: str,
         end_date: str,
-        currency: Optional[str] = None,
+        currency: str | None = None,
     ) -> WiseStatement:
         """Letölti a megadott pénznemű bankszámlakivonatot.
 
@@ -114,7 +116,7 @@ class WiseClient:
 
     # ── Belső segédek ────────────────────────────────────────────────────────
 
-    def _get_borderless_account(self) -> Dict[str, Any]:
+    def _get_borderless_account(self) -> dict[str, Any]:
         """Visszaadja a profil első borderless számláját (v1 API)."""
         profile_id = self.settings.wise_profile_id
         accounts = self._get(
@@ -157,7 +159,7 @@ class WiseClient:
         signature = private_key.sign(otp.encode(), padding.PKCS1v15(), hashes.SHA256())
         return base64.b64encode(signature).decode()
 
-    def _get(self, path: str, params: Optional[dict] = None) -> requests.Response:
+    def _get(self, path: str, params: dict | None = None) -> requests.Response:
         url = f"{self.base_url}{path}"
         try:
             resp = self.session.get(

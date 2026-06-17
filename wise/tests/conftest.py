@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from wise_szamla.models import (
+from wise_invoice.models import (
     TransactionType,
     WiseAmount,
     WiseMerchant,

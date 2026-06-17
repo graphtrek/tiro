@@ -1,11 +1,11 @@
-"""Pydantic modellek a wise-szamla mikroszervizhez."""
+"""Pydantic modellek a wise-invoice mikroszervizhez."""
 
 from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, computed_field, field_serializer
 
@@ -24,45 +24,45 @@ class WiseAmount(BaseModel):
 
 
 class WiseMerchant(BaseModel):
-    name: Optional[str] = None
-    category: Optional[str] = None
-    categoryCode: Optional[str] = None
+    name: str | None = None
+    category: str | None = None
+    categoryCode: str | None = None
 
 
 class WiseTransactionDetails(BaseModel):
     type: str
-    description: Optional[str] = None
-    merchant: Optional[WiseMerchant] = None
-    senderName: Optional[str] = None
-    senderAccount: Optional[str] = None
-    recipientName: Optional[str] = None
-    recipientAccount: Optional[str] = None
-    paymentReference: Optional[str] = None
+    description: str | None = None
+    merchant: WiseMerchant | None = None
+    senderName: str | None = None
+    senderAccount: str | None = None
+    recipientName: str | None = None
+    recipientAccount: str | None = None
+    paymentReference: str | None = None
 
 
 class WiseTransaction(BaseModel):
     type: TransactionType
     date: datetime
     amount: WiseAmount
-    totalFees: Optional[WiseAmount] = None
+    totalFees: WiseAmount | None = None
     details: WiseTransactionDetails
-    exchangeDetails: Optional[Dict[str, Any]] = None
-    runningBalance: Optional[WiseAmount] = None
+    exchangeDetails: dict[str, Any] | None = None
+    runningBalance: WiseAmount | None = None
     referenceNumber: str
 
 
 class WiseAccountHolder(BaseModel):
-    type: Optional[str] = None
-    address: Optional[Dict[str, Any]] = None
-    firstName: Optional[str] = None
-    lastName: Optional[str] = None
-    currency: Optional[str] = None
+    type: str | None = None
+    address: dict[str, Any] | None = None
+    firstName: str | None = None
+    lastName: str | None = None
+    currency: str | None = None
 
 
 class WiseStatement(BaseModel):
-    accountHolder: Optional[WiseAccountHolder] = None
-    transactions: List[WiseTransaction] = Field(default_factory=list)
-    endOfStatementBalance: Optional[WiseAmount] = None
+    accountHolder: WiseAccountHolder | None = None
+    transactions: list[WiseTransaction] = Field(default_factory=list)
+    endOfStatementBalance: WiseAmount | None = None
 
 
 # ── API kérés/válasz modellek ────────────────────────────────────────────────
@@ -71,13 +71,13 @@ class WiseStatement(BaseModel):
 class SyncRequest(BaseModel):
     """Szinkronizálási kérés paraméterei."""
 
-    start_date: Optional[str] = Field(
+    start_date: str | None = Field(
         None, description="Szűrés kezdete (YYYY-MM-DD); default 30 napja"
     )
-    end_date: Optional[str] = Field(
+    end_date: str | None = Field(
         None, description="Szűrés vége (YYYY-MM-DD); default ma"
     )
-    currency: Optional[str] = Field(
+    currency: str | None = Field(
         None, description="Pénznem (pl. EUR, GBP, HUF); default: WISE_ACCOUNT_CURRENCY"
     )
 
@@ -90,24 +90,24 @@ class TransactionSummary(BaseModel):
     transaction_date: datetime
     amount: Decimal
     currency: str
-    description: Optional[str] = None
-    payment_reference: Optional[str] = None
-    running_balance: Optional[Decimal] = None
-    exchange_from: Optional[str] = None
-    exchange_to: Optional[str] = None
-    exchange_rate: Optional[Decimal] = None
-    payer_name: Optional[str] = None
-    payee_name: Optional[str] = None
-    payee_account_number: Optional[str] = None
-    merchant: Optional[str] = None
-    card_last_four_digits: Optional[str] = None
-    card_holder_full_name: Optional[str] = None
-    attachment: Optional[str] = None
-    note: Optional[str] = None
-    total_fees: Optional[Decimal] = None
-    exchange_to_amount: Optional[Decimal] = None
-    transaction_details_type: Optional[str] = None
-    counterparty_name: Optional[str] = None
+    description: str | None = None
+    payment_reference: str | None = None
+    running_balance: Decimal | None = None
+    exchange_from: str | None = None
+    exchange_to: str | None = None
+    exchange_rate: Decimal | None = None
+    payer_name: str | None = None
+    payee_name: str | None = None
+    payee_account_number: str | None = None
+    merchant: str | None = None
+    card_last_four_digits: str | None = None
+    card_holder_full_name: str | None = None
+    attachment: str | None = None
+    note: str | None = None
+    total_fees: Decimal | None = None
+    exchange_to_amount: Decimal | None = None
+    transaction_details_type: str | None = None
+    counterparty_name: str | None = None
 
     @field_serializer("transaction_date")
     def _serialize_datetime(self, value: datetime) -> str:
@@ -128,7 +128,7 @@ class SyncResponse(BaseModel):
     end_date: str
     currency: str
     fetched: int = 0
-    transactions: List[TransactionSummary] = Field(default_factory=list)
+    transactions: list[TransactionSummary] = Field(default_factory=list)
 
 
 # ── CSV-import modellek ───────────────────────────────────────────────────────
@@ -154,9 +154,9 @@ class StatementImport(BaseModel):
     """Egy CSV fájlból beolvasott tranzakciók."""
 
     filename: str
-    balance_id: Optional[int] = None
-    currency: Optional[str] = None
-    from_date: Optional[date] = None
-    to_date: Optional[date] = None
+    balance_id: int | None = None
+    currency: str | None = None
+    from_date: date | None = None
+    to_date: date | None = None
     fetched: int = 0
-    transactions: List[TransactionSummary] = Field(default_factory=list)
+    transactions: list[TransactionSummary] = Field(default_factory=list)

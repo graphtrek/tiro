@@ -193,21 +193,21 @@ uv sync
 
 # REST API (port 8003)
 python run_api.py
-# or: uv run uvicorn wise_szamla.api.main:app --host 0.0.0.0 --port 8003 --reload
+# or: uv run uvicorn wise_invoice.api.main:app --host 0.0.0.0 --port 8003 --reload
 
-# CLI (installed as `wise-szamla` script)
-uv run wise-szamla status
-uv run wise-szamla balances
-uv run wise-szamla sync --start 2026-05-01 --end 2026-05-31 [--currency HUF] [--json]
-uv run wise-szamla balance-statements [--from DATE] [--currency HUF] [--json]
-uv run wise-szamla import statement_<id>_<currency>_<from>_<to>.csv
+# CLI (installed as `wise-invoice` script)
+uv run wise-invoice status
+uv run wise-invoice balances
+uv run wise-invoice sync --start 2026-05-01 --end 2026-05-31 [--currency HUF] [--json]
+uv run wise-invoice balance-statements [--from DATE] [--currency HUF] [--json]
+uv run wise-invoice import statement_<id>_<currency>_<from>_<to>.csv
 
 # Tests
 uv run pytest tests/ -v
 ```
 
 ### Architecture
-- `src/wise_szamla/` — `api/main.py` (FastAPI: `POST /sync`, `GET /balance-statements`, `GET /balances`, etc.), `cli/main.py` (Typer), `client.py` (WiseClient — Bearer auth + retry), `sync.py`, `csv_import.py` (manual CSV fallback), `config.py`, `models.py`.
+- `src/wise_invoice/` — `api/main.py` (FastAPI: `POST /sync`, `GET /balance-statements`, `GET /balances`, etc.), `cli/main.py` (Typer), `client.py` (WiseClient — Bearer auth + retry), `sync.py`, `csv_import.py` (manual CSV fallback), `config.py`, `models.py`.
 - SCA required for balance-statement download: generate RSA keypair, upload public key to Wise dashboard, set `WISE_SCA_PRIVATE_KEY_PATH` in `.env`. Manual CSV download (`balance-statements/`) is the fallback.
 
 ### Environment

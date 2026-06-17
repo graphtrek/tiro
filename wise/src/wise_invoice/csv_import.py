@@ -16,7 +16,6 @@ import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import List, Optional
 
 from .config import Settings, get_settings
 from .models import StatementFile, StatementImport, TransactionSummary, TransactionType
@@ -28,11 +27,41 @@ class StatementCsvError(RuntimeError):
     """CSV beolvasás vagy listázás sikertelen."""
 
 
+# ── Konstansok ────────────────────────────────────────────────────────────────
+
 # statement_<balanceId>_<currency>_<from>_<to>.csv
 _FILENAME_RE = re.compile(
     r"^statement_(?P<balance_id>\d+)_(?P<currency>[A-Za-z]{3})_"
     r"(?P<from>\d{4}-\d{2}-\d{2})_(?P<to>\d{4}-\d{2}-\d{2})\.csv$"
 )
+
+# Wise CSV dátumformátumok, legpontosabbtól kevésbé pontos felé
+_DATE_FORMATS = ("%d-%m-%Y %H:%M:%S.%f", "%d-%m-%Y %H:%M:%S", "%d-%m-%Y")
+
+# Wise CSV oszlopnevek
+_COL_ID = "TransferWise ID"
+_COL_DATE_TIME = "Date Time"
+_COL_DATE = "Date"
+_COL_AMOUNT = "Amount"
+_COL_CURRENCY = "Currency"
+_COL_DESCRIPTION = "Description"
+_COL_PAYMENT_REF = "Payment Reference"
+_COL_RUNNING_BALANCE = "Running Balance"
+_COL_EXCHANGE_FROM = "Exchange From"
+_COL_EXCHANGE_TO = "Exchange To"
+_COL_EXCHANGE_RATE = "Exchange Rate"
+_COL_EXCHANGE_TO_AMOUNT = "Exchange To Amount"
+_COL_PAYER_NAME = "Payer Name"
+_COL_PAYEE_NAME = "Payee Name"
+_COL_PAYEE_ACCOUNT = "Payee Account Number"
+_COL_MERCHANT = "Merchant"
+_COL_CARD_DIGITS = "Card Last Four Digits"
+_COL_CARD_HOLDER = "Card Holder Full Name"
+_COL_ATTACHMENT = "Attachment"
+_COL_NOTE = "Note"
+_COL_TOTAL_FEES = "Total fees"
+_COL_TXN_TYPE = "Transaction Type"
+_COL_TXN_DETAILS_TYPE = "Transaction Details Type"
 
 
 def _statements_dir(settings: Settings) -> Path:
@@ -40,7 +69,7 @@ def _statements_dir(settings: Settings) -> Path:
 
 
 def resolve_statement_path(
-    filename: str, settings: Optional[Settings] = None
+    filename: str, settings: Settings | None = None
 ) -> Path:
     """Biztonságosan feloldja egy kivonat CSV elérési útját a mappán belül.
 
@@ -57,11 +86,11 @@ def resolve_statement_path(
 
 
 def list_statement_files(
-    from_date: Optional[date] = None,
-    to_date: Optional[date] = None,
-    currency: Optional[str] = None,
-    settings: Optional[Settings] = None,
-) -> List[StatementFile]:
+    from_date: date | None = None,
+    to_date: date | None = None,
+    currency: str | None = None,
+    settings: Settings | None = None,
+) -> list[StatementFile]:
     """Listázza a mappában lévő kivonat CSV-ket, opcionális szűréssel.
 
     A szűrés a fájlnévbe kódolt időszak [from_date, to_date] alapján,
@@ -85,7 +114,7 @@ def list_statement_files(
         return []
 
     want_currency = currency.upper() if currency else None
-    result: List[StatementFile] = []
+    result: list[StatementFile] = []
 
     for path in directory.glob("statement_*.csv"):
         m = _FILENAME_RE.match(path.name)
@@ -124,7 +153,7 @@ def list_statement_files(
 def _parse_date(value: str) -> datetime:
     """Wise CSV dátum parszolása (``Date Time`` vagy ``Date`` oszlop)."""
     value = (value or "").strip()
-    for fmt in ("%d-%m-%Y %H:%M:%S.%f", "%d-%m-%Y %H:%M:%S", "%d-%m-%Y"):
+    for fmt in _DATE_FORMATS:
         try:
             return datetime.strptime(value, fmt)
         except ValueError:
@@ -140,18 +169,17 @@ def _parse_amount(value: str) -> Decimal:
 
 
 def _row_type(row: dict, amount: Decimal) -> TransactionType:
-    raw = (row.get("Transaction Type") or "").strip().upper()
+    raw = (row.get(_COL_TXN_TYPE) or "").strip().upper()
     if raw in ("CREDIT", "DEBIT"):
         return TransactionType(raw)
     return TransactionType.CREDIT if amount >= 0 else TransactionType.DEBIT
 
 
-
-def _opt_str(row: dict, col: str) -> Optional[str]:
+def _opt_str(row: dict, col: str) -> str | None:
     return (row.get(col) or "").strip() or None
 
 
-def _opt_decimal(row: dict, col: str) -> Optional[Decimal]:
+def _opt_decimal(row: dict, col: str) -> Decimal | None:
     raw = (row.get(col) or "").strip()
     if not raw:
         return None
@@ -163,41 +191,41 @@ def _opt_decimal(row: dict, col: str) -> Optional[Decimal]:
 
 
 def _row_to_summary(row: dict) -> TransactionSummary:
-    amount = _parse_amount(row.get("Amount", "0"))
-    raw_date = row.get("Date Time") or row.get("Date") or ""
-    payer_name = _opt_str(row, "Payer Name")
-    payee_name = _opt_str(row, "Payee Name")
-    merchant = _opt_str(row, "Merchant")
+    amount = _parse_amount(row.get(_COL_AMOUNT, "0"))
+    raw_date = row.get(_COL_DATE_TIME) or row.get(_COL_DATE) or ""
+    payer_name = _opt_str(row, _COL_PAYER_NAME)
+    payee_name = _opt_str(row, _COL_PAYEE_NAME)
+    merchant = _opt_str(row, _COL_MERCHANT)
     counterparty_name = payer_name or payee_name or merchant
     return TransactionSummary(
-        wise_transaction_id=(row.get("TransferWise ID") or "").strip(),
+        wise_transaction_id=(row.get(_COL_ID) or "").strip(),
         type=_row_type(row, amount),
         transaction_date=_parse_date(raw_date),
         amount=amount,
-        currency=(row.get("Currency") or "").strip(),
-        description=_opt_str(row, "Description"),
-        payment_reference=_opt_str(row, "Payment Reference"),
-        running_balance=_opt_decimal(row, "Running Balance"),
-        exchange_from=_opt_str(row, "Exchange From"),
-        exchange_to=_opt_str(row, "Exchange To"),
-        exchange_rate=_opt_decimal(row, "Exchange Rate"),
+        currency=(row.get(_COL_CURRENCY) or "").strip(),
+        description=_opt_str(row, _COL_DESCRIPTION),
+        payment_reference=_opt_str(row, _COL_PAYMENT_REF),
+        running_balance=_opt_decimal(row, _COL_RUNNING_BALANCE),
+        exchange_from=_opt_str(row, _COL_EXCHANGE_FROM),
+        exchange_to=_opt_str(row, _COL_EXCHANGE_TO),
+        exchange_rate=_opt_decimal(row, _COL_EXCHANGE_RATE),
         payer_name=payer_name,
         payee_name=payee_name,
-        payee_account_number=_opt_str(row, "Payee Account Number"),
+        payee_account_number=_opt_str(row, _COL_PAYEE_ACCOUNT),
         merchant=merchant,
-        card_last_four_digits=_opt_str(row, "Card Last Four Digits"),
-        card_holder_full_name=_opt_str(row, "Card Holder Full Name"),
-        attachment=_opt_str(row, "Attachment"),
-        note=_opt_str(row, "Note"),
-        total_fees=_opt_decimal(row, "Total fees"),
-        exchange_to_amount=_opt_decimal(row, "Exchange To Amount"),
-        transaction_details_type=_opt_str(row, "Transaction Details Type"),
+        card_last_four_digits=_opt_str(row, _COL_CARD_DIGITS),
+        card_holder_full_name=_opt_str(row, _COL_CARD_HOLDER),
+        attachment=_opt_str(row, _COL_ATTACHMENT),
+        note=_opt_str(row, _COL_NOTE),
+        total_fees=_opt_decimal(row, _COL_TOTAL_FEES),
+        exchange_to_amount=_opt_decimal(row, _COL_EXCHANGE_TO_AMOUNT),
+        transaction_details_type=_opt_str(row, _COL_TXN_DETAILS_TYPE),
         counterparty_name=counterparty_name,
     )
 
 
 def parse_statement_csv(
-    filename: str, settings: Optional[Settings] = None
+    filename: str, settings: Settings | None = None
 ) -> StatementImport:
     """Beolvas egy kivonat CSV-t a mappából és tranzakciókká alakítja.
 
@@ -211,11 +239,11 @@ def parse_statement_csv(
     settings = settings or get_settings()
     path = resolve_statement_path(filename, settings)
 
-    transactions: List[TransactionSummary] = []
+    transactions: list[TransactionSummary] = []
     with path.open(encoding="utf-8-sig", newline="") as fh:
         reader = csv.DictReader(fh)
         for row in reader:
-            if not (row.get("TransferWise ID") or "").strip():
+            if not (row.get(_COL_ID) or "").strip():
                 continue
             transactions.append(_row_to_summary(row))
 

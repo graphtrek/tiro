@@ -1,31 +1,31 @@
-"""FastAPI app a wise-szamla mikroszervizhez."""
+"""FastAPI app a wise-invoice mikroszervizhez."""
 
 from __future__ import annotations
 
 import logging
 import time
+from collections import deque
 from datetime import date, datetime
-from typing import List, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
-from wise_szamla.client import WiseApiError, WiseClient
-from wise_szamla.config import configure_logging, get_settings
-from wise_szamla.csv_import import (
+from wise_invoice.client import WiseApiError, WiseClient
+from wise_invoice.config import configure_logging, get_settings
+from wise_invoice.csv_import import (
     StatementCsvError,
     list_statement_files,
     parse_statement_csv,
     resolve_statement_path,
 )
-from wise_szamla.models import (
+from wise_invoice.models import (
     StatementFile,
     StatementImport,
     SyncRequest,
     SyncResponse,
     TransactionSummary,
 )
-from wise_szamla.sync import run_sync
+from wise_invoice.sync import run_sync
 
 _settings = get_settings()
 configure_logging(_settings.log_level)
@@ -55,7 +55,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-_sync_history: List[SyncResponse] = []
+_sync_history: deque[SyncResponse] = deque(maxlen=100)
 
 
 # ── Állapot és konfiguráció ───────────────────────────────────────────────────
@@ -119,16 +119,16 @@ def get_transaction(wise_transaction_id: str):
 
 @app.get(
     "/balance-statements",
-    response_model=Union[StatementImport, List[StatementFile]],
+    response_model=StatementImport | list[StatementFile],
 )
 def list_balance_statements(
-    from_: Optional[date] = Query(
+    from_: date | None = Query(
         None, alias="from", description="Csak az ettől a dátumtól adatot tartalmazó fájlok"
     ),
-    to: Optional[date] = Query(
+    to: date | None = Query(
         None, description="Csak az eddig a dátumig adatot tartalmazó fájlok"
     ),
-    currency: Optional[str] = Query(None, description="Pénznem szűrő, pl. HUF"),
+    currency: str | None = Query(None, description="Pénznem szűrő, pl. HUF"),
 ):
     """Kivonat CSV-k a mappából.
 
@@ -155,9 +155,7 @@ def list_balance_statements(
 @app.get("/balance-statements/{filename}", response_model=StatementImport)
 def import_balance_statement(
     filename: str,
-    csv: bool = Query(
-        False, description="Az eredeti CSV fájlt adja vissza a JSON helyett"
-    ),
+    csv: bool = Query(False, description="Az eredeti CSV fájlt adja vissza a JSON helyett"),
 ):
     """Beolvas egy kivonat CSV-t és visszaadja a tranzakciókat (default JSON).
 
@@ -200,7 +198,7 @@ def run_server():
 
     settings = get_settings()
     uvicorn.run(
-        "wise_szamla.api.main:app",
+        "wise_invoice.api.main:app",
         host=settings.api_host,
         port=settings.api_port,
         reload=True,
