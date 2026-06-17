@@ -41,6 +41,26 @@ class WiseTxnRow:
     description: Optional[str]
     payment_reference: Optional[str]
     partner_name: Optional[str]
+    running_balance: Optional[float] = None
+    exchange_from: Optional[str] = None
+    exchange_to: Optional[str] = None
+    exchange_rate: Optional[float] = None
+    exchange_to_amount: Optional[float] = None
+    payer_name: Optional[str] = None
+    payee_name: Optional[str] = None
+    payee_account_number: Optional[str] = None
+    merchant: Optional[str] = None
+    card_last_four_digits: Optional[str] = None
+    card_holder_full_name: Optional[str] = None
+    attachment: Optional[str] = None
+    note: Optional[str] = None
+    total_fees: Optional[float] = None
+    transaction_type: Optional[str] = None
+    transaction_details_type: Optional[str] = None
+    invoice_file_id: Optional[int] = None
+    invoice_file_filename: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 @dataclass
@@ -226,6 +246,26 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
                 description=t.description,
                 payment_reference=t.payment_reference,
                 partner_name=t.payee_name or t.payer_name or t.merchant,
+                running_balance=t.running_balance,
+                exchange_from=t.exchange_from,
+                exchange_to=t.exchange_to,
+                exchange_rate=t.exchange_rate,
+                exchange_to_amount=t.exchange_to_amount,
+                payer_name=t.payer_name,
+                payee_name=t.payee_name,
+                payee_account_number=t.payee_account_number,
+                merchant=t.merchant,
+                card_last_four_digits=t.card_last_four_digits,
+                card_holder_full_name=t.card_holder_full_name,
+                attachment=t.attachment,
+                note=t.note,
+                total_fees=t.total_fees,
+                transaction_type=t.transaction_type,
+                transaction_details_type=t.transaction_details_type,
+                invoice_file_id=t.invoice_file_id,
+                invoice_file_filename=t.invoice_file.filename if t.invoice_file else None,
+                created_at=t.created_at,
+                updated_at=t.updated_at,
             )
             for t in wise_txns
         ],

@@ -95,58 +95,144 @@
     <i class="bi bi-file-earmark-pdf me-1 text-danger"></i><strong>Kapcsolt PDF</strong>
   </div>
   <div class="card-body">
-    <span class="font-monospace">{{ invoice.invoice_file_filename or ('file_id: ' ~ invoice.invoice_file_id) }}</span>
+    <a href="/ui/invoice-files/{{ invoice.invoice_file_id }}/pdf" target="_blank" class="font-monospace">
+      <i class="bi bi-box-arrow-up-right me-1"></i>{{ invoice.invoice_file_filename or ('file_id: ' ~ invoice.invoice_file_id) }}
+    </a>
   </div>
 </div>
 {% endif %}
 
 <!-- Wise tranzakciók -->
 {% if invoice.wise_transactions %}
-<div class="card shadow-sm mb-4">
-  <div class="card-header">
-    <i class="bi bi-bank me-1 text-info"></i>
-    <strong>Wise tranzakciók ({{ invoice.wise_transactions | length }})</strong>
+<div class="mb-2">
+  <h5 class="mb-3">
+    <i class="bi bi-bank me-1 text-info"></i>Wise tranzakciók ({{ invoice.wise_transactions | length }})
+  </h5>
+</div>
+{% for t in invoice.wise_transactions %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="font-monospace small">{{ t.wise_transaction_id }}</span>
+    <span class="fw-bold">{{ amount_fmt(t.amount, t.currency) }}</span>
   </div>
-  <div class="card-body p-0">
-    <table id="inv-wise-table" class="table table-sm table-hover mb-0">
-      <thead class="table-light">
-        <tr>
-          <th>Dátum</th>
-          <th class="text-end">Összeg</th>
-          <th>Leírás</th>
-          <th>Referencia</th>
-          <th>Partner</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for t in invoice.wise_transactions %}
-        <tr>
-          <td>{{ t.transaction_date.strftime('%Y-%m-%d') if t.transaction_date else '—' }}</td>
-          <td class="text-end">{{ amount_fmt(t.amount, t.currency) }}</td>
-          <td>{{ t.description or '—' }}</td>
-          <td>{{ t.payment_reference or '—' }}</td>
-          <td>{{ t.partner_name or '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="card-body">
+    <div class="row g-3">
+      <!-- Alapadatok -->
+      <div class="col-12 col-md-6">
+        <dl class="row mb-0 small">
+          <dt class="col-5 text-muted">Dátum</dt>
+          <dd class="col-7">{{ t.transaction_date.strftime('%Y-%m-%d %H:%M') if t.transaction_date else '—' }}</dd>
+
+          <dt class="col-5 text-muted">Összeg</dt>
+          <dd class="col-7 fw-bold">{{ amount_fmt(t.amount, t.currency) }}</dd>
+
+          <dt class="col-5 text-muted">Egyenleg</dt>
+          <dd class="col-7">{{ amount_fmt(t.running_balance, t.currency) if t.running_balance is not none else '—' }}</dd>
+
+          <dt class="col-5 text-muted">Leírás</dt>
+          <dd class="col-7">{{ t.description or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Referencia</dt>
+          <dd class="col-7">{{ t.payment_reference or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Típus</dt>
+          <dd class="col-7">{{ t.transaction_type or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Részlet típus</dt>
+          <dd class="col-7">{{ t.transaction_details_type or '—' }}</dd>
+
+          {% if t.total_fees %}
+          <dt class="col-5 text-muted">Díjak összesen</dt>
+          <dd class="col-7">{{ amount_fmt(t.total_fees, t.currency) }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+
+      <!-- Partner -->
+      <div class="col-12 col-md-6">
+        <dl class="row mb-0 small">
+          <dt class="col-5 text-muted">Fizető neve</dt>
+          <dd class="col-7">{{ t.payer_name or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Kedvezményezett</dt>
+          <dd class="col-7">{{ t.payee_name or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Bankszámlaszám</dt>
+          <dd class="col-7 font-monospace">{{ t.payee_account_number or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Kereskedő</dt>
+          <dd class="col-7">{{ t.merchant or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Kártyabirtokos</dt>
+          <dd class="col-7">{{ t.card_holder_full_name or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Kártya (utolsó 4)</dt>
+          <dd class="col-7">{{ t.card_last_four_digits or '—' }}</dd>
+        </dl>
+
+        {% if t.exchange_rate %}
+        <hr class="my-2">
+        <dl class="row mb-0 small">
+          <dt class="col-5 text-muted">Forrás deviza</dt>
+          <dd class="col-7">{{ t.exchange_from or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Cél deviza</dt>
+          <dd class="col-7">{{ t.exchange_to or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Árfolyam</dt>
+          <dd class="col-7">{{ t.exchange_rate }}</dd>
+
+          <dt class="col-5 text-muted">Cél összeg</dt>
+          <dd class="col-7">{{ amount_fmt(t.exchange_to_amount, t.exchange_to or '') }}</dd>
+        </dl>
+        {% endif %}
+      </div>
+
+      <!-- PDF kapcsolat -->
+      {% if t.invoice_file_id %}
+      <div class="col-12">
+        <dl class="row mb-0 small">
+          <dt class="col-sm-2 text-muted">PDF fájl</dt>
+          <dd class="col-sm-10">
+            <a href="/ui/invoice-files/{{ t.invoice_file_id }}/pdf" target="_blank" class="font-monospace">
+              <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ t.invoice_file_filename or t.invoice_file_id }}
+            </a>
+          </dd>
+        </dl>
+      </div>
+      {% endif %}
+
+      {% if t.note %}
+      <div class="col-12">
+        <dl class="row mb-0 small">
+          <dt class="col-sm-2 text-muted">Megjegyzés</dt>
+          <dd class="col-sm-10">{{ t.note }}</dd>
+        </dl>
+      </div>
+      {% endif %}
+
+      {% if t.attachment %}
+      <div class="col-12">
+        <dl class="row mb-0 small">
+          <dt class="col-sm-2 text-muted">Csatolmány</dt>
+          <dd class="col-sm-10 font-monospace">{{ t.attachment }}</dd>
+        </dl>
+      </div>
+      {% endif %}
+
+      <div class="col-12">
+        <dl class="row mb-0 small text-muted">
+          <dt class="col-sm-2">Létrehozva</dt>
+          <dd class="col-sm-4">{{ t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '—' }}</dd>
+          <dt class="col-sm-2">Módosítva</dt>
+          <dd class="col-sm-4">{{ t.updated_at.strftime('%Y-%m-%d %H:%M') if t.updated_at else '—' }}</dd>
+        </dl>
+      </div>
+    </div>
   </div>
 </div>
+{% endfor %}
 {% endif %}
 {% endblock %}
 
-{% block scripts %}
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    var wt = document.getElementById("inv-wise-table");
-    if (wt) {
-      new DataTable("#inv-wise-table", {
-        language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
-        pageLength: 10,
-        order: [[0, "desc"]],
-        columnDefs: [{ targets: [1], className: "text-end" }],
-      });
-    }
-  });
-</script>
-{% endblock %}
+{% block scripts %}{% endblock %}
