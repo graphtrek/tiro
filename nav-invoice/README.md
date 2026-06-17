@@ -100,6 +100,9 @@ uv run nav report --json '{"invoice": {...}}'
 
 # Cache törlése
 uv run nav cache-clear
+
+# Hibás parancs esetén a kilépési kód 1 (hasznos shell scriptekben / CI-ban)
+uv run nav list --from 2026-06-01 --to 2026-05-01 || echo "Hiba: $?"
 ```
 
 ---
@@ -153,7 +156,7 @@ Hibás hitelesítés esetén `401` státuszkód.
 | `direction` | `OUTBOUND` \| `INBOUND` | Kiállított / befogadott | `OUTBOUND` |
 | `page` | egész szám ≥ 1 | Lapszám | `1` |
 
-> A NAV maximum 35 napos `from_date`–`to_date` tartományt enged.
+> **Validáció (422):** `from_date` nem lehet nagyobb `to_date`-nél, és a tartomány nem haladhatja meg a 35 napot (NAV limit). Érvénytelen paraméterek esetén az API `422 Unprocessable Entity` hibát ad vissza, nem továbbítja a kérést a NAV felé.
 
 ```bash
 # Utolsó 30 nap, kiállított számlák (alapértelmezett)
@@ -267,7 +270,7 @@ Sikeres válasz:
 }
 ```
 
-Hiba esetén `502` státuszkód.
+Hiba esetén `502` státuszkód. Hibás vagy hiányos JSON esetén `422 Unprocessable Entity`.
 
 ---
 

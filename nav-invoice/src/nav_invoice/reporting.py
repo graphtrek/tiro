@@ -82,7 +82,7 @@ def manage_invoice(
 def query_transaction_status(
     transaction_id: str,
     settings: Optional[Settings] = None,
-) -> dict:
+) -> dict[str, object]:
     """Query the processing status of a previously submitted transaction."""
     if settings is None:
         settings = get_settings()
@@ -119,7 +119,9 @@ def _build_invoice_xml(request: SubmitInvoiceRequest, settings: Settings) -> str
     """
     h = request.invoice.header
     issue = h.keltes_datuma.isoformat() if h.keltes_datuma else date.today().isoformat()
-    net = h.netto_total or (h.bruttototal / 1.27 if h.bruttototal else 0.0)
+    vat_rate = (request.invoice.line_items[0].ado_kulcs / 100) if request.invoice.line_items else 0.27
+    vat_multiplier = 1 + vat_rate
+    net = h.netto_total or (h.bruttototal / vat_multiplier if h.bruttototal else 0.0)
     vat = h.ado_total or (h.bruttototal - net if h.bruttototal else 0.0)
     gross = h.bruttototal or (net + vat)
 
@@ -172,7 +174,7 @@ def _build_invoice_xml(request: SubmitInvoiceRequest, settings: Settings) -> str
         f"<invoiceLines><mergedItemIndicator>false</mergedItemIndicator>{lines_xml}</invoiceLines>"
         "<invoiceSummary><summaryNormal>"
         "<summaryByVatRate>"
-        "<vatRate><vatPercentage>0.27</vatPercentage></vatRate>"
+        f"<vatRate><vatPercentage>{vat_rate}</vatPercentage></vatRate>"
         f"<vatRateNetData><vatRateNetAmount>{net}</vatRateNetAmount>"
         f"<vatRateNetAmountHUF>{net}</vatRateNetAmountHUF></vatRateNetData>"
         f"<vatRateVatData><vatRateVatAmount>{vat}</vatRateVatAmount>"

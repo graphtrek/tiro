@@ -13,19 +13,16 @@ from typing import Optional
 from lxml import etree
 
 from nav_invoice import cache as _cache
-from nav_invoice.client import NavClient, NavApiError, findall, findtext
+from nav_invoice.client import NavClient, NavApiError, _local, findall, findtext
 from nav_invoice.config import Settings, get_settings
 from nav_invoice.models import (
     DigestQueryParams,
     InvoiceDigest,
     InvoiceDirection,
+    InvoiceQueryParams,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _local(tag: str) -> str:
-    return tag.split("}", 1)[-1] if "}" in tag else tag
 
 
 def _to_float(value: str) -> Optional[float]:
@@ -163,7 +160,7 @@ def query_invoice_data(
 def query_taxpayer(
     tax_number: str,
     settings: Optional[Settings] = None,
-) -> dict:
+) -> dict[str, object]:
     """Validate a Hungarian tax number and return basic taxpayer data."""
     if settings is None:
         settings = get_settings()
@@ -192,7 +189,10 @@ def query_taxpayer(
 
 # ── Backwards-compatible wrappers (legacy CLI/API) ──────
 
-def list_invoices(params=None, settings: Optional[Settings] = None):
+def list_invoices(
+    params: Optional[InvoiceQueryParams] = None,
+    settings: Optional[Settings] = None,
+) -> list[InvoiceDigest]:
     """Legacy wrapper around :func:`query_invoice_digest`.
 
     Accepts the old ``InvoiceQueryParams`` and returns ``InvoiceDigest`` items.

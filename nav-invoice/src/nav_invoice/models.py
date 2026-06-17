@@ -4,7 +4,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Enums ───────────────────────────────────────────────
@@ -169,7 +169,15 @@ class DigestQueryParams(BaseModel):
     from_date: date
     to_date: date
     direction: InvoiceDirection = InvoiceDirection.OUTBOUND
-    page: int = 1
+    page: int = Field(default=1, ge=1)
+
+    @model_validator(mode="after")
+    def validate_date_range(self) -> "DigestQueryParams":
+        if self.to_date < self.from_date:
+            raise ValueError("to_date must be >= from_date")
+        if (self.to_date - self.from_date).days > 35:
+            raise ValueError("Date range cannot exceed 35 days (NAV limit)")
+        return self
 
 
 class TokenExchangeResult(BaseModel):

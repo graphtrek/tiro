@@ -2,25 +2,23 @@
 
 import logging
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request
 
 from nav_invoice import cache as _cache
 from nav_invoice.auth import login
-from nav_invoice.config import Settings, configure_logging, get_settings
+from nav_invoice.client import NavApiError
+from nav_invoice.config import configure_logging, get_settings
 from nav_invoice.models import (
-    InvoiceDetail,
+    DigestQueryParams,
     InvoiceDigest,
     InvoiceDirection,
-    InvoiceListEntry,
-    InvoiceQueryParams,
-    InvoiceType,
     SubmitInvoiceRequest,
     SubmitInvoiceResponse,
 )
-from nav_invoice.query import list_invoices, get_single_invoice
+from nav_invoice.query import query_invoice_data, query_invoice_digest
 from nav_invoice.reporting import submit_invoice
 
 configure_logging(get_settings().log_level)
@@ -76,12 +74,6 @@ def get_invoices(
     page: int = Query(1, ge=1),
 ):
     """List invoices from NAV (queryInvoiceDigest)."""
-    from datetime import timedelta
-
-    from nav_invoice.client import NavApiError
-    from nav_invoice.models import DigestQueryParams
-    from nav_invoice.query import query_invoice_digest
-
     params = DigestQueryParams(
         from_date=from_date or (date.today() - timedelta(days=30)),
         to_date=to_date or date.today(),
@@ -101,9 +93,6 @@ def get_invoice(
     direction: InvoiceDirection = Query(InvoiceDirection.OUTBOUND),
 ):
     """Get a single invoice's decoded XML (queryInvoiceData)."""
-    from nav_invoice.client import NavApiError
-    from nav_invoice.query import query_invoice_data
-
     try:
         invoice_xml = query_invoice_data(szamlaszam, direction)
     except NavApiError as exc:

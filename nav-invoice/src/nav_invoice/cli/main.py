@@ -1,15 +1,18 @@
 """CLI entry point for NAV Online Számla."""
 
+import json
 import logging
-from datetime import date, datetime
+from datetime import date, timedelta
 from typing import Optional
 
 import click
 
+from nav_invoice import cache as _cache
 from nav_invoice.auth import login as nav_login, check_connection
-from nav_invoice.config import Settings, get_settings
-from nav_invoice.models import InvoiceType
-from nav_invoice.query import list_invoices, get_single_invoice
+from nav_invoice.client import NavApiError
+from nav_invoice.config import get_settings
+from nav_invoice.models import DigestQueryParams, InvoiceDirection, SubmitInvoiceRequest
+from nav_invoice.query import query_invoice_data, query_invoice_digest
 from nav_invoice.reporting import submit_invoice
 
 logger = logging.getLogger(__name__)
@@ -65,16 +68,10 @@ def list(
     as_json: bool,
 ) -> None:
     """List invoices from NAV (queryInvoiceDigest)."""
-    from datetime import date as _date, timedelta
-
-    from nav_invoice.client import NavApiError
-    from nav_invoice.models import DigestQueryParams, InvoiceDirection
-    from nav_invoice.query import query_invoice_digest
-
     settings = get_settings()
 
-    from_obj = _date.fromisoformat(from_date) if from_date else _date.today() - timedelta(days=30)
-    to_obj = _date.fromisoformat(to_date) if to_date else _date.today()
+    from_obj = date.fromisoformat(from_date) if from_date else date.today() - timedelta(days=30)
+    to_obj = date.fromisoformat(to_date) if to_date else date.today()
 
     params = DigestQueryParams(
         from_date=from_obj,
@@ -87,13 +84,11 @@ def list(
         invoices = query_invoice_digest(params, settings)
     except NavApiError as exc:
         click.echo(click.style(f"✗ Hiba: {exc}", fg="red"))
-        return
+        raise SystemExit(1)
 
     if as_json:
-        import json as _json
-
         data = [inv.model_dump() for inv in invoices]
-        click.echo(_json.dumps(data, indent=2, ensure_ascii=False))
+        click.echo(json.dumps(data, indent=2, ensure_ascii=False))
         return
 
     if not invoices:
@@ -121,10 +116,6 @@ def list(
 )
 def show(szamlaszam: str, direction: str) -> None:
     """Show a single invoice's decoded XML (queryInvoiceData)."""
-    from nav_invoice.client import NavApiError
-    from nav_invoice.models import InvoiceDirection
-    from nav_invoice.query import query_invoice_data
-
     settings = get_settings()
 
     try:
@@ -133,11 +124,11 @@ def show(szamlaszam: str, direction: str) -> None:
         )
     except NavApiError as exc:
         click.echo(click.style(f"✗ Hiba: {exc}", fg="red"))
-        return
+        raise SystemExit(1)
 
     if not invoice_xml:
         click.echo(click.style(f"Számla nem található: {szamlaszam}", fg="red"))
-        return
+        raise SystemExit(1)
 
     click.echo(invoice_xml)
 
@@ -150,15 +141,16 @@ def report(input_json: Optional[str]) -> None:
     """Submit an invoice to NAV (Adatszolgáltatás)."""
     settings = get_settings()
 
-    if input_json:
-        import json
-        from nav_invoice.models import SubmitInvoiceRequest
-
-        data = json.loads(input_json)
-        request = SubmitInvoiceRequest(**data)
-    else:
+    if not input_json:
         click.echo("Még nem implementált — használd a --json opciót.")
         return
+
+    try:
+        data = json.loads(input_json)
+        request = SubmitInvoiceRequest(**data)
+    except (json.JSONDecodeError, ValueError) as exc:
+        click.echo(click.style(f"✗ Érvénytelen bemeneti adat: {exc}", fg="red"))
+        raise SystemExit(1)
 
     result = submit_invoice(request, settings)
 
@@ -168,6 +160,7 @@ def report(input_json: Optional[str]) -> None:
             click.echo(f"  Submission ID: {result.submission_id}")
     else:
         click.echo(click.style(f"✗ Hiba: {result.message}", fg="red"))
+        raise SystemExit(1)
 
 
 # ── cache-clear command ──────────────────────────────
@@ -175,8 +168,6 @@ def report(input_json: Optional[str]) -> None:
 @main.command("cache-clear")
 def cache_clear() -> None:
     """Clear the in-memory query cache."""
-    from nav_invoice import cache as _cache
-
     cleared = _cache.clear()
     click.echo(f"Cache törölve: {cleared} bejegyzés eltávolítva.")
 
