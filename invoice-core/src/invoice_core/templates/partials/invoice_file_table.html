@@ -3,6 +3,7 @@
   <thead class="table-dark">
     <tr>
       <th>Fájlnév</th>
+      <th class="text-end">Méret</th>
       <th>Kapcsolt számla</th>
       <th>Szállító</th>
       <th class="text-end">Összeg</th>
@@ -11,8 +12,13 @@
   </thead>
   <tbody>
     {% for row in rows %}
-    <tr>
+    <tr data-pdf-url="/ui/invoice-files/{{ row.id }}/pdf" style="cursor:pointer">
       <td><span class="font-monospace small">{{ row.filename }}</span></td>
+      <td class="text-end text-muted small">
+        {% if row.file_size is not none %}
+          {{ (row.file_size / 1024) | round(0) | int }} KB
+        {% else %}—{% endif %}
+      </td>
       <td>
         {% if row.linked_invoice_id %}
           <a href="/ui/invoices/{{ row.linked_invoice_id }}">{{ row.linked_invoice_number }}</a>
@@ -37,7 +43,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="text-center text-muted">Nincs találat</td></tr>
+    <tr><td colspan="6" class="text-center text-muted">Nincs találat</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -53,9 +59,14 @@
       scrollX: true,
       autoWidth: false,
       columnDefs: [
-        { targets: [3], className: "text-end" },
-        { targets: [4], orderable: false },
+        { targets: [1, 4], className: "text-end" },
+        { targets: [5], orderable: false },
       ],
+    });
+    $("#file-table tbody").on("click", "tr", function(e) {
+      if ($(e.target).closest("a").length) return;
+      var url = $(this).data("pdf-url");
+      if (url) window.open(url, "_blank");
     });
   })();
 </script>

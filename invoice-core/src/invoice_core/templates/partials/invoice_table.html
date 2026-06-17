@@ -17,7 +17,7 @@
   </thead>
   <tbody>
     {% for row in rows %}
-    <tr>
+    <tr{% if row.invoice_file_id %} data-pdf-url="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" style="cursor:pointer"{% endif %}>
       <td><a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a></td>
       <td>{{ row.invoice_date or '—' }}</td>
       <td><a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.supplier_name }}</a></td>
@@ -27,7 +27,7 @@
       <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>
       <td>
         {% if row.invoice_file_id and row.invoice_file_filename %}
-          <a href="/ui/invoice-files" title="{{ row.invoice_file_filename }}">
+          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}">
             <i class="bi bi-file-earmark-pdf text-danger"></i>
             <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
           </a>
@@ -74,6 +74,11 @@
         { targets: [4, 5, 6], className: "text-end" },
         { targets: [7, 8], orderable: false },
       ],
+    });
+    $("#invoice-table tbody").on("click", "tr", function(e) {
+      if ($(e.target).closest("a").length) return;
+      var url = $(this).data("pdf-url");
+      if (url) window.open(url, "_blank");
     });
   })();
 </script>

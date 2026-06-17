@@ -150,13 +150,16 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
         path = f.get("path", "")
         if not filename:
             continue
+        size = f.get("file_size")
         existing = db.query(InvoiceFile).filter_by(filename=filename).first()
         if existing:
             existing.path = path or existing.path
+            if size is not None:
+                existing.file_size = size
             existing.updated_at = datetime.utcnow()
             invoice_file = existing
         else:
-            invoice_file = InvoiceFile(filename=filename, path=path)
+            invoice_file = InvoiceFile(filename=filename, path=path, file_size=size)
             db.add(invoice_file)
             db.flush()
             count += 1

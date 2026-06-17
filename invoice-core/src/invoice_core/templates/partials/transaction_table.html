@@ -37,7 +37,7 @@
       </td>
       <td>
         {% if row.invoice_file_id and row.invoice_file_filename %}
-          <a href="/ui/invoice-files" title="{{ row.invoice_file_filename }}" onclick="event.stopPropagation()">
+          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}" onclick="event.stopPropagation()">
             <i class="bi bi-file-earmark-pdf text-danger"></i>
             <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
           </a>

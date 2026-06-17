@@ -17,6 +17,7 @@ class ProcessedFile(BaseModel):
     filename: str
     path: str
     modified: datetime
+    file_size: Optional[int] = None
 
 
 # ── Request / response models ───────────────────────────────────────────────

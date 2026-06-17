@@ -103,6 +103,7 @@ class InvoiceFile(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False, unique=True)
     path = Column(String, nullable=True)
+    file_size = Column(Integer, nullable=True)
     words = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)

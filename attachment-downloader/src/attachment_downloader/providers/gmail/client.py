@@ -69,9 +69,9 @@ class GmailClient:
             if not page_token:
                 break
 
-    def _extract_pdf_parts(self, payload: dict) -> List[Tuple[str, str]]:
-        """Return (filename, attachment_id) for every PDF attachment in a payload."""
-        results: List[Tuple[str, str]] = []
+    def _extract_pdf_parts(self, payload: dict) -> List[Tuple[str, str, int]]:
+        """Return (filename, attachment_id, size) for every PDF attachment in a payload."""
+        results: List[Tuple[str, str, int]] = []
 
         def walk(part: dict) -> None:
             filename = part.get("filename", "") or ""
@@ -80,7 +80,7 @@ class GmailClient:
             attachment_id = body.get("attachmentId")
             is_pdf = filename.lower().endswith(".pdf") or mime_type == "application/pdf"
             if attachment_id and is_pdf:
-                results.append((filename or "attachment.pdf", attachment_id))
+                results.append((filename or "attachment.pdf", attachment_id, body.get("size", 0)))
             for sub in part.get("parts", []) or []:
                 walk(sub)
 
@@ -174,18 +174,18 @@ class GmailClient:
             email_dt = datetime.fromtimestamp(internal / 1000)
             date_str = email_dt.strftime("%Y-%m-%d")
             year = email_dt.year
-            for original_filename, attachment_id in parts:
+            for original_filename, attachment_id, att_size in parts:
                 safe_original = sanitize_filename(original_filename)
                 name_part = safe_original
                 if not name_part.lower().endswith(".pdf"):
                     name_part += ".pdf"
 
-                # Identity is (email date, name) — stable across runs since the
-                # running counter is not part of it. Skip without fetching the
-                # attachment bytes when we already have this file.
-                if (date_str, name_part) in existing:
+                # Identity is (name, size) — skips re-downloads across dates and
+                # avoids false positives when different files share the same name.
+                # att_size == 0 means Gmail didn't report a size; always download.
+                if att_size > 0 and (name_part, att_size) in existing:
                     skipped += 1
-                    log("INFO", f"Skipping already-downloaded {date_str} {name_part}")
+                    log("INFO", f"Skipping already-downloaded {name_part} ({att_size} bytes)")
                     continue
 
                 try:
@@ -200,7 +200,7 @@ class GmailClient:
                 seq_by_year[year] = seq_by_year.get(year, 0) + 1
                 seq = seq_by_year[year]
                 filename = f"{date_str}_{seq:04d}_{name_part}"
-                existing.add((date_str, name_part))
+                existing.add((name_part, len(data)))
 
                 dest = out_path / filename
                 with open(dest, "wb") as fh:

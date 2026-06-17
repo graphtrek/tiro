@@ -98,9 +98,10 @@ def test_download_counter_resumes_per_year(gmail_client, tmp_path):
 
 
 def test_download_skips_already_present_file(gmail_client, tmp_path):
-    # Same email date + (sanitized) original name already on disk under an
-    # earlier counter — must be skipped without fetching the attachment.
-    (tmp_path / "2026-05-12_0007_invoice_2026.pdf").write_bytes(b"%PDF old")
+    # File with matching name (without prefix) and size already on disk —
+    # must be skipped without fetching the attachment bytes.
+    existing_bytes = b"%PDF old"
+    (tmp_path / "2026-05-12_0007_invoice_2026.pdf").write_bytes(existing_bytes)
 
     mock_service = MagicMock()
     gmail_client._get_service.return_value = mock_service
@@ -117,7 +118,7 @@ def test_download_skips_already_present_file(gmail_client, tmp_path):
                 {
                     "mimeType": "application/pdf",
                     "filename": "invoice 2026.pdf",
-                    "body": {"attachmentId": "att1"},
+                    "body": {"attachmentId": "att1", "size": len(existing_bytes)},
                 },
             ],
         },

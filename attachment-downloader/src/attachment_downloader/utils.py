@@ -27,5 +27,5 @@ def scan_output(out_path: Path) -> Tuple[dict, set]:
         year, seq = int(year), int(seq)
         if seq > max_seq.get(year, 0):
             max_seq[year] = seq
-        identities.add((date_str, name_part))
+        identities.add((name_part, entry.stat().st_size))
     return max_seq, identities

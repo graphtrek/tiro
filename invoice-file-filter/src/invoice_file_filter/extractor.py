@@ -135,12 +135,18 @@ def is_invoice(filename: str, text: str, keywords: Optional[Sequence[str]] = Non
 
 
 def describe_file(pdf_path: str) -> ProcessedFile:
-    """Return the filename, absolute path and modification date of a PDF file."""
-    modified = datetime.fromtimestamp(os.path.getmtime(pdf_path))
+    """Return the filename, absolute path, modification date and size of a PDF file."""
+    abs_path = os.path.abspath(pdf_path)
+    modified = datetime.fromtimestamp(os.path.getmtime(abs_path))
+    try:
+        size = os.path.getsize(abs_path)
+    except OSError:
+        size = None
     return ProcessedFile(
-        filename=os.path.basename(pdf_path),
-        path=os.path.abspath(pdf_path),
+        filename=os.path.basename(abs_path),
+        path=abs_path,
         modified=modified,
+        file_size=size,
     )
 
 

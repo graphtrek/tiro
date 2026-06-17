@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import FileResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -91,6 +92,18 @@ def invoice_files_page(
 ):
     rows = invoice_file_service.list_invoice_files(db, linked=filters.linked)
     return _resp(request, "invoice_files.html", db, rows=rows)
+
+
+@router.get("/invoice-files/{file_id:int}/pdf")
+def invoice_file_pdf(file_id: int, db: Session = Depends(get_db)):
+    from invoice_core.db import InvoiceFile
+    f = db.get(InvoiceFile, file_id)
+    if not f or not f.path:
+        raise HTTPException(status_code=404, detail="PDF nem található")
+    p = Path(f.path)
+    if not p.is_file():
+        raise HTTPException(status_code=404, detail="PDF fájl nem elérhető")
+    return FileResponse(p, media_type="application/pdf", content_disposition_type="inline")
 
 
 # ── Suppliers ─────────────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ from invoice_core.db import Invoice, InvoiceFile, WiseTransaction
 class InvoiceFileRow:
     id: int
     filename: str
+    file_size: Optional[int]
     linked_invoice_id: Optional[int]
     linked_invoice_number: Optional[str]
     supplier_name: Optional[str]
@@ -78,6 +79,7 @@ def list_invoice_files(
             InvoiceFileRow(
                 id=f.id,
                 filename=f.filename,
+                file_size=f.file_size,
                 linked_invoice_id=inv.id if inv else None,
                 linked_invoice_number=inv.invoice_number if inv else None,
                 supplier_name=sup_name,
