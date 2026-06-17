@@ -1,3 +1,7 @@
+/* Theme toggle icons — show only the relevant icon */
+[data-bs-theme="dark"] .theme-icon-light { display: none; }
+[data-bs-theme="light"] .theme-icon-dark { display: none; }
+
 /* HTMX loading indicator */
 .htmx-indicator {
     opacity: 0;
@@ -8,12 +12,16 @@
     opacity: 1;
 }
 
-/* Sidebar */
+/* Sidebar + navbar — always dark, distinctly darker than the dark-mode page body (#212529) */
 #sidebar {
     min-width: 220px;
     max-width: 220px;
     min-height: 100vh;
-    background-color: #212529;
+    background-color: #0f1114;
+    color-scheme: dark;
+}
+.navbar {
+    background-color: #0f1114 !important;
 }
 #sidebar .nav-link {
     color: #adb5bd;

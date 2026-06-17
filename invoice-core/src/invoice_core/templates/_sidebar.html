@@ -8,7 +8,6 @@
     <li class="nav-item">
       <a class="nav-link {% if '/ui/invoices' in request.url.path %}active{% endif %}" href="/ui/invoices">
         <i class="bi bi-file-earmark-text"></i> Számlák
-        <span id="invoice-count-badge" class="badge bg-secondary ms-1">{{ invoice_count | default('') }}</span>
       </a>
     </li>
     <li class="nav-item">

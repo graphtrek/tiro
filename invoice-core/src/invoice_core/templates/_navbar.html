@@ -2,9 +2,15 @@
   <a class="navbar-brand fw-bold" href="/ui/">
     <i class="bi bi-receipt-cutoff me-1"></i>Moneypenny
   </a>
-  <div id="global-spinner" class="htmx-indicator ms-auto">
-    <div class="spinner-border spinner-border-sm text-light" role="status">
-      <span class="visually-hidden">Betöltés...</span>
+  <div class="ms-auto d-flex align-items-center gap-2">
+    <button class="btn btn-link p-1 border-0 text-light" onclick="toggleTheme()" title="Téma váltás" aria-label="Téma váltás">
+      <i class="bi bi-moon-stars-fill theme-icon-dark" style="font-size:1.1rem"></i>
+      <i class="bi bi-sun-fill theme-icon-light" style="font-size:1.1rem"></i>
+    </button>
+    <div id="global-spinner" class="htmx-indicator">
+      <div class="spinner-border spinner-border-sm text-light" role="status">
+        <span class="visually-hidden">Betöltés...</span>
+      </div>
     </div>
   </div>
 </nav>

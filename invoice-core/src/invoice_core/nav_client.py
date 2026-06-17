@@ -66,14 +66,32 @@ class NavClient:
             return 0
 
     def get_invoices(self, start_date: str, end_date: str) -> list[dict]:
-        """Fetch both INBOUND and OUTBOUND invoices and return the combined list."""
-        t0 = time.monotonic()
-        outbound = self._fetch(start_date, end_date, "OUTBOUND")
-        inbound = self._fetch(start_date, end_date, "INBOUND")
-        combined = outbound + inbound
-        elapsed_ms = (time.monotonic() - t0) * 1000
-        logger.info(
-            "GET %s/invoices → %d outbound + %d inbound = %d invoice(s) in %.0fms",
-            self.base_url, len(outbound), len(inbound), len(combined), elapsed_ms,
-        )
+        """Fetch both INBOUND and OUTBOUND invoices, chunking the range into ≤35-day windows.
+
+        NAV's queryInvoiceDigest API rejects ranges longer than 35 days, so wide
+        date spans are split automatically and the results are concatenated.
+        """
+        from datetime import date as _date, timedelta as _timedelta
+
+        chunk_days = 35
+        start = _date.fromisoformat(start_date)
+        end = _date.fromisoformat(end_date)
+        combined: list[dict] = []
+        chunk_start = start
+
+        while chunk_start <= end:
+            chunk_end = min(chunk_start + _timedelta(days=chunk_days - 1), end)
+            t0 = time.monotonic()
+            outbound = self._fetch(chunk_start.isoformat(), chunk_end.isoformat(), "OUTBOUND")
+            inbound = self._fetch(chunk_start.isoformat(), chunk_end.isoformat(), "INBOUND")
+            chunk = outbound + inbound
+            elapsed_ms = (time.monotonic() - t0) * 1000
+            logger.info(
+                "GET %s/invoices [%s → %s] → %d outbound + %d inbound = %d invoice(s) in %.0fms",
+                self.base_url, chunk_start, chunk_end,
+                len(outbound), len(inbound), len(chunk), elapsed_ms,
+            )
+            combined.extend(chunk)
+            chunk_start = chunk_end + _timedelta(days=1)
+
         return combined
