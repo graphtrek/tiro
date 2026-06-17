@@ -14,10 +14,7 @@
   </thead>
   <tbody>
     {% for row in rows %}
-    <tr style="cursor:pointer"
-        hx-get="/ui/transactions/{{ row.id }}"
-        hx-target="#tx-offcanvas-body"
-        hx-swap="innerHTML">
+    <tr style="cursor:pointer" data-tx-id="{{ row.id }}">
       <td><small class="text-muted font-monospace">{{ row.wise_transaction_id }}</small></td>
       <td>{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
       <td class="text-end">
@@ -30,14 +27,14 @@
       </td>
       <td>
         {% if row.invoice_id and row.invoice_number %}
-          <a href="/ui/invoices/{{ row.invoice_id }}" onclick="event.stopPropagation()">{{ row.invoice_number }}</a>
+          <a href="/ui/invoices/{{ row.invoice_id }}">{{ row.invoice_number }}</a>
         {% else %}
           <span class="text-muted">—</span>
         {% endif %}
       </td>
       <td>
         {% if row.invoice_file_id and row.invoice_file_filename %}
-          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}" onclick="event.stopPropagation()">
+          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}">
             <i class="bi bi-file-earmark-pdf text-danger"></i>
             <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
           </a>
@@ -70,6 +67,16 @@
         { targets: [2], className: "text-end" },
         { targets: [4], orderable: false },
       ],
+    });
+
+    document.getElementById("transaction-table").addEventListener("click", function(e) {
+      if (e.target.closest("a")) return;
+      const row = e.target.closest("tr[data-tx-id]");
+      if (!row) return;
+      htmx.ajax("GET", "/ui/transactions/" + row.dataset.txId, {
+        target: "#tx-offcanvas-body",
+        swap: "innerHTML"
+      });
     });
   })();
 </script>
