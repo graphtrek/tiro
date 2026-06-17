@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Optional
 
 from .client import AttachmentDownloaderClient
@@ -40,7 +41,7 @@ def run_extract(
         result = AttachmentDownloaderClient(settings).download(start, end)
         paths = [f.saved_path for f in result.files]
         output_dir = result.output_dir
-        source: object = paths if paths else output_dir
+        source: list[str] | str = paths if paths else output_dir
     else:
         output_dir = request.output_dir or settings.output_dir
         logger.info("Processing existing PDFs in %s", output_dir)
@@ -62,7 +63,5 @@ def run_extract(
 
 
 def _count_pdfs(output_dir: str) -> int:
-    from pathlib import Path
-
     p = Path(output_dir)
     return len(list(p.glob("*.pdf"))) if p.is_dir() else 0

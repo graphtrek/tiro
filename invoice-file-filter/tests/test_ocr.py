@@ -76,7 +76,7 @@ class TestExtractTextOcrFallback:
         with (
             patch("invoice_file_filter.extractor.pdfplumber") as mock_pdfplumber,
             patch("invoice_file_filter.extractor.get_settings") as mock_settings,
-            patch("invoice_file_filter.ocr.ocr_pdf", return_value="OCR: Számla") as mock_ocr,
+            patch("invoice_file_filter.extractor.ocr_pdf", return_value="OCR: Számla") as mock_ocr,
         ):
             mock_page = MagicMock()
             mock_page.extract_text.return_value = ""
@@ -232,7 +232,7 @@ class TestExtractWordsCsvOcrFallback:
             mock_page.extract_words.return_value = [
                 {"text": "Számla"},
                 {"text": "számla"},   # duplicate after normalisation
-                {"text": "ÁFA"},      # 3 chars → filtered out
+                {"text": "ÁFA"},      # 3 chars → passes _MIN_WORD_LEN >= 3
                 {"text": "db"},       # 2 chars → filtered out
             ]
             mock_pdfplumber.open.return_value.__enter__ = MagicMock(
@@ -244,15 +244,15 @@ class TestExtractWordsCsvOcrFallback:
             settings.ocr_language = "hun+eng"
             mock_settings.return_value = settings
 
-            from invoice_file_filter.extractor import _words_cache, extract_words_csv
-            _words_cache.clear()
+            from invoice_file_filter.extractor import clear_words_cache, extract_words_csv
+            clear_words_cache()
             result = extract_words_csv(str(pdf))
 
         lines = result.strip().splitlines()
         assert lines[0] == "word"
         assert "szamla" in lines            # accent stripped, lowercased
         assert lines.count("szamla") == 1   # deduplicated
-        assert "afa" not in lines           # 3 chars → filtered
+        assert "afa" in lines               # 3 chars → passes (>= _MIN_WORD_LEN)
         assert "db" not in lines            # 2 chars → filtered
 
     def test_ocr_fallback_when_no_words(self, tmp_path):
@@ -263,7 +263,7 @@ class TestExtractWordsCsvOcrFallback:
             patch("invoice_file_filter.extractor.pdfplumber") as mock_pdfplumber,
             patch("invoice_file_filter.extractor.get_settings") as mock_settings,
             patch("invoice_file_filter.extractor.os.path.getmtime", return_value=0.0),
-            patch("invoice_file_filter.ocr.ocr_extract_words", return_value=["Számla", "Eladó"]) as mock_ocr,
+            patch("invoice_file_filter.extractor.ocr_extract_words", return_value=["Számla", "Eladó"]) as mock_ocr,
         ):
             mock_page = MagicMock()
             mock_page.extract_words.return_value = []
@@ -276,8 +276,8 @@ class TestExtractWordsCsvOcrFallback:
             settings.ocr_language = "hun+eng"
             mock_settings.return_value = settings
 
-            from invoice_file_filter.extractor import _words_cache, extract_words_csv
-            _words_cache.clear()
+            from invoice_file_filter.extractor import clear_words_cache, extract_words_csv
+            clear_words_cache()
             result = extract_words_csv(str(pdf))
 
         assert "szamla" in result
@@ -304,8 +304,8 @@ class TestExtractWordsCsvOcrFallback:
             settings.ocr_enabled = True
             mock_settings.return_value = settings
 
-            from invoice_file_filter.extractor import _words_cache, extract_words_csv
-            _words_cache.clear()
+            from invoice_file_filter.extractor import clear_words_cache, extract_words_csv
+            clear_words_cache()
             result = extract_words_csv(str(pdf))
 
         mock_ocr.assert_not_called()
@@ -330,8 +330,8 @@ class TestExtractWordsCsvOcrFallback:
             settings.ocr_enabled = False
             mock_settings.return_value = settings
 
-            from invoice_file_filter.extractor import _words_cache, extract_words_csv
-            _words_cache.clear()
+            from invoice_file_filter.extractor import clear_words_cache, extract_words_csv
+            clear_words_cache()
             result = extract_words_csv(str(pdf))
 
         mock_ocr.assert_not_called()

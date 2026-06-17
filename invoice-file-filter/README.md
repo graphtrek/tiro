@@ -142,6 +142,8 @@ szamla
 
 ### GET /api/v1/pdf/words/cache
 
+Returns stats for the words cache only (see [Caching](#caching)).
+
 ```bash
 curl http://localhost:8001/api/v1/pdf/words/cache
 ```
@@ -151,6 +153,8 @@ curl http://localhost:8001/api/v1/pdf/words/cache
 ```
 
 ### DELETE /api/v1/pdf/words/cache
+
+Evicts all entries from the words cache only.
 
 ```bash
 curl -X DELETE http://localhost:8001/api/v1/pdf/words/cache
@@ -198,7 +202,21 @@ uv run invoice-file-filter cache-info [--json]
 uv run invoice-file-filter cache-clear
 ```
 
+Manages the **words cache** only (see [Caching](#caching)).
+
 > The cache is process-local — clearing the CLI cache does not affect a running API server.
+
+## Caching
+
+All three extraction functions maintain an **in-memory, mtime-keyed cache** for the lifetime of the process. A cache entry is reused as long as the file's modification time has not changed; if the file is replaced or updated, the entry is invalidated automatically.
+
+| Cache | Populated by | Covers |
+|-------|-------------|--------|
+| `_text_cache` | `extract_text()` | Full page text used for invoice keyword matching in the main pipeline |
+| `_page_count_cache` | `get_page_count()` | Page count used to reject files outside the 1–2 page range |
+| `_words_cache` | `extract_words_csv()` | Normalised word list returned by `POST /api/v1/pdf/words` |
+
+The `GET/DELETE /api/v1/pdf/words/cache` endpoints and the `cache-info`/`cache-clear` CLI commands manage the words cache only. The text and page count caches are internal to the extraction pipeline and have no dedicated management interface.
 
 ## Logs
 

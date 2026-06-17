@@ -8,9 +8,9 @@ import logging
 import os
 import re
 import unicodedata
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
 
 import pdfplumber
 
@@ -19,10 +19,18 @@ from .models import ProcessedFile
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_KEYWORDS = ["invoice", "bill", "szamla", "számla", "számviteli bizonylat"]
+_MIN_WORD_LEN = 3
 
-# In-memory word cache: path → (mtime, csv_data)
-_words_cache: Dict[str, Tuple[float, str]] = {}
+# In-memory caches: path → (mtime, data)
+_words_cache: dict[str, tuple[float, str]] = {}
+_text_cache: dict[str, tuple[float, str]] = {}
+_page_count_cache: dict[str, tuple[float, int]] = {}
+
+try:
+    from .ocr import ocr_extract_words, ocr_pdf
+    _OCR_AVAILABLE = True
+except ImportError:
+    _OCR_AVAILABLE = False
 
 
 def _fold(text: str) -> str:
@@ -35,11 +43,24 @@ def _fold(text: str) -> str:
 def get_page_count(pdf_path: str) -> int:
     """Return the number of pages in a PDF (0 if it cannot be read)."""
     try:
+        mtime = os.path.getmtime(pdf_path)
+    except OSError:
+        mtime = 0.0
+
+    cached_mtime, cached_count = _page_count_cache.get(pdf_path, (None, None))
+    if cached_mtime == mtime and cached_count is not None:
+        logger.debug("page count cache hit: %s", pdf_path)
+        return cached_count
+
+    try:
         with pdfplumber.open(pdf_path) as pdf:
-            return len(pdf.pages)
+            count = len(pdf.pages)
     except Exception as exc:
         logger.warning("Could not read page count from %s: %s", pdf_path, exc)
-        return 0
+        count = 0
+
+    _page_count_cache[pdf_path] = (mtime, count)
+    return count
 
 
 def extract_words_csv(pdf_path: str) -> str:
@@ -67,14 +88,13 @@ def extract_words_csv(pdf_path: str) -> str:
     except Exception as exc:
         logger.warning("Could not extract words from %s: %s", pdf_path, exc)
 
-    if not raw_words:
+    if not raw_words and _OCR_AVAILABLE:
         settings = get_settings()
         if settings.ocr_enabled:
             logger.info("No words from pdfplumber in %s — falling back to OCR", pdf_path)
-            from .ocr import ocr_extract_words
             raw_words = ocr_extract_words(pdf_path, settings.ocr_language)
 
-    normalised = sorted({_fold(w).lower() for w in raw_words if len(w.strip()) >= 3})
+    normalised = sorted({_fold(w).lower() for w in raw_words if len(w.strip()) >= _MIN_WORD_LEN})
 
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -87,7 +107,7 @@ def extract_words_csv(pdf_path: str) -> str:
     return csv_data
 
 
-def words_cache_info() -> dict:
+def words_cache_info() -> dict[str, object]:
     """Return stats about the current words cache."""
     return {"entries": len(_words_cache), "paths": list(_words_cache.keys())}
 
@@ -104,7 +124,18 @@ def extract_text(pdf_path: str) -> str:
 
     pdfplumber is tried first. If the extracted text is shorter than
     ``settings.ocr_min_chars`` and OCR is enabled, Tesseract is used instead.
+    Results are cached by mtime.
     """
+    try:
+        mtime = os.path.getmtime(pdf_path)
+    except OSError:
+        mtime = 0.0
+
+    cached_mtime, cached_text = _text_cache.get(pdf_path, (None, None))
+    if cached_mtime == mtime and cached_text is not None:
+        logger.debug("text cache hit: %s", pdf_path)
+        return cached_text
+
     try:
         with pdfplumber.open(pdf_path) as pdf:
             parts = [page.extract_text() or "" for page in pdf.pages]
@@ -114,21 +145,21 @@ def extract_text(pdf_path: str) -> str:
         text = ""
 
     settings = get_settings()
-    if len(text.strip()) < settings.ocr_min_chars and settings.ocr_enabled:
+    if len(text.strip()) < settings.ocr_min_chars and settings.ocr_enabled and _OCR_AVAILABLE:
         logger.info("Sparse text (%d chars) in %s — trying OCR", len(text.strip()), pdf_path)
-        from .ocr import ocr_pdf
         text = ocr_pdf(pdf_path, settings.ocr_language)
 
+    _text_cache[pdf_path] = (mtime, text)
     return text
 
 
-def is_invoice(filename: str, text: str, keywords: Optional[Sequence[str]] = None) -> bool:
+def is_invoice(filename: str, text: str, keywords: Sequence[str] | None = None) -> bool:
     """True if the filename or text contains an invoice keyword (whole-word match).
 
     Underscores and hyphens are treated as word separators so that filenames
     like ``2026_invoice_42.pdf`` match the keyword ``invoice``.
     """
-    kws = [_fold(k).lower() for k in (keywords or DEFAULT_KEYWORDS)]
+    kws = [_fold(k).lower() for k in (keywords or get_settings().invoice_keywords)]
     raw = _fold(f"{filename}\n{text}").lower()
     haystack = re.sub(r"[_\-]", " ", raw)
     return any(re.search(r"\b" + re.escape(kw) + r"\b", haystack) for kw in kws)
@@ -150,29 +181,30 @@ def describe_file(pdf_path: str) -> ProcessedFile:
     )
 
 
-def _iter_pdf_paths(paths_or_dir) -> List[str]:
+def _iter_pdf_paths(paths_or_dir: str | Path | Sequence[str | Path]) -> list[str]:
     """Normalize input (a directory, a single path, or a list) to PDF paths."""
     if isinstance(paths_or_dir, (str, Path)):
         p = Path(paths_or_dir)
         if p.is_dir():
             return sorted(str(f) for f in p.glob("*.pdf"))
         return [str(p)] if p.suffix.lower() == ".pdf" else []
-    out: List[str] = []
+    out: list[str] = []
     for item in paths_or_dir:
         out.extend(_iter_pdf_paths(item))
     return out
 
 
 def process_directory(
-    paths_or_dir, keywords: Optional[Sequence[str]] = None
-) -> List[ProcessedFile]:
+    paths_or_dir: str | Path | Sequence[str | Path],
+    keywords: Sequence[str] | None = None,
+) -> list[ProcessedFile]:
     """Select invoice PDFs among the given paths/dir and list them.
 
     ``paths_or_dir`` may be a directory, a single PDF path, or an iterable of
     paths (e.g. the ``saved_path`` list returned by attachment-downloader).
     """
     kws = list(keywords) if keywords else get_settings().invoice_keywords
-    results: List[ProcessedFile] = []
+    results: list[ProcessedFile] = []
     for pdf_path in _iter_pdf_paths(paths_or_dir):
         filename = os.path.basename(pdf_path)
         page_count = get_page_count(pdf_path)

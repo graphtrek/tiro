@@ -5,7 +5,9 @@ from __future__ import annotations
 import io
 import logging
 import time
+from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -32,7 +34,7 @@ app = FastAPI(
 
 
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
+async def log_requests(request: Request, call_next: Callable):
     start = time.perf_counter()
     response = await call_next(request)
     elapsed_ms = (time.perf_counter() - start) * 1000
@@ -44,13 +46,13 @@ async def log_requests(request: Request, call_next):
 
 
 @app.get("/health")
-def health_check():
+def health_check() -> dict[str, str]:
     """Service health check endpoint."""
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
 
 @app.post("/api/v1/invoices/extract", response_model=ExtractResponse)
-def extract_invoices(request: ExtractRequest):
+def extract_invoices(request: ExtractRequest) -> ExtractResponse:
     """Download (via attachment-downloader) and extract invoice metadata."""
     try:
         result = run_extract(request)
@@ -60,11 +62,10 @@ def extract_invoices(request: ExtractRequest):
 
 
 @app.post("/api/v1/pdf/words")
-def get_pdf_words(request: WordsRequest):
+def get_pdf_words(request: WordsRequest) -> StreamingResponse:
     """Extract distinct normalised words from a PDF and return them as single-column CSV (word)."""
     csv_content = extract_words_csv(request.pdf_path)
-    filename = request.pdf_path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1] or "words"
-    filename = filename.removesuffix(".pdf") + "_words.csv"
+    filename = Path(request.pdf_path).name.removesuffix(".pdf") + "_words.csv"
     return StreamingResponse(
         io.StringIO(csv_content),
         media_type="text/csv",

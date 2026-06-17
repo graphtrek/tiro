@@ -35,13 +35,9 @@ def configure_logging(log_level: str = "INFO") -> None:
 
     root = logging.getLogger()
     root.setLevel(level)
-    if not root.handlers:
-        root.addHandler(stream_handler)
-        root.addHandler(file_handler)
-    else:
-        root.handlers.clear()
-        root.addHandler(stream_handler)
-        root.addHandler(file_handler)
+    root.handlers.clear()
+    root.addHandler(stream_handler)
+    root.addHandler(file_handler)
 
 
 class Settings(BaseSettings):

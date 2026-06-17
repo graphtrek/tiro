@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import json as _json
+import json
 import logging
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 @app.callback()
-def _main():
+def _main() -> None:
     """PDF Számla Feldolgozó CLI."""
     configure_logging(get_settings().log_level)
 
@@ -48,7 +49,7 @@ def process(
     ),
     as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose logging"),
-):
+) -> None:
     """Download invoice PDFs (last 30 days by default) and extract metadata."""
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -73,7 +74,7 @@ def process(
         raise typer.Exit(code=1)
 
     if as_json:
-        console.print_json(_json.dumps(result.model_dump()))
+        console.print_json(json.dumps(result.model_dump()))
         return
 
     console.print(
@@ -100,10 +101,8 @@ def words(
     output: Optional[str] = typer.Option(
         None, "--output", "-o", help="Write CSV to this file instead of stdout"
     ),
-):
+) -> None:
     """Extract all words from a PDF and output them as CSV (page,word,x0,top,x1,bottom)."""
-    from pathlib import Path
-
     resolved = Path(pdf_path)
     if not resolved.exists():
         candidate = Path(get_settings().output_dir) / pdf_path
@@ -114,7 +113,6 @@ def words(
             raise typer.Exit(code=1)
     csv_content = extract_words_csv(str(resolved))
     if output:
-        from pathlib import Path
         Path(output).write_text(csv_content, encoding="utf-8")
         console.print(f"[green]✓[/green] Words written to {output}")
     else:
@@ -124,11 +122,11 @@ def words(
 @app.command("cache-info")
 def cache_info(
     as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
-):
+) -> None:
     """Show stats about the in-process words cache."""
     info = words_cache_info()
     if as_json:
-        console.print_json(_json.dumps(info))
+        console.print_json(json.dumps(info))
         return
     console.print(f"[bold]Entries:[/bold] {info['entries']}")
     for path in info["paths"]:
@@ -136,7 +134,7 @@ def cache_info(
 
 
 @app.command("cache-clear")
-def cache_clear():
+def cache_clear() -> None:
     """Evict all entries from the in-process words cache."""
     removed = clear_words_cache()
     console.print(f"[green]✓[/green] {removed} bejegyzés törölve a gyorsítótárból.")

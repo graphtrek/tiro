@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -17,7 +16,7 @@ class ProcessedFile(BaseModel):
     filename: str
     path: str
     modified: datetime
-    file_size: Optional[int] = None
+    file_size: int | None = None
 
 
 # ── Request / response models ───────────────────────────────────────────────
@@ -26,13 +25,13 @@ class ProcessedFile(BaseModel):
 class ExtractRequest(BaseModel):
     """Parameters for an extraction run."""
 
-    start_date: Optional[str] = Field(
+    start_date: str | None = Field(
         None, description="Filter start date (YYYY-MM-DD); default 30 days ago"
     )
-    end_date: Optional[str] = Field(
+    end_date: str | None = Field(
         None, description="Filter end date (YYYY-MM-DD); default today"
     )
-    output_dir: Optional[str] = Field(
+    output_dir: str | None = Field(
         None, description="PDF directory (default: ../attachment-downloader/downloads)"
     )
     download: bool = Field(
@@ -47,7 +46,7 @@ class ExtractResponse(BaseModel):
     total_files: int = 0
     invoice_count: int = 0
     output_dir: str = ""
-    files: List[ProcessedFile] = Field(default_factory=list)
+    files: list[ProcessedFile] = Field(default_factory=list)
 
 
 class WordsRequest(BaseModel):
@@ -60,7 +59,7 @@ class WordsRequest(BaseModel):
 
 
 class DownloadedFile(BaseModel):
-    filename: Optional[str] = None
+    filename: str | None = None
     saved_path: str
 
 
@@ -68,4 +67,4 @@ class DownloadResult(BaseModel):
     total_emails: int = 0
     total_files: int = 0
     output_dir: str = ""
-    files: List[DownloadedFile] = Field(default_factory=list)
+    files: list[DownloadedFile] = Field(default_factory=list)
