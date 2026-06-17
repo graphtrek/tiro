@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import requests
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
@@ -76,3 +78,10 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return a settings instance loaded from the environment."""
     return Settings()
+
+
+def make_http_session() -> requests.Session:
+    """Create a pre-configured requests.Session for internal service clients."""
+    session = requests.Session()
+    session.headers.update({"Accept": "application/json"})
+    return session

@@ -10,7 +10,7 @@ from typing import Optional
 
 import requests
 
-from .config import Settings, get_settings
+from .config import Settings, get_settings, make_http_session
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +28,7 @@ class PdfClient:
     def __init__(self, settings: Optional[Settings] = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.invoice_file_filter_url.rstrip("/")
-        self.session = requests.Session()
-        self.session.headers.update({"Accept": "application/json"})
+        self.session = make_http_session()
 
     def extract(self, start_date: str, end_date: str) -> list[dict]:
         """POST /api/v1/invoices/extract → list of matched file dicts."""

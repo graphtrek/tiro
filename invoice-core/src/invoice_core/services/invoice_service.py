@@ -8,7 +8,7 @@ from fastapi import Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from invoice_core.db import Customer, Invoice, InvoiceFile, Supplier, WiseTransaction, _PaymentStatus, invoice_has_wise_txn
+from invoice_core.db import Customer, Invoice, InvoiceFile, Supplier, WiseTransaction, _PaymentStatus, _enum_str, invoice_has_wise_txn
 
 
 @dataclass
@@ -151,7 +151,7 @@ def list_invoices(
     q = q.order_by(Invoice.invoice_date.desc().nullslast(), Invoice.id.desc())
     rows = []
     for inv, sup_name, cust_name, wise_cnt, file_filename in q.all():
-        status = inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status)
+        status = _enum_str(inv.payment_status)
         if (wise_cnt or 0) > 0:
             status = _PaymentStatus.PAID.value
         rows.append(
@@ -167,7 +167,7 @@ def list_invoices(
                 amount_vat=inv.amount_vat,
                 amount_total=inv.amount_total,
                 payment_status=status,
-                direction=inv.direction.value if hasattr(inv.direction, "value") else str(inv.direction),
+                direction=_enum_str(inv.direction),
                 currency=inv.currency,
                 invoice_file_id=inv.invoice_file_id,
                 invoice_file_filename=file_filename,
@@ -231,11 +231,8 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         amount_net=inv.amount_net,
         amount_vat=inv.amount_vat,
         amount_total=inv.amount_total,
-        payment_status=(
-            _PaymentStatus.PAID.value if wise_txns
-            else (inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status))
-        ),
-        direction=inv.direction.value if hasattr(inv.direction, "value") else str(inv.direction),
+        payment_status=_PaymentStatus.PAID.value if wise_txns else _enum_str(inv.payment_status),
+        direction=_enum_str(inv.direction),
         currency=inv.currency,
         invoice_operation=inv.invoice_operation,
         invoice_category=inv.invoice_category,

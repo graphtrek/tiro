@@ -15,6 +15,7 @@ from invoice_core.db import (
     SyncLog,
     WiseTransaction,
     _PaymentStatus,
+    _enum_str,
     invoice_has_wise_txn,
 )
 
@@ -129,10 +130,7 @@ def get_recent_invoices(db: Session, limit: int = 10) -> list[RecentInvoiceRow]:
             invoice_date=inv.invoice_date,
             supplier_name=name,
             amount_total=inv.amount_total,
-            payment_status=(
-                _PaymentStatus.PAID.value if inv.id in paid_via_wise
-                else (inv.payment_status.value if hasattr(inv.payment_status, "value") else str(inv.payment_status))
-            ),
+            payment_status=_PaymentStatus.PAID.value if inv.id in paid_via_wise else _enum_str(inv.payment_status),
         )
         for inv, name in rows
     ]

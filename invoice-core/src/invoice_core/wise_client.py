@@ -8,7 +8,7 @@ from typing import Optional
 
 import requests
 
-from .config import Settings, get_settings
+from .config import Settings, get_settings, make_http_session
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,7 @@ class WiseClient:
     def __init__(self, settings: Optional[Settings] = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.wise_url.rstrip("/")
-        self.session = requests.Session()
-        self.session.headers.update({"Accept": "application/json"})
+        self.session = make_http_session()
 
     def get_transactions(self) -> list[dict]:
         """Fetch the most recent statement's transactions."""

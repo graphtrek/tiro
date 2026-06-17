@@ -243,10 +243,10 @@ src/invoice_core/
 │   ├── partials/            ← HTMX partial responses (no base.html extension)
 │   └── *.html               ← Page templates
 ├── static/custom.css        ← HTMX indicator + sidebar + KPI styles
-├── db.py                    ← SQLAlchemy ORM models + session
+├── db.py                    ← SQLAlchemy ORM models + session; exports _enum_str helper
 ├── service.py               ← Sync orchestration (sync_nav, sync_pdf, sync_wise, sync_match)
 ├── models.py                ← Pydantic request/response schemas
-├── config.py                ← Pydantic settings (reads .env)
+├── config.py                ← Pydantic settings (reads .env); exports make_http_session factory
 ├── nav_client.py            ← HTTP client for nav-invoice service
 ├── pdf_client.py            ← HTTP client for invoice-file-filter service
 └── wise_client.py           ← HTTP client for wise service
@@ -299,10 +299,10 @@ Run `invoice-core link-wise <wise_transaction_id> <filename>` to create a manual
 Written to stdout and `logs/invoice-core.log`.
 
 ```
-2026-06-16 10:00:01 INFO  invoice_core/nav_client.py:48  GET http://localhost:8002/invoices → 8 outbound + 4 inbound = 12 invoice(s) in 234ms
-2026-06-16 10:00:02 INFO  invoice_core/service.py:56     sync_nav: 3 new invoice(s) from 12 digest(s)
-2026-06-16 10:00:04 INFO  invoice_core/service.py:499    sync_match: 4 Wise transaction(s) linked to a file
-2026-06-16 10:00:05 INFO  invoice_core/service.py:125    sync_all [full] 2026-05-17..2026-06-16: nav=3 pdf=2 wise=5 match=4 errors=0 in 4210ms
+2026-06-17 10:00:01 INFO  invoice_core/nav_client.py:48  GET http://localhost:8002/invoices → 8 outbound + 4 inbound = 12 invoice(s) in 234ms
+2026-06-17 10:00:02 INFO  invoice_core/service.py:154    sync_nav: 3 new invoice(s) from 12 digest(s)
+2026-06-17 10:00:04 INFO  invoice_core/service.py:592    sync_match: 4 Wise transaction(s) linked to a file
+2026-06-17 10:00:05 INFO  invoice_core/service.py:640    sync_all [full] 2026-05-18..2026-06-17: nav=3 pdf=2 wise=5 match=4 errors=0 in 4210ms
 ```
 
 ## Pipeline

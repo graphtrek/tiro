@@ -7,7 +7,7 @@ import re
 import time
 import unicodedata
 from datetime import date, datetime, timedelta
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,25 @@ from .pdf_client import PdfClient, PdfClientError
 from .wise_client import WiseClient, WiseClientError
 
 logger = logging.getLogger(__name__)
+
+
+class _FileScore(NamedTuple):
+    score: float
+    hit_vendor: bool
+    hit_amount: bool
+
+
+def _opt_float(d: dict, key: str) -> Optional[float]:
+    """Parse a float from dict *d* at *key*, returning None for 0.0 or invalid."""
+    raw = d.get(key)
+    if raw is None:
+        return None
+    try:
+        v = float(raw)
+        return v if v != 0.0 else None
+    except (TypeError, ValueError):
+        return None
+
 
 def _norm(s: str) -> str:
     """Normalize an invoice number or text for fuzzy matching.
@@ -244,16 +263,6 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
             except (TypeError, ValueError):
                 amount = 0.0
 
-            def _opt_float(key: str) -> Optional[float]:
-                raw = t.get(key)
-                if raw is None:
-                    return None
-                try:
-                    v = float(raw)
-                    return v if v != 0.0 else None
-                except (TypeError, ValueError):
-                    return None
-
             wtxn = WiseTransaction(
                 wise_transaction_id=wise_id,
                 amount=amount,
@@ -261,10 +270,10 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
                 transaction_date=txn_date,
                 description=t.get("description"),
                 payment_reference=t.get("payment_reference"),
-                running_balance=_opt_float("running_balance"),
+                running_balance=_opt_float(t, "running_balance"),
                 exchange_from=t.get("exchange_from"),
                 exchange_to=t.get("exchange_to"),
-                exchange_rate=_opt_float("exchange_rate"),
+                exchange_rate=_opt_float(t, "exchange_rate"),
                 payer_name=t.get("payer_name"),
                 payee_name=t.get("payee_name"),
                 payee_account_number=t.get("payee_account_number"),
@@ -273,8 +282,8 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
                 card_holder_full_name=t.get("card_holder_full_name"),
                 attachment=t.get("attachment"),
                 note=t.get("note"),
-                total_fees=_opt_float("total_fees"),
-                exchange_to_amount=_opt_float("exchange_to_amount"),
+                total_fees=_opt_float(t, "total_fees"),
+                exchange_to_amount=_opt_float(t, "exchange_to_amount"),
                 transaction_type=t.get("type"),
                 transaction_details_type=t.get("transaction_details_type"),
             )
@@ -354,6 +363,22 @@ _W_VENDOR = 0.4
 _W_AMOUNT = 0.4
 
 
+def _amount_str_variants(num: str) -> set[str]:
+    s = num.strip()
+    if not s:
+        return set()
+    variants = {s, s.replace(" ", ""), s.replace(" ", ".")}
+    if "," in s and "." not in s:
+        variants.add(s.replace(",", "."))
+    return variants
+
+
+def _int_amount_variants(n: float) -> set[str]:
+    ival = int(round(n))
+    grouped = f"{ival:,}".replace(",", ".")  # 3400 → "3.400"
+    return {str(ival), grouped, f"{grouped},00"}
+
+
 def _amount_candidates(txn: WiseTransaction) -> set[str]:
     """Substrings to look for in a PDF's word list that would prove an amount match.
 
@@ -362,37 +387,16 @@ def _amount_candidates(txn: WiseTransaction) -> set[str]:
     (``"15,19 EUR …"`` → file uses ``15,19``; ``"3,25 EUR …"`` → file uses ``€3.25``).
     """
     cands: set[str] = set()
-
-    def _variants(num: str) -> None:
-        s = num.strip()
-        if not s:
-            return
-        cands.add(s)
-        cands.add(s.replace(" ", ""))
-        cands.add(s.replace(" ", "."))
-        # decimal-comma → decimal-dot, e.g. "3,25" matches "€3.25"
-        if "," in s and "." not in s:
-            cands.add(s.replace(",", "."))
-
     for m in _CURRENCY_RE.finditer(txn.description or ""):
-        _variants(m.group(1))
-
-    def _int_variants(n: float) -> None:
-        ival = int(round(n))
-        cands.add(str(ival))
-        grouped = f"{ival:,}".replace(",", ".")  # 3400 → "3.400"
-        cands.add(grouped)
-        cands.add(f"{grouped},00")               # "3.400,00"
-
+        cands |= _amount_str_variants(m.group(1))
     amt = abs(txn.amount or 0.0)
     if amt >= 1:
-        _int_variants(amt)
+        cands |= _int_amount_variants(amt)
         fees = abs(txn.total_fees or 0.0)
         if fees > 0:
             net = amt - fees
             if net >= 1:
-                _int_variants(net)
-
+                cands |= _int_amount_variants(net)
     return {c for c in cands if len(c) >= 2 and c not in ("0", "00")}
 
 
@@ -423,11 +427,10 @@ def _file_score(
     haystack: str,
     filename_norm: str,
     file_date: Optional[date],
-) -> tuple[float, bool, bool]:
+) -> _FileScore:
     """Weighted match score for one (transaction, file) pair.
 
     ``haystack`` is the accent-stripped, lowercased ``filename + words`` blob.
-    Returns ``(score, hit_vendor, hit_amount)``.
     """
     hit_vendor = any(t in haystack for t in vendor_toks)
     hit_amount = any(a in haystack for a in amount_cands)
@@ -445,7 +448,7 @@ def _file_score(
             score += 0.1
         elif days <= 7:
             score += 0.05
-    return score, hit_vendor, hit_amount
+    return _FileScore(score=score, hit_vendor=hit_vendor, hit_amount=hit_amount)
 
 
 def sync_match(db: Session, settings: Optional[Settings] = None) -> int:

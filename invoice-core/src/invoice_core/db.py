@@ -61,6 +61,11 @@ class _InvoiceDirection(PyEnum):
     OUTBOUND = "OUTBOUND"
 
 
+def _enum_str(value) -> str:
+    """Return the string value of a SQLAlchemy enum column (may be Enum or str)."""
+    return value.value if isinstance(value, PyEnum) else str(value)
+
+
 # ── ORM models ────────────────────────────────────────────────────────────────
 
 class Supplier(Base):
