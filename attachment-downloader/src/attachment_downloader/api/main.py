@@ -55,6 +55,9 @@ async def create_download_job(
                 output_dir=request.output_dir,
             ),
         )
+    except ValueError as e:
+        logger.warning("download_pdf_attachments bad input: %s", e)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("download_pdf_attachments failed")
         raise HTTPException(status_code=500, detail=str(e))
