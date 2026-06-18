@@ -48,6 +48,17 @@ def _norm(s: str) -> str:
     return re.sub(r"\s*[/\\\-_.]\s*", "-", s).lower()
 
 
+def _token_match(needle: str, haystack: str) -> bool:
+    """True iff *needle* appears in *haystack* as a complete token.
+
+    Converts the - separator to ~ then wraps the haystack so a plain substring
+    check is sufficient. Prevents "grpht-2026-1" matching inside "grpht-2026-12".
+    """
+    n = "~" + needle.replace("-", "~") + "~"
+    h = "~" + haystack.replace("-", "~") + "~"
+    return n in h
+
+
 def _ascii_lower(s: str) -> str:
     """Lowercase and strip accents so 'ÜGYNÖKSÉG' → 'ugynokseg'."""
     decomposed = unicodedata.normalize("NFKD", s or "")
@@ -201,7 +212,7 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
         inv_num = _norm(inv.invoice_number)
         for invoice_file, path in records:
             # Fast path: invoice number (separator-normalized) in filename
-            if inv_num in _norm(invoice_file.filename):
+            if _token_match(inv_num, _norm(invoice_file.filename)):
                 inv.invoice_file_id = invoice_file.id
                 inv.updated_at = datetime.utcnow()
                 logger.info("Linked %s → %s (filename match)", inv.invoice_number, invoice_file.filename)
@@ -211,7 +222,7 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
                 pdf_text = invoice_file.words or pdf_client.get_words_text(path)
                 if not invoice_file.words and pdf_text:
                     invoice_file.words = pdf_text.replace("\x00", "")
-                if inv_num in _norm(pdf_text):
+                if _token_match(inv_num, _norm(pdf_text)):
                     inv.invoice_file_id = invoice_file.id
                     inv.updated_at = datetime.utcnow()
                     logger.info("Linked %s → %s (word search)", inv.invoice_number, invoice_file.filename)
@@ -514,7 +525,7 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
             for part in search_parts:
                 hit = next(
                     (f.id for f in files
-                     if f.id not in used_files and part in file_feats[f.id][1]),
+                     if f.id not in used_files and _token_match(part, file_feats[f.id][1])),
                     None,
                 )
                 if hit is not None:

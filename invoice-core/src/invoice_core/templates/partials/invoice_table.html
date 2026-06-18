@@ -36,13 +36,13 @@
         {% endif %}
       </td>
       <td>
-        {% if row.wise_transaction_ids %}
+        {% if row.wise_transaction_ids and row.wise_transaction_db_ids %}
           {% if row.wise_count == 1 %}
-            <a href="/ui/transactions" class="font-monospace text-decoration-none" style="font-size:.8rem" title="Wise tranzakció">
+            <a href="#" class="font-monospace text-decoration-none" style="font-size:.8rem" title="Wise tranzakció" data-tx-db-id="{{ row.wise_transaction_db_ids[0] }}">
               <i class="bi bi-bank text-info"></i> {{ row.wise_transaction_ids[0] }}
             </a>
           {% else %}
-            <a href="/ui/transactions" class="badge bg-info text-dark text-decoration-none" title="{{ row.wise_transaction_ids | join(', ') }}">
+            <a href="#" class="badge bg-info text-dark text-decoration-none" title="{{ row.wise_transaction_ids | join(', ') }}" data-tx-db-id="{{ row.wise_transaction_db_ids[0] }}">
               <i class="bi bi-bank"></i> {{ row.wise_count }}
             </a>
           {% endif %}
@@ -66,7 +66,8 @@
     }
     new DataTable("#invoice-table", {
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
-      pageLength: 25,
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50, 100],
       order: [[1, "desc"]],
       scrollX: true,
       autoWidth: false,
@@ -79,6 +80,16 @@
       if ($(e.target).closest("a").length) return;
       var url = $(this).data("pdf-url");
       if (url) window.open(url, "_blank");
+    });
+
+    document.getElementById("invoice-table").addEventListener("click", function(e) {
+      const lnk = e.target.closest("a[data-tx-db-id]");
+      if (!lnk) return;
+      e.preventDefault();
+      htmx.ajax("GET", "/ui/transactions/" + lnk.dataset.txDbId, {
+        target: "#tx-offcanvas-body",
+        swap: "innerHTML"
+      });
     });
   })();
 </script>

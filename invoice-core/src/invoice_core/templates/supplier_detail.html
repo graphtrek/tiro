@@ -108,14 +108,14 @@
   document.addEventListener("DOMContentLoaded", function() {
     new DataTable("#sup-inv-table", {
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
-      pageLength: 10, order: [[1, "desc"]],
+      pageLength: 15, lengthMenu: [10, 15, 25, 50, 100], order: [[1, "desc"]],
       columnDefs: [{ targets: [2], className: "text-end" }, { targets: [4], orderable: false }],
     });
     var wt = document.getElementById("sup-wise-table");
     if (wt) {
       new DataTable("#sup-wise-table", {
         language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
-        pageLength: 10, order: [[0, "desc"]],
+        pageLength: 15, lengthMenu: [10, 15, 25, 50, 100], order: [[0, "desc"]],
         columnDefs: [{ targets: [1], className: "text-end" }],
       });
     }

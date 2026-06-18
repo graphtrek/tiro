@@ -59,7 +59,8 @@
     }
     new DataTable("#transaction-table", {
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
-      pageLength: 25,
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50, 100],
       order: [[1, "desc"]],
       scrollX: true,
       autoWidth: false,
