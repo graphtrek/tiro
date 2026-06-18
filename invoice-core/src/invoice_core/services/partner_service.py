@@ -29,6 +29,8 @@ class PartnerInvoiceRow:
     amount_total: Optional[float]
     payment_status: str
     invoice_file_id: Optional[int]
+    wise_txn_db_id: Optional[int] = None
+    wise_txn_external_id: Optional[str] = None
 
 
 @dataclass
@@ -79,17 +81,20 @@ class CustomerDetail:
 
 
 def _partner_invoice_rows(invoices: list) -> list[PartnerInvoiceRow]:
-    return [
-        PartnerInvoiceRow(
+    rows = []
+    for i in invoices:
+        txn = i.wise_transactions[0] if i.wise_transactions else None
+        rows.append(PartnerInvoiceRow(
             id=i.id,
             invoice_number=i.invoice_number,
             invoice_date=i.invoice_date,
             amount_total=i.amount_total,
             payment_status=_enum_str(i.payment_status),
             invoice_file_id=i.invoice_file_id,
-        )
-        for i in invoices
-    ]
+            wise_txn_db_id=txn.id if txn else None,
+            wise_txn_external_id=txn.wise_transaction_id if txn else None,
+        ))
+    return rows
 
 
 def list_suppliers(db: Session) -> list[SupplierRow]:
