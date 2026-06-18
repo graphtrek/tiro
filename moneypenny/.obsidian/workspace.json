@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "4f09f289e88bff23",
+        "id": "342bddef445d6794",
         "type": "tabs",
         "children": [
           {
-            "id": "89c5c2cc50cd6947",
+            "id": "b98151e3ca5abd8a",
             "type": "leaf",
             "state": {
               "type": "graph",
@@ -179,20 +179,22 @@
       "bases:Új bázis létrehozása": false
     }
   },
-  "active": "89c5c2cc50cd6947",
+  "active": "b98151e3ca5abd8a",
   "lastOpenFiles": [
-    "invoice-file-filter-prompt.md",
-    "nav-invoice-prompt.md",
-    "nav-invoice-spec.md",
-    "invoice-core-ui-spec.md",
-    "invoice-core-spec.md",
     "INDEX.md",
-    "invoice-core-ui-prompt.md",
-    "invoice-core-prompt.md",
-    "invoice-file-filter-spec.md",
-    "attachment-downloader-spec.md",
+    "vision-spec.md",
+    "vision-prompt.md",
     "wise-spec.md",
     "wise-prompt.md",
+    "nav-invoice-spec.md",
+    "nav-invoice-prompt.md",
+    "invoice-core-prompt.md",
+    "invoice-file-filter-prompt.md",
+    "invoice-core-ui-spec.md",
+    "invoice-core-spec.md",
+    "invoice-core-ui-prompt.md",
+    "invoice-file-filter-spec.md",
+    "attachment-downloader-spec.md",
     "INDEX.md.tmp.55289.3d1e1f651571",
     "nav-számla-prompt.md",
     "attachment-downloader-prompt.md",
@@ -212,8 +214,6 @@
     "pdf-szamla-prompt.md.tmp.81206.e72371f3db51",
     "INDEX.md.tmp.81206.71b2a63f12a4",
     "szamla-db-spec.md.tmp.81206.504e97465aa8",
-    "szamla-db-spec.md.tmp.81206.a2d92659641d",
-    "IMPLEMENTACIO.md",
-    "CLI_SPECIFIKACIO.md"
+    "szamla-db-spec.md.tmp.81206.a2d92659641d"
   ]
 }

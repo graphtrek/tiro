@@ -1,15 +1,15 @@
 ---
 title: "Moneypenny - Projekt Index"
-description: "Számlázási és email feldolgozási mikorszervízek - wiki navigáció"
+description: "Számlázási, banki és tulajdonosi AI mikorszervízek - wiki navigáció"
 language: "HU"
-last_updated: "2026-06-15"
+last_updated: "2026-06-18"
 ---
 
 # 📚 Moneypenny - Wiki Index
 
 ## Összefoglalás
 
-A **Moneypenny** egy öt Python mikroszervizből álló számla-automatizálási rendszer, amely a Graphtrek számlázási folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti a Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva.
+A **Moneypenny** egy hat Python mikroszervizből álló pénzügyi automatizálási rendszer, amely a Graphtrek számlázási és vagyonkezelési folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti a Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva. A **Vision** szerviz tulajdonosi dashboardon aggregálja az invoice-core és SrcProfit (IBKR) adatait.
 
 | #   | Mikroszerviz            | Port | Szerep                                               |
 | --- | ----------------------- | ---- | ---------------------------------------------------- |
@@ -18,8 +18,9 @@ A **Moneypenny** egy öt Python mikroszervizből álló számla-automatizálási
 | 2   | `invoice-file-filter`   | 8001 | PDF metaadat kinyerés (OCR/Regex)                    |
 | 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                      |
 | 4   | `wise`                  | 8003 | Wise bankkivonatok feldolgozása (CSV import)         |
+| 6   | `vision`                | 8009 | Tulajdonosi AI dashboard – invoice-core + SrcProfit aggregáció |
 
-Belépési pont: `POST /api/v1/sync` → `invoice-core` (8004). Minden mikroszerviznek van FastAPI REST interfésze és Typer CLI-je is.
+Belépési pont: `POST /api/v1/sync` → `invoice-core` (8004). Az 1–5. mikroszerviznek FastAPI REST interfésze és Typer/Click CLI-je is van. A `vision` (6.) csak UI szerviz, CLI nélkül.
 
 ---
 
@@ -39,9 +40,15 @@ MASTER ORCHESTRATOR
       └──────────────────┴──────────────────┘
                          ↓
                    Merge + DB insert
+
+--- független aggregátor ---
+
+    vision (8009)
+      ├── invoice-core REST API (olvas)
+      └── SrcProfit API (olvas, IBKR)
 ```
 
-> `invoice-core` mindhárom ágat közvetlenül hívja. `invoice-file-filter` → `attachment-downloader` lánc a PDF-letöltési ág.
+> `invoice-core` mindhárom ágat közvetlenül hívja. `invoice-file-filter` → `attachment-downloader` lánc a PDF-letöltési ág. A `vision` külön, read-only aggregátor — nem része a sync láncnak.
 
 ---
 
@@ -107,6 +114,18 @@ MASTER ORCHESTRATOR
 
 ---
 
+### 6️⃣ Vision – Tulajdonosi AI Dashboard
+**[[vision-spec.md|📄 Specifikáció]]** | **[[vision-prompt.md|💭 Prompt]]**
+
+- **Meghívva**: (senki — böngészőből nyitják)
+- **Meghívja**: [[invoice-core-spec.md|invoice-core]] REST API (olvas) + [SrcProfit](https://srcprofit2.graphtrek.co/) (IBKR, olvas)
+- **Funkció**: Tulajdonosi szintű pénzügyi aggregátor — számlák, Wise tranzakciók, IBKR befektetések egy dashboardon
+- **Saját DB**: nincs — read-only aggregátor
+- **REST** (port 8009): `GET /health`, `GET /` (koncepcióoldal), `GET /dashboard` (KPI + diagramok)
+- **CLI**: nincs
+
+---
+
 ## 🎯 Projekt Áttekintés
 
 ```
@@ -142,6 +161,7 @@ Hívási Lánc (Szinkron):
 - **invoice-file-filter**: [[invoice-file-filter-spec.md|spec]] (PDF extract)
 - **attachment-downloader**: [[attachment-downloader-spec.md|spec]] (Gmail download)
 - **wise**: [[wise-spec.md|spec]] (Bankkivonatok integráció)
+- **vision**: [[vision-spec.md|spec]] (Tulajdonosi AI dashboard)
 
 ### Promptok
 - **invoice-core**: [[invoice-core-prompt.md|prompt]] | [[invoice-core-ui-prompt.md|UI prompt]] | [[invoice-core-ui-spec.md|UI spec]]
@@ -149,6 +169,7 @@ Hívási Lánc (Szinkron):
 - **invoice-file-filter**: [[invoice-file-filter-prompt.md|prompt]]
 - **attachment-downloader**: [[attachment-downloader-prompt.md|prompt]]
 - **wise**: [[wise-prompt.md|prompt]]
+- **vision**: [[vision-prompt.md|prompt]]
 
 ---
 
@@ -211,18 +232,20 @@ POST /api/v1/sync (invoice-core)
 3. **[[nav-invoice-spec.md|NAV API]]** - NAV query, invoice-file-filter integrálás
 4. **[[wise-spec.md|Wise Integráció]]** - CSV import, balance-statements végpont (invoice-core hívja)
 5. **[[invoice-core-spec.md|Invoice-Core]]** - DB orchestration, reconciliation (utolsó: mindenkit integrál)
+6. **[[vision-spec.md|Vision Dashboard]]** - read-only aggregátor (invoice-core + SrcProfit), Chart.js UI
 
 ---
 
-## 📡 API Porток (Dev)
+## 📡 API Portok (Dev)
 
 | Service               | Port | Endpoint                |
 | --------------------- | ---- | ----------------------- |
 | attachment-downloader | 8000 | `http://localhost:8000` |
 | invoice-file-filter   | 8001 | `http://localhost:8001` |
-| nav-invoice            | 8002 | `http://localhost:8002` |
+| nav-invoice           | 8002 | `http://localhost:8002` |
 | wise                  | 8003 | `http://localhost:8003` |
-| invoice-core             | 8004 | `http://localhost:8004` |
+| invoice-core          | 8004 | `http://localhost:8004` |
+| vision                | 8009 | `http://localhost:8009` |
 
 ---
 
@@ -252,6 +275,12 @@ DEFAULT_OUTPUT_DIR=./downloads/
 WISE_API_KEY=<wise-api-key>
 WISE_ACCOUNT_ID=<wise-account-id>
 DEFAULT_DAYS_BACK=30
+
+# vision
+INVOICE_CORE_URL=http://localhost:8004
+SRCPROFIT_URL=https://srcprofit2.graphtrek.co
+SRCPROFIT_USER=admin
+SRCPROFIT_PASSWORD=<titkos>
 ```
 
 ---
@@ -298,6 +327,7 @@ DEFAULT_DAYS_BACK=30
 - **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[invoice-file-filter-spec.md|invoice-file-filter]]
 - **PDF ág**: [[invoice-file-filter-spec.md|invoice-file-filter]] → hívja → [[attachment-downloader-spec.md|attachment-downloader]] (levél)
 - **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[wise-spec.md|wise]] (levél — csak Wise API)
+- **AGGREGÁTOR**: [[vision-spec.md|vision]] → olvassa → [[invoice-core-spec.md|invoice-core]] REST API + SrcProfit
 
 ### Prompt Links
 - [[invoice-core-prompt.md|Invoice-Core Prompt]]
@@ -305,7 +335,8 @@ DEFAULT_DAYS_BACK=30
 - [[invoice-file-filter-prompt.md|PDF Feldolgozó Prompt]]
 - [[attachment-downloader-prompt.md|Attachment Downloader Prompt]]
 - [[wise-prompt.md|Wise Prompt]]
+- [[vision-prompt.md|Vision Prompt]]
 
 ---
 
-**Utolsó frissítés**: 2026-06-15
+**Utolsó frissítés**: 2026-06-18
