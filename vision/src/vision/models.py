@@ -36,5 +36,9 @@ class DashboardData:
     srcprofit_currency: str
     srcprofit_positions: list[dict]
     wise_30d_income: float
+    wise_30d_expense: float
+    latest_invoice_date: str | None
+    latest_transaction_date: str | None
+    latest_data_date: str | None
     invoice_core_url: str
     srcprofit_url: str

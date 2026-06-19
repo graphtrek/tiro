@@ -84,6 +84,48 @@ def _build_wise_30d_income(transactions: list[dict]) -> float:
     return round(total, 2)
 
 
+def _build_latest_invoice_date(invoices: list[dict]) -> str | None:
+    dates = [str(inv.get("invoice_date", "") or "")[:10] for inv in invoices]
+    valid = [d for d in dates if len(d) == 10]
+    return max(valid) if valid else None
+
+
+def _build_latest_transaction_date(transactions: list[dict]) -> str | None:
+    dates = [str(tx.get("transaction_date", "") or "")[:10] for tx in transactions]
+    valid = [d for d in dates if len(d) == 10]
+    return max(valid) if valid else None
+
+
+def _build_latest_data_date(invoices: list[dict], transactions: list[dict]) -> str | None:
+    dates: list[str] = []
+    for inv in invoices:
+        d = str(inv.get("invoice_date", "") or "")[:10]
+        if len(d) == 10:
+            dates.append(d)
+    for tx in transactions:
+        d = str(tx.get("transaction_date", "") or "")[:10]
+        if len(d) == 10:
+            dates.append(d)
+    return max(dates) if dates else None
+
+
+def _build_wise_30d_expense(transactions: list[dict]) -> float:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    total = 0.0
+    for tx in transactions:
+        raw_date = tx.get("transaction_date", "") or ""
+        try:
+            dt = datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
+            continue
+        amount = tx.get("amount") or 0.0
+        if dt >= cutoff and amount < 0:
+            total += abs(amount)
+    return round(total, 2)
+
+
 def get_dashboard_data(settings: Optional[Settings] = None) -> DashboardData:
     cfg = settings or get_settings()
     inv_client = InvoiceCoreClient(cfg)
@@ -115,6 +157,10 @@ def get_dashboard_data(settings: Optional[Settings] = None) -> DashboardData:
         srcprofit_currency=srcprofit_currency,
         srcprofit_positions=srcprofit_positions,
         wise_30d_income=_build_wise_30d_income(transactions),
+        wise_30d_expense=_build_wise_30d_expense(transactions),
+        latest_invoice_date=_build_latest_invoice_date(invoices),
+        latest_transaction_date=_build_latest_transaction_date(transactions),
+        latest_data_date=_build_latest_data_date(invoices, transactions),
         invoice_core_url=cfg.invoice_core_url,
         srcprofit_url=cfg.srcprofit_url,
     )
