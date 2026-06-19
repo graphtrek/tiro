@@ -9,15 +9,15 @@ last_updated: "2026-06-18"
 
 ## Összefoglalás
 
-A **Moneypenny** egy hat Python mikroszervizből álló pénzügyi automatizálási rendszer, amely a Graphtrek számlázási és vagyonkezelési folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti a Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva. A **Vision** szerviz tulajdonosi dashboardon aggregálja az invoice-core és SrcProfit (IBKR) adatait.
+A **Moneypenny** egy hat Python mikroszervizből álló pénzügyi automatizálási rendszer, amely a Graphtrek számlázási és vagyonkezelési folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti az Erste és Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva. A **Vision** szerviz tulajdonosi dashboardon aggregálja az invoice-core és SrcProfit (IBKR) adatait.
 
-| #   | Mikroszerviz            | Port | Szerep                                               |
-| --- | ----------------------- | ---- | ---------------------------------------------------- |
-| 5   | `invoice-core`          | 8004 | MASTER orchestrator – DB persistálás, reconciliation |
-| 3   | `nav-invoice`           | 8002 | NAV Online Számla API lekérdezés                     |
-| 2   | `invoice-file-filter`   | 8001 | PDF metaadat kinyerés (OCR/Regex)                    |
-| 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                      |
-| 4   | `wise`                  | 8003 | Wise bankkivonatok feldolgozása (CSV import)         |
+| #   | Mikroszerviz            | Port | Szerep                                                         |
+| --- | ----------------------- | ---- | -------------------------------------------------------------- |
+| 5   | `invoice-core`          | 8004 | MASTER orchestrator – DB persistálás, reconciliation           |
+| 3   | `nav-invoice`           | 8002 | NAV Online Számla API lekérdezés                               |
+| 2   | `invoice-file-filter`   | 8001 | PDF metaadat kinyerés (OCR/Regex)                              |
+| 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                                |
+| 4   | `bank`                  | 8005 | Erste + Wise CSV konszolidáció – egységes bankkivonat API      |
 | 6   | `vision`                | 8009 | Tulajdonosi AI dashboard – invoice-core + SrcProfit aggregáció |
 
 Belépési pont: `POST /api/v1/sync` → `invoice-core` (8004). Az 1–5. mikroszerviznek FastAPI REST interfésze és Typer/Click CLI-je is van. A `vision` (6.) csak UI szerviz, CLI nélkül.
@@ -33,8 +33,8 @@ MASTER ORCHESTRATOR
      (init)
       ├──────────────────┬──────────────────┐
       ↓                  ↓                  ↓
- nav-invoice         invoice-file-filter   wise
- (NAV API)               ↓             (Wise API)
+ nav-invoice         invoice-file-filter   bank
+ (NAV API)               ↓             (Erste+Wise CSV)
                    attachment-downloader
                      (Gmail API)
       └──────────────────┴──────────────────┘
@@ -58,10 +58,10 @@ MASTER ORCHESTRATOR
 **[[invoice-core-spec.md|📄 Specifikáció]]** | **[[invoice-core-prompt.md|💭 Prompt]]** | **[[invoice-core-ui-prompt.md|🖥️ UI Prompt]]** | **[[invoice-core-ui-spec.md|🖥️ UI Spec]]**
 
 - **Szerepe**: Orchestrator (szinkronizálás indítása)
-- **Meghívja**: [[nav-invoice-spec.md|NAV API]], [[invoice-file-filter-spec.md|invoice-file-filter]], [[wise-spec.md|wise]]
+- **Meghívja**: [[nav-invoice-spec.md|NAV API]], [[invoice-file-filter-spec.md|invoice-file-filter]], [[bank-spec.md|bank]]
 - **Funkció**: Összes adat persistálása + partnerek kezelése
-- **Output**: PostgreSQL DB (invoice, invoice_file, supplier, customer, wise_transaction)
-- **REST**: `POST /api/v1/sync` → teljes szinkronizálás (NAV + PDF + Wise)
+- **Output**: PostgreSQL DB (invoice, invoice_file, supplier, customer, bank_transaction)
+- **REST**: `POST /api/v1/sync` → teljes szinkronizálás (NAV + PDF + Bank)
 
 ---
 
@@ -101,16 +101,16 @@ MASTER ORCHESTRATOR
 
 ---
 
-### 5️⃣ Wise Banki Mikroszerviz
-**[[wise-spec.md|📄 Specifikáció]]** | **[[wise-prompt.md|💭 Prompt]]**
+### 4️⃣ Bank Konszolidált Kivonat Mikroszerviz
+**[[bank-spec.md|📄 Specifikáció]]** | **[[bank-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: [[invoice-core-spec.md|invoice-core]] által
-- **Meghívja**: (senki — DB-t nem kezel)
-- **Funkció**: Kézzel letöltött Wise kivonat CSV-k feldolgozása, strukturált tranzakció lista visszaadása
-- **Input**: `balance-statements/` mappa CSV fájljai (fájlnév-séma: `statement_<balanceId>_<currency>_<from>_<to>.csv`)
-- **Output**: `StatementImport` (JSON) — DB-t nem kezel
-- **REST** (port 8003): `GET /health`, `GET /balance-statements`, `GET /balance-statements/{filename}`, `POST /sync` (egyelőre nem működik)
-- **CLI**: `wise-szamla status`, `wise-szamla statements`, `wise-szamla import <filename>`, `wise-szamla sync`
+- **Meghívja**: (senki — CSV fájlokat olvas, DB-t nem kezel)
+- **Funkció**: Erste és Wise kézzel letöltött CSV kivonatok egységes feldolgozása, konszolidált tranzakció lista visszaadása
+- **Input**: `balance-statements/erste/` és `balance-statements/wise/` mappa CSV fájljai
+- **Output**: `BankStatement` / `ConsolidatedStatement` (JSON) — DB-t nem kezel
+- **REST** (port 8005): `GET /health`, `GET /balance-statements`, `GET /balance-statement/{bank}`, `GET /balance-statement/all`
+- **CLI**: `bank status`, `bank list`, `bank import <filename>`, `bank statements`
 
 ---
 
@@ -134,14 +134,14 @@ Hívási Lánc (Szinkron):
 │  4. SZAMLA-DB (MASTER)                               │
 │  ├─ Meghívja: nav-invoice                             │
 │  ├─ Meghívja: invoice-file-filter                    |
-│  ├─ Meghívja: wise                                   │
+│  ├─ Meghívja: bank                                   │
 │  └─ Persistálás + Merge: DB                          │
 └──────────────────────────────────────────────────────┘
          ↓                   ↓                        ↓
 ┌──────────────┐ ┌───────────────────---──---─┐  ┌────────────-──┐
-│  3. NAV API  │ │  2. PDF FELDOLGOZÓ         │  │  5. WISE      │
-│  ├─ NAV query│ │  ├─ PDF indexelés          │  │  ├─ Wise API  │
-│  └─ Levél    │ │  └─ → attachment-downloader│  │  └─ Levél.    │
+│  3. NAV API  │ │  2. PDF FELDOLGOZÓ         │  │  4. BANK      │
+│  ├─ NAV query│ │  ├─ PDF indexelés          │  │  ├─ Erste CSV │
+│  └─ Levél    │ │  └─ → attachment-downloader│  │  └─ Wise CSV  │
 └──────────────┘ └─────────────────────------─┘  └─────────────-─┘
                            ↓
               ┌────────────────────────────┐
@@ -160,7 +160,7 @@ Hívási Lánc (Szinkron):
 - **nav-invoice**: [[nav-invoice-spec.md|spec]] (NAV query)
 - **invoice-file-filter**: [[invoice-file-filter-spec.md|spec]] (PDF extract)
 - **attachment-downloader**: [[attachment-downloader-spec.md|spec]] (Gmail download)
-- **wise**: [[wise-spec.md|spec]] (Bankkivonatok integráció)
+- **bank**: [[bank-spec.md|spec]] (Erste + Wise CSV konszolidáció)
 - **vision**: [[vision-spec.md|spec]] (Tulajdonosi AI dashboard)
 
 ### Promptok
@@ -168,7 +168,7 @@ Hívási Lánc (Szinkron):
 - **nav-invoice**: [[nav-invoice-prompt.md|prompt]]
 - **invoice-file-filter**: [[invoice-file-filter-prompt.md|prompt]]
 - **attachment-downloader**: [[attachment-downloader-prompt.md|prompt]]
-- **wise**: [[wise-prompt.md|prompt]]
+- **bank**: [[bank-prompt.md|prompt]]
 - **vision**: [[vision-prompt.md|prompt]]
 
 ---
@@ -184,7 +184,7 @@ flowchart TD
     IFF -->|jobs| AD[gmail]
     AD -->|files| IFF
     IFF -->|index| SD
-    SD -->|statements| W[wise]
+    SD -->|statements| W[bank]
     W -->|import| SD
     SD -->|insert| DB[PostgreSQL]
     DB -->|result| C
@@ -208,8 +208,8 @@ POST /api/v1/sync (invoice-core)
    ├─ invoice_file_filter.extract(start_date, end_date)
    │   └─ POST /api/v1/jobs → attachment_downloader [szinkron, Gmail API]
    │       └─ Return: {total_files, files: [{filename, saved_path, ...}]}
-   └─ wise.balance_statements()                       [levél — CSV import]
-       └─ GET /balance-statements                    → StatementImport (legfrissebb kivonat)
+   └─ bank.balance_statements()                       [levél — CSV import]
+       └─ GET /balance-statement/all               → ConsolidatedStatement (legfrissebb kivonat)
 
 2. DB mentés:
    └─ Insert: invoice_file (minden PDF nyers adat)
@@ -217,7 +217,7 @@ POST /api/v1/sync (invoice-core)
        └─ Minden NAV számlaszámhoz: GET /api/v1/invoices/search?words=<számlaszám>
    └─ Insert: supplier / customer (NAV adatok alapján)
    └─ Insert: invoice (invoice_file_id FK-val ha volt egyezés)
-   └─ Insert: wise_transaction (idempotens: wise_transaction_id ellenőrzés)
+   └─ Insert: bank_transaction (idempotens: transaction_id ellenőrzés)
        └─ supplier / customer létrehozás ha még nem létezik
        └─ invoice_id összekapcsolás összeg + dátum alapján
    └─ Return: Sync results
@@ -230,7 +230,7 @@ POST /api/v1/sync (invoice-core)
 1. **[[attachment-downloader-spec.md|Gmail Letöltő]]** - OAuth2, PDF API
 2. **[[invoice-file-filter-spec.md|PDF Feldolgozó]]** - OCR/Regex, attachment-downloader integrálás
 3. **[[nav-invoice-spec.md|NAV API]]** - NAV query, invoice-file-filter integrálás
-4. **[[wise-spec.md|Wise Integráció]]** - CSV import, balance-statements végpont (invoice-core hívja)
+4. **[[bank-spec.md|Bank Integráció]]** - CSV import, balance-statements végpont (invoice-core hívja)
 5. **[[invoice-core-spec.md|Invoice-Core]]** - DB orchestration, reconciliation (utolsó: mindenkit integrál)
 6. **[[vision-spec.md|Vision Dashboard]]** - read-only aggregátor (invoice-core + SrcProfit), Chart.js UI
 
@@ -243,7 +243,7 @@ POST /api/v1/sync (invoice-core)
 | attachment-downloader | 8000 | `http://localhost:8000` |
 | invoice-file-filter   | 8001 | `http://localhost:8001` |
 | nav-invoice           | 8002 | `http://localhost:8002` |
-| wise                  | 8003 | `http://localhost:8003` |
+| bank                  | 8005 | `http://localhost:8005` |
 | invoice-core          | 8004 | `http://localhost:8004` |
 | vision                | 8009 | `http://localhost:8009` |
 
@@ -271,10 +271,8 @@ DEFAULT_DAYS_BACK=30
 GMAIL_CREDENTIALS_FILE=./credentials.json
 DEFAULT_OUTPUT_DIR=./downloads/
 
-# wise
-WISE_API_KEY=<wise-api-key>
-WISE_ACCOUNT_ID=<wise-account-id>
-DEFAULT_DAYS_BACK=30
+# bank
+BALANCE_STATEMENTS_DIR=./balance-statements
 
 # vision
 INVOICE_CORE_URL=http://localhost:8004
@@ -311,11 +309,11 @@ SRCPROFIT_PASSWORD=<titkos>
    └─ Insert: supplier / customer (NAV adatok alapján)
    └─ Insert: invoice (invoice_file_id FK-val ha volt egyezés)
 
-3. Wise ág:
-   └─ → Wise: GET /balance-statements                        (invoice-core-tól, paraméter nélkül)
-         ↩ Return: StatementImport — mai naphoz legközelebbi kivonat tranzakciói
-   └─ Insert: wise_transaction (idempotens: wise_transaction_id ellenőrzés)
-   └─ Return: {sync_result, invoice_count, wise_transaction_count, errors}
+3. Bank ág:
+   └─ → Bank: GET /balance-statement/all                      (invoice-core-tól, paraméter nélkül)
+         ↩ Return: ConsolidatedStatement — Erste + Wise tranzakciók
+   └─ Insert: bank_transaction (idempotens: transaction_id ellenőrzés)
+   └─ Return: {sync_result, invoice_count, bank_transaction_count, errors}
 ```
 
 ---
@@ -326,7 +324,7 @@ SRCPROFIT_PASSWORD=<titkos>
 - **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[nav-invoice-spec.md|nav-invoice]] (levél)
 - **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[invoice-file-filter-spec.md|invoice-file-filter]]
 - **PDF ág**: [[invoice-file-filter-spec.md|invoice-file-filter]] → hívja → [[attachment-downloader-spec.md|attachment-downloader]] (levél)
-- **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[wise-spec.md|wise]] (levél — csak Wise API)
+- **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[bank-spec.md|bank]] (levél — Erste + Wise CSV)
 - **AGGREGÁTOR**: [[vision-spec.md|vision]] → olvassa → [[invoice-core-spec.md|invoice-core]] REST API + SrcProfit
 
 ### Prompt Links
@@ -334,9 +332,9 @@ SRCPROFIT_PASSWORD=<titkos>
 - [[nav-invoice-prompt.md|NAV Invoice Prompt]]
 - [[invoice-file-filter-prompt.md|PDF Feldolgozó Prompt]]
 - [[attachment-downloader-prompt.md|Attachment Downloader Prompt]]
-- [[wise-prompt.md|Wise Prompt]]
+- [[bank-prompt.md|Bank Prompt]]
 - [[vision-prompt.md|Vision Prompt]]
 
 ---
 
-**Utolsó frissítés**: 2026-06-18
+**Utolsó frissítés**: 2026-06-19
