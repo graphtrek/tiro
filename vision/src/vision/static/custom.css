@@ -2,16 +2,6 @@
 [data-bs-theme="dark"] .theme-icon-light { display: none; }
 [data-bs-theme="light"] .theme-icon-dark { display: none; }
 
-/* HTMX loading indicator */
-.htmx-indicator {
-    opacity: 0;
-    transition: opacity 200ms ease-in;
-}
-.htmx-request .htmx-indicator,
-.htmx-request.htmx-indicator {
-    opacity: 1;
-}
-
 /* Sidebar + navbar — always dark, distinctly darker than the dark-mode page body */
 #sidebar {
     min-width: 220px;
