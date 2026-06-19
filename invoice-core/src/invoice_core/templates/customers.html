@@ -20,7 +20,7 @@
       <th>Adószám</th>
       <th class="text-end">Számlák</th>
       <th class="text-end">Fizetetlen</th>
-      <th class="text-end">Wise</th>
+      <th class="text-end">Bank</th>
       <th>Utolsó számla</th>
     </tr>
   </thead>
@@ -37,7 +37,7 @@
           <span class="text-muted">0</span>
         {% endif %}
       </td>
-      <td class="text-end">{{ row.wise_count }}</td>
+      <td class="text-end">{{ row.bank_count }}</td>
       <td>{{ row.last_invoice_date or '—' }}</td>
     </tr>
     {% else %}

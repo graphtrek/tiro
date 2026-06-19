@@ -1,4 +1,4 @@
-"""Tests for Wise transaction ↔ invoice_file best-match logic (service.sync_match).
+"""Tests for bank transaction ↔ invoice_file best-match logic (service.sync_match).
 
 Fixtures mirror the real DB rows: foreign card receipts in EUR (Online 15,19 vs
 Scaleway €3.25), two identical Simplepay 3400 HUF charges against two receipts,
@@ -13,11 +13,11 @@ from sqlalchemy.orm import sessionmaker
 
 from invoice_core.db import (
     Base,
+    BankTransaction,
     Customer,
     Invoice,
     InvoiceFile,
     Supplier,
-    WiseTransaction,
     _InvoiceDirection,
     _PaymentStatus,
 )
@@ -34,22 +34,24 @@ def mdb():
     session.close()
 
 
-def _txn(**kw) -> WiseTransaction:
+def _txn(**kw) -> BankTransaction:
     kw.setdefault("currency", "HUF")
     kw.setdefault("transaction_date", datetime(2026, 6, 1))
-    return WiseTransaction(**kw)
+    kw.setdefault("bank", "wise")
+    kw.setdefault("direction", "DEBIT")
+    return BankTransaction(**kw)
 
 
 # ── helper unit tests ──────────────────────────────────────────────────────────
 
 class TestAmountCandidates:
     def test_eur_decimal_comma(self):
-        t = _txn(wise_transaction_id="x", amount=-5434.98,
+        t = _txn(transaction_id="x", amount=5434.98,
                  description="15,19 EUR értékű kártyahasználat ennél a kereskedőnél: Online (PARIS)")
         assert "15,19" in _amount_candidates(t)
 
     def test_huf_grouped_and_plain(self):
-        t = _txn(wise_transaction_id="x", amount=-3400,
+        t = _txn(transaction_id="x", amount=3400,
                  description="3 400,00 HUF értékű kártyahasználat")
         cands = _amount_candidates(t)
         assert "3400" in cands
@@ -57,12 +59,12 @@ class TestAmountCandidates:
 
     def test_decimal_comma_to_dot(self):
         # Scaleway invoices render the amount as "€3.25", txn description has "3,25"
-        t = _txn(wise_transaction_id="x", amount=-1163.08, description="3,25 EUR értékű kártyahasználat")
+        t = _txn(transaction_id="x", amount=1163.08, description="3,25 EUR értékű kártyahasználat")
         assert "3.25" in _amount_candidates(t)
 
     def test_fee_adjusted_net_amount(self):
-        # Wise deducted 94 624 HUF (of which 424 HUF is their fee); invoice shows 94 200 HUF
-        t = _txn(wise_transaction_id="x", amount=-94624, total_fees=424,
+        # Bank debited 94 624 HUF (of which 424 HUF is a fee); invoice shows 94 200 HUF
+        t = _txn(transaction_id="x", amount=94624, fees=424,
                  description="Küldött utalás")
         cands = _amount_candidates(t)
         assert "94200" in cands
@@ -72,11 +74,11 @@ class TestAmountCandidates:
 
 class TestVendorTokens:
     def test_brand_tokens_extracted(self):
-        t = _txn(wise_transaction_id="x", amount=-1, merchant="Scaleway PARIS")
+        t = _txn(transaction_id="x", amount=1, counterparty_name="Scaleway PARIS")
         assert "scaleway" in _vendor_tokens(t)
 
     def test_own_company_and_cities_filtered(self):
-        t = _txn(wise_transaction_id="x", amount=-1, merchant="Google Workspace_graphtre Dublin")
+        t = _txn(transaction_id="x", amount=1, counterparty_name="Google Workspace_graphtre Dublin")
         toks = _vendor_tokens(t)
         assert "graphtre" not in toks  # our own company never counts
         assert "dublin" not in toks    # city is noise
@@ -101,10 +103,10 @@ def _seed_foreign_files(mdb) -> tuple[InvoiceFile, InvoiceFile]:
 
 def test_amount_disambiguates_online_vs_scaleway(mdb):
     online, scaleway = _seed_foreign_files(mdb)
-    t_online = _txn(wise_transaction_id="CARD-1", amount=-5434.98, merchant="Online PARIS",
+    t_online = _txn(transaction_id="CARD-1", amount=5434.98, counterparty_name="Online PARIS",
                     transaction_date=datetime(2026, 6, 1),
                     description="15,19 EUR értékű kártyahasználat ennél a kereskedőnél: Online (PARIS)")
-    t_scaleway = _txn(wise_transaction_id="CARD-2", amount=-1163.08, merchant="Scaleway PARIS",
+    t_scaleway = _txn(transaction_id="CARD-2", amount=1163.08, counterparty_name="Scaleway PARIS",
                       transaction_date=datetime(2026, 6, 1),
                       description="3,25 EUR értékű kártyahasználat ennél a kereskedőnél: Scaleway (PARIS)")
     mdb.add_all([t_online, t_scaleway])
@@ -122,10 +124,10 @@ def test_two_identical_charges_get_distinct_files(mdb):
                      words="3.400,00 3400 23118342-2-43 forras.net")
     mdb.add_all([f1, f2])
     mdb.flush()
-    t1 = _txn(wise_transaction_id="CARD-A", amount=-3400, merchant="Simplep*Fizetes Budapest",
+    t1 = _txn(transaction_id="CARD-A", amount=3400, counterparty_name="Simplep*Fizetes Budapest",
               transaction_date=datetime(2026, 5, 29),
               description="3 400,00 HUF értékű kártyahasználat ennél a kereskedőnél: Simplep*Fizetes (Budapest)")
-    t2 = _txn(wise_transaction_id="CARD-B", amount=-3400, merchant="Simplep*Fizetes Budapest",
+    t2 = _txn(transaction_id="CARD-B", amount=3400, counterparty_name="Simplep*Fizetes Budapest",
               transaction_date=datetime(2026, 5, 29),
               description="3 400,00 HUF értékű kártyahasználat ennél a kereskedőnél: Simplep*Fizetes (Budapest)")
     mdb.add_all([t1, t2])
@@ -139,7 +141,7 @@ def test_two_identical_charges_get_distinct_files(mdb):
 
 def test_no_confident_match_stays_null(mdb):
     _seed_foreign_files(mdb)  # neither file mentions Google/Workspace nor 16,20
-    t = _txn(wise_transaction_id="CARD-3", amount=-5772.36, merchant="Google Workspace_graphtre Dublin",
+    t = _txn(transaction_id="CARD-3", amount=5772.36, counterparty_name="Google Workspace_graphtre Dublin",
              transaction_date=datetime(2026, 6, 1),
              description="16,20 EUR értékű kártyahasználat ennél a kereskedőnél: Google Workspace_graphtre (Dublin)")
     mdb.add(t)
@@ -157,8 +159,8 @@ def test_reference_present_but_absent_stays_null(mdb):
                         words="127000 uniomedia 2026-13 budapest")
     mdb.add(other)
     mdb.flush()
-    t = _txn(wise_transaction_id="TRANSFER-8", amount=127000, currency="HUF",
-             payment_reference="GRPHT-2026-11", payer_name="UNIOMEDIA KOMMUNIKÁCIÓS ÜGYNÖKSÉG",
+    t = _txn(transaction_id="TRANSFER-8", amount=127000, direction="CREDIT", currency="HUF",
+             payment_reference="GRPHT-2026-11", counterparty_name="UNIOMEDIA KOMMUNIKÁCIÓS ÜGYNÖKSÉG",
              transaction_date=datetime(2026, 5, 21),
              description="Beérkezett utalás ... GRPHT-2026-11 közleménnyel")
     mdb.add(t)
@@ -172,7 +174,8 @@ def test_reference_found_in_file_links_directly(mdb):
     f = InvoiceFile(filename="2026-06-04_0022_GRPHT-2026-11.pdf", words="127000 uniomedia 2026-11")
     mdb.add(f)
     mdb.flush()
-    t = _txn(wise_transaction_id="TRANSFER-8b", amount=127000, payment_reference="GRPHT-2026-11",
+    t = _txn(transaction_id="TRANSFER-8b", amount=127000, direction="CREDIT",
+             payment_reference="GRPHT-2026-11",
              transaction_date=datetime(2026, 5, 21))
     mdb.add(t)
     mdb.flush()
@@ -191,11 +194,11 @@ def test_payment_reference_company_prefix_stripped(mdb):
     mdb.add(f)
     mdb.flush()
     t = _txn(
-        wise_transaction_id="TRANSFER-2173212738",
-        amount=-94624,
-        total_fees=424,
+        transaction_id="TRANSFER-2173212738",
+        amount=94624,
+        fees=424,
         payment_reference="Graphtrek 87/2026",
-        payee_name="Fazekas ugyvedi iroda",
+        counterparty_name="Fazekas ugyvedi iroda",
         description="Utalás Fazekas ugyvedi iroda részére",
     )
     mdb.add(t)
@@ -206,7 +209,7 @@ def test_payment_reference_company_prefix_stripped(mdb):
 
 
 def test_fee_adjusted_amount_matches_transfer(mdb):
-    # TRANSFER-2173212738: Wise debited 94 624 HUF (fee 424 HUF); the PDF has 94 200 HUF.
+    # Bank debited 94 624 HUF (fee 424 HUF); the PDF has 94 200 HUF.
     # "graphtrek" and "szamla" are stopwords, so the match must come via amount.
     f = InvoiceFile(
         filename="2026-06-04_0020_GRAPHTREK_szamla.pdf",
@@ -215,10 +218,10 @@ def test_fee_adjusted_amount_matches_transfer(mdb):
     mdb.add(f)
     mdb.flush()
     t = _txn(
-        wise_transaction_id="TRANSFER-2173212738",
-        amount=-94624,
-        total_fees=424,
-        payee_name="Őrszem Services Kft",
+        transaction_id="TRANSFER-2173212738",
+        amount=94624,
+        fees=424,
+        counterparty_name="Őrszem Services Kft",
         transaction_date=datetime(2026, 6, 4),
         description="Küldött utalás Őrszem Services Kft. részére",
     )
@@ -248,9 +251,11 @@ def test_file_shared_backlinks_transaction_to_invoice(mdb):
     mdb.flush()
     # Transaction already linked to the same file (e.g. from a prior sync) but
     # not yet linked to the invoice.
-    t = WiseTransaction(
-        wise_transaction_id="TRANSFER-99",
-        amount=-127000,
+    t = BankTransaction(
+        transaction_id="TRANSFER-99",
+        bank="wise",
+        direction="DEBIT",
+        amount=127000,
         currency="HUF",
         transaction_date=datetime(2026, 6, 5),
         invoice_file_id=pdf.id,
@@ -286,10 +291,10 @@ def test_file_assigned_then_backlinked_in_same_call(mdb):
     mdb.flush()
     # Transaction has no file link yet; Phase 2 will match it by amount + vendor.
     t = _txn(
-        wise_transaction_id="TRANSFER-ORZSEM",
-        amount=-94624,
-        total_fees=424,
-        payee_name="Őrszem Services Kft",
+        transaction_id="TRANSFER-ORZSEM",
+        amount=94624,
+        fees=424,
+        counterparty_name="Őrszem Services Kft",
         transaction_date=datetime(2026, 6, 4),
         description="Küldött utalás Őrszem Services Kft. részére",
     )
@@ -315,7 +320,8 @@ def test_transitive_shortcut_via_invoice(mdb):
     mdb.add(inv)
     mdb.flush()
     # transfer with no vendor/amount signal in the PDF — only the invoice link
-    t = _txn(wise_transaction_id="TRANSFER-1", amount=-71440, payment_reference="2026-000064",
+    t = _txn(transaction_id="TRANSFER-1", amount=71440, direction="DEBIT",
+             payment_reference="2026-000064",
              description="Utalás Őrszem Services Kft. részére", invoice_id=inv.id)
     mdb.add(t)
     mdb.flush()

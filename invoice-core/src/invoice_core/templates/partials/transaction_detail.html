@@ -1,16 +1,31 @@
 {% from "_macros.html" import amount_fmt %}
 <dl class="row mb-0 small">
   <dt class="col-5 text-muted">Tranzakció ID</dt>
-  <dd class="col-7 font-monospace">{{ tx.wise_transaction_id }}</dd>
+  <dd class="col-7 font-monospace">{{ tx.transaction_id }}</dd>
+
+  <dt class="col-5 text-muted">Bank</dt>
+  <dd class="col-7">{{ tx.bank | upper }}</dd>
 
   <dt class="col-5 text-muted">Dátum</dt>
   <dd class="col-7">{{ tx.transaction_date.strftime('%Y-%m-%d %H:%M') if tx.transaction_date else '—' }}</dd>
 
   <dt class="col-5 text-muted">Összeg</dt>
-  <dd class="col-7 fw-bold">{{ amount_fmt(tx.amount, tx.currency) }}</dd>
+  <dd class="col-7 fw-bold">
+    {% if tx.direction == 'DEBIT' %}<span class="text-danger">−</span>{% else %}<span class="text-success">+</span>{% endif %}
+    {{ amount_fmt(tx.amount, tx.currency) }}
+  </dd>
+
+  <dt class="col-5 text-muted">Irány</dt>
+  <dd class="col-7">
+    {% if tx.direction == 'CREDIT' %}
+      <span class="badge bg-success">CREDIT</span>
+    {% else %}
+      <span class="badge bg-danger">DEBIT</span>
+    {% endif %}
+  </dd>
 
   <dt class="col-5 text-muted">Egyenleg</dt>
-  <dd class="col-7">{{ amount_fmt(tx.running_balance, tx.currency) }}</dd>
+  <dd class="col-7">{{ amount_fmt(tx.balance, tx.currency) }}</dd>
 
   <dt class="col-5 text-muted">Leírás</dt>
   <dd class="col-7">{{ tx.description or '—' }}</dd>
@@ -21,55 +36,28 @@
   <dt class="col-5 text-muted">Típus</dt>
   <dd class="col-7">{{ tx.transaction_type or '—' }}</dd>
 
-  <dt class="col-5 text-muted">Részlet típus</dt>
-  <dd class="col-7">{{ tx.transaction_details_type or '—' }}</dd>
+  <dt class="col-5 text-muted">Kategória</dt>
+  <dd class="col-7">{{ tx.category or '—' }}</dd>
 </dl>
 
 <hr class="my-3">
 <h6 class="text-muted mb-2">Partner</h6>
 <dl class="row mb-0 small">
-  <dt class="col-5 text-muted">Fizető neve</dt>
-  <dd class="col-7">{{ tx.payer_name or '—' }}</dd>
+  <dt class="col-5 text-muted">Partner neve</dt>
+  <dd class="col-7">{{ tx.counterparty_name or '—' }}</dd>
 
-  <dt class="col-5 text-muted">Kedvezményezett</dt>
-  <dd class="col-7">{{ tx.payee_name or '—' }}</dd>
+  <dt class="col-5 text-muted">Számlaszám</dt>
+  <dd class="col-7 font-monospace">{{ tx.counterparty_account or '—' }}</dd>
 
-  <dt class="col-5 text-muted">Bankszámlaszám</dt>
-  <dd class="col-7 font-monospace">{{ tx.payee_account_number or '—' }}</dd>
-
-  <dt class="col-5 text-muted">Kereskedő</dt>
-  <dd class="col-7">{{ tx.merchant or '—' }}</dd>
-
-  <dt class="col-5 text-muted">Kártyabirtokos</dt>
-  <dd class="col-7">{{ tx.card_holder_full_name or '—' }}</dd>
-
-  <dt class="col-5 text-muted">Kártya (utolsó 4)</dt>
-  <dd class="col-7">{{ tx.card_last_four_digits or '—' }}</dd>
+  <dt class="col-5 text-muted">IBAN</dt>
+  <dd class="col-7 font-monospace">{{ tx.counterparty_iban or '—' }}</dd>
 </dl>
 
-{% if tx.exchange_rate %}
-<hr class="my-3">
-<h6 class="text-muted mb-2">Átváltás</h6>
-<dl class="row mb-0 small">
-  <dt class="col-5 text-muted">Forrás deviza</dt>
-  <dd class="col-7">{{ tx.exchange_from or '—' }}</dd>
-
-  <dt class="col-5 text-muted">Cél deviza</dt>
-  <dd class="col-7">{{ tx.exchange_to or '—' }}</dd>
-
-  <dt class="col-5 text-muted">Árfolyam</dt>
-  <dd class="col-7">{{ tx.exchange_rate }}</dd>
-
-  <dt class="col-5 text-muted">Cél összeg</dt>
-  <dd class="col-7">{{ amount_fmt(tx.exchange_to_amount, tx.exchange_to or '') }}</dd>
-</dl>
-{% endif %}
-
-{% if tx.total_fees %}
+{% if tx.fees %}
 <hr class="my-3">
 <dl class="row mb-0 small">
   <dt class="col-5 text-muted">Díjak összesen</dt>
-  <dd class="col-7">{{ amount_fmt(tx.total_fees, tx.currency) }}</dd>
+  <dd class="col-7">{{ amount_fmt(tx.fees, tx.currency) }}</dd>
 </dl>
 {% endif %}
 
@@ -115,20 +103,6 @@
     {% endif %}
   </dd>
 </dl>
-
-{% if tx.note %}
-<hr class="my-3">
-<h6 class="text-muted mb-2">Megjegyzés</h6>
-<p class="small mb-0">{{ tx.note }}</p>
-{% endif %}
-
-{% if tx.attachment %}
-<hr class="my-3">
-<dl class="row mb-0 small">
-  <dt class="col-5 text-muted">Csatolmány</dt>
-  <dd class="col-7 font-monospace">{{ tx.attachment }}</dd>
-</dl>
-{% endif %}
 
 <hr class="my-3">
 <dl class="row mb-0 small text-muted">

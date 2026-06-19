@@ -1,5 +1,7 @@
 # wise-invoice — Wise Banki Mikroszerviz
 
+> **⚠️ ON HOLD** — A Wise partner program hozzáférés nélkül az online bankkivonat letöltés nem lehetséges. Az `invoice-core` helyette a **`bank`** mikroszervizet (port 8005) használja, amely kézzel letöltött Erste és Wise CSV fájlokat dolgoz fel.
+
 Moneypenny pipeline mikroszerviz #5 (`wise`, port 8003). Letölti a Wise bankkivonatot
 ([Wise API](https://docs.wise.com/api-reference)), Pydantic modellbe parsolja a tranzakciókat,
 és strukturált JSON-ként adja vissza a `invoice-core` orchestratornak.

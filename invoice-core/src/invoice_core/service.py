@@ -11,12 +11,12 @@ from typing import NamedTuple, Optional
 
 from sqlalchemy.orm import Session
 
+from .bank_client import BankClient, BankClientError
 from .config import Settings, get_settings
-from .db import Customer, Invoice, InvoiceFile, Supplier, WiseTransaction, _InvoiceDirection, _PaymentStatus
+from .db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, _InvoiceDirection, _PaymentStatus
 from .models import SyncMode, SyncRequest, SyncResponse
 from .nav_client import NavClient, NavClientError
 from .pdf_client import PdfClient, PdfClientError
-from .wise_client import WiseClient, WiseClientError
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +51,15 @@ def _norm(s: str) -> str:
 def _token_match(needle: str, haystack: str) -> bool:
     """True iff *needle* appears in *haystack* as a complete token.
 
-    Converts the - separator to ~ then wraps the haystack so a plain substring
-    check is sufficient. Prevents "grpht-2026-1" matching inside "grpht-2026-12".
+    Treats hyphens and whitespace as equivalent separators, then wraps in ~
+    so a plain substring check is sufficient.  Prevents "grpht-2026-1" from
+    matching inside "grpht-2026-12", and allows "87-2026" to match "87/2026"
+    in a normalized haystack regardless of whether the surrounding boundary is
+    a dash, underscore, or space.
     """
-    n = "~" + needle.replace("-", "~") + "~"
-    h = "~" + haystack.replace("-", "~") + "~"
+    _sep = re.compile(r"[-\s]+")
+    n = "~" + _sep.sub("~", needle) + "~"
+    h = "~" + _sep.sub("~", haystack) + "~"
     return n in h
 
 
@@ -248,23 +252,24 @@ def _find_invoice_by_ref(db: Session, payment_ref: str) -> Optional[Invoice]:
     return next((inv for inv in candidates if _norm(inv.invoice_number) == norm_ref), None)
 
 
-def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
-    """Fetch Wise transactions, insert new ones, and link to invoice/supplier/customer."""
+def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
+    """Fetch bank transactions, insert new ones, and link to invoice/supplier/customer."""
     settings = settings or get_settings()
-    transactions = WiseClient(settings).get_transactions()
+    transactions = BankClient(settings).get_transactions()
     count = 0
     for t in transactions:
-        wise_id = t.get("wise_transaction_id", "")
-        if not wise_id:
+        txn_id = t.get("transaction_id", "")
+        if not txn_id:
             continue
 
-        existing = db.query(WiseTransaction).filter_by(wise_transaction_id=wise_id).first()
+        existing = db.query(BankTransaction).filter_by(transaction_id=txn_id).first()
         if existing:
-            wtxn = existing
+            btxn = existing
         else:
-            txn_date_raw = t.get("transaction_date")
+            # Use datetime if available, fall back to date
+            txn_dt_raw = t.get("datetime") or t.get("date")
             try:
-                txn_date = datetime.fromisoformat(str(txn_date_raw)) if txn_date_raw else datetime.utcnow()
+                txn_date = datetime.fromisoformat(str(txn_dt_raw)) if txn_dt_raw else datetime.utcnow()
             except ValueError:
                 txn_date = datetime.utcnow()
 
@@ -274,76 +279,67 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
             except (TypeError, ValueError):
                 amount = 0.0
 
-            wtxn = WiseTransaction(
-                wise_transaction_id=wise_id,
+            btxn = BankTransaction(
+                bank=t.get("bank", ""),
+                transaction_id=txn_id,
                 amount=amount,
                 currency=t.get("currency", ""),
+                direction=t.get("direction", ""),
                 transaction_date=txn_date,
                 description=t.get("description"),
                 payment_reference=t.get("payment_reference"),
-                running_balance=_opt_float(t, "running_balance"),
-                exchange_from=t.get("exchange_from"),
-                exchange_to=t.get("exchange_to"),
-                exchange_rate=_opt_float(t, "exchange_rate"),
-                payer_name=t.get("payer_name"),
-                payee_name=t.get("payee_name"),
-                payee_account_number=t.get("payee_account_number"),
-                merchant=t.get("merchant"),
-                card_last_four_digits=t.get("card_last_four_digits"),
-                card_holder_full_name=t.get("card_holder_full_name"),
-                attachment=t.get("attachment"),
-                note=t.get("note"),
-                total_fees=_opt_float(t, "total_fees"),
-                exchange_to_amount=_opt_float(t, "exchange_to_amount"),
-                transaction_type=t.get("type"),
-                transaction_details_type=t.get("transaction_details_type"),
+                counterparty_name=t.get("counterparty_name"),
+                counterparty_account=t.get("counterparty_account"),
+                counterparty_iban=t.get("counterparty_iban"),
+                transaction_type=t.get("transaction_type"),
+                category=t.get("category"),
+                balance=_opt_float(t, "balance"),
+                fees=_opt_float(t, "fees"),
             )
-            db.add(wtxn)
-            db.flush()  # make visible to subsequent queries (handles duplicate wise_transaction_ids in CSV)
+            db.add(btxn)
+            db.flush()
             count += 1
 
-        # ── Link invoice ──────────────────────────────────────────────────────
+        # ── Link invoice via payment_reference ────────────────────────────────
         payment_ref = t.get("payment_reference", "") or ""
-        if payment_ref and not wtxn.invoice_id:
+        if payment_ref and not btxn.invoice_id:
             invoice = _find_invoice_by_ref(db, payment_ref)
             if invoice:
-                wtxn.invoice_id = invoice.id
-                # A Wise transaction settles the invoice → mark it paid.
+                btxn.invoice_id = invoice.id
                 invoice.payment_status = _PaymentStatus.PAID
                 invoice.updated_at = datetime.utcnow()
-                logger.info("Linked Wise txn %s → invoice %s (paid)", wise_id, invoice.invoice_number)
+                logger.info("Linked bank txn %s → invoice %s (paid)", txn_id, invoice.invoice_number)
 
         # ── Derive supplier/customer from linked invoice ───────────────────────
-        if wtxn.invoice_id and (not wtxn.supplier_id or not wtxn.customer_id):
-            invoice = db.query(Invoice).filter_by(id=wtxn.invoice_id).first()
+        if btxn.invoice_id and (not btxn.supplier_id or not btxn.customer_id):
+            invoice = db.query(Invoice).filter_by(id=btxn.invoice_id).first()
             if invoice:
-                if not wtxn.supplier_id:
-                    wtxn.supplier_id = invoice.supplier_id
-                if not wtxn.customer_id:
-                    wtxn.customer_id = invoice.customer_id
+                if not btxn.supplier_id:
+                    btxn.supplier_id = invoice.supplier_id
+                if not btxn.customer_id:
+                    btxn.customer_id = invoice.customer_id
 
         # ── Link supplier/customer by counterparty name (fallback) ────────────
         counterparty = t.get("counterparty_name", "") or ""
         if counterparty:
-            if not wtxn.supplier_id:
+            if not btxn.supplier_id:
                 supplier = db.query(Supplier).filter(
                     Supplier.name.ilike(f"%{counterparty}%")
                 ).first()
                 if supplier:
-                    wtxn.supplier_id = supplier.id
-            if not wtxn.customer_id:
+                    btxn.supplier_id = supplier.id
+            if not btxn.customer_id:
                 customer = db.query(Customer).filter(
                     Customer.name.ilike(f"%{counterparty}%")
                 ).first()
                 if customer:
-                    wtxn.customer_id = customer.id
+                    btxn.customer_id = customer.id
 
-    # Backfill: any invoice with a linked Wise transaction is paid. Covers links
-    # made in prior syncs (or this run) that are not yet reflected on the column.
+    # Backfill: any invoice with a linked bank transaction is paid.
     db.query(Invoice).filter(
         Invoice.payment_status != _PaymentStatus.PAID,
         Invoice.id.in_(
-            db.query(WiseTransaction.invoice_id).filter(WiseTransaction.invoice_id.isnot(None))
+            db.query(BankTransaction.invoice_id).filter(BankTransaction.invoice_id.isnot(None))
         ),
     ).update(
         {Invoice.payment_status: _PaymentStatus.PAID, Invoice.updated_at: datetime.utcnow()},
@@ -351,21 +347,18 @@ def sync_wise(start: str, end: str, db: Session, settings: Optional[Settings] = 
     )
 
     db.commit()
-    logger.info("sync_wise: %d new transaction(s) from %d fetched", count, len(transactions))
+    logger.info("sync_bank: %d new transaction(s) from %d fetched", count, len(transactions))
     return count
 
 
-# ── Wise ↔ invoice_file matching ───────────────────────────────────────────────
+# ── BankTransaction ↔ invoice_file matching ────────────────────────────────────
 
-# Generic tokens that must never count as a vendor signal: corporate-form words,
-# cities, payment boilerplate, and our own company (appears in most PDFs).
 _VENDOR_STOPWORDS = {
     "kommunikacios", "ugynokseg", "zartkoruen", "mukodo", "reszvenytarsasag",
     "subscription", "payment", "fizetes", "budapest", "paris", "dublin",
     "graphtrek", "graphtre", "invoice", "receipt", "szamla",
 }
 
-# A number (optionally grouped with space/.,) immediately followed by a currency.
 _CURRENCY_RE = re.compile(r"(\d[\d\s.,]*\d|\d)\s*(?:EUR|USD|HUF|GBP|CHF)", re.IGNORECASE)
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
@@ -390,20 +383,15 @@ def _int_amount_variants(n: float) -> set[str]:
     return {str(ival), grouped, f"{grouped},00"}
 
 
-def _amount_candidates(txn: WiseTransaction) -> set[str]:
-    """Substrings to look for in a PDF's word list that would prove an amount match.
-
-    Covers both the HUF ``amount`` field (plain + Hungarian-grouped) and the
-    original amount embedded in the description for foreign card payments
-    (``"15,19 EUR …"`` → file uses ``15,19``; ``"3,25 EUR …"`` → file uses ``€3.25``).
-    """
+def _amount_candidates(txn: BankTransaction) -> set[str]:
+    """Substrings to look for in a PDF's word list that would prove an amount match."""
     cands: set[str] = set()
     for m in _CURRENCY_RE.finditer(txn.description or ""):
         cands |= _amount_str_variants(m.group(1))
     amt = abs(txn.amount or 0.0)
     if amt >= 1:
         cands |= _int_amount_variants(amt)
-        fees = abs(txn.total_fees or 0.0)
+        fees = abs(txn.fees or 0.0)
         if fees > 0:
             net = amt - fees
             if net >= 1:
@@ -411,9 +399,9 @@ def _amount_candidates(txn: WiseTransaction) -> set[str]:
     return {c for c in cands if len(c) >= 2 and c not in ("0", "00")}
 
 
-def _vendor_tokens(txn: WiseTransaction) -> set[str]:
-    """Distinctive vendor name tokens from merchant / payee / payer fields."""
-    raw = " ".join(filter(None, [txn.merchant, txn.payee_name, txn.payer_name]))
+def _vendor_tokens(txn: BankTransaction) -> set[str]:
+    """Distinctive vendor name tokens from counterparty_name."""
+    raw = txn.counterparty_name or ""
     return {
         tok for tok in _TOKEN_RE.findall(_ascii_lower(raw))
         if len(tok) >= 4 and tok not in _VENDOR_STOPWORDS
@@ -439,10 +427,7 @@ def _file_score(
     filename_norm: str,
     file_date: Optional[date],
 ) -> _FileScore:
-    """Weighted match score for one (transaction, file) pair.
-
-    ``haystack`` is the accent-stripped, lowercased ``filename + words`` blob.
-    """
+    """Weighted match score for one (transaction, file) pair."""
     hit_vendor = any(t in haystack for t in vendor_toks)
     hit_amount = any(a in haystack for a in amount_cands)
 
@@ -463,23 +448,19 @@ def _file_score(
 
 
 def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
-    """Best-match unlinked Wise transactions to invoice files.
+    """Best-match unlinked bank transactions to invoice files.
 
     1. Transitive shortcut: if the txn already links to an invoice that has a PDF,
        reuse that file (highest confidence).
     2. Authoritative reference: a bank transfer with an explicit invoice-like
        ``payment_reference`` (contains a digit) must match a file that *contains*
-       that reference. If no file does, the txn is left unlinked rather than
-       guessed from a coincidental amount/name — the reference is ground truth.
+       that reference. If no file does, the txn is left unlinked.
     3. Otherwise score every (txn, file) pair on vendor name, amount, and date
-       proximity; greedily assign in descending-score order so each file is
-       claimed by at most one transaction. Only links at or above the confidence
-       threshold (and never on date alone) are written; the rest stay NULL for
-       the manual ``link-wise`` fallback.
+       proximity; greedily assign in descending-score order.
     """
-    settings = settings or get_settings()  # noqa: F841 — kept for signature parity
-    unmatched = db.query(WiseTransaction).filter(
-        WiseTransaction.invoice_file_id == None  # noqa: E711
+    settings = settings or get_settings()  # noqa: F841
+    unmatched = db.query(BankTransaction).filter(
+        BankTransaction.invoice_file_id == None  # noqa: E711
     ).all()
 
     files = db.query(InvoiceFile).all()
@@ -491,28 +472,23 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     used_files: set[int] = set()
     count = 0
 
-    def _assign(txn: WiseTransaction, file_id: int, why: str) -> None:
+    def _assign(txn: BankTransaction, file_id: int, why: str) -> None:
         nonlocal count
         txn.invoice_file_id = file_id
         txn.updated_at = datetime.utcnow()
         used_files.add(file_id)
         count += 1
-        logger.info("Matched Wise txn %s → file_id %s (%s)", txn.wise_transaction_id, file_id, why)
+        logger.info("Matched bank txn %s → file_id %s (%s)", txn.transaction_id, file_id, why)
 
     # ── Phase 1: transitive shortcut + authoritative payment reference ───────
-    remaining: list[WiseTransaction] = []
+    remaining: list[BankTransaction] = []
     for txn in unmatched:
-        # 1a. via the already-linked invoice
         if txn.invoice_id:
             invoice = db.query(Invoice).filter_by(id=txn.invoice_id).first()
             if invoice and invoice.invoice_file_id:
                 _assign(txn, invoice.invoice_file_id, f"via invoice {invoice.invoice_number}")
                 continue
 
-        # 1b. explicit invoice-like reference → require a file that contains it.
-        # Try the full normalized reference first; if that fails, try each
-        # space-separated subtoken that contains digits (handles refs like
-        # "Graphtrek 87/2026" where the PDF only stores "87/2026").
         ref = (txn.payment_reference or "").strip()
         if ref and any(ch.isdigit() for ch in ref):
             norm_ref = _norm(ref)
@@ -534,15 +510,15 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
                 _assign(txn, hit, f"reference {ref}")
             else:
                 logger.warning(
-                    "Wise txn %s reference %s not found in any file — left unlinked",
-                    txn.wise_transaction_id, ref,
+                    "Bank txn %s reference %s not found in any file — left unlinked",
+                    txn.transaction_id, ref,
                 )
             continue
 
         remaining.append(txn)
 
     # ── Phase 2: scored candidates ───────────────────────────────────────────
-    candidates: list[tuple[float, int, int]] = []  # (score, txn_id, file_id)
+    candidates: list[tuple[float, int, int]] = []
     txn_by_id = {t.id: t for t in remaining}
     for txn in remaining:
         amount_cands = _amount_candidates(txn)
@@ -556,7 +532,6 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
             if score >= _MATCH_THRESHOLD and (hit_vendor or hit_amount):
                 candidates.append((score, txn.id, f.id))
 
-    # Greedy 1:1 assignment: highest-scoring pairs win first.
     candidates.sort(key=lambda c: c[0], reverse=True)
     used_txns: set[int] = set()
     for score, txn_id, file_id in candidates:
@@ -569,23 +544,21 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
         used_files.add(file_id)
         count += 1
         logger.info(
-            "Matched Wise txn %s → file_id %s (score %.2f)",
-            txn.wise_transaction_id, file_id, score,
+            "Matched bank txn %s → file_id %s (score %.2f)",
+            txn.transaction_id, file_id, score,
         )
 
     for txn in remaining:
         if txn.id not in used_txns:
             logger.warning(
-                "No confident invoice_file match for Wise txn %s (%s)",
-                txn.wise_transaction_id, txn.merchant or txn.payee_name or txn.payer_name or "",
+                "No confident invoice_file match for bank txn %s (%s)",
+                txn.transaction_id, txn.counterparty_name or "",
             )
 
     # ── Phase 3: back-link transactions to invoices via shared invoice_file ────
-    # Covers both transactions whose file was just assigned (Phases 1/2) and
-    # pre-existing file links that were never reconciled against an invoice.
-    to_backlink = db.query(WiseTransaction).filter(
-        WiseTransaction.invoice_file_id.isnot(None),
-        WiseTransaction.invoice_id.is_(None),
+    to_backlink = db.query(BankTransaction).filter(
+        BankTransaction.invoice_file_id.isnot(None),
+        BankTransaction.invoice_id.is_(None),
     ).all()
     for txn in to_backlink:
         invoice = db.query(Invoice).filter_by(invoice_file_id=txn.invoice_file_id).first()
@@ -595,12 +568,12 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
             invoice.payment_status = _PaymentStatus.PAID
             invoice.updated_at = datetime.utcnow()
             logger.info(
-                "Backlinked Wise txn %s → invoice %s via shared file_id %s",
-                txn.wise_transaction_id, invoice.invoice_number, txn.invoice_file_id,
+                "Backlinked bank txn %s → invoice %s via shared file_id %s",
+                txn.transaction_id, invoice.invoice_number, txn.invoice_file_id,
             )
 
     db.commit()
-    logger.info("sync_match: %d Wise transaction(s) linked to a file", count)
+    logger.info("sync_match: %d bank transaction(s) linked to a file", count)
     return count
 
 
@@ -610,7 +583,7 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
     start, end = _default_dates(request.start_date, request.end_date)
     mode = request.sync_mode or SyncMode.full
     errors: list[str] = []
-    nav_count = pdf_count = wise_count = match_count = 0
+    nav_count = pdf_count = bank_count = match_count = 0
     t0 = time.monotonic()
 
     if request.clear_cache:
@@ -632,31 +605,31 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
             logger.error("PDF sync failed: %s", exc)
             errors.append(f"PDF: {exc}")
 
-    if mode in (SyncMode.full, SyncMode.wise_only):
+    if mode in (SyncMode.full, SyncMode.bank_only):
         try:
-            wise_count = sync_wise(start, end, db, settings)
-        except WiseClientError as exc:
-            logger.error("Wise sync failed: %s", exc)
-            errors.append(f"Wise: {exc}")
+            bank_count = sync_bank(start, end, db, settings)
+        except BankClientError as exc:
+            logger.error("Bank sync failed: %s", exc)
+            errors.append(f"Bank: {exc}")
 
     if mode in (SyncMode.full, SyncMode.match_only):
         try:
             match_count = sync_match(db, settings)
-        except Exception as exc:  # noqa: BLE001 — matching is local DB work; never fail the whole sync
-            logger.error("Wise↔file matching failed: %s", exc)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Bank↔file matching failed: %s", exc)
             errors.append(f"Match: {exc}")
 
     elapsed_ms = (time.monotonic() - t0) * 1000
     logger.info(
-        "sync_all [%s] %s..%s: nav=%d pdf=%d wise=%d match=%d errors=%d in %.0fms",
-        mode.value, start, end, nav_count, pdf_count, wise_count, match_count, len(errors), elapsed_ms,
+        "sync_all [%s] %s..%s: nav=%d pdf=%d bank=%d match=%d errors=%d in %.0fms",
+        mode.value, start, end, nav_count, pdf_count, bank_count, match_count, len(errors), elapsed_ms,
     )
     return SyncResponse(
         start_date=start,
         end_date=end,
         nav_invoices_synced=nav_count,
         pdf_files_synced=pdf_count,
-        wise_transactions_synced=wise_count,
-        wise_files_matched=match_count,
+        bank_transactions_synced=bank_count,
+        bank_files_matched=match_count,
         errors=errors,
     )

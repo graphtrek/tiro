@@ -7,7 +7,7 @@ from typing import Optional
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from invoice_core.db import Customer, Invoice, Supplier, WiseTransaction, _PaymentStatus, _enum_str
+from invoice_core.db import BankTransaction, Customer, Invoice, Supplier, _PaymentStatus, _enum_str
 
 
 @dataclass
@@ -17,7 +17,7 @@ class SupplierRow:
     tax_id: Optional[str]
     invoice_count: int
     unpaid_count: int
-    wise_count: int
+    bank_count: int
     last_invoice_date: Optional[date]
 
 
@@ -29,14 +29,15 @@ class PartnerInvoiceRow:
     amount_total: Optional[float]
     payment_status: str
     invoice_file_id: Optional[int]
-    wise_txn_db_id: Optional[int] = None
-    wise_txn_external_id: Optional[str] = None
+    bank_txn_db_id: Optional[int] = None
+    bank_txn_external_id: Optional[str] = None
 
 
 @dataclass
 class PartnerTxnRow:
     id: int
-    wise_transaction_id: str
+    transaction_id: str
+    bank: str
     transaction_date: datetime
     amount: float
     currency: str
@@ -53,7 +54,7 @@ class SupplierDetail:
     phone: Optional[str]
     bank_account: Optional[str]
     invoices: list[PartnerInvoiceRow] = field(default_factory=list)
-    wise_transactions: list[PartnerTxnRow] = field(default_factory=list)
+    bank_transactions: list[PartnerTxnRow] = field(default_factory=list)
 
 
 @dataclass
@@ -63,7 +64,7 @@ class CustomerRow:
     tax_id: Optional[str]
     invoice_count: int
     unpaid_count: int
-    wise_count: int
+    bank_count: int
     last_invoice_date: Optional[date]
 
 
@@ -77,13 +78,13 @@ class CustomerDetail:
     phone: Optional[str]
     payment_terms: Optional[int]
     invoices: list[PartnerInvoiceRow] = field(default_factory=list)
-    wise_transactions: list[PartnerTxnRow] = field(default_factory=list)
+    bank_transactions: list[PartnerTxnRow] = field(default_factory=list)
 
 
 def _partner_invoice_rows(invoices: list) -> list[PartnerInvoiceRow]:
     rows = []
     for i in invoices:
-        txn = i.wise_transactions[0] if i.wise_transactions else None
+        txn = i.bank_transactions[0] if i.bank_transactions else None
         rows.append(PartnerInvoiceRow(
             id=i.id,
             invoice_number=i.invoice_number,
@@ -91,8 +92,8 @@ def _partner_invoice_rows(invoices: list) -> list[PartnerInvoiceRow]:
             amount_total=i.amount_total,
             payment_status=_enum_str(i.payment_status),
             invoice_file_id=i.invoice_file_id,
-            wise_txn_db_id=txn.id if txn else None,
-            wise_txn_external_id=txn.wise_transaction_id if txn else None,
+            bank_txn_db_id=txn.id if txn else None,
+            bank_txn_external_id=txn.transaction_id if txn else None,
         ))
     return rows
 
@@ -110,14 +111,14 @@ def list_suppliers(db: Session) -> list[SupplierRow]:
     )
     inv_map = {r.supplier_id: r for r in inv_stats}
 
-    wise_map = {
-        r.supplier_id: r.wise_count
+    bank_map = {
+        r.supplier_id: r.bank_count
         for r in db.query(
-            WiseTransaction.supplier_id,
-            func.count(WiseTransaction.id).label("wise_count"),
+            BankTransaction.supplier_id,
+            func.count(BankTransaction.id).label("bank_count"),
         )
-        .filter(WiseTransaction.supplier_id.isnot(None))
-        .group_by(WiseTransaction.supplier_id)
+        .filter(BankTransaction.supplier_id.isnot(None))
+        .group_by(BankTransaction.supplier_id)
         .all()
     }
 
@@ -129,7 +130,7 @@ def list_suppliers(db: Session) -> list[SupplierRow]:
             tax_id=sup.tax_id,
             invoice_count=inv_map[sup.id].inv_count if sup.id in inv_map else 0,
             unpaid_count=inv_map[sup.id].unpaid_count if sup.id in inv_map else 0,
-            wise_count=wise_map.get(sup.id, 0),
+            bank_count=bank_map.get(sup.id, 0),
             last_invoice_date=inv_map[sup.id].last_date if sup.id in inv_map else None,
         )
         for sup in suppliers
@@ -146,10 +147,10 @@ def get_supplier(db: Session, supplier_id: int) -> Optional[SupplierDetail]:
         .order_by(Invoice.invoice_date.desc().nullslast())
         .all()
     )
-    wise_txns = (
-        db.query(WiseTransaction)
-        .filter(WiseTransaction.supplier_id == supplier_id)
-        .order_by(WiseTransaction.transaction_date.desc())
+    bank_txns = (
+        db.query(BankTransaction)
+        .filter(BankTransaction.supplier_id == supplier_id)
+        .order_by(BankTransaction.transaction_date.desc())
         .all()
     )
     return SupplierDetail(
@@ -161,16 +162,17 @@ def get_supplier(db: Session, supplier_id: int) -> Optional[SupplierDetail]:
         phone=sup.phone,
         bank_account=sup.bank_account,
         invoices=_partner_invoice_rows(invoices),
-        wise_transactions=[
+        bank_transactions=[
             PartnerTxnRow(
                 id=t.id,
-                wise_transaction_id=t.wise_transaction_id,
+                transaction_id=t.transaction_id,
+                bank=t.bank,
                 transaction_date=t.transaction_date,
                 amount=t.amount,
                 currency=t.currency,
                 description=t.description,
             )
-            for t in wise_txns
+            for t in bank_txns
         ],
     )
 
@@ -188,14 +190,14 @@ def list_customers(db: Session) -> list[CustomerRow]:
     )
     inv_map = {r.customer_id: r for r in inv_stats}
 
-    wise_map = {
-        r.customer_id: r.wise_count
+    bank_map = {
+        r.customer_id: r.bank_count
         for r in db.query(
-            WiseTransaction.customer_id,
-            func.count(WiseTransaction.id).label("wise_count"),
+            BankTransaction.customer_id,
+            func.count(BankTransaction.id).label("bank_count"),
         )
-        .filter(WiseTransaction.customer_id.isnot(None))
-        .group_by(WiseTransaction.customer_id)
+        .filter(BankTransaction.customer_id.isnot(None))
+        .group_by(BankTransaction.customer_id)
         .all()
     }
 
@@ -207,7 +209,7 @@ def list_customers(db: Session) -> list[CustomerRow]:
             tax_id=cust.tax_id,
             invoice_count=inv_map[cust.id].inv_count if cust.id in inv_map else 0,
             unpaid_count=inv_map[cust.id].unpaid_count if cust.id in inv_map else 0,
-            wise_count=wise_map.get(cust.id, 0),
+            bank_count=bank_map.get(cust.id, 0),
             last_invoice_date=inv_map[cust.id].last_date if cust.id in inv_map else None,
         )
         for cust in customers
@@ -224,10 +226,10 @@ def get_customer(db: Session, customer_id: int) -> Optional[CustomerDetail]:
         .order_by(Invoice.invoice_date.desc().nullslast())
         .all()
     )
-    wise_txns = (
-        db.query(WiseTransaction)
-        .filter(WiseTransaction.customer_id == customer_id)
-        .order_by(WiseTransaction.transaction_date.desc())
+    bank_txns = (
+        db.query(BankTransaction)
+        .filter(BankTransaction.customer_id == customer_id)
+        .order_by(BankTransaction.transaction_date.desc())
         .all()
     )
     return CustomerDetail(
@@ -239,15 +241,16 @@ def get_customer(db: Session, customer_id: int) -> Optional[CustomerDetail]:
         phone=cust.phone,
         payment_terms=cust.payment_terms,
         invoices=_partner_invoice_rows(invoices),
-        wise_transactions=[
+        bank_transactions=[
             PartnerTxnRow(
                 id=t.id,
-                wise_transaction_id=t.wise_transaction_id,
+                transaction_id=t.transaction_id,
+                bank=t.bank,
                 transaction_date=t.transaction_date,
                 amount=t.amount,
                 currency=t.currency,
                 description=t.description,
             )
-            for t in wise_txns
+            for t in bank_txns
         ],
     )

@@ -115,17 +115,17 @@
 </div>
 {% endif %}
 
-<!-- Wise tranzakciók -->
-{% if invoice.wise_transactions %}
+<!-- Bank tranzakciók -->
+{% if invoice.bank_transactions %}
 <div class="mb-2">
   <h5 class="mb-3">
-    <i class="bi bi-bank me-1 text-info"></i>Wise tranzakciók ({{ invoice.wise_transactions | length }})
+    <i class="bi bi-bank me-1 text-info"></i>Bank tranzakciók ({{ invoice.bank_transactions | length }})
   </h5>
 </div>
-{% for t in invoice.wise_transactions %}
+{% for t in invoice.bank_transactions %}
 <div class="card shadow-sm mb-3">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <span class="font-monospace small">{{ t.wise_transaction_id }}</span>
+    <span class="font-monospace small">{{ t.bank | upper }}: {{ t.transaction_id }}</span>
     <span class="fw-bold">{{ amount_fmt(t.amount, t.currency) }}</span>
   </div>
   <div class="card-body">
@@ -139,8 +139,14 @@
           <dt class="col-5 text-muted">Összeg</dt>
           <dd class="col-7 fw-bold">{{ amount_fmt(t.amount, t.currency) }}</dd>
 
+          <dt class="col-5 text-muted">Irány</dt>
+          <dd class="col-7">
+            {% if t.direction == 'CREDIT' %}<span class="badge bg-success">CREDIT</span>
+            {% else %}<span class="badge bg-danger">DEBIT</span>{% endif %}
+          </dd>
+
           <dt class="col-5 text-muted">Egyenleg</dt>
-          <dd class="col-7">{{ amount_fmt(t.running_balance, t.currency) if t.running_balance is not none else '—' }}</dd>
+          <dd class="col-7">{{ amount_fmt(t.balance, t.currency) if t.balance is not none else '—' }}</dd>
 
           <dt class="col-5 text-muted">Leírás</dt>
           <dd class="col-7">{{ t.description or '—' }}</dd>
@@ -151,12 +157,12 @@
           <dt class="col-5 text-muted">Típus</dt>
           <dd class="col-7">{{ t.transaction_type or '—' }}</dd>
 
-          <dt class="col-5 text-muted">Részlet típus</dt>
-          <dd class="col-7">{{ t.transaction_details_type or '—' }}</dd>
+          <dt class="col-5 text-muted">Kategória</dt>
+          <dd class="col-7">{{ t.category or '—' }}</dd>
 
-          {% if t.total_fees %}
+          {% if t.fees %}
           <dt class="col-5 text-muted">Díjak összesen</dt>
-          <dd class="col-7">{{ amount_fmt(t.total_fees, t.currency) }}</dd>
+          <dd class="col-7">{{ amount_fmt(t.fees, t.currency) }}</dd>
           {% endif %}
         </dl>
       </div>
@@ -164,41 +170,15 @@
       <!-- Partner -->
       <div class="col-12 col-md-6">
         <dl class="row mb-0 small">
-          <dt class="col-5 text-muted">Fizető neve</dt>
-          <dd class="col-7">{{ t.payer_name or '—' }}</dd>
+          <dt class="col-5 text-muted">Partner neve</dt>
+          <dd class="col-7">{{ t.partner_name or '—' }}</dd>
 
-          <dt class="col-5 text-muted">Kedvezményezett</dt>
-          <dd class="col-7">{{ t.payee_name or '—' }}</dd>
+          <dt class="col-5 text-muted">Számlaszám</dt>
+          <dd class="col-7 font-monospace">{{ t.counterparty_account or '—' }}</dd>
 
-          <dt class="col-5 text-muted">Bankszámlaszám</dt>
-          <dd class="col-7 font-monospace">{{ t.payee_account_number or '—' }}</dd>
-
-          <dt class="col-5 text-muted">Kereskedő</dt>
-          <dd class="col-7">{{ t.merchant or '—' }}</dd>
-
-          <dt class="col-5 text-muted">Kártyabirtokos</dt>
-          <dd class="col-7">{{ t.card_holder_full_name or '—' }}</dd>
-
-          <dt class="col-5 text-muted">Kártya (utolsó 4)</dt>
-          <dd class="col-7">{{ t.card_last_four_digits or '—' }}</dd>
+          <dt class="col-5 text-muted">IBAN</dt>
+          <dd class="col-7 font-monospace">{{ t.counterparty_iban or '—' }}</dd>
         </dl>
-
-        {% if t.exchange_rate %}
-        <hr class="my-2">
-        <dl class="row mb-0 small">
-          <dt class="col-5 text-muted">Forrás deviza</dt>
-          <dd class="col-7">{{ t.exchange_from or '—' }}</dd>
-
-          <dt class="col-5 text-muted">Cél deviza</dt>
-          <dd class="col-7">{{ t.exchange_to or '—' }}</dd>
-
-          <dt class="col-5 text-muted">Árfolyam</dt>
-          <dd class="col-7">{{ t.exchange_rate }}</dd>
-
-          <dt class="col-5 text-muted">Cél összeg</dt>
-          <dd class="col-7">{{ amount_fmt(t.exchange_to_amount, t.exchange_to or '') }}</dd>
-        </dl>
-        {% endif %}
       </div>
 
       <!-- PDF kapcsolat -->
@@ -211,24 +191,6 @@
               <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ t.invoice_file_filename or t.invoice_file_id }}
             </a>
           </dd>
-        </dl>
-      </div>
-      {% endif %}
-
-      {% if t.note %}
-      <div class="col-12">
-        <dl class="row mb-0 small">
-          <dt class="col-sm-2 text-muted">Megjegyzés</dt>
-          <dd class="col-sm-10">{{ t.note }}</dd>
-        </dl>
-      </div>
-      {% endif %}
-
-      {% if t.attachment %}
-      <div class="col-12">
-        <dl class="row mb-0 small">
-          <dt class="col-sm-2 text-muted">Csatolmány</dt>
-          <dd class="col-sm-10 font-monospace">{{ t.attachment }}</dd>
         </dl>
       </div>
       {% endif %}

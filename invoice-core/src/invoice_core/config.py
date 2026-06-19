@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # ── Downstream services ──────────────────────────────────────────────────
     nav_invoice_url: str = "http://localhost:8002"
     invoice_file_filter_url: str = "http://localhost:8001"
-    wise_url: str = "http://localhost:8003"
+    bank_url: str = "http://localhost:8005"
     sync_timeout: int = 300
 
     # ── FastAPI server ───────────────────────────────────────────────────────

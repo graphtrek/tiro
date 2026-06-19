@@ -36,9 +36,9 @@
   {% endif %}
 {% endmacro %}
 
-{% macro wise_icon(count) %}
+{% macro bank_icon(count) %}
   {% if count and count > 0 %}
-    <span class="badge bg-info text-dark" title="{{ count }} Wise tranzakció">
+    <span class="badge bg-info text-dark" title="{{ count }} bank tranzakció">
       <i class="bi bi-bank"></i> {{ count }}
     </span>
   {% else %}

@@ -2,8 +2,8 @@
 title: "Specifikáció: Számla Adatbázis Mikroszerviz"
 description: "Számlákat és partnereket kezelő adatbázis mikroszerviz (MASTER orchestrator)"
 language: "HU"
-last_updated: "2026-06-09"
-related: [INDEX.md, nav-invoice-spec.md, wise-spec.md]
+last_updated: "2026-06-19"
+related: [INDEX.md, nav-invoice-spec.md, bank-spec.md]
 ---
 
 # Számla Adatbázis Mikroszerviz - Specifikáció
@@ -18,17 +18,17 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 ## Funkció (MASTER HUB)
 - **Meghívja: nav-invoice** (NAV lekérdezés — csak a NAV API-t hívja)
 - **Meghívja: invoice-file-filter** (PDF feldolgozás — az meghívja attachment-downloadert)
-- **Meghívja: wise** (pénzügyi tranzakciók lekérése)
+- **Meghívja: bank** (banki tranzakciók lekérése — Erste + Wise CSV, port 8005)
 - Vevő és szállító táblákat létrehozza nav-invoice adatai alapján
 - invoice-file-filter visszaadott adatait külön `invoice_file` táblában tárolja
 - `invoice_file` rekordokat összeköti az `invoice` táblával (words-alapú számlaszám egyezés)
-- wise tranzakciókat `wise_transaction` táblában tárolja, összeköti `supplier`/`customer`/`invoice` táblákkal
-- Teljes invoice-supplier-customer-wise_transaction összekapcsolás
+- bank tranzakciókat `bank_transaction` táblában tárolja, összeköti `supplier`/`customer`/`invoice` táblákkal
+- Teljes invoice-supplier-customer-bank_transaction összekapcsolás
 
 ## Request paraméterek
 - `start_date` (optional) - szűrés kezdete (default: 30 nappal ezelőtt)
 - `end_date` (optional) - szűrés vége (default: ma)
-- `sync_mode` (optional) - sync típusa (full|nav_only|pdf_only|wise_only)
+- `sync_mode` (optional) - sync típusa (full|nav_only|pdf_only|bank_only|match_only)
 
 ## Táblák
 ### invoice (számlák)
@@ -75,16 +75,27 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - payment_terms
 - created_at, updated_at
 
-### wise_transaction (Wise pénzügyi tranzakciók)
+### bank_transaction (banki tranzakciók — Erste + Wise)
 - id (PK)
-- wise_transaction_id (külső azonosító, idempotencia)
-- amount
+- bank (str: "erste" | "wise")
+- transaction_id (külső azonosító, idempotencia)
+- amount (abszolút érték)
 - currency
+- direction ("CREDIT" | "DEBIT")
 - transaction_date
 - description
+- payment_reference
+- counterparty_name
+- counterparty_account
+- counterparty_iban
+- transaction_type
+- category
+- balance
+- fees
 - supplier_id (FK → supplier, nullable)
 - customer_id (FK → customer, nullable)
 - invoice_id (FK → invoice, nullable)
+- invoice_file_id (FK → invoice_file, nullable)
 - created_at, updated_at
 
 ## Logika (Orchestration)
@@ -103,31 +114,34 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
    - `supplier` / `customer`: partner adatok (nav-invoice alapján)
    - `invoice`: NAV számlák, `invoice_file_id` FK-val ha volt words-egyezés
 
-4. **Wise szinkron** (független a NAV/PDF ágaktól):
-   - **wise** meghívása: `GET /balance-statements` (paraméter nélkül)
-     → visszaad: `StatementImport` — a mai naphoz legközelebbi `to_date`-tel rendelkező CSV tranzakciói
-   - `wise_transaction` mentése (idempotens: `wise_transaction_id` duplikátum-ellenőrzés)
-   - `supplier` / `customer` létrehozás ha még nem létezik (Wise partner adatok alapján)
-   - `invoice_id` összekapcsolás összeg + dátum alapján (ha van egyező NAV számla)
-   > **Megjegyzés**: a `POST /sync` (élő Wise API hívás) egyelőre nem működik — a CSV import az aktív integrációs út.
+4. **Bank szinkron** (független a NAV/PDF ágaktól):
+   - **bank** meghívása: `GET /balance-statement/all` (paraméter nélkül)
+     → visszaad: `ConsolidatedStatement` — Erste + Wise CSV tranzakciók
+   - `bank_transaction` mentése (idempotens: `transaction_id` duplikátum-ellenőrzés)
+   - `supplier` / `customer` összekapcsolás ha van egyező partner (counterparty_name alapján)
+   - `invoice_id` összekapcsolás `payment_reference` alapján (ha van egyező NAV számla)
 
 ## Interface
 - **CLI**:
-  - `invoice-core sync` - teljes szinkronizálás (NAV + PDF + Wise)
+  - `invoice-core sync` - teljes szinkronizálás (NAV + PDF + Bank)
   - `invoice-core sync-nav` - NAV adatok szinkronizálása
   - `invoice-core sync-pdf` - PDF adatok szinkronizálása
-  - `invoice-core sync-wise` - Wise tranzakciók szinkronizálása
+  - `invoice-core sync-bank` - Bank tranzakciók szinkronizálása
+  - `invoice-core sync-match` - Összekapcsolás (PDF ↔ bank tranzakció)
   - `invoice-core report --month 2026-05` - havi kimutatás
+  - `invoice-core link <invoice_number> <filename>` - manuális számla-PDF összekapcsolás
+  - `invoice-core link-bank <transaction_id> <filename>` - manuális bank-PDF összekapcsolás
 - **REST API**:
   - `POST /api/v1/sync` - teljes szinkronizálás
   - `POST /api/v1/sync/nav` - NAV adatok szinkronizálása
   - `POST /api/v1/sync/pdf` - PDF adatok szinkronizálása
-  - `POST /api/v1/sync/wise` - Wise tranzakciók szinkronizálása
+  - `POST /api/v1/sync/bank` - Bank tranzakciók szinkronizálása
+  - `POST /api/v1/sync/match` - Összekapcsolás
   - `GET /api/v1/invoices` - számlalista (szűrés: dátum, partner, status)
   - `GET /api/v1/invoices/{invoice_number}` - egy számla adatai
   - `GET /api/v1/partners/suppliers` - szállítólista
   - `GET /api/v1/partners/customers` - vevőlista
-  - `GET /api/v1/transactions` - Wise tranzakciók listája
+  - `GET /api/v1/transactions` - bank tranzakciók listája
 
 ## Tech stack
 - Python 3.10+
@@ -152,8 +166,8 @@ flowchart TD
     IFF -->|jobs| AD[gmail]
     AD -->|files| IFF
     IFF -->|index| SD
-    SD -->|statements| W[wise]
-    W -->|import| SD
+    SD -->|statements| B[bank]
+    B -->|import| SD
     SD -->|insert| DB[PostgreSQL]
     DB -->|result| C
 ```
@@ -168,7 +182,7 @@ flowchart TD
   - PDF letöltés + indexelés: `POST /api/v1/invoices/extract`
   - Words keresés: `GET /api/v1/invoices/search?words=<számlaszám>` (melyik PDF fájl tartalmazza a szót)
   - invoice-file-filter maga hívja attachment-downloadert a PDF letöltéshez
-- **Meghívja**: [[wise-spec.md|Wise Spec]]
-  - `GET /balance-statements` (paraméter nélkül) — legfrissebb kivonat tranzakciói
-  - Levél szolgáltatás — DB-t nem kezel (`POST /sync` egyelőre nem működik)
+- **Meghívja**: [[bank-spec.md|Bank Spec]]
+  - `GET /balance-statement/all` (paraméter nélkül) — Erste + Wise CSV konszolidált tranzakciók
+  - Levél szolgáltatás — DB-t nem kezel
 - **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]

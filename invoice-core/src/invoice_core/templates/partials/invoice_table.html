@@ -1,4 +1,4 @@
-{% from "_macros.html" import payment_badge, pdf_icon, wise_icon, amount_fmt, direction_badge %}
+{% from "_macros.html" import payment_badge, pdf_icon, bank_icon, amount_fmt, direction_badge %}
 <table id="invoice-table" class="table table-hover table-sm nowrap" style="width:100%">
   <thead class="table-dark">
     <tr>
@@ -10,7 +10,7 @@
       <th class="text-end">ÁFA</th>
       <th class="text-end">Bruttó</th>
       <th>PDF</th>
-      <th class="text-center">Wise</th>
+      <th class="text-center">Bank</th>
       <th>Irány</th>
       <th>Státusz</th>
     </tr>
@@ -36,14 +36,14 @@
         {% endif %}
       </td>
       <td>
-        {% if row.wise_transaction_ids and row.wise_transaction_db_ids %}
-          {% if row.wise_count == 1 %}
-            <a href="#" class="font-monospace text-decoration-none" style="font-size:.8rem" title="Wise tranzakció" data-tx-db-id="{{ row.wise_transaction_db_ids[0] }}">
-              <i class="bi bi-bank text-info"></i> {{ row.wise_transaction_ids[0] }}
+        {% if row.bank_transaction_ids and row.bank_transaction_db_ids %}
+          {% if row.bank_count == 1 %}
+            <a href="#" class="font-monospace text-decoration-none" style="font-size:.8rem" title="Bank tranzakció" data-tx-db-id="{{ row.bank_transaction_db_ids[0] }}">
+              <i class="bi bi-bank text-info"></i> {{ row.bank_transaction_ids[0] }}
             </a>
           {% else %}
-            <a href="#" class="badge bg-info text-dark text-decoration-none" title="{{ row.wise_transaction_ids | join(', ') }}" data-tx-db-id="{{ row.wise_transaction_db_ids[0] }}">
-              <i class="bi bi-bank"></i> {{ row.wise_count }}
+            <a href="#" class="badge bg-info text-dark text-decoration-none" title="{{ row.bank_transaction_ids | join(', ') }}" data-tx-db-id="{{ row.bank_transaction_db_ids[0] }}">
+              <i class="bi bi-bank"></i> {{ row.bank_count }}
             </a>
           {% endif %}
         {% else %}

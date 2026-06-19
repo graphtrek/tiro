@@ -1,4 +1,4 @@
-{% from "_macros.html" import amount_fmt, wise_icon %}
+{% from "_macros.html" import amount_fmt, bank_icon %}
 <table id="file-table" class="table table-hover table-sm nowrap" style="width:100%">
   <thead class="table-dark">
     <tr>
@@ -7,7 +7,7 @@
       <th>Kapcsolt számla</th>
       <th>Szállító</th>
       <th class="text-end">Összeg</th>
-      <th>Wise tranzakció</th>
+      <th>Bank tranzakció</th>
     </tr>
   </thead>
   <tbody>
@@ -29,12 +29,12 @@
       <td>{{ row.supplier_name or '—' }}</td>
       <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>
       <td>
-        {% if row.is_wise_linked %}
+        {% if row.is_bank_linked %}
           <div class="d-flex align-items-center gap-2">
-            {{ wise_icon(row.wise_count) }}
+            {{ bank_icon(row.bank_count) }}
             <span class="small">
-              <span class="font-monospace">{{ row.wise_transaction_id }}</span>
-              <span class="text-muted">{{ amount_fmt(row.wise_amount, row.wise_currency or 'HUF') }}</span>
+              <span class="font-monospace">{{ row.bank_transaction_id }}</span>
+              <span class="text-muted">{{ amount_fmt(row.bank_amount, row.bank_currency or 'HUF') }}</span>
             </span>
           </div>
         {% else %}

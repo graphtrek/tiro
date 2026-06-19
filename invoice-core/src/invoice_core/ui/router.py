@@ -204,7 +204,7 @@ def sync_trigger(
 
     log.finished_at = datetime.utcnow()
     log.invoice_count = result.nav_invoices_synced
-    log.wise_count = result.wise_transactions_synced
+    log.bank_count = result.bank_transactions_synced
     log.error_count = len(result.errors)
     log.errors = "; ".join(result.errors) if result.errors else None
     db.commit()

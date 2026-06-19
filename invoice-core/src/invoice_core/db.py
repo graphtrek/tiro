@@ -82,7 +82,7 @@ class Supplier(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     invoices = relationship("Invoice", back_populates="supplier")
-    wise_transactions = relationship("WiseTransaction", back_populates="supplier")
+    bank_transactions = relationship("BankTransaction", back_populates="supplier")
 
 
 class Customer(Base):
@@ -99,7 +99,7 @@ class Customer(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     invoices = relationship("Invoice", back_populates="customer")
-    wise_transactions = relationship("WiseTransaction", back_populates="customer")
+    bank_transactions = relationship("BankTransaction", back_populates="customer")
 
 
 class InvoiceFile(Base):
@@ -114,7 +114,7 @@ class InvoiceFile(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     invoices = relationship("Invoice", back_populates="invoice_file")
-    wise_transactions = relationship("WiseTransaction", back_populates="invoice_file")
+    bank_transactions = relationship("BankTransaction", back_populates="invoice_file")
 
 
 class Invoice(Base):
@@ -150,35 +150,28 @@ class Invoice(Base):
     supplier = relationship("Supplier", back_populates="invoices")
     customer = relationship("Customer", back_populates="invoices")
     invoice_file = relationship("InvoiceFile", back_populates="invoices")
-    wise_transactions = relationship("WiseTransaction", back_populates="invoice")
+    bank_transactions = relationship("BankTransaction", back_populates="invoice")
 
 
-class WiseTransaction(Base):
-    __tablename__ = "wise_transaction"
+class BankTransaction(Base):
+    __tablename__ = "bank_transaction"
 
     id = Column(Integer, primary_key=True, index=True)
-    wise_transaction_id = Column(String, nullable=False, unique=True, index=True)
+    bank = Column(String, nullable=False, index=True)        # "erste" | "wise"
+    transaction_id = Column(String, nullable=False, unique=True, index=True)
     amount = Column(Float, nullable=False)
     currency = Column(String, nullable=False)
+    direction = Column(String, nullable=False)               # "CREDIT" | "DEBIT"
     transaction_date = Column(DateTime, nullable=False)
     description = Column(String, nullable=True)
     payment_reference = Column(String, nullable=True)
-    running_balance = Column(Float, nullable=True)
-    exchange_from = Column(String, nullable=True)
-    exchange_to = Column(String, nullable=True)
-    exchange_rate = Column(Float, nullable=True)
-    payer_name = Column(String, nullable=True)
-    payee_name = Column(String, nullable=True)
-    payee_account_number = Column(String, nullable=True)
-    merchant = Column(String, nullable=True)
-    card_last_four_digits = Column(String, nullable=True)
-    card_holder_full_name = Column(String, nullable=True)
-    attachment = Column(String, nullable=True)
-    note = Column(Text, nullable=True)
-    total_fees = Column(Float, nullable=True)
-    exchange_to_amount = Column(Float, nullable=True)
+    counterparty_name = Column(String, nullable=True)
+    counterparty_account = Column(String, nullable=True)
+    counterparty_iban = Column(String, nullable=True)
     transaction_type = Column(String, nullable=True)
-    transaction_details_type = Column(String, nullable=True)
+    category = Column(String, nullable=True)
+    balance = Column(Float, nullable=True)
+    fees = Column(Float, nullable=True)
     supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=True)
     customer_id = Column(Integer, ForeignKey("customer.id"), nullable=True)
     invoice_id = Column(Integer, ForeignKey("invoice.id"), nullable=True)
@@ -186,10 +179,10 @@ class WiseTransaction(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    supplier = relationship("Supplier", back_populates="wise_transactions")
-    customer = relationship("Customer", back_populates="wise_transactions")
-    invoice = relationship("Invoice", back_populates="wise_transactions")
-    invoice_file = relationship("InvoiceFile", back_populates="wise_transactions")
+    supplier = relationship("Supplier", back_populates="bank_transactions")
+    customer = relationship("Customer", back_populates="bank_transactions")
+    invoice = relationship("Invoice", back_populates="bank_transactions")
+    invoice_file = relationship("InvoiceFile", back_populates="bank_transactions")
 
 
 class SyncLog(Base):
@@ -200,20 +193,15 @@ class SyncLog(Base):
     finished_at = Column(DateTime, nullable=True)
     mode = Column(String, nullable=True)
     invoice_count = Column(Integer, default=0, nullable=False)
-    wise_count = Column(Integer, default=0, nullable=False)
+    bank_count = Column(Integer, default=0, nullable=False)
     error_count = Column(Integer, default=0, nullable=False)
     errors = Column(Text, nullable=True)
 
 
 # ── Business rules ──────────────────────────────────────────────────────────
 
-def invoice_has_wise_txn():
-    """Correlated EXISTS: the invoice has at least one linked Wise transaction.
-
-    An invoice that has been paid via Wise is reflected by a WiseTransaction
-    whose ``invoice_id`` points at it. Such an invoice is considered PAID
-    regardless of its stored ``payment_status`` column.
-    """
+def invoice_has_bank_txn():
+    """Correlated EXISTS: the invoice has at least one linked bank transaction."""
     from sqlalchemy import exists
 
-    return exists().where(WiseTransaction.invoice_id == Invoice.id)
+    return exists().where(BankTransaction.invoice_id == Invoice.id)

@@ -15,7 +15,8 @@ This is a multi-project `uv`-based Python workspace. **Each sub-project has its 
 | `attachment-downloader/` | Gmail PDF attachment downloader (FastAPI + CLI), port 8000 |
 | `invoice-file-filter/` | PDF text extraction + invoice filtering (FastAPI + CLI), port 8001 |
 | `invoice-core/` | Master orchestrator — PostgreSQL persistence + web UI (FastAPI + CLI), port 8004 |
-| `wise/` | Wise bank-statement download/sync (FastAPI + CLI), port 8003 |
+| `wise/` | Wise bank-statement download/sync (FastAPI + CLI), port 8003 — **on hold** (no Wise partner program; use `bank/` instead) |
+| `bank/` | Consolidated bank statement service — Erste + Wise CSV, port 8005 |
 
 Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs), `.env.example` (Scaleway inference defaults: `SCALEWAY_BASE_URL`, `SCALEWAY_API_KEY`), `AGENTS.md`, this file.
 
@@ -159,27 +160,27 @@ python run_api.py
 # CLI (installed as `invoice-core` script)
 uv run invoice-core sync                                # full sync (last 30 days)
 uv run invoice-core sync --start 2026-05-01 --end 2026-05-31
-uv run invoice-core sync-nav | sync-pdf | sync-wise | sync-match
+uv run invoice-core sync-nav | sync-pdf | sync-bank | sync-match
 uv run invoice-core report --month 2026-05
 uv run invoice-core link <invoice_number> <filename>
-uv run invoice-core link-wise <wise_transaction_id> <filename>
+uv run invoice-core link-bank <transaction_id> <filename>
 
 # Tests
 uv run pytest tests/ -v
 ```
 
 ### Architecture
-- `src/invoice_core/` — `api/main.py` (FastAPI REST), `ui/router.py` (HTMX UI at `/ui/`), `services/` (dashboard, invoice, partner, transaction, invoice_file), `templates/` (Jinja2), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `wise_client.py`.
+- `src/invoice_core/` — `api/main.py` (FastAPI REST), `ui/router.py` (HTMX UI at `/ui/`), `services/` (dashboard, invoice, partner, transaction, invoice_file), `templates/` (Jinja2), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`.
 - DB: PostgreSQL in production, SQLite in-memory for tests. Migrations via Alembic.
 
 ### Sync pipeline and linking logic
 1. **sync_nav** — upserts NAV invoices, suppliers, customers.
 2. **sync_pdf** — upserts InvoiceFile records; links invoices to files by invoice number in filename or PDF text.
-3. **sync_wise** — upserts WiseTransaction records; links to invoices via `payment_reference`; marks linked invoices PAID.
+3. **sync_bank** — upserts BankTransaction records (Erste + Wise CSV via bank service); links to invoices via `payment_reference`; marks linked invoices PAID.
 4. **sync_match** — links unmatched transactions to files (transitive → authoritative reference → scored); then back-links any transaction sharing a file with an invoice to that invoice and marks it PAID.
 
 ### Environment
-`DB_URL` (JDBC format, auto-converted), `DB_USER`, `DB_PWD`, `NAV_INVOICE_URL` (`:8002`), `INVOICE_FILE_FILTER_URL` (`:8001`), `WISE_URL` (`:8003`), `SYNC_TIMEOUT`, `API_HOST`/`API_PORT` (8004), `LOG_LEVEL`.
+`DB_URL` (JDBC format, auto-converted), `DB_USER`, `DB_PWD`, `NAV_INVOICE_URL` (`:8002`), `INVOICE_FILE_FILTER_URL` (`:8001`), `BANK_URL` (`:8005`), `SYNC_TIMEOUT`, `API_HOST`/`API_PORT` (8004), `LOG_LEVEL`.
 
 ## wise — Wise bank-statement service
 

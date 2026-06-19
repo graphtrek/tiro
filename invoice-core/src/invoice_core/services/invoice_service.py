@@ -8,7 +8,7 @@ from fastapi import Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from invoice_core.db import Customer, Invoice, InvoiceFile, Supplier, WiseTransaction, _PaymentStatus, _enum_str, invoice_has_wise_txn
+from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, _PaymentStatus, _enum_str, invoice_has_bank_txn
 
 
 @dataclass
@@ -28,37 +28,29 @@ class InvoiceRow:
     currency: Optional[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
-    wise_count: int
-    wise_transaction_ids: list[str] = field(default_factory=list)
-    wise_transaction_db_ids: list[int] = field(default_factory=list)
+    bank_count: int
+    bank_transaction_ids: list[str] = field(default_factory=list)
+    bank_transaction_db_ids: list[int] = field(default_factory=list)
 
 
 @dataclass
-class WiseTxnRow:
+class BankTxnRow:
     id: int
-    wise_transaction_id: str
+    transaction_id: str
+    bank: str
     transaction_date: datetime
     amount: float
     currency: str
+    direction: str
     description: Optional[str]
     payment_reference: Optional[str]
     partner_name: Optional[str]
-    running_balance: Optional[float] = None
-    exchange_from: Optional[str] = None
-    exchange_to: Optional[str] = None
-    exchange_rate: Optional[float] = None
-    exchange_to_amount: Optional[float] = None
-    payer_name: Optional[str] = None
-    payee_name: Optional[str] = None
-    payee_account_number: Optional[str] = None
-    merchant: Optional[str] = None
-    card_last_four_digits: Optional[str] = None
-    card_holder_full_name: Optional[str] = None
-    attachment: Optional[str] = None
-    note: Optional[str] = None
-    total_fees: Optional[float] = None
+    counterparty_account: Optional[str] = None
+    counterparty_iban: Optional[str] = None
     transaction_type: Optional[str] = None
-    transaction_details_type: Optional[str] = None
+    category: Optional[str] = None
+    balance: Optional[float] = None
+    fees: Optional[float] = None
     invoice_file_id: Optional[int] = None
     invoice_file_filename: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -89,7 +81,7 @@ class InvoiceDetail:
     invoice_file_filename: Optional[str]
     created_at: datetime
     updated_at: datetime
-    wise_transactions: list[WiseTxnRow] = field(default_factory=list)
+    bank_transactions: list[BankTxnRow] = field(default_factory=list)
 
 
 class InvoiceFilters:
@@ -116,17 +108,17 @@ def list_invoices(
     has_pdf: Optional[str] = None,
     supplier_name: Optional[str] = None,
 ) -> list[InvoiceRow]:
-    wise_sub = (
-        db.query(WiseTransaction.invoice_id, func.count(WiseTransaction.id).label("cnt"))
-        .filter(WiseTransaction.invoice_id.isnot(None))
-        .group_by(WiseTransaction.invoice_id)
+    bank_sub = (
+        db.query(BankTransaction.invoice_id, func.count(BankTransaction.id).label("cnt"))
+        .filter(BankTransaction.invoice_id.isnot(None))
+        .group_by(BankTransaction.invoice_id)
         .subquery()
     )
     q = (
-        db.query(Invoice, Supplier.name, Customer.name, func.coalesce(wise_sub.c.cnt, 0), InvoiceFile.filename)
+        db.query(Invoice, Supplier.name, Customer.name, func.coalesce(bank_sub.c.cnt, 0), InvoiceFile.filename)
         .join(Supplier, Invoice.supplier_id == Supplier.id)
         .join(Customer, Invoice.customer_id == Customer.id)
-        .outerjoin(wise_sub, Invoice.id == wise_sub.c.invoice_id)
+        .outerjoin(bank_sub, Invoice.id == bank_sub.c.invoice_id)
         .outerjoin(InvoiceFile, Invoice.invoice_file_id == InvoiceFile.id)
     )
     if date_from:
@@ -134,12 +126,10 @@ def list_invoices(
     if date_to:
         q = q.filter(Invoice.invoice_date <= date_to)
     if payment_status == "PAID":
-        # Paid = stored PAID OR settled by a linked Wise transaction.
-        q = q.filter(or_(Invoice.payment_status == _PaymentStatus.PAID, invoice_has_wise_txn()))
+        q = q.filter(or_(Invoice.payment_status == _PaymentStatus.PAID, invoice_has_bank_txn()))
     elif payment_status:
         try:
-            # A Wise-linked invoice is paid, so it can't be UNPAID/PARTIAL.
-            q = q.filter(Invoice.payment_status == _PaymentStatus[payment_status], ~invoice_has_wise_txn())
+            q = q.filter(Invoice.payment_status == _PaymentStatus[payment_status], ~invoice_has_bank_txn())
         except KeyError:
             pass
     if has_pdf == "true":
@@ -151,9 +141,9 @@ def list_invoices(
 
     q = q.order_by(Invoice.invoice_date.desc().nullslast(), Invoice.id.desc())
     rows = []
-    for inv, sup_name, cust_name, wise_cnt, file_filename in q.all():
+    for inv, sup_name, cust_name, bank_cnt, file_filename in q.all():
         status = _enum_str(inv.payment_status)
-        if (wise_cnt or 0) > 0:
+        if (bank_cnt or 0) > 0:
             status = _PaymentStatus.PAID.value
         rows.append(
             InvoiceRow(
@@ -172,16 +162,16 @@ def list_invoices(
                 currency=inv.currency,
                 invoice_file_id=inv.invoice_file_id,
                 invoice_file_filename=file_filename,
-                wise_count=wise_cnt or 0,
+                bank_count=bank_cnt or 0,
             )
         )
 
     if rows:
         invoice_ids = [r.id for r in rows]
         txn_rows = (
-            db.query(WiseTransaction.invoice_id, WiseTransaction.wise_transaction_id, WiseTransaction.id)
-            .filter(WiseTransaction.invoice_id.in_(invoice_ids))
-            .order_by(WiseTransaction.transaction_date.desc())
+            db.query(BankTransaction.invoice_id, BankTransaction.transaction_id, BankTransaction.id)
+            .filter(BankTransaction.invoice_id.in_(invoice_ids))
+            .order_by(BankTransaction.transaction_date.desc())
             .all()
         )
         txn_map: dict[int, list[str]] = {}
@@ -190,8 +180,8 @@ def list_invoices(
             txn_map.setdefault(inv_id, []).append(txn_id)
             db_id_map.setdefault(inv_id, []).append(db_id)
         for row in rows:
-            row.wise_transaction_ids = txn_map.get(row.id, [])
-            row.wise_transaction_db_ids = db_id_map.get(row.id, [])
+            row.bank_transaction_ids = txn_map.get(row.id, [])
+            row.bank_transaction_db_ids = db_id_map.get(row.id, [])
 
     return rows
 
@@ -215,10 +205,10 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         f = db.query(InvoiceFile).filter_by(id=inv.invoice_file_id).first()
         filename = f.filename if f else None
 
-    wise_txns = (
-        db.query(WiseTransaction)
-        .filter(WiseTransaction.invoice_id == invoice_id)
-        .order_by(WiseTransaction.transaction_date.desc())
+    bank_txns = (
+        db.query(BankTransaction)
+        .filter(BankTransaction.invoice_id == invoice_id)
+        .order_by(BankTransaction.transaction_date.desc())
         .all()
     )
 
@@ -235,7 +225,7 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         amount_net=inv.amount_net,
         amount_vat=inv.amount_vat,
         amount_total=inv.amount_total,
-        payment_status=_PaymentStatus.PAID.value if wise_txns else _enum_str(inv.payment_status),
+        payment_status=_PaymentStatus.PAID.value if bank_txns else _enum_str(inv.payment_status),
         direction=_enum_str(inv.direction),
         currency=inv.currency,
         invoice_operation=inv.invoice_operation,
@@ -245,37 +235,29 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         invoice_file_filename=filename,
         created_at=inv.created_at,
         updated_at=inv.updated_at,
-        wise_transactions=[
-            WiseTxnRow(
+        bank_transactions=[
+            BankTxnRow(
                 id=t.id,
-                wise_transaction_id=t.wise_transaction_id,
+                transaction_id=t.transaction_id,
+                bank=t.bank,
                 transaction_date=t.transaction_date,
                 amount=t.amount,
                 currency=t.currency,
+                direction=t.direction,
                 description=t.description,
                 payment_reference=t.payment_reference,
-                partner_name=t.payee_name or t.payer_name or t.merchant,
-                running_balance=t.running_balance,
-                exchange_from=t.exchange_from,
-                exchange_to=t.exchange_to,
-                exchange_rate=t.exchange_rate,
-                exchange_to_amount=t.exchange_to_amount,
-                payer_name=t.payer_name,
-                payee_name=t.payee_name,
-                payee_account_number=t.payee_account_number,
-                merchant=t.merchant,
-                card_last_four_digits=t.card_last_four_digits,
-                card_holder_full_name=t.card_holder_full_name,
-                attachment=t.attachment,
-                note=t.note,
-                total_fees=t.total_fees,
+                partner_name=t.counterparty_name,
+                counterparty_account=t.counterparty_account,
+                counterparty_iban=t.counterparty_iban,
                 transaction_type=t.transaction_type,
-                transaction_details_type=t.transaction_details_type,
+                category=t.category,
+                balance=t.balance,
+                fees=t.fees,
                 invoice_file_id=t.invoice_file_id,
                 invoice_file_filename=t.invoice_file.filename if t.invoice_file else None,
                 created_at=t.created_at,
                 updated_at=t.updated_at,
             )
-            for t in wise_txns
+            for t in bank_txns
         ],
     )

@@ -353,9 +353,8 @@ bank/
 invoice-core (MASTER)
   ├─ nav-invoice          ←→ NAV Online Számla 3.0 API
   ├─ invoice-file-filter → attachment-downloader ←→ Gmail API
-  ├─ wise                 ←→ Wise API
   └─ bank (ez)            ← balance-statements/erste/*.csv
                           ← balance-statements/wise/*.csv
 ```
 
-Az `invoice-core` hívja `GET /balance-statement/erste`, `GET /balance-statement/wise` és `GET /balance-statement/all` végpontokon keresztül.
+Az `invoice-core` a `GET /balance-statement/all` végponton keresztül hívja (konszolidált Erste + Wise tranzakciók). A `wise` mikroszerviz (port 8003, közvetlen Wise API hozzáférés) jelenleg **szünetel** — Wise partner program hiányában az online kivonat letöltés nem elérhető.

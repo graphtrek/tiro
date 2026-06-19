@@ -16,7 +16,7 @@ class SyncMode(str, Enum):
     full = "full"
     nav_only = "nav_only"
     pdf_only = "pdf_only"
-    wise_only = "wise_only"
+    bank_only = "bank_only"
     match_only = "match_only"
 
 
@@ -32,8 +32,8 @@ class SyncResponse(BaseModel):
     end_date: str
     nav_invoices_synced: int = 0
     pdf_files_synced: int = 0
-    wise_transactions_synced: int = 0
-    wise_files_matched: int = 0
+    bank_transactions_synced: int = 0
+    bank_files_matched: int = 0
     errors: List[str] = Field(default_factory=list)
 
 
@@ -112,32 +112,25 @@ class InvoiceOut(BaseModel):
     updated_at: datetime
 
 
-class WiseTransactionOut(BaseModel):
+class BankTransactionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    wise_transaction_id: str
+    bank: str
+    transaction_id: str
     amount: float
     currency: str
+    direction: str
     transaction_date: datetime
     description: Optional[str] = None
     payment_reference: Optional[str] = None
-    running_balance: Optional[float] = None
-    exchange_from: Optional[str] = None
-    exchange_to: Optional[str] = None
-    exchange_rate: Optional[float] = None
-    payer_name: Optional[str] = None
-    payee_name: Optional[str] = None
-    payee_account_number: Optional[str] = None
-    merchant: Optional[str] = None
-    card_last_four_digits: Optional[str] = None
-    card_holder_full_name: Optional[str] = None
-    attachment: Optional[str] = None
-    note: Optional[str] = None
-    total_fees: Optional[float] = None
-    exchange_to_amount: Optional[float] = None
+    counterparty_name: Optional[str] = None
+    counterparty_account: Optional[str] = None
+    counterparty_iban: Optional[str] = None
     transaction_type: Optional[str] = None
-    transaction_details_type: Optional[str] = None
+    category: Optional[str] = None
+    balance: Optional[float] = None
+    fees: Optional[float] = None
     supplier_id: Optional[int] = None
     customer_id: Optional[int] = None
     invoice_id: Optional[int] = None

@@ -31,7 +31,7 @@ class TestSyncResponse:
         resp = SyncResponse(start_date="2026-05-01", end_date="2026-05-31")
         assert resp.nav_invoices_synced == 0
         assert resp.pdf_files_synced == 0
-        assert resp.wise_transactions_synced == 0
+        assert resp.bank_transactions_synced == 0
         assert resp.errors == []
 
 

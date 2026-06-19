@@ -36,10 +36,10 @@
             <label class="form-label">Sync mód</label>
             <div class="d-flex flex-column gap-1">
               {% for mode, label in [
-                ('full', 'Teljes (NAV + PDF + Wise + összekapcsolás)'),
+                ('full', 'Teljes (NAV + PDF + Bank + összekapcsolás)'),
                 ('nav_only', 'Csak NAV számlák'),
                 ('pdf_only', 'Csak PDF fájlok'),
-                ('wise_only', 'Csak Wise tranzakciók'),
+                ('bank_only', 'Csak bank tranzakciók (Erste + Wise CSV)'),
                 ('match_only', 'Csak összekapcsolás'),
               ] %}
               <div class="form-check">
@@ -85,14 +85,14 @@
                   <span class="badge bg-success me-1">OK</span>
                 {% endif %}
                 <span class="badge bg-secondary me-1">{{ log.mode or 'full' }}</span>
-                <span class="text-muted small ms-auto">{{ log.invoice_count }}i / {{ log.wise_count }}w</span>
+                <span class="text-muted small ms-auto">{{ log.invoice_count }}i / {{ log.bank_count }}b</span>
               </button>
             </h2>
             <div id="log-{{ log.id }}" class="accordion-collapse collapse" data-bs-parent="#syncLogAccordion">
               <div class="accordion-body py-2">
                 <div class="row g-2">
                   <div class="col-6"><small class="text-muted">NAV számla:</small> {{ log.invoice_count }}</div>
-                  <div class="col-6"><small class="text-muted">Wise:</small> {{ log.wise_count }}</div>
+                  <div class="col-6"><small class="text-muted">Bank:</small> {{ log.bank_count }}</div>
                   {% if log.duration_s is not none %}
                   <div class="col-6"><small class="text-muted">Időtartam:</small> {{ "%.1f"|format(log.duration_s) }}s</div>
                   {% endif %}

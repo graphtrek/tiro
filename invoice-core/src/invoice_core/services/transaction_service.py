@@ -7,34 +7,27 @@ from typing import Optional
 from fastapi import Query
 from sqlalchemy.orm import Session
 
-from invoice_core.db import Invoice, InvoiceFile, WiseTransaction
+from invoice_core.db import BankTransaction, Invoice, InvoiceFile
 
 
 @dataclass
 class TransactionDetail:
     id: int
-    wise_transaction_id: str
+    transaction_id: str
+    bank: str
     transaction_date: datetime
     amount: float
     currency: str
+    direction: str
     description: Optional[str]
     payment_reference: Optional[str]
-    running_balance: Optional[float]
-    exchange_from: Optional[str]
-    exchange_to: Optional[str]
-    exchange_rate: Optional[float]
-    exchange_to_amount: Optional[float]
-    payer_name: Optional[str]
-    payee_name: Optional[str]
-    payee_account_number: Optional[str]
-    merchant: Optional[str]
-    card_last_four_digits: Optional[str]
-    card_holder_full_name: Optional[str]
-    attachment: Optional[str]
-    note: Optional[str]
-    total_fees: Optional[float]
+    counterparty_name: Optional[str]
+    counterparty_account: Optional[str]
+    counterparty_iban: Optional[str]
     transaction_type: Optional[str]
-    transaction_details_type: Optional[str]
+    category: Optional[str]
+    balance: Optional[float]
+    fees: Optional[float]
     invoice_id: Optional[int]
     invoice_number: Optional[str]
     invoice_file_id: Optional[int]
@@ -50,10 +43,12 @@ class TransactionDetail:
 @dataclass
 class TransactionRow:
     id: int
-    wise_transaction_id: str
+    transaction_id: str
+    bank: str
     transaction_date: datetime
     amount: float
     currency: str
+    direction: str
     description: Optional[str]
     payment_reference: Optional[str]
     partner_name: Optional[str]
@@ -61,7 +56,7 @@ class TransactionRow:
     invoice_number: Optional[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
-    total_fees: Optional[float] = None
+    fees: Optional[float] = None
 
 
 class TransactionFilters:
@@ -92,45 +87,43 @@ def list_transactions(
     amount_max: Optional[float] = None,
 ) -> list[TransactionRow]:
     q = (
-        db.query(WiseTransaction, Invoice.invoice_number, InvoiceFile.filename)
-        .outerjoin(Invoice, WiseTransaction.invoice_id == Invoice.id)
-        .outerjoin(InvoiceFile, WiseTransaction.invoice_file_id == InvoiceFile.id)
+        db.query(BankTransaction, Invoice.invoice_number, InvoiceFile.filename)
+        .outerjoin(Invoice, BankTransaction.invoice_id == Invoice.id)
+        .outerjoin(InvoiceFile, BankTransaction.invoice_file_id == InvoiceFile.id)
     )
     if date_from:
-        q = q.filter(WiseTransaction.transaction_date >= datetime.combine(date_from, datetime.min.time()))
+        q = q.filter(BankTransaction.transaction_date >= datetime.combine(date_from, datetime.min.time()))
     if date_to:
-        q = q.filter(WiseTransaction.transaction_date <= datetime.combine(date_to, datetime.max.time()))
+        q = q.filter(BankTransaction.transaction_date <= datetime.combine(date_to, datetime.max.time()))
     if linked == "yes":
-        q = q.filter(WiseTransaction.invoice_id.isnot(None))
+        q = q.filter(BankTransaction.invoice_id.isnot(None))
     elif linked == "no":
-        q = q.filter(WiseTransaction.invoice_id.is_(None))
+        q = q.filter(BankTransaction.invoice_id.is_(None))
     if partner_name:
-        q = q.filter(
-            (WiseTransaction.payee_name.ilike(f"%{partner_name}%"))
-            | (WiseTransaction.payer_name.ilike(f"%{partner_name}%"))
-            | (WiseTransaction.merchant.ilike(f"%{partner_name}%"))
-        )
+        q = q.filter(BankTransaction.counterparty_name.ilike(f"%{partner_name}%"))
     if amount_min is not None:
-        q = q.filter(WiseTransaction.amount >= amount_min)
+        q = q.filter(BankTransaction.amount >= amount_min)
     if amount_max is not None:
-        q = q.filter(WiseTransaction.amount <= amount_max)
+        q = q.filter(BankTransaction.amount <= amount_max)
 
-    q = q.order_by(WiseTransaction.transaction_date.desc())
+    q = q.order_by(BankTransaction.transaction_date.desc())
     return [
         TransactionRow(
             id=t.id,
-            wise_transaction_id=t.wise_transaction_id,
+            transaction_id=t.transaction_id,
+            bank=t.bank,
             transaction_date=t.transaction_date,
             amount=t.amount,
             currency=t.currency,
+            direction=t.direction,
             description=t.description,
             payment_reference=t.payment_reference,
-            partner_name=t.payee_name or t.payer_name or t.merchant,
+            partner_name=t.counterparty_name,
             invoice_id=t.invoice_id,
             invoice_number=inv_num,
             invoice_file_id=t.invoice_file_id,
             invoice_file_filename=inv_file,
-            total_fees=t.total_fees,
+            fees=t.fees,
         )
         for t, inv_num, inv_file in q.all()
     ]
@@ -138,10 +131,10 @@ def list_transactions(
 
 def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDetail]:
     row = (
-        db.query(WiseTransaction, Invoice.invoice_number, InvoiceFile.filename)
-        .outerjoin(Invoice, WiseTransaction.invoice_id == Invoice.id)
-        .outerjoin(InvoiceFile, WiseTransaction.invoice_file_id == InvoiceFile.id)
-        .filter(WiseTransaction.id == transaction_id)
+        db.query(BankTransaction, Invoice.invoice_number, InvoiceFile.filename)
+        .outerjoin(Invoice, BankTransaction.invoice_id == Invoice.id)
+        .outerjoin(InvoiceFile, BankTransaction.invoice_file_id == InvoiceFile.id)
+        .filter(BankTransaction.id == transaction_id)
         .first()
     )
     if not row:
@@ -149,28 +142,21 @@ def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDet
     t, inv_num, inv_file = row
     return TransactionDetail(
         id=t.id,
-        wise_transaction_id=t.wise_transaction_id,
+        transaction_id=t.transaction_id,
+        bank=t.bank,
         transaction_date=t.transaction_date,
         amount=t.amount,
         currency=t.currency,
+        direction=t.direction,
         description=t.description,
         payment_reference=t.payment_reference,
-        running_balance=t.running_balance,
-        exchange_from=t.exchange_from,
-        exchange_to=t.exchange_to,
-        exchange_rate=t.exchange_rate,
-        exchange_to_amount=t.exchange_to_amount,
-        payer_name=t.payer_name,
-        payee_name=t.payee_name,
-        payee_account_number=t.payee_account_number,
-        merchant=t.merchant,
-        card_last_four_digits=t.card_last_four_digits,
-        card_holder_full_name=t.card_holder_full_name,
-        attachment=t.attachment,
-        note=t.note,
-        total_fees=t.total_fees,
+        counterparty_name=t.counterparty_name,
+        counterparty_account=t.counterparty_account,
+        counterparty_iban=t.counterparty_iban,
         transaction_type=t.transaction_type,
-        transaction_details_type=t.transaction_details_type,
+        category=t.category,
+        balance=t.balance,
+        fees=t.fees,
         invoice_id=t.invoice_id,
         invoice_number=inv_num,
         invoice_file_id=t.invoice_file_id,

@@ -31,6 +31,15 @@
       "console": "integratedTerminal"
     },
     {
+      "name": "8005_bank API",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/bank/run_api.py",
+      "python": "${workspaceFolder}/bank/.venv/bin/python",
+      "cwd": "${workspaceFolder}/bank",
+      "console": "integratedTerminal"
+    },
+    {
       "name": "8003_wise API",
       "type": "debugpy",
       "request": "launch",

@@ -13,8 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from invoice_core.config import configure_logging, get_settings
-from invoice_core.db import Customer, Invoice, Supplier, WiseTransaction, get_db
+from invoice_core.db import BankTransaction, Customer, Invoice, Supplier, get_db, invoice_has_bank_txn
 from invoice_core.models import (
+    BankTransactionOut,
     CustomerOut,
     InvoiceDirection,
     InvoiceOut,
@@ -23,7 +24,6 @@ from invoice_core.models import (
     SyncMode,
     SyncRequest,
     SyncResponse,
-    WiseTransactionOut,
 )
 from invoice_core.service import sync_all
 from invoice_core.ui.router import router as ui_router
@@ -80,9 +80,9 @@ def pdf_sync(request: SyncRequest, db: Session = Depends(get_db)):
     return sync_all(request, db)
 
 
-@app.post("/api/v1/sync/wise", response_model=SyncResponse)
-def wise_sync(request: SyncRequest, db: Session = Depends(get_db)):
-    request.sync_mode = SyncMode.wise_only
+@app.post("/api/v1/sync/bank", response_model=SyncResponse)
+def bank_sync(request: SyncRequest, db: Session = Depends(get_db)):
+    request.sync_mode = SyncMode.bank_only
     return sync_all(request, db)
 
 
@@ -104,32 +104,29 @@ def list_invoices(
 ):
     from sqlalchemy import or_
 
-    from invoice_core.db import _InvoiceDirection, _PaymentStatus, invoice_has_wise_txn
+    from invoice_core.db import _InvoiceDirection, _PaymentStatus
     q = db.query(Invoice)
     if date_from:
         q = q.filter(Invoice.invoice_date >= date_from)
     if date_to:
         q = q.filter(Invoice.invoice_date <= date_to)
     if status == PaymentStatus.PAID:
-        # Paid = stored PAID OR settled by a linked Wise transaction.
-        q = q.filter(or_(Invoice.payment_status == _PaymentStatus.PAID, invoice_has_wise_txn()))
+        q = q.filter(or_(Invoice.payment_status == _PaymentStatus.PAID, invoice_has_bank_txn()))
     elif status:
-        # A Wise-linked invoice is paid, so it can't be UNPAID/PARTIAL.
-        q = q.filter(Invoice.payment_status == _PaymentStatus[status.value], ~invoice_has_wise_txn())
+        q = q.filter(Invoice.payment_status == _PaymentStatus[status.value], ~invoice_has_bank_txn())
     if direction:
         q = q.filter(Invoice.direction == _InvoiceDirection[direction.value])
 
     invoices = q.all()
-    # Reflect the "Wise-linked ⇒ paid" rule in the serialized status, even for
-    # rows whose stored column has not yet been backfilled by a sync.
-    paid_via_wise = {
+    paid_via_bank = {
         r[0]
-        for r in db.query(WiseTransaction.invoice_id)
-        .filter(WiseTransaction.invoice_id.isnot(None))
+        for r in db.query(BankTransaction.invoice_id)
+        .filter(BankTransaction.invoice_id.isnot(None))
         .distinct()
     }
+    from invoice_core.db import _PaymentStatus
     for inv in invoices:
-        if inv.id in paid_via_wise:
+        if inv.id in paid_via_bank:
             inv.payment_status = _PaymentStatus.PAID
     return invoices
 
@@ -152,9 +149,9 @@ def list_customers(db: Session = Depends(get_db)):
     return db.query(Customer).all()
 
 
-@app.get("/api/v1/transactions", response_model=List[WiseTransactionOut])
+@app.get("/api/v1/transactions", response_model=List[BankTransactionOut])
 def list_transactions(db: Session = Depends(get_db)):
-    return db.query(WiseTransaction).all()
+    return db.query(BankTransaction).all()
 
 
 def run_server():

@@ -47,7 +47,7 @@
           <th>Dátum</th>
           <th class="text-end">Bruttó</th>
           <th>Státusz</th>
-          <th>Wise</th>
+          <th>Bank</th>
         </tr>
       </thead>
       <tbody>
@@ -58,8 +58,8 @@
           <td class="text-end">{{ amount_fmt(inv.amount_total) }}</td>
           <td>{{ payment_badge(inv.payment_status) }}</td>
           <td>
-            {% if inv.wise_txn_db_id %}
-              <span class="badge bg-info text-dark" style="cursor:pointer" data-tx-id="{{ inv.wise_txn_db_id }}">{{ inv.wise_txn_external_id }}</span>
+            {% if inv.bank_txn_db_id %}
+              <span class="badge bg-info text-dark" style="cursor:pointer" data-tx-id="{{ inv.bank_txn_db_id }}">{{ inv.bank_txn_external_id }}</span>
             {% else %}
               <span class="text-secondary">—</span>
             {% endif %}
