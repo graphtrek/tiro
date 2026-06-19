@@ -63,66 +63,10 @@ def _token_match(needle: str, haystack: str) -> bool:
     return n in h
 
 
-def _norm_year_collapsed(inv_num_norm: str) -> Optional[str]:
-    """Return a variant where the sequence number and 4-digit year are concatenated.
-
-    Handles filenames where the separator before the year was dropped:
-    e.g. 'wsph-203-00506-2026' → 'wsph-203-005062026'
-    """
-    m = re.match(r"^(.+)-(\d+)-(\d{4})$", inv_num_norm)
-    if m:
-        return f"{m.group(1)}-{m.group(2)}{m.group(3)}"
-    return None
-
-
 def _ascii_lower(s: str) -> str:
     """Lowercase and strip accents so 'ÜGYNÖKSÉG' → 'ugynokseg'."""
     decomposed = unicodedata.normalize("NFKD", s or "")
     return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
-
-
-def _link_invoices_to_files(
-    db: Session,
-    files: list[InvoiceFile],
-    pdf_client: Optional[object] = None,
-) -> int:
-    """Link unmatched invoices to files by filename then PDF text.
-
-    Works against any list of InvoiceFile objects (e.g. freshly fetched or all from DB).
-    Returns the number of invoices newly linked.
-    """
-    unlinked = db.query(Invoice).filter(Invoice.invoice_file_id == None).all()  # noqa: E711
-    linked = 0
-    for inv in unlinked:
-        if not inv.invoice_number:
-            continue
-        inv_num = _norm(inv.invoice_number)
-        inv_num_yc = _norm_year_collapsed(inv_num)
-        for f in files:
-            fn_norm = _norm(f.filename)
-            if _token_match(inv_num, fn_norm) or (inv_num_yc and _token_match(inv_num_yc, fn_norm)):
-                inv.invoice_file_id = f.id
-                inv.updated_at = datetime.utcnow()
-                logger.info("Linked %s → %s (filename match)", inv.invoice_number, f.filename)
-                linked += 1
-                break
-            if f.path:
-                pdf_text = f.words
-                if not pdf_text and pdf_client is not None:
-                    pdf_text = pdf_client.get_words_text(f.path)  # type: ignore[attr-defined]
-                    if pdf_text:
-                        f.words = pdf_text.replace("\x00", "")
-                if pdf_text:
-                    words_norm = _norm(pdf_text)
-                    if _token_match(inv_num, words_norm) or (inv_num_yc and _token_match(inv_num_yc, words_norm)):
-                        inv.invoice_file_id = f.id
-                        inv.updated_at = datetime.utcnow()
-                        logger.info("Linked %s → %s (word search)", inv.invoice_number, f.filename)
-                        linked += 1
-                        break
-        else:
-            logger.warning("No PDF match found for invoice %s", inv.invoice_number)
-    return linked
 
 
 def _default_dates(start: Optional[str], end: Optional[str]) -> tuple[str, str]:
@@ -265,7 +209,30 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
         records.append((invoice_file, path))
 
     # ── Phase 2: link unmatched invoices ─────────────────────────────────────
-    _link_invoices_to_files(db, [f for f, _ in records], pdf_client)
+    unlinked = db.query(Invoice).filter(Invoice.invoice_file_id == None).all()  # noqa: E711
+    for inv in unlinked:
+        if not inv.invoice_number:
+            continue
+        inv_num = _norm(inv.invoice_number)
+        for invoice_file, path in records:
+            # Fast path: invoice number (separator-normalized) in filename
+            if _token_match(inv_num, _norm(invoice_file.filename)):
+                inv.invoice_file_id = invoice_file.id
+                inv.updated_at = datetime.utcnow()
+                logger.info("Linked %s → %s (filename match)", inv.invoice_number, invoice_file.filename)
+                break
+            # Fallback: search inside PDF text (normalizes OCR-split separators too)
+            if path:
+                pdf_text = invoice_file.words or pdf_client.get_words_text(path)
+                if not invoice_file.words and pdf_text:
+                    invoice_file.words = pdf_text.replace("\x00", "")
+                if _token_match(inv_num, _norm(pdf_text)):
+                    inv.invoice_file_id = invoice_file.id
+                    inv.updated_at = datetime.utcnow()
+                    logger.info("Linked %s → %s (word search)", inv.invoice_number, invoice_file.filename)
+                    break
+        else:
+            logger.warning("No PDF match found for invoice %s", inv.invoice_number)
 
     db.commit()
     logger.info("sync_pdf: %d new invoice_file record(s) from %d file(s)", count, len(files))
@@ -492,16 +459,11 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
        proximity; greedily assign in descending-score order.
     """
     settings = settings or get_settings()  # noqa: F841
-
-    files = db.query(InvoiceFile).all()
-
-    # ── Phase 0: link unmatched invoices to all known files ───────────────────
-    pdf_client = PdfClient(settings)
-    _link_invoices_to_files(db, files, pdf_client)
-
     unmatched = db.query(BankTransaction).filter(
         BankTransaction.invoice_file_id == None  # noqa: E711
     ).all()
+
+    files = db.query(InvoiceFile).all()
     file_feats = {
         f.id: (_ascii_lower(f.filename) + " " + _ascii_lower(f.words or ""),
                _norm(f.filename) + " " + _norm(f.words or ""), _file_date(f.filename))
