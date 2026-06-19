@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="hu" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vision — Tulajdonosi AI Copilot</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/yeti/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --pitch-dark: #080b12;
+      --pitch-card: #0f1520;
+      --pitch-border: rgba(255,255,255,0.10);
+      --pitch-accent: #5b9bf8;
+      /* Feature palette */
+      --c-cyan:   #22d3ee;
+      --c-purple: #a78bfa;
+      --c-green:  #34d399;
+      --c-orange: #fb923c;
+      --c-amber:  #fbbf24;
+      --c-blue:   #5b9bf8;
+      --c-red:    #f87171;
+    }
+
+    html { font-size: 17px; }
+    body { background-color: var(--pitch-dark); color: #dde4ef; font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.7; }
+
+    /* ── Navbar ─────────────────────────── */
+    .pitch-nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(8,11,18,0.92);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--pitch-border);
+      padding: 0.85rem 2rem;
+    }
+    .pitch-nav .nav-link-item {
+      color: #94a3b8; font-size: 0.95rem; text-decoration: none;
+      transition: color 0.2s;
+    }
+    .pitch-nav .nav-link-item:hover { color: #fff; }
+
+    /* ── Hero ───────────────────────────── */
+    .hero {
+      background: linear-gradient(150deg, #080b12 0%, #0b1840 45%, #0e0a24 100%);
+      padding: 7rem 0 6rem;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 30% 20%, rgba(91,155,248,0.14) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 75% 70%, rgba(167,139,250,0.10) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(91,155,248,0.18);
+      border: 1px solid rgba(91,155,248,0.45);
+      color: var(--c-blue);
+      border-radius: 2rem; padding: 0.4rem 1.2rem;
+      font-size: 0.9rem; font-weight: 600; letter-spacing: 0.04em;
+      margin-bottom: 1.75rem;
+    }
+    .hero h1 { font-size: clamp(2.6rem, 6vw, 4.4rem); font-weight: 900; line-height: 1.1; letter-spacing: -0.02em; }
+    .hero h1 .accent { color: var(--c-blue); }
+    .hero h1 .accent2 { color: var(--c-cyan); }
+    .hero .lead { font-size: 1.2rem; color: #94a3b8; max-width: 580px; margin: 1rem auto 2.5rem; line-height: 1.65; }
+    .hero-cta-primary {
+      background: linear-gradient(135deg, #4f8ef7, #7c6fef); border: none; color: #fff;
+      padding: 0.9rem 2.2rem; border-radius: 0.6rem; font-weight: 700; font-size: 1.05rem;
+      transition: opacity 0.2s, transform 0.15s; display: inline-flex; align-items: center; gap: 0.4rem;
+    }
+    .hero-cta-primary:hover { opacity: 0.88; transform: translateY(-2px); color: #fff; }
+    .hero-cta-secondary {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.18); color: #cbd5e1;
+      padding: 0.9rem 2.2rem; border-radius: 0.6rem; font-size: 1.05rem;
+      transition: border-color 0.2s, color 0.2s; display: inline-flex; align-items: center;
+    }
+    .hero-cta-secondary:hover { border-color: var(--c-blue); color: #fff; }
+
+    /* ── Section helpers ────────────────── */
+    section { padding: 5.5rem 0; }
+    .section-alt { background: #0b0f1a; }
+    .section-label {
+      display: inline-block;
+      text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.78rem;
+      color: var(--c-cyan); font-weight: 800; margin-bottom: 1rem;
+      background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.3);
+      border-radius: 2rem; padding: 0.25rem 0.9rem;
+    }
+    .section-title { font-size: clamp(1.9rem, 3.5vw, 3rem); font-weight: 900; margin-bottom: 0.5rem; letter-spacing: -0.02em; line-height: 1.2; }
+    .section-sub { color: #8899b5; max-width: 620px; font-size: 1.05rem; line-height: 1.7; }
+
+    /* ── Question cards (problem) ───────── */
+    .q-card {
+      background: var(--pitch-card);
+      border: 1px solid var(--pitch-border);
+      border-radius: 0.85rem;
+      padding: 1.25rem 1.5rem;
+      display: flex; align-items: flex-start; gap: 0.85rem;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .q-card:hover { border-color: rgba(91,155,248,0.4); background: #111926; }
+    .q-icon { color: var(--c-blue); font-size: 1.25rem; flex-shrink: 0; margin-top: 0.15rem; }
+    .q-text { font-size: 1rem; color: #c8d4e8; font-weight: 500; }
+
+    /* ── Feature cards — per-color ──────── */
+    .feat-card {
+      background: var(--pitch-card);
+      border: 1px solid var(--pitch-border);
+      border-radius: 1.1rem;
+      padding: 2rem;
+      height: 100%;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .feat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+    .feat-icon {
+      width: 52px; height: 52px; border-radius: 0.85rem;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; margin-bottom: 1.1rem;
+    }
+    .feat-title { font-weight: 800; font-size: 1.15rem; margin-bottom: 0.65rem; color: #f1f5fb; }
+    .feat-bullets { list-style: none; padding: 0; margin: 0; }
+    .feat-bullets li {
+      color: #8899b5; font-size: 0.98rem; padding: 0.25rem 0;
+      padding-left: 1.2rem; position: relative; line-height: 1.5;
+    }
+    /* bullet color set inline per card */
+    .feat-bullets li::before { content: '▸'; position: absolute; left: 0; font-size: 0.75rem; top: 0.35rem; }
+
+    /* color variants */
+    .fc-cyan   { border-color: rgba(34,211,238,0.3);  } .fc-cyan:hover   { border-color: rgba(34,211,238,0.6);  }
+    .fc-cyan   .feat-icon { background: rgba(34,211,238,0.12); color: var(--c-cyan);   }
+    .fc-cyan   .feat-bullets li::before { color: var(--c-cyan); }
+
+    .fc-purple { border-color: rgba(167,139,250,0.3); } .fc-purple:hover { border-color: rgba(167,139,250,0.6); }
+    .fc-purple .feat-icon { background: rgba(167,139,250,0.12); color: var(--c-purple); }
+    .fc-purple .feat-bullets li::before { color: var(--c-purple); }
+
+    .fc-green  { border-color: rgba(52,211,153,0.3);  } .fc-green:hover  { border-color: rgba(52,211,153,0.6);  }
+    .fc-green  .feat-icon { background: rgba(52,211,153,0.12); color: var(--c-green);  }
+    .fc-green  .feat-bullets li::before { color: var(--c-green); }
+
+    .fc-orange { border-color: rgba(251,146,60,0.3);  } .fc-orange:hover { border-color: rgba(251,146,60,0.6);  }
+    .fc-orange .feat-icon { background: rgba(251,146,60,0.12); color: var(--c-orange); }
+    .fc-orange .feat-bullets li::before { color: var(--c-orange); }
+
+    .fc-amber  { border-color: rgba(251,191,36,0.3);  } .fc-amber:hover  { border-color: rgba(251,191,36,0.6);  }
+    .fc-amber  .feat-icon { background: rgba(251,191,36,0.12); color: var(--c-amber);  }
+    .fc-amber  .feat-bullets li::before { color: var(--c-amber); }
+
+    .fc-blue   { border-color: rgba(91,155,248,0.3);  } .fc-blue:hover   { border-color: rgba(91,155,248,0.6);  }
+    .fc-blue   .feat-icon { background: rgba(91,155,248,0.12); color: var(--c-blue);   }
+    .fc-blue   .feat-bullets li::before { color: var(--c-blue); }
+
+    .fc-red    { border-color: rgba(248,113,113,0.3); } .fc-red:hover    { border-color: rgba(248,113,113,0.6); }
+    .fc-red    .feat-icon { background: rgba(248,113,113,0.12); color: var(--c-red);   }
+    .fc-red    .feat-bullets li::before { color: var(--c-red); }
+
+    /* ── Workflow ───────────────────────── */
+    .workflow-step {
+      background: var(--pitch-card);
+      border: 1px solid var(--pitch-border);
+      border-radius: 1rem;
+      padding: 1.5rem 1.75rem;
+    }
+    .workflow-step strong { font-size: 1.05rem; color: #f1f5fb; }
+    .workflow-step p { font-size: 0.98rem; color: #7a8fa8; margin: 0; }
+    .step-num {
+      width: 36px; height: 36px; border-radius: 50%;
+      font-weight: 800; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-1 { background: rgba(34,211,238,0.15); border: 1.5px solid rgba(34,211,238,0.5); color: var(--c-cyan); }
+    .step-2 { background: rgba(91,155,248,0.15); border: 1.5px solid rgba(91,155,248,0.5); color: var(--c-blue); }
+    .step-3 { background: rgba(167,139,250,0.15); border: 1.5px solid rgba(167,139,250,0.5); color: var(--c-purple); }
+    .step-4 { background: rgba(52,211,153,0.15); border: 1.5px solid rgba(52,211,153,0.5); color: var(--c-green); }
+    .workflow-arrow { color: #2d3a4f; font-size: 1.75rem; text-align: center; }
+
+    /* ── Pricing ────────────────────────── */
+    .price-card {
+      background: var(--pitch-card);
+      border: 1.5px solid var(--pitch-border);
+      border-radius: 1.2rem; padding: 2.25rem; height: 100%;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .price-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,0.35); }
+    .price-card.featured {
+      border-color: var(--c-blue);
+      background: linear-gradient(160deg, #0c1a40 0%, #0f1520 100%);
+      box-shadow: 0 0 0 1px rgba(91,155,248,0.2), 0 8px 32px rgba(91,155,248,0.15);
+    }
+    .featured-badge {
+      display: inline-block; background: linear-gradient(135deg, #4f8ef7, #7c6fef);
+      color: #fff; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.07em;
+      padding: 0.25rem 0.9rem; border-radius: 2rem; margin-bottom: 1.1rem;
+    }
+    .price-name { font-size: 1.2rem; font-weight: 800; color: #e2e8f4; margin-bottom: 0.3rem; }
+    .price-amount { font-size: 2.6rem; font-weight: 900; color: #fff; line-height: 1.1; }
+    .price-amount span { font-size: 1.1rem; color: #5a6a82; font-weight: 500; }
+    .price-period { color: #5a6a82; font-size: 0.92rem; margin-bottom: 0.25rem; }
+    .price-features { list-style: none; padding: 0; margin: 1.75rem 0 0; }
+    .price-features li {
+      padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.98rem; color: #94a3b8; display: flex; align-items: center; gap: 0.7rem;
+    }
+    .price-features li:last-child { border-bottom: none; }
+    .price-features li i { color: #22c55e; font-size: 1rem; flex-shrink: 0; }
+
+    /* ── CTA ────────────────────────────── */
+    .cta-section {
+      background: linear-gradient(150deg, #0c1840 0%, #080b12 60%);
+      padding: 7rem 0; text-align: center;
+      border-top: 1px solid var(--pitch-border);
+      position: relative; overflow: hidden;
+    }
+    .cta-section::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 50% 100%, rgba(91,155,248,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Footer ─────────────────────────── */
+    footer {
+      background: var(--pitch-dark);
+      border-top: 1px solid var(--pitch-border);
+      padding: 2rem; color: #3d4f66; font-size: 0.9rem; text-align: center;
+    }
+    footer a { color: #4a5f78; text-decoration: none; }
+    footer a:hover { color: #94a3b8; }
+  </style>
+</head>
+<body>
+
+<!-- ── Sticky Navbar ─────────────────────────────────────────────────────── -->
+<nav class="pitch-nav d-flex align-items-center justify-content-between">
+  <a href="/" class="text-decoration-none d-flex align-items-center gap-2">
+    <i class="bi bi-eye fs-5" style="color:var(--pitch-accent)"></i>
+    <span class="fw-bold text-white fs-5">Vision</span>
+  </a>
+  <div class="d-flex align-items-center gap-3">
+    <a href="#pricing" class="text-decoration-none" style="color:#94a3b8;font-size:0.9rem">Árazás</a>
+    <a href="#workflow" class="text-decoration-none" style="color:#94a3b8;font-size:0.9rem">Hogyan működik</a>
+    <a href="/dashboard" class="hero-cta-primary text-decoration-none" style="padding:0.45rem 1.2rem;font-size:0.9rem">
+      <i class="bi bi-speedometer2 me-1"></i>Demo
+    </a>
+  </div>
+</nav>
+
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<section class="hero text-center">
+  <div class="container">
+    <div class="hero-badge"><i class="bi bi-stars me-1"></i>Privát AI · Tulajdonosi szint</div>
+    <h1 class="mb-3">
+      Az AI CFO<br>aki <span class="accent">mindig elérhető</span> —<br><span class="accent2">minden számon</span>
+    </h1>
+    <p class="lead mx-auto">
+      Erste, Wise, IBKR, NAV számlák — egy dashboardon. Azonnali válaszok a tulajdonos legfontosabb pénzügyi kérdéseire.
+    </p>
+    <div class="d-flex gap-3 justify-content-center flex-wrap">
+      <a href="/dashboard" class="hero-cta-primary text-decoration-none">
+        <i class="bi bi-speedometer2 me-1"></i>Élő Dashboard
+      </a>
+      <a href="#pricing" class="hero-cta-secondary text-decoration-none">
+        Árazás megtekintése
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Problem: A tulajdonos ezeket kérdezi ──────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-4">
+        <p class="section-label">A probléma</p>
+        <h2 class="section-title">A számok ott vannak.<br>A válasz sehol.</h2>
+        <p class="section-sub mt-3">
+          A tulajdonos nem ERP-t és nem táblázatot akar. Választ akar kapni —
+          azonnal, magyarul, a saját számaiból.
+        </p>
+        <p class="section-sub mt-2">
+          Hasonló megoldások külföldön: <strong>Puzzle</strong>, <strong>Runway Financial</strong>, <strong>Mosaic</strong>.
+          Magyarországi viszonyokra és több-céges tulajdonosi struktúrára szabva: <strong>Vision</strong>.
+        </p>
+      </div>
+      <div class="col-lg-8">
+        <div class="row g-3">
+          {% for q in [
+            ("bi-question-circle", "Mennyi készpénzem van összesen?"),
+            ("bi-question-circle", "Mennyi osztalékot vehetek ki cégenként?"),
+            ("bi-question-circle", "Melyik projektem a legnyereségesebb?"),
+            ("bi-question-circle", "Mikor fogy el a pénzem?"),
+            ("bi-question-circle", "Melyik költség nőtt meg hónap végén?"),
+            ("bi-question-circle", "Melyik ügyfél termeli a profitot?"),
+            ("bi-question-circle", "Mikor érdemes osztalékot kivenni?"),
+            ("bi-question-circle", "Milyen adókockázataim vannak most?"),
+          ] %}
+          <div class="col-sm-6">
+            <div class="q-card">
+              <i class="bi {{ q[0] }} q-icon"></i>
+              <span class="q-text">{{ q[1] }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Solution: 7 Feature Areas ─────────────────────────────────────────── -->
+<section class="section-alt">
+  <div class="container">
+    <div class="text-center mb-5">
+      <p class="section-label">A megoldás</p>
+      <h2 class="section-title">7 területen ad azonnali választ</h2>
+      <p class="section-sub mx-auto mt-2">
+        Nem szoftvert adunk el — hanem a pénzügyi átláthatóságot mint szolgáltatást.
+      </p>
+    </div>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+
+      <div class="col">
+        <div class="feat-card fc-cyan">
+          <div class="feat-icon"><i class="bi bi-cash-stack"></i></div>
+          <div class="feat-title">1. Cash-flow előrejelzés</div>
+          <ul class="feat-bullets">
+            <li>Meddig elegendő a pénz</li>
+            <li>Mikor várható likviditási probléma</li>
+            <li>Várható havi egyenleg trendje</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="feat-card fc-purple">
+          <div class="feat-icon"><i class="bi bi-bar-chart-line"></i></div>
+          <div class="feat-title">2. Automatikus költségelemzés</div>
+          <ul class="feat-bullets">
+            <li>Mely költségek nőttek</li>
+            <li>Előfizetések és ismétlődő kiadások</li>
+            <li>Szokatlan tételek kiemelése</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="feat-card fc-green">
+          <div class="feat-icon"><i class="bi bi-graph-up"></i></div>
+          <div class="feat-title">3. Projekt profitabilitás</div>
+          <ul class="feat-bullets">
+            <li>Project A: +22% margin</li>
+            <li>Project B: veszteséges → döntés</li>
+            <li>Ügyfél-szintű profitábilitás</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="feat-card fc-orange">
+          <div class="feat-icon"><i class="bi bi-robot"></i></div>
+          <div class="feat-title">4. AI CFO Owner Chat</div>
+          <ul class="feat-bullets">
+            <li>Mennyi pénzt költöttünk marketingre?</li>
+            <li>Miért csökkent a profit?</li>
+            <li>Melyik ügyfél a legnyereségesebb?</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="feat-card fc-amber">
+          <div class="feat-icon"><i class="bi bi-piggy-bank"></i></div>
+          <div class="feat-title">5. Adóoptimalizálási figyelők</div>
+          <ul class="feat-bullets">
+            <li>Osztalék időzítési javaslat</li>
+            <li>ÁFA cash-flow optimalizálás</li>
+            <li>Beruházási lehetőségek azonosítása</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="feat-card fc-blue">
+          <div class="feat-icon"><i class="bi bi-speedometer2"></i></div>
+          <div class="feat-title">6. Tulajdonosi dashboard</div>
+          <ul class="feat-bullets">
+            <li>Teljes vagyon: céges pénzek + bankok</li>
+            <li>Wise + IBKR portfólió egy helyen</li>
+            <li>Projekt és szerződés áttekintő</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col col-md-12 col-xl-12">
+        <div class="feat-card fc-red" style="flex-direction:row;display:flex;align-items:flex-start;gap:1.5rem">
+          <div class="feat-icon" style="flex-shrink:0"><i class="bi bi-exclamation-triangle"></i></div>
+          <div>
+            <div class="feat-title">7. AI alapú korai figyelmeztető rendszer</div>
+            <div class="row row-cols-1 row-cols-md-3 g-2 mt-1">
+              {% for warning in [
+                "3 hónapon belül cash-flow probléma várható",
+                "A marketing ROI az elmúlt negyedévben romlik",
+                "Az ügyfélállomány koncentrációja kockázatos",
+              ] %}
+              <div class="col">
+                <div style="background:rgba(248,113,113,0.09);border:1px solid rgba(248,113,113,0.3);border-radius:0.6rem;padding:0.85rem 1.1rem;font-size:0.98rem;color:#fca5a5">
+                  <i class="bi bi-bell-fill me-1"></i>{{ warning }}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Integrations ───────────────────────────────────────────────────────── -->
+<section>
+  <div class="container text-center">
+    <p class="section-label">Integrációk</p>
+    <h2 class="section-title">Minden pénzügyi forrás egy helyen</h2>
+    <p class="section-sub mx-auto mt-2 mb-5">
+      Nem kell manuálisan exportálni. A rendszer közvetlenül a forrásból olvas.
+    </p>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-3 justify-content-center">
+      {% for icon, name, status, icolor in [
+        ("bi-bank2",          "Erste Bank",     "aktív",    "#34d399"),
+        ("bi-currency-exchange", "Wise",        "aktív",    "#22d3ee"),
+        ("bi-graph-up-arrow", "IBKR",           "aktív",    "#5b9bf8"),
+        ("bi-file-earmark-text", "NAV Számla",  "aktív",    "#fb923c"),
+        ("bi-receipt",        "Kulcs-Soft",     "hamarosan","#a78bfa"),
+        ("bi-plug",           "EnableBanking",  "hamarosan","#fbbf24"),
+      ] %}
+      <div class="col">
+        <div style="background:var(--pitch-card);border:1px solid var(--pitch-border);border-radius:0.85rem;padding:1.5rem 0.75rem;text-align:center;transition:border-color 0.2s"
+             onmouseover="this.style.borderColor='{{ icolor }}44'" onmouseout="this.style.borderColor='rgba(255,255,255,0.10)'">
+          <i class="bi {{ icon }}" style="font-size:2.1rem;color:{{ icolor }}"></i>
+          <div style="font-size:0.95rem;font-weight:700;margin-top:0.6rem;color:#e2e8f4">{{ name }}</div>
+          <div style="font-size:0.78rem;color:{% if status == 'aktív' %}#4ade80{% else %}#64748b{% endif %};margin-top:0.3rem;letter-spacing:0.03em">
+            {% if status == 'aktív' %}● aktív{% else %}◌ hamarosan{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ── Advisory Workflow ──────────────────────────────────────────────────── -->
+<section class="section-alt" id="workflow">
+  <div class="container">
+    <div class="text-center mb-5">
+      <p class="section-label">Hogyan működik</p>
+      <h2 class="section-title">AI + emberi szakértelem</h2>
+      <p class="section-sub mx-auto mt-2">
+        A rendszer nem helyettesíti a tanácsadót — hanem előkészíti a kérdést, hogy a tanácsadói óra valódi értéket teremtsen.
+      </p>
+    </div>
+    <div class="row g-3 align-items-center justify-content-center" style="max-width:800px;margin:0 auto">
+
+      <div class="col-12 col-md-5">
+        <div class="workflow-step">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="step-num step-1">1</div>
+            <strong>Tulajdonos kérdez</strong>
+          </div>
+          <p class="mb-0">Természetes nyelvű kérdés az AI dashboardon.</p>
+        </div>
+      </div>
+      <div class="col-12 col-md-2 workflow-arrow text-center">
+        <i class="bi bi-arrow-down d-md-none fs-3"></i>
+        <i class="bi bi-arrow-right d-none d-md-block fs-3"></i>
+      </div>
+      <div class="col-12 col-md-5">
+        <div class="workflow-step">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="step-num step-2">2</div>
+            <strong>AI azonnal válaszol</strong>
+          </div>
+          <p class="mb-0">Privát AI modell, adatszivárgás nélkül.</p>
+        </div>
+      </div>
+
+      <div class="col-12 text-center workflow-arrow py-1">
+        <i class="bi bi-arrow-down fs-3"></i>
+      </div>
+
+      <div class="col-12 col-md-5">
+        <div class="workflow-step">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="step-num step-3">3</div>
+            <strong>Online tanácsadó</strong>
+          </div>
+          <p class="mb-0">Ha az AI bizonytalanná tesz, a kérdés és a kontextus automatikusan eljut az online tanácsadóhoz — előre egyeztetett időpontban válaszol.</p>
+        </div>
+      </div>
+      <div class="col-12 col-md-2 workflow-arrow text-center">
+        <i class="bi bi-arrow-down d-md-none fs-3"></i>
+        <i class="bi bi-arrow-right d-none d-md-block fs-3"></i>
+      </div>
+      <div class="col-12 col-md-5">
+        <div class="workflow-step">
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div class="step-num step-4">4</div>
+            <strong>Speciális szakértő</strong>
+          </div>
+          <p class="mb-0">Komplex ügyeknél: Adótanácsadó / Ügyvéd / CFO — a kérdéssel és adatokkal együtt, egyeztetett időpontban.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Target: Who is this for ────────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="text-center mb-5">
+      <p class="section-label">Célcsoport</p>
+      <h2 class="section-title">Kinek szól?</h2>
+    </div>
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+      {% for icon, title, desc, fc in [
+        ("bi-buildings", "Több-céges tulajdonos",
+         "Több Kft. vagy Zrt. üzemeltet, és naponta több rendszerbe kell belépni a teljes kép összerakásához.", "fc-cyan"),
+        ("bi-briefcase", "Befektető cégvezető",
+         "IBKR portfólió és operatív cégek egyidejű követése — összesített vagyonkép azonnali szükséglete.", "fc-blue"),
+        ("bi-diagram-3", "Startup portfólió menedzser",
+         "Az általa menedzselt startupok pillanatnyi pénzügyi helyzetéről egyetlen nézetben tájékozódik.", "fc-purple"),
+      ] %}
+      <div class="col">
+        <div class="feat-card {{ fc }} text-center">
+          <div class="feat-icon mx-auto"><i class="bi {{ icon }}"></i></div>
+          <div class="feat-title mt-2">{{ title }}</div>
+          <p style="font-size:1rem;color:#8899b5;margin-top:0.6rem;margin-bottom:0;line-height:1.65">{{ desc }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ── Pricing ────────────────────────────────────────────────────────────── -->
+<section class="section-alt" id="pricing">
+  <div class="container">
+    <div class="text-center mb-5">
+      <p class="section-label">Árazás</p>
+      <h2 class="section-title">Nem szoftvert — <em>szolgáltatást</em> fizet</h2>
+      <p class="section-sub mx-auto mt-2">
+        A platform ingyenes. Az értéket a tanácsadói idő és az AI által előkészített kontextus adja.
+      </p>
+    </div>
+    <div class="row row-cols-1 row-cols-md-3 g-4 justify-content-center">
+
+      <div class="col">
+        <div class="price-card">
+          <div class="price-name">Starter</div>
+          <div class="price-amount">149 000 <span>Ft</span></div>
+          <div class="price-period">/ hónap</div>
+          <ul class="price-features">
+            <li><i class="bi bi-check-circle-fill"></i>1 cég integrálva</li>
+            <li><i class="bi bi-check-circle-fill"></i>Teljes Vision dashboard</li>
+            <li><i class="bi bi-check-circle-fill"></i>Cash-flow előrejelzés</li>
+            <li><i class="bi bi-check-circle-fill"></i>Havi e-mail összefoglaló</li>
+            <li><i class="bi bi-check-circle-fill"></i><strong>1 óra</strong> Online tanácsadó / hó</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="price-card featured">
+          <div class="featured-badge">LEGKEDVELTEBB</div>
+          <div class="price-name">Growth</div>
+          <div class="price-amount">249 000 <span>Ft</span></div>
+          <div class="price-period">/ hónap</div>
+          <ul class="price-features">
+            <li><i class="bi bi-check-circle-fill"></i>3 cég integrálva</li>
+            <li><i class="bi bi-check-circle-fill"></i>Minden Starter funkció</li>
+            <li><i class="bi bi-check-circle-fill"></i>Projekt profitabilitás</li>
+            <li><i class="bi bi-check-circle-fill"></i>AI CFO Chat (korlátlan)</li>
+            <li><i class="bi bi-check-circle-fill"></i><strong>1 óra</strong> CFO meeting / hó</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="price-card">
+          <div class="price-name">Executive</div>
+          <div class="price-amount">499 000 <span>Ft</span></div>
+          <div class="price-period">/ hónap</div>
+          <ul class="price-features">
+            <li><i class="bi bi-check-circle-fill"></i>Korlátlan cég</li>
+            <li><i class="bi bi-check-circle-fill"></i>Minden Growth funkció</li>
+            <li><i class="bi bi-check-circle-fill"></i>Dedikált privát AI modell</li>
+            <li><i class="bi bi-check-circle-fill"></i>Adóoptimalizálási riportok</li>
+            <li><i class="bi bi-check-circle-fill"></i><strong>1 óra</strong> CFO + Jogász + Felsővezető / hó</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ────────────────────────────────────────────────────────────────── -->
+<div class="cta-section">
+  <div class="container">
+    <h2 style="font-size:clamp(1.8rem,4vw,3rem);font-weight:800" class="mb-3">
+      Kész megnézni a saját számait?
+    </h2>
+    <p style="color:#94a3b8;max-width:520px;margin:0 auto 2.5rem;font-size:1.1rem;line-height:1.7">
+      Az élő dashboard azonnal elérhető — invoice-core adatokkal és IBKR portfólióval.
+    </p>
+    <div class="d-flex gap-3 justify-content-center flex-wrap">
+      <a href="/dashboard" class="hero-cta-primary text-decoration-none" style="padding:0.9rem 2.5rem;font-size:1.05rem">
+        <i class="bi bi-speedometer2 me-1"></i>Élő Dashboard megnyitása
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <span style="color:#334155">Vision</span> — Tulajdonosi AI Platform &nbsp;·&nbsp;
+  <a href="/" style="color:#475569;text-decoration:none">Főoldal</a> &nbsp;·&nbsp;
+  <a href="/dashboard" style="color:#475569;text-decoration:none">Dashboard</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

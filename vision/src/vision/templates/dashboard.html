@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% from "_macros.html" import amount_fmt %}
+{% block title %}Dashboard — Vision{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-speedometer2 me-2"></i>Tulajdonosi Dashboard</h1>
+  <span class="badge bg-secondary">Élő adatok</span>
+</div>
+
+<!-- KPI cards -->
+<div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100 border-danger">
+      <div class="card-body">
+        <div class="card-title">Fizetetlen számlák</div>
+        <div class="kpi-value text-danger">{{ data.invoice_kpi.unpaid_count }}</div>
+        <div class="text-muted small">{{ amount_fmt(data.invoice_kpi.unpaid_amount) }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="card-title">Wise bejövő (30 nap)</div>
+        <div class="kpi-value text-success">{{ amount_fmt(data.wise_30d_income) }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100">
+      <div class="card-body">
+        <div class="card-title">Kapcsolt PDF arány</div>
+        <div class="kpi-value text-primary">{{ "%.1f"|format(data.invoice_kpi.linked_pdf_pct) }}%</div>
+        <div class="text-muted small">{{ data.invoice_kpi.total }} számla összesen</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100 {% if data.srcprofit_total is none %}border-secondary{% endif %}">
+      <div class="card-body">
+        <div class="card-title">IBKR portfólió</div>
+        {% if data.srcprofit_total is not none %}
+          <div class="kpi-value text-info">{{ amount_fmt(data.srcprofit_total, data.srcprofit_currency) }}</div>
+        {% else %}
+          <div class="kpi-value text-muted">N/A</div>
+          <div class="text-muted small">SrcProfit nem elérhető</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row 1: Cash-flow + Invoice status -->
+<div class="row g-4 mb-4">
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <i class="bi bi-bar-chart-line me-2"></i><strong>Havi cash-flow (utolsó 6 hónap)</strong>
+      </div>
+      <div class="card-body">
+        {% if cashflow_json %}
+          <canvas id="cashflowChart" height="120"></canvas>
+        {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-wifi-off" style="font-size:2rem"></i><br>
+            <span class="small">Nincs tranzakció adat (invoice-core nem elérhető?)</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="card-footer text-muted small">
+        <a href="{{ data.invoice_core_url }}/ui/transactions" target="_blank">
+          <i class="bi bi-box-arrow-up-right me-1"></i>Wise tranzakciók →
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-4">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <i class="bi bi-pie-chart me-2"></i><strong>Számlák státusz</strong>
+      </div>
+      <div class="card-body d-flex justify-content-center">
+        {% if data.invoice_kpi.total > 0 %}
+          <canvas id="statusChart" height="200" style="max-width:250px"></canvas>
+        {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-file-earmark-x" style="font-size:2rem"></i><br>
+            <span class="small">Nincs számla adat</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="card-footer text-muted small">
+        <a href="{{ data.invoice_core_url }}/ui/invoices" target="_blank">
+          <i class="bi bi-box-arrow-up-right me-1"></i>Invoice-Core számlák →
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts row 2: IBKR + Top suppliers -->
+<div class="row g-4">
+  <div class="col-12 col-xl-4">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <i class="bi bi-pie-chart me-2"></i><strong>IBKR portfólió összetétel</strong>
+      </div>
+      <div class="card-body d-flex justify-content-center">
+        {% if data.srcprofit_total is not none and srcprofit_positions_json %}
+          <canvas id="ibkrChart" height="200" style="max-width:250px"></canvas>
+        {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-wifi-off" style="font-size:2rem"></i><br>
+            <span class="small">SrcProfit nem elérhető</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="card-footer text-muted small">
+        <a href="{{ data.srcprofit_url }}" target="_blank">
+          <i class="bi bi-box-arrow-up-right me-1"></i>SrcProfit IBKR →
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <i class="bi bi-building me-2"></i><strong>Top 10 szállító (számla összeg alapján)</strong>
+      </div>
+      <div class="card-body">
+        {% if top_suppliers_json %}
+          <canvas id="supplierChart" height="120"></canvas>
+        {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="bi bi-building-x" style="font-size:2rem"></i><br>
+            <span class="small">Nincs szállító adat</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="card-footer text-muted small">
+        <a href="{{ data.invoice_core_url }}/ui/invoices" target="_blank">
+          <i class="bi bi-box-arrow-up-right me-1"></i>Invoice-Core számlák →
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+  const cashflowData      = {{ cashflow_json | tojson }};
+  const statusCounts      = {{ status_counts_json | tojson }};
+  const topSuppliers      = {{ top_suppliers_json | tojson }};
+  const ibkrPositions     = {{ srcprofit_positions_json | tojson }};
+
+  // 1. Havi cash-flow bar chart
+  if (cashflowData.length > 0 && document.getElementById('cashflowChart')) {
+    new Chart(document.getElementById('cashflowChart'), {
+      type: 'bar',
+      data: {
+        labels: cashflowData.map(d => d.month),
+        datasets: [
+          {
+            label: 'Bejövő (HUF)',
+            data: cashflowData.map(d => d.income),
+            backgroundColor: 'rgba(40,167,69,0.7)',
+          },
+          {
+            label: 'Kimenő (HUF)',
+            data: cashflowData.map(d => d.expense),
+            backgroundColor: 'rgba(220,53,69,0.7)',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  // 2. Számlák státusz doughnut
+  if (document.getElementById('statusChart')) {
+    new Chart(document.getElementById('statusChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Fizetve', 'Fizetetlen', 'Részleges'],
+        datasets: [{
+          data: [statusCounts.PAID || 0, statusCounts.UNPAID || 0, statusCounts.PARTIAL || 0],
+          backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
+        }],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } },
+      },
+    });
+  }
+
+  // 3. IBKR portfólió doughnut
+  if (ibkrPositions.length > 0 && document.getElementById('ibkrChart')) {
+    const colors = [
+      '#0d6efd','#6610f2','#6f42c1','#d63384','#dc3545',
+      '#fd7e14','#ffc107','#198754','#20c997','#0dcaf0',
+    ];
+    new Chart(document.getElementById('ibkrChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ibkrPositions.map(p => p.symbol || p.name || 'N/A'),
+        datasets: [{
+          data: ibkrPositions.map(p => p.market_value || p.value || 0),
+          backgroundColor: colors,
+        }],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } },
+      },
+    });
+  }
+
+  // 4. Top szállítók horizontal bar chart
+  if (topSuppliers.length > 0 && document.getElementById('supplierChart')) {
+    new Chart(document.getElementById('supplierChart'), {
+      type: 'bar',
+      data: {
+        labels: topSuppliers.map(s => s.name),
+        datasets: [{
+          label: 'Összeg (HUF)',
+          data: topSuppliers.map(s => s.total_amount),
+          backgroundColor: 'rgba(13,110,253,0.7)',
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true } },
+      },
+    });
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,35 @@
+<nav id="sidebar" class="d-flex flex-column py-3 px-2">
+  <ul class="nav flex-column gap-1">
+    <li class="nav-item">
+      <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">
+        <i class="bi bi-house"></i> Kezdőlap
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if request.url.path == '/pitch' %}active{% endif %}" href="/pitch">
+        <i class="bi bi-megaphone"></i> Pitch
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if request.url.path == '/dashboard' %}active{% endif %}" href="/dashboard">
+        <i class="bi bi-speedometer2"></i> Dashboard
+      </a>
+    </li>
+    <li class="nav-item mt-3">
+      <hr class="border-secondary my-1">
+      <small class="text-muted px-3" style="font-size:0.75rem">KÜLSŐ LINKEK</small>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="http://localhost:8004/ui/" target="_blank">
+        <i class="bi bi-receipt-cutoff"></i> Invoice-Core
+        <i class="bi bi-box-arrow-up-right ms-1" style="font-size:0.7rem"></i>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="https://srcprofit2.graphtrek.co/" target="_blank">
+        <i class="bi bi-graph-up-arrow"></i> SrcProfit
+        <i class="bi bi-box-arrow-up-right ms-1" style="font-size:0.7rem"></i>
+      </a>
+    </li>
+  </ul>
+</nav>

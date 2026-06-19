@@ -1,0 +1,304 @@
+2026-06-18 20:29:32 INFO     main.py:309 31 changes detected
+2026-06-18 20:29:32 INFO     main.py:309 54 changes detected
+2026-06-18 20:29:32 INFO     main.py:309 57 changes detected
+2026-06-18 20:29:33 INFO     vision/api/main.py:41 GET /health → 200 in 1ms
+2026-06-18 20:29:33 INFO     main.py:309 7 changes detected
+2026-06-18 20:29:37 INFO     vision/api/main.py:41 GET / → 200 in 6ms
+2026-06-18 20:29:37 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/invoices failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 20:29:37 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/transactions failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/transactions (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 20:29:37 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/partners/suppliers failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/partners/suppliers (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 20:29:38 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-18 20:29:38 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-18 20:29:38 INFO     vision/api/main.py:41 GET /dashboard → 200 in 452ms
+2026-06-18 20:40:37 INFO     main.py:309 1 change detected
+2026-06-18 20:41:29 INFO     vision/api/main.py:41 GET / → 200 in 12ms
+2026-06-18 20:41:29 INFO     vision/api/main.py:41 GET /static/custom.css → 200 in 3ms
+2026-06-18 20:41:29 INFO     vision/api/main.py:41 GET /favicon.ico → 404 in 0ms
+2026-06-18 20:41:42 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/invoices failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 20:41:42 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/transactions failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/transactions (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 20:41:42 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/partners/suppliers failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/partners/suppliers (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 20:41:42 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-18 20:41:42 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-18 20:41:43 INFO     vision/api/main.py:41 GET /dashboard → 200 in 316ms
+2026-06-18 20:42:01 INFO     vision/api/main.py:41 GET / → 200 in 1ms
+2026-06-18 20:48:04 INFO     main.py:309 3 changes detected
+2026-06-18 20:48:08 INFO     main.py:309 3 changes detected
+2026-06-18 20:48:09 INFO     main.py:309 4 changes detected
+2026-06-18 20:48:15 INFO     main.py:309 3 changes detected
+2026-06-18 20:48:23 INFO     vision/api/main.py:41 GET /pitch → 200 in 10ms
+2026-06-18 20:48:55 INFO     vision/api/main.py:41 GET / → 200 in 10ms
+2026-06-18 20:48:55 INFO     vision/api/main.py:41 GET /static/custom.css → 200 in 3ms
+2026-06-18 20:48:56 INFO     vision/api/main.py:41 GET /favicon.ico → 404 in 0ms
+2026-06-18 20:48:57 INFO     vision/api/main.py:41 GET /pitch → 200 in 1ms
+2026-06-18 20:51:57 INFO     main.py:309 3 changes detected
+2026-06-18 20:54:13 INFO     main.py:309 3 changes detected
+2026-06-18 20:54:44 INFO     main.py:309 3 changes detected
+2026-06-18 20:54:57 INFO     main.py:309 3 changes detected
+2026-06-18 20:55:18 INFO     main.py:309 3 changes detected
+2026-06-18 20:55:31 INFO     main.py:309 3 changes detected
+2026-06-18 20:55:35 INFO     main.py:309 3 changes detected
+2026-06-18 20:55:37 INFO     main.py:309 3 changes detected
+2026-06-18 20:55:40 INFO     main.py:309 3 changes detected
+2026-06-18 20:55:45 INFO     main.py:309 3 changes detected
+2026-06-18 20:55:50 INFO     main.py:309 3 changes detected
+2026-06-18 20:55:54 INFO     main.py:309 3 changes detected
+2026-06-18 20:55:58 INFO     main.py:309 3 changes detected
+2026-06-18 20:56:09 INFO     vision/api/main.py:41 GET /pitch → 200 in 9ms
+2026-06-18 20:56:25 INFO     vision/api/main.py:41 GET /pitch → 200 in 1ms
+2026-06-18 21:00:13 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/invoices failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 21:00:13 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/transactions failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/transactions (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 21:00:13 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/partners/suppliers failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/partners/suppliers (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 21:00:13 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-18 21:00:13 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-18 21:00:13 INFO     vision/api/main.py:41 GET /dashboard → 200 in 447ms
+2026-06-18 21:00:13 INFO     vision/api/main.py:41 GET /static/custom.css → 304 in 1ms
+2026-06-18 21:01:21 INFO     vision/api/main.py:41 GET / → 200 in 1ms
+2026-06-18 21:01:26 INFO     vision/api/main.py:41 GET /pitch → 200 in 2ms
+2026-06-18 21:01:28 INFO     vision/api/main.py:41 GET / → 200 in 1ms
+2026-06-18 21:02:33 INFO     vision/api/main.py:41 GET /pitch → 200 in 1ms
+2026-06-18 21:02:39 INFO     vision/api/main.py:41 GET /pitch → 200 in 1ms
+2026-06-18 21:02:39 INFO     vision/api/main.py:41 GET /favicon.ico → 404 in 1ms
+2026-06-18 21:02:43 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/invoices failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 21:02:43 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/transactions failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/transactions (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 21:02:43 WARNING  vision/clients/invoice_core.py:34 invoice-core /api/v1/partners/suppliers failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/partners/suppliers (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-06-18 21:02:44 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-18 21:02:44 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-18 21:02:44 INFO     vision/api/main.py:41 GET /dashboard → 200 in 343ms
+2026-06-18 21:06:39 INFO     vision/api/main.py:41 GET / → 200 in 1ms
+2026-06-18 21:06:44 INFO     vision/api/main.py:41 GET /pitch → 200 in 1ms
+2026-06-18 21:06:46 INFO     vision/api/main.py:41 GET /pitch → 200 in 1ms
+2026-06-19 11:24:57 INFO     vision/api/main.py:41 GET / → 200 in 19ms
+2026-06-19 11:24:57 INFO     vision/api/main.py:41 GET /static/custom.css → 304 in 4ms
+2026-06-19 11:25:00 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-19 11:25:01 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-19 11:25:01 INFO     vision/api/main.py:41 GET /dashboard → 200 in 734ms

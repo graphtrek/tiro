@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Vision — Tulajdonosi AI Copilot{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="py-5 text-center">
+  <h1 class="display-4 fw-bold">
+    <i class="bi bi-eye me-2 text-primary"></i>Tulajdonosi AI Copilot
+  </h1>
+  <p class="lead text-muted col-lg-7 mx-auto">
+    Teljes pénzügyi kép egy képernyőn — számlák, Wise tranzakciók és IBKR portfólió aggregálva.
+  </p>
+  <a href="/dashboard" class="btn btn-primary btn-lg mt-3">
+    <i class="bi bi-speedometer2 me-1"></i>Ugrás a Dashboard-ra
+  </a>
+</div>
+
+<!-- Feature cards -->
+<div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
+  {% for icon, title, desc in [
+    ("bi-cash-stack",     "Cash-flow forecast",        "Bejövő/kimenő pénzmozgás trendje — likviditási előrejelzés."),
+    ("bi-bar-chart-line", "Automatikus költségelemzés", "Szállítónkénti kiadások trendje, szokatlan tételek kiemelése."),
+    ("bi-graph-up",       "Projekt profitabilitás",    "Melyik ügyfél/projekt hoz valódi profitot?"),
+    ("bi-robot",          "CFO Owner Chat",            "Kérdezz rá a számokra természetes nyelven."),
+    ("bi-piggy-bank",     "Adóoptimalizálás",          "Osztalék időzítése, ÁFA cash-flow, beruházási lehetőségek."),
+    ("bi-speedometer2",   "Tulajdonosi dashboard",     "KPI kártyák, diagramok, lefúrás — mindig naprakész."),
+  ] %}
+  <div class="col">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body text-center">
+        <i class="bi {{ icon }} text-primary" style="font-size:2rem"></i>
+        <h5 class="card-title mt-3">{{ title }}</h5>
+        <p class="card-text text-muted small">{{ desc }}</p>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Pricing -->
+<h2 class="h4 mb-3">Árazás</h2>
+<div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
+  {% for tier, price, features, highlight in [
+    ("Starter",   "149 000 Ft/hó", ["1 cég", "Dashboard + Cash-flow", "Havi e-mail riport", "1 óra Online tanácsadó"], false),
+    ("Growth",    "249 000 Ft/hó", ["3 cég", "Minden Starter funkció", "Projekt profitabilitás", "1 óra CFO meeting"], true),
+    ("Executive", "499 000 Ft/hó", ["Korlátlan cég", "Minden Growth funkció", "Dedikált AI modell", "1 óra CFO + Jogász + Felsővezető"], false),
+  ] %}
+  <div class="col">
+    <div class="card h-100 shadow-sm {% if highlight %}border-primary{% endif %}">
+      {% if highlight %}
+      <div class="card-header text-center bg-primary text-white fw-bold">
+        <i class="bi bi-star-fill me-1"></i>{{ tier }}
+      </div>
+      {% else %}
+      <div class="card-header text-center fw-bold">{{ tier }}</div>
+      {% endif %}
+      <div class="card-body text-center">
+        <div class="display-6 fw-bold text-primary mb-3">{{ price }}</div>
+        <ul class="list-unstyled text-start">
+          {% for f in features %}
+          <li class="mb-1"><i class="bi bi-check-circle-fill text-success me-1"></i>{{ f }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- External links -->
+<div class="d-flex gap-3 flex-wrap mb-4">
+  <a href="http://localhost:8004/ui/" class="btn btn-outline-secondary" target="_blank">
+    <i class="bi bi-receipt-cutoff me-1"></i>Invoice-Core UI
+    <i class="bi bi-box-arrow-up-right ms-1"></i>
+  </a>
+  <a href="https://srcprofit2.graphtrek.co/" class="btn btn-outline-secondary" target="_blank">
+    <i class="bi bi-graph-up-arrow me-1"></i>SrcProfit IBKR
+    <i class="bi bi-box-arrow-up-right ms-1"></i>
+  </a>
+</div>
+{% endblock %}

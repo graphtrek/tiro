@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Vision{% endblock %}</title>
+
+  <script>
+    (function () {
+      var t = localStorage.getItem('vs-theme') ||
+              (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-bs-theme', t);
+    })();
+    function toggleTheme() {
+      var next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-bs-theme', next);
+      localStorage.setItem('vs-theme', next);
+    }
+  </script>
+
+  <!-- Bootstrap 5 — Bootswatch Yeti theme -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/yeti/bootstrap.min.css">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/custom.css">
+</head>
+<body hx-boost="true">
+
+  {% include "_navbar.html" %}
+
+  <div class="d-flex">
+    {% include "_sidebar.html" %}
+    <main class="flex-grow-1 p-4" style="min-width:0">
+      {% block breadcrumb %}{% endblock %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,20 @@
+{% macro amount_fmt(value, currency="HUF") %}
+  {%- if value is not none -%}
+    {{ "{:,.0f}".format(value) | replace(",", " ") }} {{ currency }}
+  {%- else -%}
+    <span class="text-muted">N/A</span>
+  {%- endif -%}
+{% endmacro %}
+
+{% macro status_badge(status) %}
+  {%- set cfg = {
+    "PAID":    ("bg-success", "Fizetve"),
+    "UNPAID":  ("bg-danger",  "Fizetetlen"),
+    "PARTIAL": ("bg-warning text-dark", "Részleges"),
+  } -%}
+  {%- if status in cfg -%}
+    <span class="badge {{ cfg[status][0] }}">{{ cfg[status][1] }}</span>
+  {%- else -%}
+    <span class="badge bg-secondary">{{ status }}</span>
+  {%- endif -%}
+{% endmacro %}

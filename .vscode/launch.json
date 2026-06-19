@@ -47,6 +47,15 @@
       "python": "${workspaceFolder}/invoice-core/.venv/bin/python",
       "cwd": "${workspaceFolder}/invoice-core",
       "console": "integratedTerminal"
+    },
+    {
+      "name": "8009_vision API",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/vision/run_api.py",
+      "python": "${workspaceFolder}/vision/.venv/bin/python",
+      "cwd": "${workspaceFolder}/vision",
+      "console": "integratedTerminal"
     }
   ]
 }

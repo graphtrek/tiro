@@ -18,8 +18,9 @@
   | 2 | `invoice-file-filter` | 8001 | PDF metadata extraction (OCR/Regex) |
   | 1 | `attachment-downloader` | 8000 | Gmail PDF attachment download |
   | 5 | `wise` | 8003 | Wise bank-statement download/sync (independent entry point) |
+| 6 | `vision` | 8009 | Ownership aggregator — `invoice-core` + `SrcProfit` (IBKR) analytics UI |
 
-- **Call chain**: `POST /api/v1/sync` on `invoice-core` (8004) → `nav-invoice` (8002) → `invoice-file-filter` (8001) → `attachment-downloader` (8000). `wise` (8003) is a separate leaf that serves transaction data to `invoice-core`.
+- **Call chain**: `POST /api/v1/sync` on `invoice-core` (8004) → `nav-invoice` (8002) → `invoice-file-filter` (8001) → `attachment-downloader` (8000). `wise` (8003) and `vision` (8009) are independent entry points/aggregators that consume data from `invoice-core`.
 - **Implementation status**: All five microservices are fully implemented in this workspace.
 
 ## nav-invoice — NAV Online Számla 3.0 client
@@ -75,6 +76,14 @@
   - Tests: `uv run pytest tests/ -v`.
 - **SCA**: balance-statement download requires an RSA keypair registered in Wise. Generate with `openssl genrsa`, upload public key in Wise dashboard, set `WISE_SCA_PRIVATE_KEY_PATH` in `.env`. Manual CSV download to `balance-statements/` is the fallback.
 - **Env**: `WISE_API_KEY`, `WISE_PROFILE_ID`, `WISE_ACCOUNT_CURRENCY`, `WISE_SANDBOX`, `WISE_SCA_PRIVATE_KEY_PATH`, `BALANCE_STATEMENTS_DIR`, `API_HOST`/`API_PORT` (8003), `LOG_LEVEL`, `REQUEST_TIMEOUT`, `MAX_RETRIES`.
+
+## vision — Ownership Aggregator
+- **Purpose**: Read-only ownership aggregator. Calls `invoice-core` and `SrcProfit` (IBKR), aggregates data, and renders a startup-pitch landing page and a live ownership dashboard.
+- **Layout**: `src/vision/` — `config.py`, `models.py`, `clients/` (invoice_core, srcprofit), `services/` (dashboard_service), `ui/` (router), `api/` (main), `templates/`, `static/`.
+- **Run**:
+  - API + UI: `cd vision && python run_api.py` (port 8009). Open `http://localhost:8009/dashboard` or `/pitch`.
+  - Tests: `uv run pytest tests/ -v`.
+- **Env**: `INVOICE_CORE_URL`, `SRCPROFIT_URL`, `SRCPROFIT_USER`, `SRCPROFIT_PASSWORD`, `API_HOST`/`API_PORT` (8009), `LOG_LEVEL`, `REQUEST_TIMEOUT`.
 
 ## Conventions
 - New microservices follow the `nav-invoice` / `invoice-core` pattern: a typed core package under `src/` + parallel `api/` (FastAPI) and `cli/` (Click/Typer) entry points, `pydantic-settings` for `.env` config, `uv` for deps, `pytest` under `tests/`.
