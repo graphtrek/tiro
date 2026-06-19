@@ -22,6 +22,10 @@ dist/
 token.json
 credentials.json
 
+# Storage & logs
+storage/
+logs/
+
 # OS files
 .DS_Store
 invoice-file-filter/logs/invoice-file-filter.log
