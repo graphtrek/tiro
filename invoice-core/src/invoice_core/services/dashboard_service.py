@@ -54,6 +54,13 @@ class RecentTransactionRow:
 
 
 @dataclass
+class TopSupplierRow:
+    id: int
+    name: str
+    total: float
+
+
+@dataclass
 class SyncLogRow:
     id: int
     started_at: datetime
@@ -175,6 +182,19 @@ def get_sync_logs(db: Session, limit: int = 10) -> list[SyncLogRow]:
     except Exception:
         db.rollback()
         return []
+
+
+def get_top_suppliers(db: Session, limit: int = 10) -> list[TopSupplierRow]:
+    rows = (
+        db.query(Supplier.id, Supplier.name, func.sum(Invoice.amount_total).label("total"))
+        .join(Invoice, Invoice.supplier_id == Supplier.id)
+        .filter(~Supplier.name.ilike("%GRAPHTREK%"))
+        .group_by(Supplier.id, Supplier.name)
+        .order_by(func.sum(Invoice.amount_total).desc())
+        .limit(limit)
+        .all()
+    )
+    return [TopSupplierRow(id=r.id, name=r.name, total=float(r.total or 0)) for r in rows]
 
 
 def _to_sync_log_row(log: SyncLog) -> SyncLogRow:

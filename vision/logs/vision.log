@@ -2539,3 +2539,303 @@ Traceback (most recent call last):
 requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-06-20 11:02:39 INFO     vision/api/main.py:41 GET /dashboard → 200 in 436ms
 2026-06-20 11:10:20 INFO     vision/api/main.py:41 GET /pitch → 200 in 1ms
+2026-06-20 11:15:57 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:15:57 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:15:57 INFO     vision/api/main.py:41 GET /dashboard → 200 in 927ms
+2026-06-20 11:15:59 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:15:59 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:15:59 INFO     vision/api/main.py:41 GET /dashboard → 200 in 411ms
+2026-06-20 11:16:04 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:16:05 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:16:05 INFO     vision/api/main.py:41 GET /dashboard → 200 in 426ms
+2026-06-20 11:16:05 INFO     vision/api/main.py:41 GET /static/custom.css → 200 in 2ms
+2026-06-20 11:16:05 INFO     vision/api/main.py:41 GET /favicon.ico → 404 in 0ms
+2026-06-20 11:17:39 INFO     vision/api/main.py:41 GET / → 200 in 1ms
+2026-06-20 11:17:45 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:17:45 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:17:45 INFO     vision/api/main.py:41 GET /dashboard → 200 in 459ms
+2026-06-20 11:18:38 INFO     main.py:309 3 changes detected
+2026-06-20 11:18:44 INFO     main.py:309 3 changes detected
+2026-06-20 11:18:45 INFO     main.py:309 4 changes detected
+2026-06-20 11:19:38 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:19:38 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:19:38 INFO     vision/api/main.py:41 GET /dashboard → 200 in 401ms
+2026-06-20 11:20:11 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:20:11 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-20 11:20:11 INFO     vision/api/main.py:41 GET /dashboard → 200 in 476ms

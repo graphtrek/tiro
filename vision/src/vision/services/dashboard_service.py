@@ -63,6 +63,8 @@ def _build_top_suppliers(invoices: list[dict], suppliers: list[dict], top_n: int
     totals: dict[str, float] = {}
     for inv in invoices:
         name = supplier_map.get(inv.get("supplier_id"), "Ismeretlen")
+        if "GRAPHTREK" in name.upper():
+            continue
         totals[name] = totals.get(name, 0.0) + (inv.get("amount_total") or 0.0)
     sorted_items = sorted(totals.items(), key=lambda x: x[1], reverse=True)[:top_n]
     return [SupplierBar(name=n, total_amount=round(v, 2)) for n, v in sorted_items]

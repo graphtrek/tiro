@@ -50,6 +50,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         recent_invoices=dashboard_service.get_recent_invoices(db),
         recent_transactions=dashboard_service.get_recent_transactions(db),
         last_sync=dashboard_service.get_last_sync(db),
+        top_suppliers=dashboard_service.get_top_suppliers(db),
     )
 
 
