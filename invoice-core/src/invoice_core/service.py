@@ -39,6 +39,11 @@ def _opt_float(d: dict, key: str) -> Optional[float]:
         return None
 
 
+def _is_tax_account(account: Optional[str], settings: Settings) -> bool:
+    """Return True if the bank account number belongs to a configured tax authority."""
+    return bool(account and account in settings.tax_accounts)
+
+
 def _norm(s: str) -> str:
     """Normalize an invoice number or text for fuzzy matching.
 
@@ -339,6 +344,22 @@ def _find_invoice_by_ref(db: Session, payment_ref: str) -> Optional[Invoice]:
 def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
     """Fetch bank transactions, insert new ones, and link to invoice/supplier/customer."""
     settings = settings or get_settings()
+
+    # Clear any previously created links on tax-account transactions.
+    tax_keys = list(settings.tax_accounts.keys())
+    if tax_keys:
+        wrongly_linked = db.query(BankTransaction).filter(
+            BankTransaction.counterparty_account.in_(tax_keys),
+            (BankTransaction.invoice_id.isnot(None)) | (BankTransaction.invoice_file_id.isnot(None)),
+        ).all()
+        for btxn in wrongly_linked:
+            btxn.invoice_id = None
+            btxn.invoice_file_id = None
+            btxn.supplier_id = None
+            btxn.customer_id = None
+        if wrongly_linked:
+            logger.info("Cleared links from %d tax-account transaction(s)", len(wrongly_linked))
+
     transactions = BankClient(settings).get_transactions()
     count = 0
     for t in transactions:
@@ -383,6 +404,10 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
             db.add(btxn)
             db.flush()
             count += 1
+
+        # ── Skip all linking for tax-authority payments ───────────────────────
+        if _is_tax_account(btxn.counterparty_account, settings):
+            continue
 
         # ── Link invoice via payment_reference ────────────────────────────────
         payment_ref = t.get("payment_reference", "") or ""
@@ -614,9 +639,15 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     pdf_client = PdfClient(settings)
     _link_invoices_to_files(db, files, pdf_client)
 
-    unmatched = db.query(BankTransaction).filter(
+    tax_keys = list(settings.tax_accounts.keys())
+    unmatched_q = db.query(BankTransaction).filter(
         BankTransaction.invoice_file_id == None  # noqa: E711
-    ).all()
+    )
+    if tax_keys:
+        unmatched_q = unmatched_q.filter(
+            ~BankTransaction.counterparty_account.in_(tax_keys)
+        )
+    unmatched = unmatched_q.all()
     file_feats = {
         f.id: (_ascii_lower(f.filename) + " " + _ascii_lower(f.words or ""),
                _norm(f.filename) + " " + _norm(f.words or ""), _file_date(f.filename))
