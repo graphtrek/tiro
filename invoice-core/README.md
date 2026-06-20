@@ -199,6 +199,13 @@ Runs a full sync for the given calendar month and prints a Rich summary table.
 | `API_HOST` | `0.0.0.0` | FastAPI bind address |
 | `API_PORT` | `8004` | FastAPI port |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
+| `TAX_ACCOUNTS` | *(see below)* | JSON object mapping bank account numbers to display labels for the Adók page |
+
+`TAX_ACCOUNTS` defaults to all NAV (ÁFA, Bírság, SZJA, Szochó, TAO, TB), HIPA, HIPA-Késedelmi, and Iparkamara accounts. Override in `.env` as a single-line JSON string:
+
+```
+TAX_ACCOUNTS={"10032000-01076868-00000000":"NAV ÁFA","12001008-00272513-00100005":"HIPA"}
+```
 
 The `DB_URL` field accepts the JDBC format already present in the project `.env`. The driver prefix (`jdbc:`) is stripped automatically and credentials are injected to produce a SQLAlchemy-compatible URL (`postgresql+psycopg2://user:pwd@host:port/db`).
 

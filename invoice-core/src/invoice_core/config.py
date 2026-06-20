@@ -74,6 +74,19 @@ class Settings(BaseSettings):
     api_port: int = 8004
     log_level: str = "INFO"
 
+    # ── Tax account → label mapping (override via TAX_ACCOUNTS JSON in .env) ─
+    tax_accounts: dict[str, str] = {
+        "10032000-01076868-00000000": "NAV ÁFA",
+        "10032000-01076301-00000000": "NAV Bírság",
+        "10032000-06055950-00000000": "NAV SZJA",
+        "10032000-06055912-00000000": "NAV Szochó",
+        "10032000-01076019-00000000": "NAV TAO",
+        "10032000-06055819-00000000": "NAV TB",
+        "12001008-00272513-00100005": "HIPA",
+        "12001008-00335345-00100002": "HIPA - Késedelmi",
+        "12100011-10639683-00000000": "Iparkamara",
+    }
+
 
 def get_settings() -> Settings:
     """Return a settings instance loaded from the environment."""
