@@ -157,9 +157,10 @@ def transactions_page(
         amount_min=filters.amount_min,
         amount_max=filters.amount_max,
     )
+    bank_balances = transaction_service.get_bank_balances(db)
     is_partial = request.headers.get("HX-Request") and not request.headers.get("HX-Boosted")
     template = "partials/transaction_table.html" if is_partial else "transactions.html"
-    return _resp(request, template, db, rows=rows)
+    return _resp(request, template, db, rows=rows, bank_balances=bank_balances)
 
 
 @router.get("/transactions/{transaction_id:int}")

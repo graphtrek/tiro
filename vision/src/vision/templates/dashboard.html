@@ -24,7 +24,7 @@
   <div class="col">
     <div class="card kpi-card shadow-sm h-100">
       <div class="card-body">
-        <div class="card-title">Wise jóváírás (30 nap)</div>
+        <div class="card-title">CREDIT</div>
         <div class="kpi-value text-success">{{ amount_fmt(data.wise_30d_income) }}</div>
       </div>
     </div>
@@ -32,20 +32,23 @@
   <div class="col">
     <div class="card kpi-card shadow-sm h-100">
       <div class="card-body">
-        <div class="card-title">Wise terhelés (30 nap)</div>
+        <div class="card-title">DEBIT</div>
         <div class="kpi-value text-danger">{{ amount_fmt(data.wise_30d_expense) }}</div>
       </div>
     </div>
   </div>
   <div class="col">
-    <div class="card kpi-card shadow-sm h-100 {% if data.srcprofit_total is none %}border-secondary{% endif %}">
+    <div class="card kpi-card shadow-sm h-100 {% if data.bank_balance is none %}border-secondary{% endif %}">
       <div class="card-body">
-        <div class="card-title">IBKR portfólió</div>
-        {% if data.srcprofit_total is not none %}
-          <div class="kpi-value text-info">{{ amount_fmt(data.srcprofit_total, data.srcprofit_currency) }}</div>
+        <div class="card-title">Bank Egyenleg</div>
+        {% if data.bank_balance is not none %}
+          <div class="kpi-value {% if data.bank_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ amount_fmt(data.bank_balance, data.bank_balance_currency) }}
+          </div>
+          <div class="text-muted small">WISE + ERSTE</div>
         {% else %}
           <div class="kpi-value text-muted">N/A</div>
-          <div class="text-muted small">SrcProfit nem elérhető</div>
+          <div class="text-muted small">Nincs egyenleg adat</div>
         {% endif %}
       </div>
     </div>
@@ -104,7 +107,7 @@
 
 <!-- Charts row 2: IBKR + Top suppliers -->
 <div class="row g-4">
-  <div class="col-12 col-xl-4">
+  <div class="col-12 col-xl-4 d-flex flex-column gap-4">
     <div class="card shadow-sm">
       <div class="card-header">
         <i class="bi bi-pie-chart me-2"></i><strong>IBKR portfólió összetétel</strong>
@@ -123,6 +126,17 @@
         <a href="{{ data.srcprofit_url }}" target="_blank">
           <i class="bi bi-box-arrow-up-right me-1"></i>SrcProfit IBKR →
         </a>
+      </div>
+    </div>
+    <div class="card kpi-card shadow-sm {% if data.srcprofit_total is none %}border-secondary{% endif %}">
+      <div class="card-body">
+        <div class="card-title">IBKR portfólió</div>
+        {% if data.srcprofit_total is not none %}
+          <div class="kpi-value text-info">{{ amount_fmt(data.srcprofit_total, data.srcprofit_currency) }}</div>
+        {% else %}
+          <div class="kpi-value text-muted">N/A</div>
+          <div class="text-muted small">SrcProfit nem elérhető</div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -166,12 +180,12 @@
         labels: cashflowData.map(d => d.month),
         datasets: [
           {
-            label: 'Jóváírás (HUF)',
+            label: 'CREDIT',
             data: cashflowData.map(d => d.income),
             backgroundColor: 'rgba(40,167,69,0.7)',
           },
           {
-            label: 'Terhelés (HUF)',
+            label: 'DEBIT',
             data: cashflowData.map(d => d.expense),
             backgroundColor: 'rgba(220,53,69,0.7)',
           },

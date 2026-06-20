@@ -75,6 +75,23 @@ def _norm_year_collapsed(inv_num_norm: str) -> Optional[str]:
     return None
 
 
+_STRIP_SEPS_RE = re.compile(r"[-_/#]")
+
+
+def _stripped_match(needle: str, haystack: str) -> bool:
+    """Fallback: strip separator chars and match with alphanumeric boundaries.
+
+    Handles text where separators were omitted entirely, e.g. 'GRPHT-2026-1'
+    finding 'GRPHT20261' in a filename.  The boundary assertions prevent
+    'grpht20261' from matching inside 'grpht202612'.
+    """
+    n = _STRIP_SEPS_RE.sub("", needle.lower())
+    h = _STRIP_SEPS_RE.sub("", haystack.lower())
+    if not n:
+        return False
+    return bool(re.search(r"(?<![a-z0-9])" + re.escape(n) + r"(?![a-z0-9])", h))
+
+
 def _ascii_lower(s: str) -> str:
     """Lowercase and strip accents so 'ÜGYNÖKSÉG' → 'ugynokseg'."""
     decomposed = unicodedata.normalize("NFKD", s or "")
@@ -100,7 +117,11 @@ def _link_invoices_to_files(
         inv_num_yc = _norm_year_collapsed(inv_num)
         for f in files:
             fn_norm = _norm(f.filename)
-            if _token_match(inv_num, fn_norm) or (inv_num_yc and _token_match(inv_num_yc, fn_norm)):
+            if (
+                _token_match(inv_num, fn_norm)
+                or (inv_num_yc and _token_match(inv_num_yc, fn_norm))
+                or _stripped_match(inv_num, fn_norm)
+            ):
                 inv.invoice_file_id = f.id
                 inv.updated_at = datetime.utcnow()
                 logger.info("Linked %s → %s (filename match)", inv.invoice_number, f.filename)
@@ -114,7 +135,11 @@ def _link_invoices_to_files(
                         f.words = pdf_text.replace("\x00", "")
                 if pdf_text:
                     words_norm = _norm(pdf_text)
-                    if _token_match(inv_num, words_norm) or (inv_num_yc and _token_match(inv_num_yc, words_norm)):
+                    if (
+                        _token_match(inv_num, words_norm)
+                        or (inv_num_yc and _token_match(inv_num_yc, words_norm))
+                        or _stripped_match(inv_num, words_norm)
+                    ):
                         inv.invoice_file_id = f.id
                         inv.updated_at = datetime.utcnow()
                         logger.info("Linked %s → %s (word search)", inv.invoice_number, f.filename)
@@ -273,16 +298,40 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
 
 
 def _find_invoice_by_ref(db: Session, payment_ref: str) -> Optional[Invoice]:
-    """Exact match first, then separator-normalized fallback."""
+    """Exact → norm → stripped → subtoken search against invoice numbers."""
     invoice = db.query(Invoice).filter_by(invoice_number=payment_ref).first()
     if invoice:
         return invoice
-    norm_ref = _norm(payment_ref)
-    like_pattern = re.sub(r"[-/\\\\_. ]+", "%", payment_ref)
-    candidates = db.query(Invoice).filter(
-        Invoice.invoice_number.ilike(f"%{like_pattern}%")
-    ).all()
-    return next((inv for inv in candidates if _norm(inv.invoice_number) == norm_ref), None)
+
+    def _search(token: str) -> Optional[Invoice]:
+        norm_tok = _norm(token)
+        stripped_tok = _STRIP_SEPS_RE.sub("", token.lower())
+        like_pattern = re.sub(r"[-/\\\\_. ]+", "%", token)
+        candidates = db.query(Invoice).filter(
+            Invoice.invoice_number.ilike(f"%{like_pattern}%")
+        ).all()
+        return next(
+            (inv for inv in candidates
+             if _norm(inv.invoice_number) == norm_tok
+             or _STRIP_SEPS_RE.sub("", (inv.invoice_number or "").lower()) == stripped_tok),
+            None,
+        )
+
+    hit = _search(payment_ref)
+    if hit:
+        return hit
+
+    # Payment references often carry extra text after the invoice number
+    # (e.g. "KE26/42278 Graphtrek Kft").  Try each whitespace-separated token
+    # that contains at least one digit as a candidate invoice number.
+    for token in payment_ref.split():
+        if token == payment_ref or not any(c.isdigit() for c in token):
+            continue
+        hit = _search(token)
+        if hit:
+            return hit
+
+    return None
 
 
 def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:

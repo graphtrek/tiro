@@ -21,7 +21,7 @@ from invoice_core.db import (
     _InvoiceDirection,
     _PaymentStatus,
 )
-from invoice_core.service import _amount_candidates, _vendor_tokens, sync_match
+from invoice_core.service import _amount_candidates, _find_invoice_by_ref, _vendor_tokens, sync_match
 
 
 @pytest.fixture
@@ -328,3 +328,26 @@ def test_transitive_shortcut_via_invoice(mdb):
 
     assert sync_match(mdb) == 1
     assert t.invoice_file_id == pdf.id
+
+
+def test_payment_reference_with_trailing_payer_name(mdb):
+    # Erste payment_reference "KE26/42278 Graphtrek Kft" must resolve to invoice KE26/42278.
+    # The full-reference LIKE "KE26%42278%Graphtrek%Kft" yields no candidates because
+    # the invoice number doesn't contain "Graphtrek".  The subtoken path must kick in.
+    supplier = Supplier(name="Swiss Medical Hungary Zrt", tax_id="12345678-1-42")
+    customer = Customer(name="Graphtrek Kft", tax_id="87654321-2-13")
+    mdb.add_all([supplier, customer])
+    mdb.flush()
+    inv = Invoice(
+        invoice_number="KE26/42278",
+        supplier_id=supplier.id,
+        customer_id=customer.id,
+        payment_status=_PaymentStatus.UNPAID,
+        direction=_InvoiceDirection.INBOUND,
+    )
+    mdb.add(inv)
+    mdb.flush()
+
+    result = _find_invoice_by_ref(mdb, "KE26/42278 Graphtrek Kft")
+    assert result is not None
+    assert result.id == inv.id

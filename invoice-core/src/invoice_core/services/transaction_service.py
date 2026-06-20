@@ -5,9 +5,18 @@ from datetime import date, datetime
 from typing import Optional
 
 from fastapi import Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from invoice_core.db import BankTransaction, Invoice, InvoiceFile
+
+
+@dataclass
+class BankBalance:
+    bank: str
+    balance: float
+    currency: str
+    as_of: datetime
 
 
 @dataclass
@@ -168,3 +177,20 @@ def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDet
         created_at=t.created_at,
         updated_at=t.updated_at,
     )
+
+
+def get_bank_balances(db: Session) -> list[BankBalance]:
+    """Return the latest balance record for each bank that has balance data."""
+    subq = (
+        db.query(BankTransaction.bank, func.max(BankTransaction.transaction_date).label("max_date"))
+        .filter(BankTransaction.balance.isnot(None))
+        .group_by(BankTransaction.bank)
+        .subquery()
+    )
+    rows = (
+        db.query(BankTransaction)
+        .join(subq, (BankTransaction.bank == subq.c.bank) & (BankTransaction.transaction_date == subq.c.max_date))
+        .filter(BankTransaction.balance.isnot(None))
+        .all()
+    )
+    return [BankBalance(bank=r.bank, balance=r.balance, currency=r.currency, as_of=r.transaction_date) for r in rows]

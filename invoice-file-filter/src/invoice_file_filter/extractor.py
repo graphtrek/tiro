@@ -7,6 +7,7 @@ import io
 import logging
 import os
 import re
+import time
 import unicodedata
 from collections.abc import Sequence
 from datetime import datetime
@@ -21,10 +22,10 @@ logger = logging.getLogger(__name__)
 
 _MIN_WORD_LEN = 3
 
-# In-memory caches: path → (mtime, data)
-_words_cache: dict[str, tuple[float, str]] = {}
-_text_cache: dict[str, tuple[float, str]] = {}
-_page_count_cache: dict[str, tuple[float, int]] = {}
+# In-memory caches: path → (mtime, cached_at, data)
+_words_cache: dict[str, tuple[float, float, str]] = {}
+_text_cache: dict[str, tuple[float, float, str]] = {}
+_page_count_cache: dict[str, tuple[float, float, int]] = {}
 
 try:
     from .ocr import ocr_extract_words, ocr_pdf
@@ -47,10 +48,13 @@ def get_page_count(pdf_path: str) -> int:
     except OSError:
         mtime = 0.0
 
-    cached_mtime, cached_count = _page_count_cache.get(pdf_path, (None, None))
-    if cached_mtime == mtime and cached_count is not None:
-        logger.debug("page count cache hit: %s", pdf_path)
-        return cached_count
+    ttl = get_settings().cache_ttl_seconds
+    entry = _page_count_cache.get(pdf_path)
+    if entry is not None:
+        cached_mtime, cached_at, cached_count = entry
+        if cached_mtime == mtime and time.time() - cached_at < ttl:
+            logger.debug("page count cache hit: %s", pdf_path)
+            return cached_count
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
@@ -59,7 +63,7 @@ def get_page_count(pdf_path: str) -> int:
         logger.warning("Could not read page count from %s: %s", pdf_path, exc)
         count = 0
 
-    _page_count_cache[pdf_path] = (mtime, count)
+    _page_count_cache[pdf_path] = (mtime, time.time(), count)
     return count
 
 
@@ -74,10 +78,13 @@ def extract_words_csv(pdf_path: str) -> str:
     except OSError:
         mtime = 0.0
 
-    cached_mtime, cached_csv = _words_cache.get(pdf_path, (None, None))
-    if cached_mtime == mtime and cached_csv is not None:
-        logger.debug("words cache hit: %s", pdf_path)
-        return cached_csv
+    ttl = get_settings().cache_ttl_seconds
+    words_entry = _words_cache.get(pdf_path)
+    if words_entry is not None:
+        cached_mtime, cached_at, cached_csv = words_entry
+        if cached_mtime == mtime and time.time() - cached_at < ttl:
+            logger.debug("words cache hit: %s", pdf_path)
+            return cached_csv
 
     raw_words: list[str] = []
     try:
@@ -103,7 +110,7 @@ def extract_words_csv(pdf_path: str) -> str:
         writer.writerow([w])
 
     csv_data = buf.getvalue()
-    _words_cache[pdf_path] = (mtime, csv_data)
+    _words_cache[pdf_path] = (mtime, time.time(), csv_data)
     return csv_data
 
 
@@ -131,10 +138,13 @@ def extract_text(pdf_path: str) -> str:
     except OSError:
         mtime = 0.0
 
-    cached_mtime, cached_text = _text_cache.get(pdf_path, (None, None))
-    if cached_mtime == mtime and cached_text is not None:
-        logger.debug("text cache hit: %s", pdf_path)
-        return cached_text
+    ttl = get_settings().cache_ttl_seconds
+    text_entry = _text_cache.get(pdf_path)
+    if text_entry is not None:
+        cached_mtime, cached_at, cached_text = text_entry
+        if cached_mtime == mtime and time.time() - cached_at < ttl:
+            logger.debug("text cache hit: %s", pdf_path)
+            return cached_text
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
@@ -149,7 +159,7 @@ def extract_text(pdf_path: str) -> str:
         logger.info("Sparse text (%d chars) in %s — trying OCR", len(text.strip()), pdf_path)
         text = ocr_pdf(pdf_path, settings.ocr_language)
 
-    _text_cache[pdf_path] = (mtime, text)
+    _text_cache[pdf_path] = (mtime, time.time(), text)
     return text
 
 

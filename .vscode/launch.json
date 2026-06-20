@@ -40,15 +40,6 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "8003_wise API",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/wise/run_api.py",
-      "python": "${workspaceFolder}/wise/.venv/bin/python",
-      "cwd": "${workspaceFolder}/wise",
-      "console": "integratedTerminal"
-    },
-    {
       "name": "8004_invoice-core API",
       "type": "debugpy",
       "request": "launch",

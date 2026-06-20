@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     ocr_language: str = "hun+eng"
     ocr_min_chars: int = 50  # pdfplumber chars below this → try OCR
 
+    # ── In-process PDF cache TTL (seconds) ──────────────────
+    cache_ttl_seconds: int = 3600
+
     # ── Download timeout (seconds) ───────────────────────────
     download_timeout: int = 120
 

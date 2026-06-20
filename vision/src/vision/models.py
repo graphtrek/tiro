@@ -37,6 +37,8 @@ class DashboardData:
     srcprofit_positions: list[dict]
     wise_30d_income: float
     wise_30d_expense: float
+    bank_balance: float | None          # sum of latest balance per bank (WISE + ERSTE)
+    bank_balance_currency: str
     latest_invoice_date: str | None
     latest_transaction_date: str | None
     latest_data_date: str | None

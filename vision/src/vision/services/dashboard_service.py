@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 
 from vision.clients.invoice_core import InvoiceCoreClient
@@ -36,11 +36,12 @@ def _build_cashflow(transactions: list[dict], months: int = 6) -> list[CashFlowM
         month = str(raw_date)[:7]
         if len(month) != 7:
             continue
-        amount = tx.get("amount") or 0.0
-        if amount >= 0:
+        amount = abs(tx.get("amount") or 0.0)
+        direction = tx.get("direction") or ""
+        if direction == "CREDIT":
             buckets[month]["income"] += amount
-        else:
-            buckets[month]["expense"] += abs(amount)
+        elif direction == "DEBIT":
+            buckets[month]["expense"] += amount
     sorted_months = sorted(buckets.keys())[-months:]
     return [
         CashFlowMonth(month=m, income=buckets[m]["income"], expense=buckets[m]["expense"])
@@ -67,21 +68,8 @@ def _build_top_suppliers(invoices: list[dict], suppliers: list[dict], top_n: int
     return [SupplierBar(name=n, total_amount=round(v, 2)) for n, v in sorted_items]
 
 
-def _build_wise_30d_income(transactions: list[dict]) -> float:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-    total = 0.0
-    for tx in transactions:
-        raw_date = tx.get("transaction_date", "") or ""
-        try:
-            dt = datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-        except (ValueError, TypeError):
-            continue
-        amount = tx.get("amount") or 0.0
-        if dt >= cutoff and amount > 0:
-            total += amount
-    return round(total, 2)
+def _build_bank_credit_total(transactions: list[dict]) -> float:
+    return round(sum(abs(tx.get("amount") or 0.0) for tx in transactions if tx.get("direction") == "CREDIT"), 2)
 
 
 def _build_latest_invoice_date(invoices: list[dict]) -> str | None:
@@ -109,21 +97,29 @@ def _build_latest_data_date(invoices: list[dict], transactions: list[dict]) -> s
     return max(dates) if dates else None
 
 
-def _build_wise_30d_expense(transactions: list[dict]) -> float:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-    total = 0.0
+def _build_bank_debit_total(transactions: list[dict]) -> float:
+    return round(sum(abs(tx.get("amount") or 0.0) for tx in transactions if tx.get("direction") == "DEBIT"), 2)
+
+
+def _build_bank_balance(transactions: list[dict]) -> tuple[float | None, str]:
+    """Sum the latest balance record per bank (WISE + ERSTE).
+
+    Returns (total_balance, currency). Returns (None, '') if no balance data.
+    """
+    by_bank: dict[str, dict] = {}
     for tx in transactions:
-        raw_date = tx.get("transaction_date", "") or ""
-        try:
-            dt = datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-        except (ValueError, TypeError):
+        balance = tx.get("balance")
+        if balance is None:
             continue
-        amount = tx.get("amount") or 0.0
-        if dt >= cutoff and amount < 0:
-            total += abs(amount)
-    return round(total, 2)
+        bank = tx.get("bank") or ""
+        raw_date = tx.get("transaction_date") or ""
+        if bank not in by_bank or str(raw_date) > str(by_bank[bank]["date"]):
+            by_bank[bank] = {"balance": balance, "date": raw_date, "currency": tx.get("currency") or ""}
+    if not by_bank:
+        return None, ""
+    total = round(sum(v["balance"] for v in by_bank.values()), 2)
+    currency = next(iter(by_bank.values()))["currency"]
+    return total, currency
 
 
 def get_dashboard_data(settings: Optional[Settings] = None) -> DashboardData:
@@ -148,6 +144,8 @@ def get_dashboard_data(settings: Optional[Settings] = None) -> DashboardData:
     if src_portfolio:
         srcprofit_positions = src_portfolio.get("positions", [])
 
+    bank_balance, bank_balance_currency = _build_bank_balance(transactions)
+
     return DashboardData(
         invoice_kpi=_build_invoice_kpi(invoices),
         cashflow_months=_build_cashflow(transactions),
@@ -156,8 +154,10 @@ def get_dashboard_data(settings: Optional[Settings] = None) -> DashboardData:
         srcprofit_total=srcprofit_total,
         srcprofit_currency=srcprofit_currency,
         srcprofit_positions=srcprofit_positions,
-        wise_30d_income=_build_wise_30d_income(transactions),
-        wise_30d_expense=_build_wise_30d_expense(transactions),
+        wise_30d_income=_build_bank_credit_total(transactions),
+        wise_30d_expense=_build_bank_debit_total(transactions),
+        bank_balance=bank_balance,
+        bank_balance_currency=bank_balance_currency,
         latest_invoice_date=_build_latest_invoice_date(invoices),
         latest_transaction_date=_build_latest_transaction_date(transactions),
         latest_data_date=_build_latest_data_date(invoices, transactions),
