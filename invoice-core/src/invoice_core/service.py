@@ -492,6 +492,70 @@ def _vendor_tokens(txn: BankTransaction) -> set[str]:
     }
 
 
+def _names_overlap(a_toks: set[str], b_toks: set[str]) -> bool:
+    """True if any token pair shares a 4-char prefix (e.g. 'alza' matches 'alzahu')."""
+    for a in a_toks:
+        for b in b_toks:
+            short, long = (a, b) if len(a) <= len(b) else (b, a)
+            if len(short) >= 4 and long.startswith(short):
+                return True
+    return False
+
+
+def _find_invoice_by_supplier_amount(
+    txn: BankTransaction,
+    candidates: list[Invoice],
+    used_ids: set[int],
+    amount_abs_tol: float = 5.0,
+    amount_pct_tol: float = 0.01,
+    max_days: int = 60,
+) -> Optional[Invoice]:
+    """Match a transaction to an invoice by supplier-name prefix + close amount + date proximity.
+
+    Used when no payment_reference is present and PDF-text scoring fails (e.g. e-commerce).
+    Currencies must match; amount must be within abs_tol HUF or pct_tol %.
+    """
+    if not txn.counterparty_name or not txn.amount:
+        return None
+    txn_toks = {
+        t for t in _TOKEN_RE.findall(_ascii_lower(txn.counterparty_name))
+        if len(t) >= 4 and t not in _VENDOR_STOPWORDS
+    }
+    if not txn_toks:
+        return None
+    txn_amt = abs(txn.amount)
+    txn_date = txn.transaction_date.date() if txn.transaction_date else None
+
+    best: Optional[Invoice] = None
+    best_days = max_days + 1
+
+    for inv in candidates:
+        if inv.id in used_ids:
+            continue
+        if not inv.amount_total or not inv.supplier:
+            continue
+        if inv.currency and txn.currency and inv.currency != txn.currency:
+            continue
+        inv_amt = abs(inv.amount_total)
+        diff = abs(inv_amt - txn_amt)
+        if diff > amount_abs_tol and (txn_amt == 0 or diff / txn_amt > amount_pct_tol):
+            continue
+        sup_toks = {
+            t for t in _TOKEN_RE.findall(_ascii_lower(inv.supplier.name))
+            if len(t) >= 4 and t not in _VENDOR_STOPWORDS
+        }
+        if not _names_overlap(txn_toks, sup_toks):
+            continue
+        days = abs((txn_date - inv.invoice_date).days) if (txn_date and inv.invoice_date) else max_days + 1
+        if days > max_days:
+            continue
+        if days < best_days:
+            best_days = days
+            best = inv
+
+    return best
+
+
 def _file_date(filename: str) -> Optional[date]:
     """Parse the ``YYYY-MM-DD`` prefix that invoice-file-filter prepends."""
     m = re.match(r"(\d{4}-\d{2}-\d{2})", filename or "")
@@ -606,6 +670,41 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
 
         remaining.append(txn)
 
+    # ── Phase 1.5: supplier-name + amount match for reference-less transactions ──
+    linked_invoice_ids: set[int] = {
+        row[0]
+        for row in db.query(BankTransaction.invoice_id)
+        .filter(BankTransaction.invoice_id.isnot(None))
+        .all()
+    }
+    inv_pool = db.query(Invoice).filter(Invoice.id.notin_(linked_invoice_ids)).all()
+    used_inv_ids: set[int] = set()
+    remaining_after_15: list[BankTransaction] = []
+
+    for txn in remaining:
+        matched = _find_invoice_by_supplier_amount(txn, inv_pool, used_inv_ids)
+        if matched:
+            txn.invoice_id = matched.id
+            if not txn.supplier_id:
+                txn.supplier_id = matched.supplier_id
+            if not txn.customer_id:
+                txn.customer_id = matched.customer_id
+            matched.payment_status = _PaymentStatus.PAID
+            matched.updated_at = datetime.utcnow()
+            used_inv_ids.add(matched.id)
+            if matched.invoice_file_id and matched.invoice_file_id not in used_files:
+                _assign(txn, matched.invoice_file_id, f"supplier+amount {txn.counterparty_name}")
+            else:
+                txn.updated_at = datetime.utcnow()
+                logger.info(
+                    "Linked bank txn %s → invoice %s (supplier+amount, no file)",
+                    txn.transaction_id, matched.invoice_number,
+                )
+        else:
+            remaining_after_15.append(txn)
+
+    remaining = remaining_after_15
+
     # ── Phase 2: scored candidates ───────────────────────────────────────────
     candidates: list[tuple[float, int, int]] = []
     txn_by_id = {t.id: t for t in remaining}
@@ -660,6 +759,20 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
                 "Backlinked bank txn %s → invoice %s via shared file_id %s",
                 txn.transaction_id, invoice.invoice_number, txn.invoice_file_id,
             )
+
+    # ── Backfill supplier_id / customer_id from linked invoice ───────────────
+    needs_backfill = db.query(BankTransaction).filter(
+        BankTransaction.invoice_id.isnot(None),
+        (BankTransaction.supplier_id.is_(None)) | (BankTransaction.customer_id.is_(None)),
+    ).all()
+    for txn in needs_backfill:
+        invoice = db.query(Invoice).filter_by(id=txn.invoice_id).first()
+        if invoice:
+            if not txn.supplier_id:
+                txn.supplier_id = invoice.supplier_id
+            if not txn.customer_id:
+                txn.customer_id = invoice.customer_id
+            txn.updated_at = datetime.utcnow()
 
     db.commit()
     logger.info("sync_match: %d bank transaction(s) linked to a file", count)

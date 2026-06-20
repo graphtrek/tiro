@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% from "_macros.html" import amount_fmt %}
+{% block title %}Adók — Moneypenny{% endblock %}
+
+{% block content %}
+{% set tax_colors = {
+  "NAV ÁFA":          {"badge": "primary",   "border": "border-primary",   "text": "text-primary"},
+  "NAV Bírság":       {"badge": "danger",    "border": "border-danger",    "text": "text-danger"},
+  "NAV SZJA":         {"badge": "success",   "border": "border-success",   "text": "text-success"},
+  "NAV Szochó":       {"badge": "warning",   "border": "border-warning",   "text": "text-warning"},
+  "NAV TAO":          {"badge": "info",      "border": "border-info",      "text": "text-info"},
+  "NAV TB":           {"badge": "secondary", "border": "border-secondary", "text": "text-secondary"},
+  "HIPA":             {"badge": "dark",      "border": "border-dark",      "text": "text-dark"},
+  "HIPA - Késedelmi": {"badge": "dark",      "border": "border-dark",      "text": "text-dark"},
+  "Iparkamara":       {"badge": "secondary", "border": "border-secondary", "text": "text-secondary"}
+} %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-receipt me-2"></i>Adók — {{ report.year }}</h1>
+  <form method="get" action="/ui/adok" class="d-flex gap-2 align-items-center">
+    <label class="form-label mb-0 text-muted small">Év:</label>
+    <input type="number" name="year" value="{{ report.year }}" min="2020" max="2099"
+           class="form-control form-control-sm" style="width:90px">
+    <button type="submit" class="btn btn-sm btn-outline-secondary">Frissít</button>
+  </form>
+</div>
+
+<!-- KPI kártyák -->
+<div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100 border-danger">
+      <div class="card-body">
+        <div class="card-title">Összes adó</div>
+        <div class="kpi-value text-danger">{{ amount_fmt(report.grand_total) }}</div>
+        <div class="text-muted small">{{ report.transactions | length }} tétel</div>
+      </div>
+    </div>
+  </div>
+  {% for label in report.tax_labels %}
+  {% set total = report.totals_by_type.get(label, 0) %}
+  {% if total %}
+  {% set c = tax_colors.get(label, {"badge": "secondary", "border": "border-secondary", "text": "text-secondary"}) %}
+  <div class="col">
+    <div class="card kpi-card shadow-sm h-100 {{ c.border }}">
+      <div class="card-body">
+        <div class="card-title">{{ label }}</div>
+        <div class="kpi-value {{ c.text }}">{{ amount_fmt(total) }}</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<!-- Havi bontás -->
+{% if report.monthly %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header">
+    <i class="bi bi-calendar3 me-2"></i><strong>Havi bontás — {{ report.year }}</strong>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Hónap</th>
+            {% for label in report.tax_labels %}
+            {% if report.totals_by_type.get(label, 0) %}
+            {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
+            <th class="text-end {{ c.text }}">{{ label }}</th>
+            {% endif %}
+            {% endfor %}
+            <th class="text-end fw-bold">Összesen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in report.monthly %}
+          <tr>
+            <td>{{ row.month }}</td>
+            {% for label in report.tax_labels %}
+            {% if report.totals_by_type.get(label, 0) %}
+            {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
+            <td class="text-end">
+              {% set v = row.totals.get(label, 0) %}
+              {% if v %}<span class="{{ c.text }}">{{ amount_fmt(v) }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            {% endif %}
+            {% endfor %}
+            <td class="text-end fw-semibold text-danger">{{ amount_fmt(row.row_total) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="table-light">
+          <tr class="fw-semibold">
+            <td>Összesen</td>
+            {% for label in report.tax_labels %}
+            {% set yearly = report.totals_by_type.get(label, 0) %}
+            {% if yearly %}
+            {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
+            <td class="text-end {{ c.text }}">{{ amount_fmt(yearly) }}</td>
+            {% endif %}
+            {% endfor %}
+            <td class="text-end text-danger fw-bold">{{ amount_fmt(report.grand_total) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Tranzakciók -->
+{% if report.transactions %}
+<div class="card shadow-sm">
+  <div class="card-header">
+    <i class="bi bi-list-ul me-2"></i><strong>Tranzakciók</strong>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Dátum</th>
+          <th>Megnevezés</th>
+          <th>Adónem</th>
+          <th class="text-end">Összeg</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in report.transactions %}
+        {% set c = tax_colors.get(tx.tax_label, {"badge": "secondary", "text": "text-secondary"}) %}
+        <tr>
+          <td>{{ tx.transaction_date.strftime("%Y-%m-%d") if tx.transaction_date else "—" }}</td>
+          <td>{{ tx.counterparty_name or "—" }}</td>
+          <td><span class="badge bg-{{ c.badge }}">{{ tx.tax_label }}</span></td>
+          <td class="text-end {{ c.text }} fw-semibold">{{ amount_fmt(tx.amount, tx.currency) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-2"></i>Nincs rögzített adófizetés {{ report.year }}-ben.
+</div>
+{% endif %}
+{% endblock %}

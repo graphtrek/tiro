@@ -53,19 +53,21 @@
 - **Env**: `ATTACHMENT_DOWNLOADER_URL`, `OUTPUT_DIR`, `INVOICE_KEYWORDS`, `OCR_ENABLED`, `OCR_LANGUAGE`, `API_HOST`/`API_PORT` (8001), `LOG_LEVEL`.
 
 ## invoice-core — master orchestrator
-- **Purpose**: Orchestrates the full pipeline (NAV → PDF → Wise), reconciles results, persists everything to PostgreSQL. Includes a full HTMX + Bootstrap web UI at `/ui/`. `requires-python >=3.11`.
-- **Layout**: `src/invoice_core/` — `api/main.py` (FastAPI REST), `ui/router.py` (web UI), `services/` (dashboard, invoice, partner, transaction, invoice_file), `templates/` (Jinja2 + HTMX partials), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `wise_client.py`.
+- **Purpose**: Orchestrates the full pipeline (NAV → PDF → Bank), reconciles results, persists everything to PostgreSQL. Includes a full HTMX + Bootstrap web UI at `/ui/`. `requires-python >=3.11`.
+- **Layout**: `src/invoice_core/` — `api/main.py` (FastAPI REST), `ui/router.py` (web UI), `services/` (dashboard, invoice, partner, transaction, invoice_file, dividend, tax), `templates/` (Jinja2 + HTMX partials), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`.
+- **Web UI pages**: Dashboard · Számlák · Szla Fájlok · Szállítók · Vevők · Bank tranzakciók · Osztalék (`/ui/dividend`) · **Adók** (`/ui/adok`, tax payments pivot by NAV/HIPA/Iparkamara account) · Sync.
 - **Run**:
   - DB: `cd invoice-core && uv run alembic upgrade head` (PostgreSQL; SQLite in-memory for tests).
   - API + UI: `python run_api.py` (port 8004). Open `http://localhost:8004/ui/`.
-  - CLI: `uv run invoice-core sync [--start DATE] [--end DATE]` · `sync-nav` · `sync-pdf` · `sync-wise` · `sync-match` · `report --month YYYY-MM` · `link <invoice> <file>` · `link-wise <txn_id> <file>`.
+  - CLI: `uv run invoice-core sync [--start DATE] [--end DATE]` · `sync-nav` · `sync-pdf` · `sync-bank` · `sync-match` · `report --month YYYY-MM` · `link <invoice> <file>` · `link-bank <txn_id> <file>`.
   - Tests: `uv run pytest tests/ -v`.
 - **Sync pipeline**:
   1. `sync_nav` — upsert NAV invoices, suppliers, customers.
   2. `sync_pdf` — upsert InvoiceFile records; link invoices to files (filename match → word search fallback).
-  3. `sync_wise` — upsert WiseTransactions; link to invoices via `payment_reference`; mark PAID.
+  3. `sync_bank` — upsert BankTransactions (Erste + Wise CSV via bank service); link to invoices via `payment_reference`; mark PAID.
   4. `sync_match` — link unmatched transactions to files (transitive → authoritative reference → scored vendor/amount/date); back-link any transaction sharing a file with an invoice to that invoice and mark it PAID.
-- **Env**: `DB_URL` (JDBC, auto-converted), `DB_USER`, `DB_PWD`, `NAV_INVOICE_URL` (`:8002`), `INVOICE_FILE_FILTER_URL` (`:8001`), `WISE_URL` (`:8003`), `SYNC_TIMEOUT`, `API_HOST`/`API_PORT` (8004), `LOG_LEVEL`.
+- **Tax service**: `tax_service.py` identifies tax payments by matching `bank_transaction.counterparty_account` against known NAV (ÁFA, SZJA, TAO, Szochó, TB, Bírság), HIPA, and Iparkamara account numbers; the Adók page shows a monthly pivot and per-type KPI cards with distinct Bootstrap colours.
+- **Env**: `DB_URL` (JDBC, auto-converted), `DB_USER`, `DB_PWD`, `NAV_INVOICE_URL` (`:8002`), `INVOICE_FILE_FILTER_URL` (`:8001`), `BANK_URL` (`:8005`), `SYNC_TIMEOUT`, `API_HOST`/`API_PORT` (8004), `LOG_LEVEL`.
 
 ## wise — Wise bank-statement service
 - **Purpose**: Fetches Wise balance statements via the Wise API and returns structured transactions as JSON. Leaf service — calls only the Wise API, holds no DB.

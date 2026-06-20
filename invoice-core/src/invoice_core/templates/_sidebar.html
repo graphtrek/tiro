@@ -35,6 +35,11 @@
         <i class="bi bi-piggy-bank"></i> Osztalék
       </a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link {% if '/ui/adok' in request.url.path %}active{% endif %}" href="/ui/adok">
+        <i class="bi bi-receipt"></i> Adók
+      </a>
+    </li>
     <li class="nav-item mt-3">
       <a class="nav-link {% if '/ui/sync' in request.url.path %}active{% endif %}" href="/ui/sync">
         <i class="bi bi-arrow-repeat"></i> Sync

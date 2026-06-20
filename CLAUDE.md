@@ -144,7 +144,7 @@ uv run pytest tests/ -v
 
 ## invoice-core — master orchestrator
 
-Orchestrates the full pipeline: fetches NAV invoices, PDF files, Wise transactions, reconciles everything, and persists to PostgreSQL. Includes a full web UI (HTMX + Bootstrap + DataTables) at `/ui/`. `requires-python >=3.11`.
+Orchestrates the full pipeline: fetches NAV invoices, PDF files, bank transactions, reconciles everything, and persists to PostgreSQL. Includes a full web UI (HTMX + Bootstrap + DataTables) at `/ui/`. `requires-python >=3.11`.
 
 ### Running
 
@@ -170,8 +170,9 @@ uv run pytest tests/ -v
 ```
 
 ### Architecture
-- `src/invoice_core/` — `api/main.py` (FastAPI REST), `ui/router.py` (HTMX UI at `/ui/`), `services/` (dashboard, invoice, partner, transaction, invoice_file), `templates/` (Jinja2), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`.
+- `src/invoice_core/` — `api/main.py` (FastAPI REST), `ui/router.py` (HTMX UI at `/ui/`), `services/` (dashboard, invoice, partner, transaction, invoice_file, dividend, tax), `templates/` (Jinja2), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`.
 - DB: PostgreSQL in production, SQLite in-memory for tests. Migrations via Alembic.
+- **Web UI pages**: Dashboard · Számlák · Szla Fájlok · Szállítók · Vevők · Bank · Osztalék (`/ui/dividend`, annual dividend/KIVA/SZJA calculation) · **Adók** (`/ui/adok`, tax payments filtered by NAV/HIPA/Iparkamara account numbers, monthly pivot table with per-type Bootstrap colour coding) · Sync.
 
 ### Sync pipeline and linking logic
 1. **sync_nav** — upserts NAV invoices, suppliers, customers.

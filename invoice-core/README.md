@@ -46,6 +46,8 @@ Open `http://localhost:8004/ui/` in a browser.
 | Vevők | `/ui/customers` | Customer list with invoice stats |
 | Vevő részlet | `/ui/customers/{id}` | Customer detail with invoice and bank DataTables |
 | Bank tranzakciók | `/ui/transactions` | Transaction list — filterable by date, linked status, partner, amount |
+| Osztalék | `/ui/dividend` | Annual dividend/tax calculation: revenue, expenses, KIVA, SZJA, SZOCHO — monthly breakdown |
+| Adók | `/ui/adok` | Tax payments view: filters bank transactions by NAV/HIPA/Iparkamara account numbers; pivot table by month and tax type (NAV ÁFA, SZJA, TAO, Szochó, TB, Bírság, HIPA, Iparkamara) |
 | Sync | `/ui/sync` | Trigger sync with mode selection; sync log accordion |
 
 **Tech stack**: Jinja2 SSR, HTMX 2.x (boost + partial swap + OOB), Bootstrap 5.3, DataTables 2.x — no separate build step, all assets from CDN.
@@ -236,7 +238,9 @@ src/invoice_core/
 │   ├── invoice_service.py   ← Invoice list/detail with joined supplier/customer/bank data
 │   ├── partner_service.py   ← Supplier and customer list + detail
 │   ├── transaction_service.py ← Bank transaction list with filters
-│   └── invoice_file_service.py ← PDF file list
+│   ├── invoice_file_service.py ← PDF file list
+│   ├── dividend_service.py  ← Annual dividend/tax calculation (KIVA, SZJA, SZOCHO)
+│   └── tax_service.py       ← Tax payment report: filters bank transactions by NAV/HIPA/Iparkamara account numbers
 ├── templates/               ← Jinja2 templates
 │   ├── base.html            ← Layout: navbar + sidebar + main content blocks
 │   ├── _macros.html         ← Reusable macros: payment_badge, amount_fmt, pdf_icon, …

@@ -188,6 +188,21 @@ def dividend_page(
     return _resp(request, "dividend.html", db, report=report, year=effective_year)
 
 
+# ── Adók (tax payments) ───────────────────────────────────────────────────────
+
+@router.get("/adok")
+def adok_page(
+    request: Request,
+    year: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    from datetime import date
+    from invoice_core.services.tax_service import get_tax_report
+    effective_year = year or date.today().year
+    report = get_tax_report(db, effective_year)
+    return _resp(request, "adok.html", db, report=report, year=effective_year)
+
+
 # ── Sync ──────────────────────────────────────────────────────────────────────
 
 @router.get("/sync")
