@@ -11,6 +11,22 @@ from invoice_core.db import BankTransaction, Customer, Invoice, Supplier, _Payme
 
 
 @dataclass
+class AmountByCurrency:
+    currency: str
+    total: float
+
+
+@dataclass
+class SupplierSummary:
+    supplier_count: int
+    invoice_count: int
+    unpaid_count: int
+    bank_count: int
+    invoice_totals: list[AmountByCurrency]
+    bank_totals: list[AmountByCurrency]
+
+
+@dataclass
 class SupplierRow:
     id: int
     name: str
@@ -19,6 +35,8 @@ class SupplierRow:
     unpaid_count: int
     bank_count: int
     last_invoice_date: Optional[date]
+    invoice_total: Optional[float] = None
+    bank_total: Optional[float] = None
 
 
 @dataclass
@@ -105,24 +123,26 @@ def list_suppliers(db: Session) -> list[SupplierRow]:
             func.count(Invoice.id).label("inv_count"),
             func.count(case((Invoice.payment_status == _PaymentStatus.UNPAID, Invoice.id))).label("unpaid_count"),
             func.max(Invoice.invoice_date).label("last_date"),
+            func.sum(Invoice.amount_total).label("inv_total"),
         )
         .group_by(Invoice.supplier_id)
         .all()
     )
     inv_map = {r.supplier_id: r for r in inv_stats}
 
-    bank_map = {
-        r.supplier_id: r.bank_count
-        for r in db.query(
+    bank_stats = (
+        db.query(
             BankTransaction.supplier_id,
             func.count(BankTransaction.id).label("bank_count"),
+            func.sum(BankTransaction.amount).label("bank_total"),
         )
         .filter(BankTransaction.supplier_id.isnot(None))
         .group_by(BankTransaction.supplier_id)
         .all()
-    }
+    )
+    bank_map = {r.supplier_id: r for r in bank_stats}
 
-    suppliers = db.query(Supplier).order_by(Supplier.name).all()
+    suppliers = db.query(Supplier).filter(~Supplier.name.ilike("%graphtrek%")).order_by(Supplier.name).all()
     return [
         SupplierRow(
             id=sup.id,
@@ -130,11 +150,70 @@ def list_suppliers(db: Session) -> list[SupplierRow]:
             tax_id=sup.tax_id,
             invoice_count=inv_map[sup.id].inv_count if sup.id in inv_map else 0,
             unpaid_count=inv_map[sup.id].unpaid_count if sup.id in inv_map else 0,
-            bank_count=bank_map.get(sup.id, 0),
+            bank_count=bank_map[sup.id].bank_count if sup.id in bank_map else 0,
             last_invoice_date=inv_map[sup.id].last_date if sup.id in inv_map else None,
+            invoice_total=inv_map[sup.id].inv_total if sup.id in inv_map else None,
+            bank_total=bank_map[sup.id].bank_total if sup.id in bank_map else None,
         )
         for sup in suppliers
     ]
+
+
+def get_supplier_summary(db: Session) -> SupplierSummary:
+    excluded = db.query(Supplier.id).filter(Supplier.name.ilike("%graphtrek%")).subquery()
+
+    supplier_count = (
+        db.query(func.count(Supplier.id))
+        .filter(~Supplier.id.in_(excluded))
+        .scalar() or 0
+    )
+
+    inv_q = (
+        db.query(
+            Invoice.currency,
+            func.count(Invoice.id).label("cnt"),
+            func.count(case((Invoice.payment_status == _PaymentStatus.UNPAID, Invoice.id))).label("unpaid"),
+            func.sum(Invoice.amount_total).label("total"),
+        )
+        .join(Supplier, Invoice.supplier_id == Supplier.id)
+        .filter(~Supplier.id.in_(excluded))
+        .group_by(Invoice.currency)
+        .all()
+    )
+    invoice_count = sum(r.cnt for r in inv_q)
+    unpaid_count = sum(r.unpaid for r in inv_q)
+    invoice_totals = [
+        AmountByCurrency(currency=r.currency or "?", total=r.total or 0)
+        for r in sorted(inv_q, key=lambda r: r.currency or "")
+        if r.total
+    ]
+
+    bank_q = (
+        db.query(
+            BankTransaction.currency,
+            func.count(BankTransaction.id).label("cnt"),
+            func.sum(BankTransaction.amount).label("total"),
+        )
+        .join(Supplier, BankTransaction.supplier_id == Supplier.id)
+        .filter(~Supplier.id.in_(excluded))
+        .group_by(BankTransaction.currency)
+        .all()
+    )
+    bank_count = sum(r.cnt for r in bank_q)
+    bank_totals = [
+        AmountByCurrency(currency=r.currency, total=r.total or 0)
+        for r in sorted(bank_q, key=lambda r: r.currency)
+        if r.total
+    ]
+
+    return SupplierSummary(
+        supplier_count=supplier_count,
+        invoice_count=invoice_count,
+        unpaid_count=unpaid_count,
+        bank_count=bank_count,
+        invoice_totals=invoice_totals,
+        bank_totals=bank_totals,
+    )
 
 
 def get_supplier(db: Session, supplier_id: int) -> Optional[SupplierDetail]:
@@ -201,7 +280,7 @@ def list_customers(db: Session) -> list[CustomerRow]:
         .all()
     }
 
-    customers = db.query(Customer).order_by(Customer.name).all()
+    customers = db.query(Customer).filter(~Customer.name.ilike("%graphtrek%")).order_by(Customer.name).all()
     return [
         CustomerRow(
             id=cust.id,

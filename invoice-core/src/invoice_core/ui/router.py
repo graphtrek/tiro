@@ -112,9 +112,10 @@ def invoice_file_pdf(file_id: int, db: Session = Depends(get_db)):
 @router.get("/suppliers")
 def suppliers_page(request: Request, db: Session = Depends(get_db)):
     rows = partner_service.list_suppliers(db)
+    summary = partner_service.get_supplier_summary(db)
     is_partial = request.headers.get("HX-Request") and not request.headers.get("HX-Boosted")
     template = "partials/supplier_table.html" if is_partial else "suppliers.html"
-    return _resp(request, template, db, rows=rows)
+    return _resp(request, template, db, rows=rows, summary=summary)
 
 
 @router.get("/suppliers/{supplier_id:int}")
@@ -170,6 +171,21 @@ def transaction_detail_partial(request: Request, transaction_id: int, db: Sessio
     if not tx:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
     return _resp(request, "partials/transaction_detail.html", db, tx=tx)
+
+
+# ── Dividend report ───────────────────────────────────────────────────────────
+
+@router.get("/dividend")
+def dividend_page(
+    request: Request,
+    year: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    from datetime import date
+    from invoice_core.services.dividend_service import calculate_dividend
+    effective_year = year or date.today().year
+    report = calculate_dividend(db, effective_year)
+    return _resp(request, "dividend.html", db, report=report, year=effective_year)
 
 
 # ── Sync ──────────────────────────────────────────────────────────────────────

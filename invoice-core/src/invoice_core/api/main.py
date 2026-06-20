@@ -154,6 +154,22 @@ def list_transactions(db: Session = Depends(get_db)):
     return db.query(BankTransaction).all()
 
 
+# ── Reports ───────────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/reports/dividend")
+def dividend_report(
+    year: Optional[int] = Query(None, description="Year (default: current year)"),
+    kiva_rate: float = Query(0.10, description="KIVA tax rate (default 0.10)"),
+    db: Session = Depends(get_db),
+):
+    import dataclasses
+    from datetime import date as _date
+    from invoice_core.services.dividend_service import calculate_dividend
+    effective_year = year or _date.today().year
+    report = calculate_dividend(db, effective_year, kiva_rate)
+    return dataclasses.asdict(report)
+
+
 def run_server():
     import uvicorn
     settings = get_settings()

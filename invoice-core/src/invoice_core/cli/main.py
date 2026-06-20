@@ -150,6 +150,55 @@ def report(
 
 
 @app.command()
+def dividend(
+    year: Optional[int] = typer.Option(None, "--year", help="Year (default: current year)"),
+    kiva_rate: float = typer.Option(0.10, "--kiva-rate", help="KIVA tax rate"),
+):
+    """Calculate KIVA-based dividend for the given year."""
+    from invoice_core.services.dividend_service import calculate_dividend
+    effective_year = year or date.today().year
+    db = SessionLocal()
+    try:
+        report = calculate_dividend(db, effective_year, kiva_rate)
+    finally:
+        db.close()
+
+    console.print(f"\n[bold]Osztalékszámítás — {effective_year}[/bold]\n")
+
+    summary = Table(show_header=False, show_lines=False, box=None)
+    summary.add_column("Tétel", style="bold")
+    summary.add_column("Összeg", justify="right")
+    summary.add_row("Bevétel (kimenő számlák nettó)", f"{report.revenue:>18,.0f} HUF".replace(",", " "))
+    summary.add_row("Kiadás (bejövő számlák nettó)", f"{report.expenses:>18,.0f} HUF".replace(",", " "))
+    summary.add_row("─" * 30, "─" * 22)
+    summary.add_row("Bruttó nyereség", f"{report.gross_profit:>18,.0f} HUF".replace(",", " "))
+    summary.add_row(f"KIVA ({int(report.kiva_rate * 100)}%)", f"{report.kiva_tax:>18,.0f} HUF".replace(",", " "))
+    summary.add_row("─" * 30, "─" * 22)
+    summary.add_row("[green]Nettó nyereség (kivehető osztalék)[/green]", f"[green]{report.net_profit:>18,.0f} HUF[/green]".replace(",", " "))
+    console.print(summary)
+
+    console.print(f"\n  Kimenő számlák száma: {report.invoice_count_out}")
+    console.print(f"  Bejövő számlák száma: {report.invoice_count_in}")
+
+    if report.monthly:
+        console.print(f"\n[bold]Havi bontás[/bold]\n")
+        monthly = Table(show_lines=False)
+        monthly.add_column("Hónap")
+        monthly.add_column("Bevétel", justify="right")
+        monthly.add_column("Kiadás", justify="right")
+        monthly.add_column("Nyereség", justify="right")
+        for row in report.monthly:
+            color = "green" if row.gross_profit >= 0 else "red"
+            monthly.add_row(
+                row.month,
+                f"{row.revenue:,.0f}".replace(",", " "),
+                f"{row.expenses:,.0f}".replace(",", " "),
+                f"[{color}]{row.gross_profit:,.0f}[/{color}]".replace(",", " "),
+            )
+        console.print(monthly)
+
+
+@app.command()
 def link(
     invoice_number: str = typer.Argument(help="Invoice number as stored in NAV (e.g. '87/2026')"),
     filename: str = typer.Argument(help="PDF filename as stored in invoice_file table (e.g. '2026-06-04_0020_GRAPHTREK_szamla.pdf')"),

@@ -76,6 +76,8 @@ def _norm_year_collapsed(inv_num_norm: str) -> Optional[str]:
 
 
 _STRIP_SEPS_RE = re.compile(r"[-_/#]")
+# Hungarian tax number (adószám): 8digits-1digit-2digits — appears in every invoice as buyer/seller; useless as payment ref
+_HU_TAX_NUMBER_RE = re.compile(r"^\d{8}-\d-\d{2}$")
 
 
 def _stripped_match(needle: str, haystack: str) -> bool:
@@ -577,7 +579,7 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
                 continue
 
         ref = (txn.payment_reference or "").strip()
-        if ref and any(ch.isdigit() for ch in ref):
+        if ref and any(ch.isdigit() for ch in ref) and not _HU_TAX_NUMBER_RE.match(ref):
             norm_ref = _norm(ref)
             subtokens = [
                 p for p in norm_ref.split()
