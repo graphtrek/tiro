@@ -48,3 +48,26 @@ main {
 .table-sm td, .table-sm th {
     font-size: 0.875rem;
 }
+
+/* HTMX loading indicator */
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
+
+/* Progress bar min width */
+.progress {
+    min-width: 80px;
+}
+
+/* Allow word-wrap in DataTables cells that have .text-wrap.
+   overflow-wrap:anywhere also breaks long unbreakable monospace strings
+   (transaction IDs, PDF filenames) so the table never overflows the page. */
+table.dataTable tbody td.text-wrap {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+}

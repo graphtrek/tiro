@@ -14,9 +14,10 @@ This is a multi-project `uv`-based Python workspace. **Each sub-project has its 
 | `nav-invoice/` | NAV Online Számla 3.0 REST/XML client (FastAPI + CLI), port 8002 |
 | `attachment-downloader/` | Gmail PDF attachment downloader (FastAPI + CLI), port 8000 |
 | `invoice-file-filter/` | PDF text extraction + invoice filtering (FastAPI + CLI), port 8001 |
-| `invoice-core/` | Master orchestrator — PostgreSQL persistence + web UI (FastAPI + CLI), port 8004 |
+| `invoice-core/` | Master orchestrator — PostgreSQL persistence, pure JSON REST backend (FastAPI + CLI), port 8004 |
 | `wise/` | Wise bank-statement download/sync (FastAPI + CLI), port 8003 — **on hold** (no Wise partner program; use `bank/` instead) |
 | `bank/` | Consolidated bank statement service — Erste + Wise CSV, port 8005 |
+| `vision/` | Frontend — serves all web UI by consuming invoice-core REST API + SrcProfit (FastAPI), port 8009 |
 
 Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs), `.env.example` (Scaleway inference defaults: `SCALEWAY_BASE_URL`, `SCALEWAY_API_KEY`), `AGENTS.md`, this file.
 
@@ -144,7 +145,7 @@ uv run pytest tests/ -v
 
 ## invoice-core — master orchestrator
 
-Orchestrates the full pipeline: fetches NAV invoices, PDF files, bank transactions, reconciles everything, and persists to PostgreSQL. Includes a full web UI (HTMX + Bootstrap + DataTables) at `/ui/`. `requires-python >=3.11`.
+Orchestrates the full pipeline: fetches NAV invoices, PDF files, bank transactions, reconciles everything, and persists to PostgreSQL. Pure **JSON REST backend** — the web UI lives in `vision/`. `requires-python >=3.11`.
 
 ### Running
 
@@ -153,7 +154,7 @@ cd invoice-core
 uv sync
 uv run alembic upgrade head   # apply DB migrations (first time + after updates)
 
-# REST API + UI (port 8004)
+# REST API (port 8004)
 python run_api.py
 # or: uv run uvicorn invoice_core.api.main:app --host 0.0.0.0 --port 8004 --reload
 
@@ -170,9 +171,9 @@ uv run pytest tests/ -v
 ```
 
 ### Architecture
-- `src/invoice_core/` — `api/main.py` (FastAPI REST), `ui/router.py` (HTMX UI at `/ui/`), `services/` (dashboard, invoice, partner, transaction, invoice_file, dividend, tax), `templates/` (Jinja2), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`.
+- `src/invoice_core/` — `api/main.py` (FastAPI REST, CORS for vision), `services/` (dashboard, invoice, partner, transaction, invoice_file, dividend, tax), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`.
 - DB: PostgreSQL in production, SQLite in-memory for tests. Migrations via Alembic.
-- **Web UI pages**: Dashboard · Számlák · Szla Fájlok · Szállítók · Vevők · Bank · Osztalék (`/ui/dividend`, annual dividend/KIVA/SZJA calculation) · **Adók** (`/ui/adok`, tax payments filtered by NAV/HIPA/Iparkamara account numbers, monthly pivot table with per-type Bootstrap colour coding) · Sync.
+- **REST API endpoints**: `/api/v1/dashboard` · `/api/v1/invoices` (with `has_pdf`, `supplier_name` filters) · `/api/v1/invoice-files` + PDF serve · supplier/customer detail · transaction detail + balances · `/api/v1/sync/logs` · `/api/v1/reports/tax` + dividend.
 
 ### Sync pipeline and linking logic
 1. **sync_nav** — upserts NAV invoices, suppliers, customers.
@@ -182,6 +183,32 @@ uv run pytest tests/ -v
 
 ### Environment
 `DB_URL` (JDBC format, auto-converted), `DB_USER`, `DB_PWD`, `NAV_INVOICE_URL` (`:8002`), `INVOICE_FILE_FILTER_URL` (`:8001`), `BANK_URL` (`:8005`), `SYNC_TIMEOUT`, `API_HOST`/`API_PORT` (8004), `LOG_LEVEL`.
+
+## vision — frontend
+
+Serves all web UI for the Moneypenny system by consuming the `invoice-core` REST API (port 8004) and `SrcProfit` (IBKR). No database. `requires-python >=3.11`.
+
+### Running
+
+```bash
+cd vision
+uv sync
+
+# REST API + UI (port 8009)
+python run_api.py
+# or: uv run uvicorn vision.api.main:app --host 0.0.0.0 --port 8009 --reload
+
+# Tests
+uv run pytest tests/ -v
+```
+
+### Architecture
+- `src/vision/` — `api/main.py` (FastAPI), `ui/router.py` (vision-only pages: `/`, `/pitch`, `/dashboard`), `ui/invoice_router.py` (all `/ui/*` routes — mirrors invoice-core's former UI), `ui/utils.py` (`dict_to_ns()` — converts API JSON dicts to `SimpleNamespace` with datetime parsing), `clients/invoice_core.py` (full REST client for invoice-core), `clients/srcprofit.py` (IBKR aggregator), `services/dashboard_service.py`, `templates/` (Jinja2 — Bootstrap Yeti + HTMX + DataTables), `static/`.
+- **Web UI pages** (all `/ui/*`): Dashboard · Számlák · Szla Fájlok · Szállítók · Vevők · Bank · Osztalék · Adók · Sync. Plus vision-specific pages: `/dashboard` (Chart.js portfolio) · `/pitch`.
+- PDF files are served by invoice-core at `/api/v1/invoice-files/{id}/pdf`; vision redirects to that URL.
+
+### Environment
+`INVOICE_CORE_URL` (`:8004`), `SRCPROFIT_URL`, `SRCPROFIT_USER`, `SRCPROFIT_PASSWORD`, `API_HOST`/`API_PORT` (8009), `LOG_LEVEL`, `REQUEST_TIMEOUT`.
 
 ## wise — Wise bank-statement service
 

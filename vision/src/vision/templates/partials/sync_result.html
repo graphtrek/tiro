@@ -1,0 +1,49 @@
+<div id="sync-result">
+  {% if result %}
+    {% set error_count = result.errors | length %}
+    <div class="card border-{% if error_count > 0 %}warning{% else %}success{% endif %} shadow-sm mt-3">
+      <div class="card-header d-flex align-items-center gap-2">
+        {% if error_count > 0 %}
+          <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+          <strong>Sync befejezve — {{ error_count }} hiba</strong>
+        {% else %}
+          <i class="bi bi-check-circle-fill text-success"></i>
+          <strong>Sync sikeres</strong>
+        {% endif %}
+        {% if duration_s is not none %}
+          <span class="ms-auto text-muted small">{{ "%.1f"|format(duration_s) }}s</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="row row-cols-2 row-cols-md-4 g-3">
+          <div class="col text-center">
+            <div class="fw-bold fs-4">{{ result.nav_invoices_synced }}</div>
+            <div class="text-muted small">NAV számla</div>
+          </div>
+          <div class="col text-center">
+            <div class="fw-bold fs-4">{{ result.pdf_files_synced }}</div>
+            <div class="text-muted small">PDF fájl</div>
+          </div>
+          <div class="col text-center">
+            <div class="fw-bold fs-4">{{ result.bank_transactions_synced }}</div>
+            <div class="text-muted small">Bank tranzakció</div>
+          </div>
+          <div class="col text-center">
+            <div class="fw-bold fs-4">{{ result.bank_files_matched }}</div>
+            <div class="text-muted small">PDF összekapcsolva</div>
+          </div>
+        </div>
+        {% if result.errors %}
+        <hr>
+        <ul class="mb-0">
+          {% for err in result.errors %}
+            <li class="text-danger small">{{ err }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+<!-- OOB swap: frissíti a sidebar számláló badge-et -->
+<span id="invoice-count-badge" hx-swap-oob="true">{{ invoice_count }}</span>

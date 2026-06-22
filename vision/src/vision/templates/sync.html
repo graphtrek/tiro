@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Sync — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item active">Sync</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4"><i class="bi bi-arrow-repeat me-2"></i>Szinkronizálás</h1>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-header"><strong>Sync indítása</strong></div>
+      <div class="card-body">
+        <form hx-post="/ui/sync/trigger"
+              hx-target="#sync-result"
+              hx-indicator="#sync-spinner"
+              hx-swap="innerHTML"
+              hx-disabled-elt="find button[type=submit]">
+
+          <div class="mb-3">
+            <label class="form-label">Dátumtól</label>
+            <input type="date" name="date_from" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Dátumig</label>
+            <input type="date" name="date_to" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Sync mód</label>
+            <div class="d-flex flex-column gap-1">
+              {% for mode, label in [
+                ('full', 'Teljes (NAV + PDF + Bank + összekapcsolás)'),
+                ('nav_only', 'Csak NAV számlák'),
+                ('pdf_only', 'Csak PDF fájlok'),
+                ('bank_only', 'Csak bank tranzakciók (Erste + Wise CSV)'),
+                ('match_only', 'Csak összekapcsolás'),
+              ] %}
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="sync_mode" value="{{ mode }}"
+                       id="mode_{{ mode }}" {% if mode == 'full' %}checked{% endif %}>
+                <label class="form-check-label" for="mode_{{ mode }}">{{ label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-arrow-repeat me-1"></i>Sync indítása
+          </button>
+        </form>
+
+        <div id="sync-spinner" class="htmx-indicator my-3 text-center">
+          <div class="spinner-border text-primary" role="status"></div>
+          <div class="mt-2 text-muted">Szinkronizálás folyamatban...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <div id="sync-result"></div>
+
+    <!-- Sync napló -->
+    {% if sync_logs %}
+    <div class="card shadow-sm mt-3">
+      <div class="card-header"><strong>Sync napló (utolsó {{ sync_logs | length }} futás)</strong></div>
+      <div class="card-body p-0">
+        <div class="accordion accordion-flush" id="syncLogAccordion">
+          {% for log in sync_logs %}
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed py-2" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#log-{{ log.id }}">
+                <span class="me-2 text-muted small">{{ log.started_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                {% if log.error_count > 0 %}
+                  <span class="badge bg-warning text-dark me-1">{{ log.error_count }} hiba</span>
+                {% else %}
+                  <span class="badge bg-success me-1">OK</span>
+                {% endif %}
+                <span class="badge bg-secondary me-1">{{ log.mode or 'full' }}</span>
+                <span class="text-muted small ms-auto">{{ log.invoice_count }}i / {{ log.bank_count }}b</span>
+              </button>
+            </h2>
+            <div id="log-{{ log.id }}" class="accordion-collapse collapse" data-bs-parent="#syncLogAccordion">
+              <div class="accordion-body py-2">
+                <div class="row g-2">
+                  <div class="col-6"><small class="text-muted">NAV számla:</small> {{ log.invoice_count }}</div>
+                  <div class="col-6"><small class="text-muted">Bank:</small> {{ log.bank_count }}</div>
+                  {% if log.duration_s is not none %}
+                  <div class="col-6"><small class="text-muted">Időtartam:</small> {{ "%.1f"|format(log.duration_s) }}s</div>
+                  {% endif %}
+                  {% if log.finished_at %}
+                  <div class="col-6"><small class="text-muted">Befejezve:</small> {{ log.finished_at.strftime('%H:%M:%S') }}</div>
+                  {% endif %}
+                </div>
+                {% if log.errors %}
+                  <div class="mt-2 text-danger small">{{ log.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function initSyncAccordion() {
+    document.querySelectorAll('#syncLogAccordion .accordion-collapse').forEach(function(el) {
+        if (!bootstrap.Collapse.getInstance(el)) {
+            new bootstrap.Collapse(el, { toggle: false });
+        }
+    });
+}
+document.addEventListener('DOMContentLoaded', initSyncAccordion);
+document.addEventListener('htmx:afterSettle', initSyncAccordion);
+</script>
+{% endblock %}

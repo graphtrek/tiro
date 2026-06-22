@@ -2,13 +2,15 @@
 title: "Specifikáció: Invoice-Core Felhasználói Felület"
 description: "HTMX/Jinja2/Bootstrap/DataTables alapú könyvelési áttekintő felület — shared service layer architektúrával"
 language: "HU"
-last_updated: "2026-06-17"
-related: [invoice-core-ui-prompt.md, invoice-core-spec.md, wise-spec.md, invoice-file-filter-spec.md]
+last_updated: "2026-06-22"
+related: [invoice-core-ui-prompt.md, invoice-core-spec.md, vision-spec.md, invoice-file-filter-spec.md]
 ---
 
 # Invoice-Core Felhasználói Felület — Specifikáció
 
-> 🔗 **Kapcsolódás**: [[invoice-core-spec.md|Invoice-Core Spec]] — ez a UI ugyanabba a FastAPI alkalmazásba épül be
+> ⚠️ **Architektúra-váltás (2026-06-22)**: Az invoice-core UI **átköltözött a [[vision-spec.md|vision]] (port 8009) szervizbe**. Az invoice-core mostantól tiszta JSON REST backend — nem kezel Jinja2 sablonokat, statikus fájlokat vagy `/ui/` routert. Ez a spec a UI eredeti tervét dokumentálja; az aktuális implementációt a [[vision-spec.md|Vision Spec]] írja le.
+
+> 🔗 **Kapcsolódás**: [[invoice-core-spec.md|Invoice-Core Spec]] | [[vision-spec.md|Vision Frontend Spec]]
 
 ---
 

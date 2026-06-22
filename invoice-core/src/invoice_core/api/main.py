@@ -2,37 +2,42 @@
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import time
+from datetime import date as _date
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from invoice_core.config import configure_logging, get_settings
-from invoice_core.db import BankTransaction, Customer, Invoice, Supplier, get_db, invoice_has_bank_txn
+from invoice_core.db import Customer, Invoice, InvoiceFile, Supplier, get_db
 from invoice_core.models import (
-    BankTransactionOut,
     CustomerOut,
-    InvoiceDirection,
     InvoiceOut,
-    PaymentStatus,
     SupplierOut,
     SyncMode,
     SyncRequest,
     SyncResponse,
 )
 from invoice_core.service import sync_all
-from invoice_core.ui.router import router as ui_router
+from invoice_core.services import (
+    dashboard_service,
+    invoice_file_service,
+    invoice_service,
+    partner_service,
+    transaction_service,
+)
 
 _settings = get_settings()
 configure_logging(_settings.log_level)
 logger = logging.getLogger(__name__)
-
-_STATIC_DIR = Path(__file__).parent.parent / "static"
 
 app = FastAPI(
     title="Invoice Core",
@@ -40,8 +45,12 @@ app = FastAPI(
     version="0.1.0",
 )
 
-app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
-app.include_router(ui_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8009"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
@@ -92,43 +101,65 @@ def match_sync(request: SyncRequest, db: Session = Depends(get_db)):
     return sync_all(request, db)
 
 
-# ── Query endpoints ───────────────────────────────────────────────────────────
-
-@app.get("/api/v1/invoices", response_model=List[InvoiceOut])
-def list_invoices(
-    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    date_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    status: Optional[PaymentStatus] = Query(None),
-    direction: Optional[InvoiceDirection] = Query(None),
+@app.get("/api/v1/sync/logs")
+def sync_logs(
+    limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    from sqlalchemy import or_
+    logs = dashboard_service.get_sync_logs(db, limit=limit)
+    return [dataclasses.asdict(log) for log in logs]
 
-    from invoice_core.db import _InvoiceDirection, _PaymentStatus
-    q = db.query(Invoice)
-    if date_from:
-        q = q.filter(Invoice.invoice_date >= date_from)
-    if date_to:
-        q = q.filter(Invoice.invoice_date <= date_to)
-    if status == PaymentStatus.PAID:
-        q = q.filter(or_(Invoice.payment_status == _PaymentStatus.PAID, invoice_has_bank_txn()))
-    elif status:
-        q = q.filter(Invoice.payment_status == _PaymentStatus[status.value], ~invoice_has_bank_txn())
-    if direction:
-        q = q.filter(Invoice.direction == _InvoiceDirection[direction.value])
 
-    invoices = q.all()
-    paid_via_bank = {
-        r[0]
-        for r in db.query(BankTransaction.invoice_id)
-        .filter(BankTransaction.invoice_id.isnot(None))
-        .distinct()
+# ── Dashboard endpoint ────────────────────────────────────────────────────────
+
+@app.get("/api/v1/dashboard")
+def dashboard(db: Session = Depends(get_db)):
+    return {
+        "kpis": dataclasses.asdict(dashboard_service.get_kpis(db)),
+        "recent_invoices": [dataclasses.asdict(r) for r in dashboard_service.get_recent_invoices(db)],
+        "recent_transactions": [dataclasses.asdict(r) for r in dashboard_service.get_recent_transactions(db)],
+        "last_sync": dataclasses.asdict(dashboard_service.get_last_sync(db)) if dashboard_service.get_last_sync(db) else None,
+        "top_suppliers": [dataclasses.asdict(r) for r in dashboard_service.get_top_suppliers(db)],
     }
-    from invoice_core.db import _PaymentStatus
-    for inv in invoices:
-        if inv.id in paid_via_bank:
-            inv.payment_status = _PaymentStatus.PAID
-    return invoices
+
+
+# ── Invoice endpoints ─────────────────────────────────────────────────────────
+
+@app.get("/api/v1/invoices/count")
+def invoice_count(db: Session = Depends(get_db)):
+    count = db.query(func.count(Invoice.id)).scalar() or 0
+    return {"count": count}
+
+
+@app.get("/api/v1/invoices")
+def list_invoices(
+    date_from: Optional[_date] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[_date] = Query(None, description="YYYY-MM-DD"),
+    status: Optional[str] = Query(None, description="PAID | UNPAID | PARTIAL"),
+    direction: Optional[str] = Query(None, description="INBOUND | OUTBOUND"),
+    has_pdf: Optional[str] = Query(None, description="true | false"),
+    supplier_name: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    rows = invoice_service.list_invoices(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        payment_status=status,
+        has_pdf=has_pdf,
+        supplier_name=supplier_name,
+    )
+    if direction:
+        rows = [r for r in rows if r.direction == direction]
+    return [dataclasses.asdict(r) for r in rows]
+
+
+@app.get("/api/v1/invoices/{invoice_id:int}")
+def get_invoice_by_id(invoice_id: int, db: Session = Depends(get_db)):
+    inv = invoice_service.get_invoice(db, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    return dataclasses.asdict(inv)
 
 
 @app.get("/api/v1/invoices/{invoice_number}", response_model=InvoiceOut)
@@ -139,22 +170,100 @@ def get_invoice(invoice_number: str, db: Session = Depends(get_db)):
     return inv
 
 
-@app.get("/api/v1/partners/suppliers", response_model=List[SupplierOut])
+# ── Invoice file endpoints ────────────────────────────────────────────────────
+
+@app.get("/api/v1/invoice-files")
+def list_invoice_files(
+    linked: Optional[str] = Query(None, description="yes | no"),
+    db: Session = Depends(get_db),
+):
+    rows = invoice_file_service.list_invoice_files(db, linked=linked)
+    return [dataclasses.asdict(r) for r in rows]
+
+
+@app.get("/api/v1/invoice-files/{file_id:int}/pdf")
+def invoice_file_pdf(file_id: int, db: Session = Depends(get_db)):
+    f = db.get(InvoiceFile, file_id)
+    if not f or not f.path:
+        raise HTTPException(status_code=404, detail="PDF nem található")
+    p = Path(f.path)
+    if not p.is_file():
+        raise HTTPException(status_code=404, detail="PDF fájl nem elérhető")
+    return FileResponse(p, media_type="application/pdf", content_disposition_type="inline")
+
+
+# ── Partner endpoints ─────────────────────────────────────────────────────────
+
+@app.get("/api/v1/partners/suppliers/summary")
+def supplier_summary(db: Session = Depends(get_db)):
+    return dataclasses.asdict(partner_service.get_supplier_summary(db))
+
+
+@app.get("/api/v1/partners/suppliers")
 def list_suppliers(db: Session = Depends(get_db)):
-    return db.query(Supplier).all()
+    return [dataclasses.asdict(r) for r in partner_service.list_suppliers(db)]
 
 
-@app.get("/api/v1/partners/customers", response_model=List[CustomerOut])
+@app.get("/api/v1/partners/suppliers/{supplier_id:int}")
+def get_supplier(supplier_id: int, db: Session = Depends(get_db)):
+    supplier = partner_service.get_supplier(db, supplier_id)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    return dataclasses.asdict(supplier)
+
+
+@app.get("/api/v1/partners/customers")
 def list_customers(db: Session = Depends(get_db)):
-    return db.query(Customer).all()
+    return [dataclasses.asdict(r) for r in partner_service.list_customers(db)]
 
 
-@app.get("/api/v1/transactions", response_model=List[BankTransactionOut])
-def list_transactions(db: Session = Depends(get_db)):
-    return db.query(BankTransaction).all()
+@app.get("/api/v1/partners/customers/{customer_id:int}")
+def get_customer(customer_id: int, db: Session = Depends(get_db)):
+    customer = partner_service.get_customer(db, customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return dataclasses.asdict(customer)
 
 
-# ── Reports ───────────────────────────────────────────────────────────────────
+# ── Transaction endpoints ─────────────────────────────────────────────────────
+
+@app.get("/api/v1/transactions/balances")
+def transaction_balances(db: Session = Depends(get_db)):
+    balances = transaction_service.get_bank_balances(db)
+    return [dataclasses.asdict(b) for b in balances]
+
+
+@app.get("/api/v1/transactions")
+def list_transactions(
+    date_from: Optional[_date] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[_date] = Query(None, description="YYYY-MM-DD"),
+    linked: Optional[str] = Query(None, description="yes | no"),
+    partner_name: Optional[str] = Query(None),
+    amount_min: Optional[float] = Query(None),
+    amount_max: Optional[float] = Query(None),
+    db: Session = Depends(get_db),
+):
+    rows = transaction_service.list_transactions(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        linked=linked,
+        partner_name=partner_name,
+        amount_min=amount_min,
+        amount_max=amount_max,
+    )
+    return [dataclasses.asdict(r) for r in rows]
+
+
+@app.get("/api/v1/transactions/{transaction_id:int}")
+def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
+    tx = transaction_service.get_transaction(db, transaction_id)
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return dataclasses.asdict(tx)
+
+
+# ── Report endpoints ──────────────────────────────────────────────────────────
 
 @app.get("/api/v1/reports/dividend")
 def dividend_report(
@@ -162,11 +271,20 @@ def dividend_report(
     kiva_rate: float = Query(0.10, description="KIVA tax rate (default 0.10)"),
     db: Session = Depends(get_db),
 ):
-    import dataclasses
-    from datetime import date as _date
     from invoice_core.services.dividend_service import calculate_dividend
     effective_year = year or _date.today().year
     report = calculate_dividend(db, effective_year, kiva_rate)
+    return dataclasses.asdict(report)
+
+
+@app.get("/api/v1/reports/tax")
+def tax_report(
+    year: Optional[int] = Query(None, description="Year (default: current year)"),
+    db: Session = Depends(get_db),
+):
+    from invoice_core.services.tax_service import get_tax_report
+    effective_year = year or _date.today().year
+    report = get_tax_report(db, effective_year)
     return dataclasses.asdict(report)
 
 

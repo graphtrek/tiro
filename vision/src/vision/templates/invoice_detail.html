@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% from "_macros.html" import payment_badge, direction_badge, amount_fmt %}
+{% block title %}{{ invoice.invoice_number }} — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="/ui/invoices">Számlák</a></li>
+    <li class="breadcrumb-item active">{{ invoice.invoice_number }}</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4">
+  <i class="bi bi-file-earmark-text me-2"></i>{{ invoice.invoice_number }}
+</h1>
+
+<div class="row g-4 mb-4">
+  <!-- Bal: számla adatok -->
+  <div class="col-12 col-lg-7">
+    <div class="card shadow-sm h-100">
+      <div class="card-header"><strong>Számla adatok</strong></div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Számlaszám</dt>
+          <dd class="col-sm-8 font-monospace">{{ invoice.invoice_number }}</dd>
+
+          <dt class="col-sm-4">Dátum</dt>
+          <dd class="col-sm-8">{{ invoice.invoice_date or '—' }}</dd>
+
+          <dt class="col-sm-4">Deviza</dt>
+          <dd class="col-sm-8">{{ invoice.currency or 'HUF' }}</dd>
+
+          {% if invoice.invoice_operation %}
+          <dt class="col-sm-4">NAV művelet</dt>
+          <dd class="col-sm-8 text-muted">{{ invoice.invoice_operation }}</dd>
+          {% endif %}
+
+          {% if invoice.invoice_category %}
+          <dt class="col-sm-4">Számla típus</dt>
+          <dd class="col-sm-8 text-muted">{{ invoice.invoice_category }}</dd>
+          {% endif %}
+
+          <dt class="col-sm-4">NAV beérkezés</dt>
+          <dd class="col-sm-8 text-muted">{{ invoice.nav_ins_date or '—' }}</dd>
+
+          <dt class="col-sm-4">Státusz</dt>
+          <dd class="col-sm-8">{{ payment_badge(invoice.payment_status) }}</dd>
+
+          <dt class="col-sm-4">Irány</dt>
+          <dd class="col-sm-8">{{ direction_badge(invoice.direction) }}</dd>
+        </dl>
+        <hr>
+        <table class="table table-sm mb-0">
+          <tbody>
+            <tr><td>Nettó</td><td class="text-end">{{ amount_fmt(invoice.amount_net) }}</td></tr>
+            <tr><td>ÁFA</td><td class="text-end">{{ amount_fmt(invoice.amount_vat) }}</td></tr>
+            <tr class="table-light fw-bold"><td>Bruttó</td><td class="text-end">{{ amount_fmt(invoice.amount_total) }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jobb: szállító + vevő -->
+  <div class="col-12 col-lg-5">
+    <div class="row g-3 h-100">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header">
+            <i class="bi bi-building me-1"></i><strong>Szállító</strong>
+          </div>
+          <div class="card-body">
+            <a href="/ui/suppliers/{{ invoice.supplier_id }}" class="fw-bold fs-5 text-decoration-none">
+              {{ invoice.supplier_name }}
+            </a>
+            {% if invoice.supplier_tax_id %}
+              <div class="text-muted small mt-1">Adószám: {{ invoice.supplier_tax_id }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header">
+            <i class="bi bi-person me-1"></i><strong>Vevő</strong>
+          </div>
+          <div class="card-body">
+            <a href="/ui/customers/{{ invoice.customer_id }}" class="fw-bold fs-5 text-decoration-none">
+              {{ invoice.customer_name }}
+            </a>
+            {% if invoice.customer_tax_id %}
+              <div class="text-muted small mt-1">Adószám: {{ invoice.customer_tax_id }}</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PDF szekció -->
+{% if invoice.invoice_file_id %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header">
+    <i class="bi bi-file-earmark-pdf me-1 text-danger"></i><strong>Kapcsolt PDF</strong>
+  </div>
+  <div class="card-body">
+    <a href="/ui/invoice-files/{{ invoice.invoice_file_id }}/pdf" target="_blank" class="font-monospace">
+      <i class="bi bi-box-arrow-up-right me-1"></i>{{ invoice.invoice_file_filename or ('file_id: ' ~ invoice.invoice_file_id) }}
+    </a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Bank tranzakciók -->
+{% if invoice.bank_transactions %}
+<div class="mb-2">
+  <h5 class="mb-3">
+    <i class="bi bi-bank me-1 text-info"></i>Bank tranzakciók ({{ invoice.bank_transactions | length }})
+  </h5>
+</div>
+{% for t in invoice.bank_transactions %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="font-monospace small">{{ t.bank | upper }}: {{ t.transaction_id }}</span>
+    <span class="fw-bold">{{ amount_fmt(t.amount, t.currency) }}</span>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <!-- Alapadatok -->
+      <div class="col-12 col-md-6">
+        <dl class="row mb-0 small">
+          <dt class="col-5 text-muted">Dátum</dt>
+          <dd class="col-7">{{ t.transaction_date.strftime('%Y-%m-%d %H:%M') if t.transaction_date else '—' }}</dd>
+
+          <dt class="col-5 text-muted">Összeg</dt>
+          <dd class="col-7 fw-bold">{{ amount_fmt(t.amount, t.currency) }}</dd>
+
+          <dt class="col-5 text-muted">Irány</dt>
+          <dd class="col-7">
+            {% if t.direction == 'CREDIT' %}<span class="badge bg-success">CREDIT</span>
+            {% else %}<span class="badge bg-danger">DEBIT</span>{% endif %}
+          </dd>
+
+          <dt class="col-5 text-muted">Egyenleg</dt>
+          <dd class="col-7">{{ amount_fmt(t.balance, t.currency) if t.balance is not none else '—' }}</dd>
+
+          <dt class="col-5 text-muted">Leírás</dt>
+          <dd class="col-7">{{ t.description or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Referencia</dt>
+          <dd class="col-7">{{ t.payment_reference or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Típus</dt>
+          <dd class="col-7">{{ t.transaction_type or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Kategória</dt>
+          <dd class="col-7">{{ t.category or '—' }}</dd>
+
+          {% if t.fees %}
+          <dt class="col-5 text-muted">Díjak összesen</dt>
+          <dd class="col-7">{{ amount_fmt(t.fees, t.currency) }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+
+      <!-- Partner -->
+      <div class="col-12 col-md-6">
+        <dl class="row mb-0 small">
+          <dt class="col-5 text-muted">Partner neve</dt>
+          <dd class="col-7">{{ t.partner_name or '—' }}</dd>
+
+          <dt class="col-5 text-muted">Számlaszám</dt>
+          <dd class="col-7 font-monospace">{{ t.counterparty_account or '—' }}</dd>
+
+          <dt class="col-5 text-muted">IBAN</dt>
+          <dd class="col-7 font-monospace">{{ t.counterparty_iban or '—' }}</dd>
+        </dl>
+      </div>
+
+      <!-- PDF kapcsolat -->
+      {% if t.invoice_file_id %}
+      <div class="col-12">
+        <dl class="row mb-0 small">
+          <dt class="col-sm-2 text-muted">PDF fájl</dt>
+          <dd class="col-sm-10">
+            <a href="/ui/invoice-files/{{ t.invoice_file_id }}/pdf" target="_blank" class="font-monospace">
+              <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ t.invoice_file_filename or t.invoice_file_id }}
+            </a>
+          </dd>
+        </dl>
+      </div>
+      {% endif %}
+
+      <div class="col-12">
+        <dl class="row mb-0 small text-muted">
+          <dt class="col-sm-2">Létrehozva</dt>
+          <dd class="col-sm-4">{{ t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '—' }}</dd>
+          <dt class="col-sm-2">Módosítva</dt>
+          <dd class="col-sm-4">{{ t.updated_at.strftime('%Y-%m-%d %H:%M') if t.updated_at else '—' }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}{% endblock %}

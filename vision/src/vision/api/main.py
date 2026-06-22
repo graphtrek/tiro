@@ -8,10 +8,10 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from vision.config import configure_logging, get_settings
+from vision.ui.invoice_router import router as invoice_ui_router
 from vision.ui.router import router as ui_router
 
 _settings = get_settings()
@@ -28,6 +28,7 @@ app = FastAPI(
 
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 app.include_router(ui_router)
+app.include_router(invoice_ui_router)
 
 
 @app.middleware("http")
@@ -47,6 +48,3 @@ def health_check():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
 
-@app.get("/ui/")
-def ui_redirect():
-    return RedirectResponse(url="/dashboard")

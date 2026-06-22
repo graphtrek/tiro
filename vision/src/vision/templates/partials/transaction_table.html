@@ -1,0 +1,174 @@
+{% from "_macros.html" import amount_fmt %}
+
+<div id="tx-summary" class="row g-2 mb-3">
+  <div class="col-auto">
+    <div class="card border-success">
+      <div class="card-body py-2 px-3">
+        <small class="d-block text-muted">CREDIT</small>
+        <span id="tx-sum-credit" class="fw-bold text-success">—</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-auto">
+    <div class="card border-danger">
+      <div class="card-body py-2 px-3">
+        <small class="d-block text-muted">DEBIT</small>
+        <span id="tx-sum-debit" class="fw-bold text-danger">—</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-auto">
+    <div class="card border-secondary">
+      <div class="card-body py-2 px-3">
+        <small class="d-block text-muted">Nettó</small>
+        <span id="tx-sum-net" class="fw-bold">—</span>
+      </div>
+    </div>
+  </div>
+  {% if bank_balances %}
+  {%- set total_balance = bank_balances | sum(attribute='balance') %}
+  {%- set currency = bank_balances[0].currency %}
+  <div class="col-auto">
+    <div class="card border-info">
+      <div class="card-body py-2 px-3">
+        <small class="d-block text-muted">Bank egyenleg</small>
+        <span class="fw-bold {% if total_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+          {{ amount_fmt(total_balance, currency) }}
+        </span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<table id="transaction-table" class="table table-hover table-sm nowrap" style="width:100%">
+  <thead class="table-dark">
+    <tr>
+      <th>Tranzakció ID</th>
+      <th>Dátum</th>
+      <th class="text-end">Összeg</th>
+      <th>D/C</th>
+      <th>Kapcsolt számla</th>
+      <th>PDF</th>
+      <th>Leírás</th>
+      <th>Referencia</th>
+      <th>Partner</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr style="cursor:pointer" data-tx-id="{{ row.id }}"
+        data-amount="{{ row.amount | abs }}"
+        data-direction="{{ row.direction or '' }}"
+        data-currency="{{ row.currency or '' }}">
+      <td><small class="text-muted font-monospace">{{ row.bank }}: {{ row.transaction_id }}</small></td>
+      <td>{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
+      <td class="text-end">
+        {%- if row.fees -%}
+          {%- set sign = -1 if row.amount < 0 else 1 -%}
+          {{- amount_fmt(sign * ((row.amount | abs) - (row.fees | abs)), row.currency) -}}
+        {%- else -%}
+          {{- amount_fmt(row.amount, row.currency) -}}
+        {%- endif -%}
+      </td>
+      <td>
+        {%- if row.direction == 'CREDIT' -%}
+          <span class="badge text-bg-success">CREDIT</span>
+        {%- elif row.direction == 'DEBIT' -%}
+          <span class="badge text-bg-danger">DEBIT</span>
+        {%- else -%}
+          <span class="text-muted">—</span>
+        {%- endif -%}
+      </td>
+      <td>
+        {% if row.invoice_id and row.invoice_number %}
+          <a href="/ui/invoices/{{ row.invoice_id }}">{{ row.invoice_number }}</a>
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if row.invoice_file_id and row.invoice_file_filename %}
+          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}">
+            <i class="bi bi-file-earmark-pdf text-danger"></i>
+            <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
+          </a>
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td>{{ row.description or '—' }}</td>
+      <td>{{ row.payment_reference or '—' }}</td>
+      <td>{{ row.partner_name or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="text-center text-muted">Nincs találat</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+  (function() {
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable("#transaction-table")) {
+      $("#transaction-table").DataTable().destroy();
+    }
+    const dt = new DataTable("#transaction-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50, 100],
+      order: [[1, "desc"]],
+      scrollX: true,
+      autoWidth: false,
+      columnDefs: [
+        { targets: [2], className: "text-end" },
+        { targets: [5], orderable: false },
+      ],
+    });
+
+    function updateSummary() {
+      const byCurrency = {};
+      dt.rows({ filter: "applied", page: "all" }).nodes().each(function(node) {
+        const dir = node.dataset.direction;
+        const amt = parseFloat(node.dataset.amount) || 0;
+        const cur = node.dataset.currency || "?";
+        if (!byCurrency[cur]) byCurrency[cur] = { credit: 0, debit: 0 };
+        if (dir === "CREDIT") byCurrency[cur].credit += amt;
+        else if (dir === "DEBIT") byCurrency[cur].debit += amt;
+      });
+
+      const fmt = (n, cur) =>
+        n.toLocaleString("hu-HU", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " " + cur;
+
+      const currencies = Object.keys(byCurrency).sort();
+      const creditEl = document.getElementById("tx-sum-credit");
+      const debitEl  = document.getElementById("tx-sum-debit");
+      const netEl    = document.getElementById("tx-sum-net");
+
+      creditEl.textContent = currencies.map(c => fmt(byCurrency[c].credit, c)).join(" / ") || "—";
+      debitEl.textContent  = currencies.map(c => fmt(byCurrency[c].debit,  c)).join(" / ") || "—";
+
+      const netParts = currencies.map(c => {
+        const net = byCurrency[c].credit - byCurrency[c].debit;
+        return (net >= 0 ? "+" : "") + fmt(net, c);
+      });
+      netEl.textContent = netParts.join(" / ") || "—";
+      netEl.className = "fw-bold " + (
+        currencies.every(c => byCurrency[c].credit >= byCurrency[c].debit) ? "text-success" :
+        currencies.every(c => byCurrency[c].credit <  byCurrency[c].debit) ? "text-danger"  : ""
+      );
+    }
+
+    dt.on("draw", updateSummary);
+    updateSummary();
+
+    document.getElementById("transaction-table").addEventListener("click", function(e) {
+      if (e.target.closest("a")) return;
+      const row = e.target.closest("tr[data-tx-id]");
+      if (!row) return;
+      htmx.ajax("GET", "/ui/transactions/" + row.dataset.txId, {
+        target: "#tx-offcanvas-body",
+        swap: "innerHTML"
+      });
+    });
+  })();
+</script>

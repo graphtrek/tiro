@@ -2,7 +2,7 @@
 title: "Specifikáció: Számla Adatbázis Mikroszerviz"
 description: "Számlákat és partnereket kezelő adatbázis mikroszerviz (MASTER orchestrator)"
 language: "HU"
-last_updated: "2026-06-19"
+last_updated: "2026-06-22"
 related: [INDEX.md, nav-invoice-spec.md, bank-spec.md]
 ---
 
@@ -14,6 +14,8 @@ related: [INDEX.md, nav-invoice-spec.md, bank-spec.md]
 
 ## Szerepkör és kontextus
 Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata számlázási rendszer szíveként koordináld a mikroszervizek összes interakcióját. Ez a szolgáltatás a kritikus adatbázis hub, amely garantálja a szállító, vevő és számlainformációk konzisztenciáját a teljes rendszerben, biztosítva az idempotenciát és az adatintegritást.
+
+> **Architektúra (2026-06-22)**: Az invoice-core **tiszta JSON REST backend**. Nem kezel UI-t, nem rendel Jinja2 sablonokat. Az összes webes felület a [[vision-spec.md|vision]] (port 8009) szervizben él, amely az itt leírt REST API-t fogyasztja. CORS engedélyezve `http://localhost:8009` (vision) számára.
 
 ## Funkció (MASTER HUB)
 - **Meghívja: nav-invoice** (NAV lekérdezés — csak a NAV API-t hívja)
@@ -131,17 +133,34 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
   - `invoice-core report --month 2026-05` - havi kimutatás
   - `invoice-core link <invoice_number> <filename>` - manuális számla-PDF összekapcsolás
   - `invoice-core link-bank <transaction_id> <filename>` - manuális bank-PDF összekapcsolás
-- **REST API**:
-  - `POST /api/v1/sync` - teljes szinkronizálás
-  - `POST /api/v1/sync/nav` - NAV adatok szinkronizálása
-  - `POST /api/v1/sync/pdf` - PDF adatok szinkronizálása
-  - `POST /api/v1/sync/bank` - Bank tranzakciók szinkronizálása
-  - `POST /api/v1/sync/match` - Összekapcsolás
-  - `GET /api/v1/invoices` - számlalista (szűrés: dátum, partner, status)
-  - `GET /api/v1/invoices/{invoice_number}` - egy számla adatai
-  - `GET /api/v1/partners/suppliers` - szállítólista
-  - `GET /api/v1/partners/customers` - vevőlista
-  - `GET /api/v1/transactions` - bank tranzakciók listája
+- **REST API** (teljes lista — CORS: `http://localhost:8009`):
+
+| Method | Endpoint | Leírás |
+|--------|----------|--------|
+| `GET`  | `/health` | Health check |
+| `GET`  | `/api/v1/dashboard` | KPI-k, utolsó számlák, tranzakciók, top szállítók, szinkron log |
+| `POST` | `/api/v1/sync` | Teljes szinkronizálás (NAV + PDF + Bank) |
+| `POST` | `/api/v1/sync/nav` | NAV szinkronizálás |
+| `POST` | `/api/v1/sync/pdf` | PDF szinkronizálás |
+| `POST` | `/api/v1/sync/bank` | Bank szinkronizálás |
+| `POST` | `/api/v1/sync/match` | Összekapcsolás (PDF ↔ bank) |
+| `GET`  | `/api/v1/sync/logs` | Szinkron naplóbejegyzések (`limit` param) |
+| `GET`  | `/api/v1/invoices/count` | Számlák száma `{"count": n}` — regisztrálva `/{invoice_number}` előtt |
+| `GET`  | `/api/v1/invoices` | Számlalista (szűrés: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`) |
+| `GET`  | `/api/v1/invoices/{invoice_id:int}` | Számla részletei (PK alapján, bank tranzakciókkal) |
+| `GET`  | `/api/v1/invoices/{invoice_number}` | Számla számlaszám alapján |
+| `GET`  | `/api/v1/invoice-files` | PDF fájl lista (szűrés: `linked=yes/no`) |
+| `GET`  | `/api/v1/invoice-files/{file_id:int}/pdf` | PDF fájl kiszolgálása (`FileResponse`) |
+| `GET`  | `/api/v1/partners/suppliers` | Szállítólista |
+| `GET`  | `/api/v1/partners/suppliers/summary` | Szállítói statisztikák — regisztrálva `/{supplier_id:int}` előtt |
+| `GET`  | `/api/v1/partners/suppliers/{supplier_id:int}` | Szállító részletei (számláival, tranzakcióival) |
+| `GET`  | `/api/v1/partners/customers` | Vevőlista |
+| `GET`  | `/api/v1/partners/customers/{customer_id:int}` | Vevő részletei |
+| `GET`  | `/api/v1/transactions` | Bank tranzakció lista (szűrés: `date_from`, `date_to`, `linked`, `partner_name`, `amount_min`, `amount_max`) |
+| `GET`  | `/api/v1/transactions/balances` | Legutolsó egyenleg bankonként |
+| `GET`  | `/api/v1/transactions/{transaction_id:int}` | Tranzakció részletei |
+| `GET`  | `/api/v1/reports/dividend` | Éves osztalék/adó kalkuláció (`year`, `kiva_rate` paraméterek) |
+| `GET`  | `/api/v1/reports/tax` | Adófizetési kimutatás hónap és típus szerint (`year` param) |
 
 ## Tech stack
 - Python 3.10+
@@ -174,7 +193,8 @@ flowchart TD
 
 ### Wiki linkek
 - **Prompt**: [[invoice-core-prompt.md|Invoice-Core Prompt]]
-- **MASTER Orchestrator**: Ez a szerviz
+- **MASTER Orchestrator**: Ez a szerviz (tiszta REST backend — UI nincs)
+- **UI**: [[vision-spec.md|Vision Frontend Spec]] — az összes `/ui/*` oldal a vision (8009) szervizben él
 - **Meghívja**: [[nav-invoice-spec.md|NAV Invoice Spec]]
   - NAV lekérdezés: `GET /invoices`, `GET /invoices/{szamlaszam}`
   - 30 nap default paraméterrel

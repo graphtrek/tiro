@@ -1,0 +1,95 @@
+{% from "_macros.html" import payment_badge, pdf_icon, bank_icon, amount_fmt, direction_badge %}
+<table id="invoice-table" class="table table-hover table-sm nowrap" style="width:100%">
+  <thead class="table-dark">
+    <tr>
+      <th>Számlaszám</th>
+      <th>Dátum</th>
+      <th>Szállító</th>
+      <th>Vevő</th>
+      <th class="text-end">Nettó</th>
+      <th class="text-end">ÁFA</th>
+      <th class="text-end">Bruttó</th>
+      <th>PDF</th>
+      <th class="text-center">Bank</th>
+      <th>Irány</th>
+      <th>Státusz</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr{% if row.invoice_file_id %} data-pdf-url="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" style="cursor:pointer"{% endif %}>
+      <td><a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a></td>
+      <td>{{ row.invoice_date or '—' }}</td>
+      <td><a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.supplier_name }}</a></td>
+      <td><a href="/ui/customers/{{ row.customer_id }}">{{ row.customer_name }}</a></td>
+      <td class="text-end">{{ amount_fmt(row.amount_net) }}</td>
+      <td class="text-end">{{ amount_fmt(row.amount_vat) }}</td>
+      <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>
+      <td>
+        {% if row.invoice_file_id and row.invoice_file_filename %}
+          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}">
+            <i class="bi bi-file-earmark-pdf text-danger"></i>
+            <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
+          </a>
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if row.bank_transaction_ids and row.bank_transaction_db_ids %}
+          {% if row.bank_count == 1 %}
+            <a href="#" class="font-monospace text-decoration-none" style="font-size:.8rem" title="Bank tranzakció" data-tx-db-id="{{ row.bank_transaction_db_ids[0] }}">
+              <i class="bi bi-bank text-info"></i> {{ row.bank_transaction_ids[0] }}
+            </a>
+          {% else %}
+            <a href="#" class="badge bg-info text-dark text-decoration-none" title="{{ row.bank_transaction_ids | join(', ') }}" data-tx-db-id="{{ row.bank_transaction_db_ids[0] }}">
+              <i class="bi bi-bank"></i> {{ row.bank_count }}
+            </a>
+          {% endif %}
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td>{{ direction_badge(row.direction) }}</td>
+      <td>{{ payment_badge(row.payment_status) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="11" class="text-center text-muted">Nincs találat</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+  (function() {
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable("#invoice-table")) {
+      $("#invoice-table").DataTable().destroy();
+    }
+    new DataTable("#invoice-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50, 100],
+      order: [[1, "desc"]],
+      scrollX: true,
+      autoWidth: false,
+      columnDefs: [
+        { targets: [4, 5, 6], className: "text-end" },
+        { targets: [7, 8], orderable: false },
+      ],
+    });
+    $("#invoice-table tbody").on("click", "tr", function(e) {
+      if ($(e.target).closest("a").length) return;
+      var url = $(this).data("pdf-url");
+      if (url) window.open(url, "_blank");
+    });
+
+    document.getElementById("invoice-table").addEventListener("click", function(e) {
+      const lnk = e.target.closest("a[data-tx-db-id]");
+      if (!lnk) return;
+      e.preventDefault();
+      htmx.ajax("GET", "/ui/transactions/" + lnk.dataset.txDbId, {
+        target: "#tx-offcanvas-body",
+        swap: "innerHTML"
+      });
+    });
+  })();
+</script>

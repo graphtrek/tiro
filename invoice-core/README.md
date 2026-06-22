@@ -2,7 +2,7 @@
 
 Moneypenny pipeline microservice #4 (port 8004). Master orchestrator — calls **nav-invoice**, **invoice-file-filter**, and **bank**, merges the results, and persists everything to PostgreSQL.
 
-Includes a full **web UI** (HTMX + Bootstrap + DataTables) served at `/ui/`.
+Pure **JSON REST backend** — no server-side HTML rendering. The web UI lives in the **vision** service (port 8009) which calls this REST API.
 
 ## Running
 
@@ -31,44 +31,36 @@ uv run invoice-core report --month 2026-05      # full sync for one month + summ
 uv run pytest tests/ -v
 ```
 
-## Web UI
-
-Open `http://localhost:8004/ui/` in a browser.
-
-| Page | URL | Description |
-|------|-----|-------------|
-| Dashboard | `/ui/` | KPI cards, recent invoices, recent bank transactions, last sync status |
-| Számlák | `/ui/invoices` | Invoice list — filterable by date, status, PDF, supplier; DataTable |
-| Számla részlet | `/ui/invoices/{id}` | Invoice detail with supplier/customer cards, linked PDF, bank transactions |
-| PDF Fájlok | `/ui/invoice-files` | Invoice file list with linked invoice and supplier |
-| Szállítók | `/ui/suppliers` | Supplier list with invoice stats |
-| Szállító részlet | `/ui/suppliers/{id}` | Supplier detail with invoice and bank DataTables |
-| Vevők | `/ui/customers` | Customer list with invoice stats |
-| Vevő részlet | `/ui/customers/{id}` | Customer detail with invoice and bank DataTables |
-| Bank tranzakciók | `/ui/transactions` | Transaction list — filterable by date, linked status, partner, amount |
-| Osztalék | `/ui/dividend` | Annual dividend/tax calculation: revenue, expenses, KIVA, SZJA, SZOCHO — monthly breakdown |
-| Adók | `/ui/adok` | Tax payments view: filters bank transactions by NAV/HIPA/Iparkamara account numbers; pivot table by month and tax type (NAV ÁFA, SZJA, TAO, Szochó, TB, Bírság, HIPA, Iparkamara) |
-| Sync | `/ui/sync` | Trigger sync with mode selection; sync log accordion |
-
-**Tech stack**: Jinja2 SSR, HTMX 2.x (boost + partial swap + OOB), Bootstrap 5.3, DataTables 2.x — no separate build step, all assets from CDN.
-
-Filter forms use `hx-trigger="change delay:300ms"` for live HTMX updates with URL push, so filtered views are bookmarkable.
-
 ## REST API
+
+CORS is enabled for `http://localhost:8009` (vision frontend).
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET`  | `/health` | Health check |
+| `GET`  | `/api/v1/dashboard` | Combined dashboard data: kpis, recent invoices/transactions, top suppliers, last sync |
 | `POST` | `/api/v1/sync` | Full sync (NAV + PDF + Bank) |
 | `POST` | `/api/v1/sync/nav` | Sync NAV invoices only |
 | `POST` | `/api/v1/sync/pdf` | Sync PDF file index only |
 | `POST` | `/api/v1/sync/bank` | Sync bank transactions only |
 | `POST` | `/api/v1/sync/match` | Match existing bank transactions to invoice files (no fetching) |
-| `GET`  | `/api/v1/invoices` | Invoice list (filter: `date_from`, `date_to`, `status`, `direction`) |
-| `GET`  | `/api/v1/invoices/{invoice_number}` | Single invoice |
+| `GET`  | `/api/v1/sync/logs` | Recent sync log entries (query: `limit`) |
+| `GET`  | `/api/v1/invoices/count` | Total invoice count `{"count": n}` |
+| `GET`  | `/api/v1/invoices` | Invoice list (filter: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`) |
+| `GET`  | `/api/v1/invoices/{invoice_id:int}` | Invoice detail by integer PK (includes linked bank transactions) |
+| `GET`  | `/api/v1/invoices/{invoice_number}` | Invoice by invoice number string |
+| `GET`  | `/api/v1/invoice-files` | Invoice file list (filter: `linked` = `yes`/`no`) |
+| `GET`  | `/api/v1/invoice-files/{file_id:int}/pdf` | Serve PDF file inline |
 | `GET`  | `/api/v1/partners/suppliers` | Supplier list |
+| `GET`  | `/api/v1/partners/suppliers/summary` | Aggregate supplier stats |
+| `GET`  | `/api/v1/partners/suppliers/{supplier_id:int}` | Supplier detail with invoices and transactions |
 | `GET`  | `/api/v1/partners/customers` | Customer list |
-| `GET`  | `/api/v1/transactions` | Bank transaction list |
+| `GET`  | `/api/v1/partners/customers/{customer_id:int}` | Customer detail with invoices and transactions |
+| `GET`  | `/api/v1/transactions` | Bank transaction list (filter: `date_from`, `date_to`, `linked`, `partner_name`, `amount_min`, `amount_max`) |
+| `GET`  | `/api/v1/transactions/balances` | Latest balance per bank |
+| `GET`  | `/api/v1/transactions/{transaction_id:int}` | Transaction detail |
+| `GET`  | `/api/v1/reports/dividend` | Annual dividend/tax calculation (query: `year`, `kiva_rate`) |
+| `GET`  | `/api/v1/reports/tax` | Tax payment report by month and type (query: `year`) |
 
 ### GET /health
 
@@ -134,6 +126,8 @@ curl "http://localhost:8004/api/v1/invoices?status=UNPAID&direction=INBOUND"
 | `date_to` | `YYYY-MM-DD` | Filter by invoice date (inclusive) |
 | `status` | `PAID` / `UNPAID` / `PARTIAL` | Filter by payment status |
 | `direction` | `INBOUND` / `OUTBOUND` | Filter by invoice direction |
+| `has_pdf` | `true` / `false` | Filter by PDF presence |
+| `supplier_name` | string | Case-insensitive supplier name filter |
 
 ## CLI
 
@@ -238,9 +232,8 @@ uv run alembic revision --autogenerate -m "describe change"
 
 ```
 src/invoice_core/
-├── api/main.py              ← FastAPI app: REST endpoints + mounts UI router + static files
-├── ui/router.py             ← UI endpoints (GET /ui/*, POST /ui/sync/trigger)
-├── services/                ← Shared service layer used by both REST and UI routers
+├── api/main.py              ← FastAPI app: all REST endpoints + CORS for vision (port 8009)
+├── services/                ← Service layer called by REST endpoints
 │   ├── dashboard_service.py ← KPI aggregations, recent data, sync log
 │   ├── invoice_service.py   ← Invoice list/detail with joined supplier/customer/bank data
 │   ├── partner_service.py   ← Supplier and customer list + detail
@@ -248,12 +241,6 @@ src/invoice_core/
 │   ├── invoice_file_service.py ← PDF file list
 │   ├── dividend_service.py  ← Annual dividend/tax calculation (KIVA, SZJA, SZOCHO)
 │   └── tax_service.py       ← Tax payment report: filters bank transactions by NAV/HIPA/Iparkamara account numbers
-├── templates/               ← Jinja2 templates
-│   ├── base.html            ← Layout: navbar + sidebar + main content blocks
-│   ├── _macros.html         ← Reusable macros: payment_badge, amount_fmt, pdf_icon, …
-│   ├── partials/            ← HTMX partial responses (no base.html extension)
-│   └── *.html               ← Page templates
-├── static/custom.css        ← HTMX indicator + sidebar + KPI styles
 ├── db.py                    ← SQLAlchemy ORM models + session; exports _enum_str helper
 ├── service.py               ← Sync orchestration (sync_nav, sync_pdf, sync_bank, sync_match)
 ├── models.py                ← Pydantic request/response schemas

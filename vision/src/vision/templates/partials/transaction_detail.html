@@ -1,0 +1,114 @@
+{% from "_macros.html" import amount_fmt %}
+<dl class="row mb-0 small">
+  <dt class="col-5 text-muted">Tranzakció ID</dt>
+  <dd class="col-7 font-monospace">{{ tx.transaction_id }}</dd>
+
+  <dt class="col-5 text-muted">Bank</dt>
+  <dd class="col-7">{{ tx.bank | upper }}</dd>
+
+  <dt class="col-5 text-muted">Dátum</dt>
+  <dd class="col-7">{{ tx.transaction_date.strftime('%Y-%m-%d %H:%M') if tx.transaction_date else '—' }}</dd>
+
+  <dt class="col-5 text-muted">Összeg</dt>
+  <dd class="col-7 fw-bold">
+    {% if tx.direction == 'DEBIT' %}<span class="text-danger">−</span>{% else %}<span class="text-success">+</span>{% endif %}
+    {{ amount_fmt(tx.amount, tx.currency) }}
+  </dd>
+
+  <dt class="col-5 text-muted">Irány</dt>
+  <dd class="col-7">
+    {% if tx.direction == 'CREDIT' %}
+      <span class="badge bg-success">CREDIT</span>
+    {% else %}
+      <span class="badge bg-danger">DEBIT</span>
+    {% endif %}
+  </dd>
+
+  <dt class="col-5 text-muted">Egyenleg</dt>
+  <dd class="col-7">{{ amount_fmt(tx.balance, tx.currency) }}</dd>
+
+  <dt class="col-5 text-muted">Leírás</dt>
+  <dd class="col-7">{{ tx.description or '—' }}</dd>
+
+  <dt class="col-5 text-muted">Referencia</dt>
+  <dd class="col-7">{{ tx.payment_reference or '—' }}</dd>
+
+  <dt class="col-5 text-muted">Típus</dt>
+  <dd class="col-7">{{ tx.transaction_type or '—' }}</dd>
+
+  <dt class="col-5 text-muted">Kategória</dt>
+  <dd class="col-7">{{ tx.category or '—' }}</dd>
+</dl>
+
+<hr class="my-3">
+<h6 class="text-muted mb-2">Partner</h6>
+<dl class="row mb-0 small">
+  <dt class="col-5 text-muted">Partner neve</dt>
+  <dd class="col-7">{{ tx.counterparty_name or '—' }}</dd>
+
+  <dt class="col-5 text-muted">Számlaszám</dt>
+  <dd class="col-7 font-monospace">{{ tx.counterparty_account or '—' }}</dd>
+
+  <dt class="col-5 text-muted">IBAN</dt>
+  <dd class="col-7 font-monospace">{{ tx.counterparty_iban or '—' }}</dd>
+</dl>
+
+{% if tx.fees %}
+<hr class="my-3">
+<dl class="row mb-0 small">
+  <dt class="col-5 text-muted">Díjak összesen</dt>
+  <dd class="col-7">{{ amount_fmt(tx.fees, tx.currency) }}</dd>
+</dl>
+{% endif %}
+
+<hr class="my-3">
+<h6 class="text-muted mb-2">Kapcsolatok</h6>
+<dl class="row mb-0 small">
+  <dt class="col-5 text-muted">Számla</dt>
+  <dd class="col-7">
+    {% if tx.invoice_id and tx.invoice_number %}
+      <a href="/ui/invoices/{{ tx.invoice_id }}">{{ tx.invoice_number }}</a>
+    {% else %}
+      <span class="text-muted">—</span>
+    {% endif %}
+  </dd>
+
+  <dt class="col-5 text-muted">PDF fájl</dt>
+  <dd class="col-7">
+    {% if tx.invoice_file_id and tx.invoice_file_filename %}
+      <a href="/ui/invoice-files" title="{{ tx.invoice_file_filename }}">
+        <i class="bi bi-file-earmark-pdf text-danger"></i>
+        {{ tx.invoice_file_filename }}
+      </a>
+    {% else %}
+      <span class="text-muted">—</span>
+    {% endif %}
+  </dd>
+
+  <dt class="col-5 text-muted">Szállító</dt>
+  <dd class="col-7">
+    {% if tx.supplier_id and tx.supplier_name %}
+      <a href="/ui/suppliers/{{ tx.supplier_id }}">{{ tx.supplier_name }}</a>
+    {% else %}
+      <span class="text-muted">—</span>
+    {% endif %}
+  </dd>
+
+  <dt class="col-5 text-muted">Vevő</dt>
+  <dd class="col-7">
+    {% if tx.customer_id and tx.customer_name %}
+      <a href="/ui/customers/{{ tx.customer_id }}">{{ tx.customer_name }}</a>
+    {% else %}
+      <span class="text-muted">—</span>
+    {% endif %}
+  </dd>
+</dl>
+
+<hr class="my-3">
+<dl class="row mb-0 small text-muted">
+  <dt class="col-5">Létrehozva</dt>
+  <dd class="col-7">{{ tx.created_at.strftime('%Y-%m-%d %H:%M') if tx.created_at else '—' }}</dd>
+
+  <dt class="col-5">Módosítva</dt>
+  <dd class="col-7">{{ tx.updated_at.strftime('%Y-%m-%d %H:%M') if tx.updated_at else '—' }}</dd>
+</dl>

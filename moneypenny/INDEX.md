@@ -2,7 +2,7 @@
 title: "Moneypenny - Projekt Index"
 description: "Számlázási, banki és tulajdonosi AI mikorszervízek - wiki navigáció"
 language: "HU"
-last_updated: "2026-06-18"
+last_updated: "2026-06-22"
 ---
 
 # 📚 Moneypenny - Wiki Index
@@ -11,16 +11,16 @@ last_updated: "2026-06-18"
 
 A **Moneypenny** egy hat Python mikroszervizből álló pénzügyi automatizálási rendszer, amely a Graphtrek számlázási és vagyonkezelési folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti az Erste és Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva. A **Vision** szerviz tulajdonosi dashboardon aggregálja az invoice-core és SrcProfit (IBKR) adatait.
 
-| #   | Mikroszerviz            | Port | Szerep                                                         |
-| --- | ----------------------- | ---- | -------------------------------------------------------------- |
-| 5   | `invoice-core`          | 8004 | MASTER orchestrator – DB persistálás, reconciliation           |
-| 3   | `nav-invoice`           | 8002 | NAV Online Számla API lekérdezés                               |
-| 2   | `invoice-file-filter`   | 8001 | PDF metaadat kinyerés (OCR/Regex)                              |
-| 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                                |
-| 4   | `bank`                  | 8005 | Erste + Wise CSV konszolidáció – egységes bankkivonat API      |
-| 6   | `vision`                | 8009 | Tulajdonosi AI dashboard – invoice-core + SrcProfit aggregáció |
+| #   | Mikroszerviz            | Port | Szerep                                                                     |
+| --- | ----------------------- | ---- | -------------------------------------------------------------------------- |
+| 5   | `invoice-core`          | 8004 | MASTER orchestrator – DB persistálás, reconciliation (tiszta REST backend) |
+| 3   | `nav-invoice`           | 8002 | NAV Online Számla API lekérdezés                                           |
+| 2   | `invoice-file-filter`   | 8001 | PDF metaadat kinyerés (OCR/Regex)                                          |
+| 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                                            |
+| 4   | `bank`                  | 8005 | Erste + Wise CSV konszolidáció – egységes bankkivonat API                  |
+| 6   | `vision`                | 8009 | Frontend – teljes webes UI + SrcProfit (IBKR) aggregáció                  |
 
-Belépési pont: `POST /api/v1/sync` → `invoice-core` (8004). Az 1–5. mikroszerviznek FastAPI REST interfésze és Typer/Click CLI-je is van. A `vision` (6.) csak UI szerviz, CLI nélkül.
+Belépési pont (szinkron): `POST /api/v1/sync` → `invoice-core` (8004). Az 1–5. mikroszerviznek FastAPI REST interfésze és Typer/Click CLI-je is van. A `vision` (6.) a frontend szerviz: fogyasztja az invoice-core REST API-t, és kiszolgálja az összes UI oldalt (`/ui/*`). CLI nélkül.
 
 ---
 
@@ -48,7 +48,7 @@ MASTER ORCHESTRATOR
       └── SrcProfit API (olvas, IBKR)
 ```
 
-> `invoice-core` mindhárom ágat közvetlenül hívja. `invoice-file-filter` → `attachment-downloader` lánc a PDF-letöltési ág. A `vision` külön, read-only aggregátor — nem része a sync láncnak.
+> `invoice-core` mindhárom ágat közvetlenül hívja. `invoice-file-filter` → `attachment-downloader` lánc a PDF-letöltési ág. A `vision` a frontend szerviz — fogyasztja az invoice-core REST API-t, kiszolgálja az összes UI oldalt; nem része a sync láncnak.
 
 ---
 
@@ -114,14 +114,14 @@ MASTER ORCHESTRATOR
 
 ---
 
-### 6️⃣ Vision – Tulajdonosi AI Dashboard
+### 6️⃣ Vision – Frontend
 **[[vision-spec.md|📄 Specifikáció]]** | **[[vision-prompt.md|💭 Prompt]]**
 
 - **Meghívva**: (senki — böngészőből nyitják)
 - **Meghívja**: [[invoice-core-spec.md|invoice-core]] REST API (olvas) + [SrcProfit](https://srcprofit2.graphtrek.co/) (IBKR, olvas)
-- **Funkció**: Tulajdonosi szintű pénzügyi aggregátor — számlák, Wise tranzakciók, IBKR befektetések egy dashboardon
-- **Saját DB**: nincs — read-only aggregátor
-- **REST** (port 8009): `GET /health`, `GET /` (koncepcióoldal), `GET /dashboard` (KPI + diagramok)
+- **Funkció**: Teljes Moneypenny frontend — az összes `/ui/*` oldalt kiszolgálja, fogyasztja az invoice-core REST API-t; plusz saját tulajdonosi portfólió dashboard (Chart.js, IBKR)
+- **Saját DB**: nincs — tiszta frontend, read-only aggregátor
+- **REST** (port 8009): `GET /health`, `GET /` (koncepcióoldal), `GET /dashboard` (portfólió), `GET /ui/*` (összes Moneypenny UI oldal)
 - **CLI**: nincs
 
 ---
@@ -232,7 +232,7 @@ POST /api/v1/sync (invoice-core)
 3. **[[nav-invoice-spec.md|NAV API]]** - NAV query, invoice-file-filter integrálás
 4. **[[bank-spec.md|Bank Integráció]]** - CSV import, balance-statements végpont (invoice-core hívja)
 5. **[[invoice-core-spec.md|Invoice-Core]]** - DB orchestration, reconciliation (utolsó: mindenkit integrál)
-6. **[[vision-spec.md|Vision Dashboard]]** - read-only aggregátor (invoice-core + SrcProfit), Chart.js UI
+6. **[[vision-spec.md|Vision Frontend]]** - teljes UI frontend (invoice-core REST API + SrcProfit), HTMX + Bootstrap + Chart.js
 
 ---
 
@@ -325,7 +325,7 @@ SRCPROFIT_PASSWORD=<titkos>
 - **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[invoice-file-filter-spec.md|invoice-file-filter]]
 - **PDF ág**: [[invoice-file-filter-spec.md|invoice-file-filter]] → hívja → [[attachment-downloader-spec.md|attachment-downloader]] (levél)
 - **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[bank-spec.md|bank]] (levél — Erste + Wise CSV)
-- **AGGREGÁTOR**: [[vision-spec.md|vision]] → olvassa → [[invoice-core-spec.md|invoice-core]] REST API + SrcProfit
+- **FRONTEND**: [[vision-spec.md|vision]] → olvassa → [[invoice-core-spec.md|invoice-core]] REST API + SrcProfit; kiszolgálja az összes `/ui/*` oldalt
 
 ### Prompt Links
 - [[invoice-core-prompt.md|Invoice-Core Prompt]]
@@ -337,4 +337,4 @@ SRCPROFIT_PASSWORD=<titkos>
 
 ---
 
-**Utolsó frissítés**: 2026-06-19
+**Utolsó frissítés**: 2026-06-22
