@@ -713,6 +713,9 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     remaining_after_15: list[BankTransaction] = []
 
     for txn in remaining:
+        if _is_tax_account(txn.counterparty_account, settings):
+            remaining_after_15.append(txn)
+            continue
         matched = _find_invoice_by_supplier_amount(txn, inv_pool, used_inv_ids)
         if matched:
             txn.invoice_id = matched.id
