@@ -23,8 +23,8 @@ class DividendReport:
     revenue: float
     expenses: float
     gross_profit: float
-    kiva_rate: float
-    kiva_tax: float
+    tao_rate: float
+    tao_tax: float
     net_profit: float
     szja_rate: float
     szja_tax: float
@@ -37,7 +37,7 @@ class DividendReport:
     monthly: list[MonthlyRow] = field(default_factory=list)
 
 
-def calculate_dividend(db: Session, year: int, kiva_rate: float = 0.10, szja_rate: float = 0.15, szocho_rate: float = 0.13) -> DividendReport:
+def calculate_dividend(db: Session, year: int, tao_rate: float = 0.09, szja_rate: float = 0.15, szocho_rate: float = 0.13) -> DividendReport:
     rows = (
         db.query(Invoice.invoice_date, Invoice.direction, Invoice.amount_net)
         .filter(
@@ -66,8 +66,8 @@ def calculate_dividend(db: Session, year: int, kiva_rate: float = 0.10, szja_rat
             count_in += 1
 
     gross_profit = revenue - expenses
-    kiva_tax = max(0.0, gross_profit * kiva_rate)
-    net_profit = gross_profit - kiva_tax
+    tao_tax = max(0.0, gross_profit * tao_rate)
+    net_profit = gross_profit - tao_tax
     szja_tax = max(0.0, net_profit * szja_rate)
     szocho_tax = max(0.0, net_profit * szocho_rate)
     net_dividend_without_szocho = net_profit - szja_tax
@@ -88,8 +88,8 @@ def calculate_dividend(db: Session, year: int, kiva_rate: float = 0.10, szja_rat
         revenue=revenue,
         expenses=expenses,
         gross_profit=gross_profit,
-        kiva_rate=kiva_rate,
-        kiva_tax=kiva_tax,
+        tao_rate=tao_rate,
+        tao_tax=tao_tax,
         net_profit=net_profit,
         szja_rate=szja_rate,
         szja_tax=szja_tax,
