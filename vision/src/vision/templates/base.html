@@ -55,6 +55,55 @@
 
   {% block scripts %}{% endblock %}
 
+  <!-- Invoice detail modal -->
+  <div class="modal fade" id="invoiceDetailModal" tabindex="-1" aria-labelledby="invoiceDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h5 class="modal-title" id="invoiceDetailModalLabel">
+            <i class="bi bi-file-earmark-text me-2"></i><span id="invoice-modal-title">Számla részletei</span>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div id="invoice-detail-modal-body">
+          <div class="modal-body"><p class="text-muted">Betöltés…</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var invModal = document.getElementById('invoiceDetailModal');
+
+      document.addEventListener('click', function (e) {
+        var el = e.target.closest('[data-invoice-modal]');
+        if (!el) return;
+        e.preventDefault();
+        invModal._invoiceId = el.getAttribute('data-invoice-modal');
+        invModal._invoiceNum = el.textContent.trim();
+        bootstrap.Modal.getOrCreateInstance(invModal).show();
+      });
+
+      invModal.addEventListener('shown.bs.modal', function () {
+        var id = invModal._invoiceId;
+        if (!id) return;
+        var title = document.getElementById('invoice-modal-title');
+        if (invModal._invoiceNum) title.textContent = invModal._invoiceNum;
+        fetch('/ui/invoices/' + id + '/modal')
+          .then(function (r) { return r.text(); })
+          .then(function (html) {
+            document.getElementById('invoice-detail-modal-body').innerHTML = html;
+          });
+      });
+
+      invModal.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('invoice-modal-title').textContent = 'Számla részletei';
+        document.getElementById('invoice-detail-modal-body').innerHTML =
+          '<div class="modal-body"><p class="text-muted">Betöltés…</p></div>';
+      });
+    })();
+  </script>
+
   <!-- Shared manual-link picker modal -->
   <div class="modal fade" id="pickerModal" tabindex="-1" aria-labelledby="pickerModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">

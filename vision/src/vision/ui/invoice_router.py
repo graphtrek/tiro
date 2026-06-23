@@ -81,6 +81,15 @@ def invoice_detail_page(request: Request, invoice_id: int):
     return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
 
 
+@router.get("/invoices/{invoice_id:int}/modal")
+def invoice_detail_modal(request: Request, invoice_id: int):
+    client = _client()
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "partials/invoice_detail_modal.html", client, invoice=dict_to_ns(data))
+
+
 # ── Invoice Files ─────────────────────────────────────────────────────────────
 
 @router.get("/invoice-files")

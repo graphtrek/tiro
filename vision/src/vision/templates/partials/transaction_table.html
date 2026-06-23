@@ -83,7 +83,7 @@
       <td>
         {% if row.invoice_ids %}
           {% for i in range(row.invoice_ids | length) %}
-            <a href="/ui/invoices/{{ row.invoice_ids[i] }}">{{ row.invoice_numbers[i] }}</a>{% if not loop.last %}, {% endif %}
+            <a href="/ui/invoices/{{ row.invoice_ids[i] }}" data-invoice-modal="{{ row.invoice_ids[i] }}">{{ row.invoice_numbers[i] }}</a>{% if not loop.last %}, {% endif %}
           {% endfor %}
         {% else %}
           <span class="text-muted">—</span>

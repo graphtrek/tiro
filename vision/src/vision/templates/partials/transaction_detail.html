@@ -69,7 +69,7 @@
     {% if tx.invoice_ids %}
       {% for i in range(tx.invoice_ids | length) %}
         <div class="d-flex align-items-center gap-1 mb-1">
-          <a href="/ui/invoices/{{ tx.invoice_ids[i] }}">{{ tx.invoice_numbers[i] }}</a>
+          <a href="/ui/invoices/{{ tx.invoice_ids[i] }}" data-invoice-modal="{{ tx.invoice_ids[i] }}">{{ tx.invoice_numbers[i] }}</a>
           <form hx-post="/ui/transactions/{{ tx.id }}/invoices/{{ tx.invoice_ids[i] }}/unlink"
                 hx-target="#tx-offcanvas-body" hx-swap="innerHTML" class="d-inline m-0">
             <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 lh-1"
