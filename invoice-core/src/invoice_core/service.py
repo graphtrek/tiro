@@ -316,7 +316,7 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
         if not filename:
             continue
         size = f.get("file_size")
-        existing = db.query(InvoiceFile).filter_by(filename=filename).first()
+        existing = db.query(InvoiceFile).filter(InvoiceFile.filename.ilike(filename)).first()
         if existing:
             existing.path = path or existing.path
             if size is not None:

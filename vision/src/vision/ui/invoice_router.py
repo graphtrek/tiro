@@ -313,10 +313,18 @@ def picker_transactions(
 ):
     client = _client()
     rows = dict_to_ns(client.get_transactions())
+    invoice = None
+    if invoice_id:
+        inv_data = client.get_invoice(invoice_id)
+        if inv_data:
+            already_linked = {t.get("id") for t in inv_data.get("bank_transactions", [])}
+            rows = [r for r in rows if r.id not in already_linked]
+            invoice = dict_to_ns(inv_data)
     return _resp(
         request, "partials/picker_transactions.html", client,
         rows=rows,
         invoice_id=invoice_id,
+        invoice=invoice,
     )
 
 

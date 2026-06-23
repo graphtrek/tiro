@@ -65,7 +65,7 @@ def extract_invoices(request: ExtractRequest) -> ExtractResponse:
 def get_pdf_words(request: WordsRequest) -> StreamingResponse:
     """Extract distinct normalised words from a PDF and return them as single-column CSV (word)."""
     csv_content = extract_words_csv(request.pdf_path)
-    filename = Path(request.pdf_path).name.removesuffix(".pdf") + "_words.csv"
+    filename = Path(request.pdf_path).stem + "_words.csv"
     return StreamingResponse(
         io.StringIO(csv_content),
         media_type="text/csv",

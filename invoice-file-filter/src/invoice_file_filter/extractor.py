@@ -196,7 +196,7 @@ def _iter_pdf_paths(paths_or_dir: str | Path | Sequence[str | Path]) -> list[str
     if isinstance(paths_or_dir, (str, Path)):
         p = Path(paths_or_dir)
         if p.is_dir():
-            return sorted(str(f) for f in p.glob("*.pdf"))
+            return sorted(str(f) for f in p.glob("*.[pP][dD][fF]"))
         return [str(p)] if p.suffix.lower() == ".pdf" else []
     out: list[str] = []
     for item in paths_or_dir:

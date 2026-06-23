@@ -122,12 +122,15 @@
     (function () {
       var pickerModal = document.getElementById('pickerModal');
 
-      // Store the URL when the modal is about to open; fetch only after it is fully shown
-      // so DataTables can measure column widths correctly on a visible element.
+      // Bootstrap 5.3 bug: modal + offcanvas focus traps recurse infinitely.
+      // Work-around: hide the offcanvas before the modal opens; restore it after.
       pickerModal.addEventListener('show.bs.modal', function (e) {
         pickerModal._pickerUrl = e.relatedTarget
           ? e.relatedTarget.getAttribute('data-picker-url')
           : null;
+        var ocEl = document.querySelector('.offcanvas.show');
+        pickerModal._sourceOffcanvas = ocEl || null;
+        if (ocEl) { bootstrap.Offcanvas.getInstance(ocEl)?.hide(); }
       });
 
       pickerModal.addEventListener('shown.bs.modal', function () {
@@ -165,6 +168,12 @@
           $('#' + tbl.id).DataTable().destroy();
         }
         body.innerHTML = '<p class="text-muted">Betöltés…</p>';
+        // Restore the offcanvas (if not already re-opened by htmx:afterSwap)
+        var ocEl = pickerModal._sourceOffcanvas;
+        if (ocEl && !ocEl.classList.contains('show')) {
+          bootstrap.Offcanvas.getOrCreateInstance(ocEl).show();
+        }
+        pickerModal._sourceOffcanvas = null;
       });
     })();
   </script>

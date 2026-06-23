@@ -210,7 +210,7 @@ def link(
         if not invoice:
             console.print(f"[red]Invoice not found: {invoice_number}[/red]")
             raise typer.Exit(1)
-        invoice_file = db.query(InvoiceFile).filter_by(filename=filename).first()
+        invoice_file = db.query(InvoiceFile).filter(InvoiceFile.filename.ilike(filename)).first()
         if not invoice_file:
             console.print(f"[red]InvoiceFile not found: {filename}[/red]")
             console.print("[yellow]Run sync-pdf first to import the file.[/yellow]")
@@ -234,7 +234,7 @@ def link_bank(
         if not txn:
             console.print(f"[red]Bank transaction not found: {transaction_id}[/red]")
             raise typer.Exit(1)
-        invoice_file = db.query(InvoiceFile).filter_by(filename=filename).first()
+        invoice_file = db.query(InvoiceFile).filter(InvoiceFile.filename.ilike(filename)).first()
         if not invoice_file:
             console.print(f"[red]InvoiceFile not found: {filename}[/red]")
             console.print("[yellow]Run sync-pdf first to import the file.[/yellow]")
