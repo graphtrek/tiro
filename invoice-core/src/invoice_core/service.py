@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from .bank_client import BankClient, BankClientError
 from .config import Settings, get_settings
-from .db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, _InvoiceDirection, _PaymentStatus
+from .db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, SyncLog, _InvoiceDirection, _PaymentStatus, invoice_bank_transaction
 from .models import SyncMode, SyncRequest, SyncResponse
 from .nav_client import NavClient, NavClientError
 from .pdf_client import PdfClient, PdfClientError
@@ -42,6 +42,37 @@ def _opt_float(d: dict, key: str) -> Optional[float]:
 def _is_tax_account(account: Optional[str], settings: Settings) -> bool:
     """Return True if the bank account number belongs to a configured tax authority."""
     return bool(account and account in settings.tax_accounts)
+
+
+def _link_txn_to_invoice(txn: BankTransaction, invoice: Invoice) -> None:
+    if invoice not in txn.invoices:
+        txn.invoices.append(invoice)
+
+
+def _recompute_payment_status(db: Session, invoice: Invoice) -> None:
+    """Set PAID/PARTIAL/UNPAID from the sum of linked transaction amounts.
+
+    Compares against invoice.amount_total using only transactions whose currency
+    matches the invoice currency (if set). Falls back to PAID when amount_total
+    is unknown.
+    """
+    linked = invoice.bank_transactions
+    if not linked:
+        return
+    total = invoice.amount_total or 0.0
+    currency = invoice.currency
+    paid_sum = sum(abs(t.amount) for t in linked if not currency or t.currency == currency)
+    if total <= 0:
+        new_status = _PaymentStatus.PAID
+    elif paid_sum >= total:
+        new_status = _PaymentStatus.PAID
+    elif paid_sum > 0:
+        new_status = _PaymentStatus.PARTIAL
+    else:
+        new_status = _PaymentStatus.UNPAID
+    if invoice.payment_status != new_status:
+        invoice.payment_status = new_status
+        invoice.updated_at = datetime.utcnow()
 
 
 def _norm(s: str) -> str:
@@ -348,12 +379,12 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
     # Clear any previously created links on tax-account transactions.
     tax_keys = list(settings.tax_accounts.keys())
     if tax_keys:
-        wrongly_linked = db.query(BankTransaction).filter(
-            BankTransaction.counterparty_account.in_(tax_keys),
-            (BankTransaction.invoice_id.isnot(None)) | (BankTransaction.invoice_file_id.isnot(None)),
+        tax_txns = db.query(BankTransaction).filter(
+            BankTransaction.counterparty_account.in_(tax_keys)
         ).all()
+        wrongly_linked = [t for t in tax_txns if t.invoices or t.invoice_file_id]
         for btxn in wrongly_linked:
-            btxn.invoice_id = None
+            btxn.invoices.clear()
             btxn.invoice_file_id = None
             btxn.supplier_id = None
             btxn.customer_id = None
@@ -411,22 +442,20 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
 
         # ── Link invoice via payment_reference ────────────────────────────────
         payment_ref = t.get("payment_reference", "") or ""
-        if payment_ref and not btxn.invoice_id:
+        if payment_ref and not btxn.invoices:
             invoice = _find_invoice_by_ref(db, payment_ref)
             if invoice:
-                btxn.invoice_id = invoice.id
-                invoice.payment_status = _PaymentStatus.PAID
-                invoice.updated_at = datetime.utcnow()
+                _link_txn_to_invoice(btxn, invoice)
+                _recompute_payment_status(db, invoice)
                 logger.info("Linked bank txn %s → invoice %s (paid)", txn_id, invoice.invoice_number)
 
         # ── Derive supplier/customer from linked invoice ───────────────────────
-        if btxn.invoice_id and (not btxn.supplier_id or not btxn.customer_id):
-            invoice = db.query(Invoice).filter_by(id=btxn.invoice_id).first()
-            if invoice:
-                if not btxn.supplier_id:
-                    btxn.supplier_id = invoice.supplier_id
-                if not btxn.customer_id:
-                    btxn.customer_id = invoice.customer_id
+        if btxn.invoices and (not btxn.supplier_id or not btxn.customer_id):
+            invoice = btxn.invoices[0]
+            if not btxn.supplier_id:
+                btxn.supplier_id = invoice.supplier_id
+            if not btxn.customer_id:
+                btxn.customer_id = invoice.customer_id
 
         # ── Link supplier/customer by counterparty name (fallback) ────────────
         counterparty = t.get("counterparty_name", "") or ""
@@ -444,16 +473,19 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
                 if customer:
                     btxn.customer_id = customer.id
 
-    # Backfill: any invoice with a linked bank transaction is paid.
-    db.query(Invoice).filter(
-        Invoice.payment_status != _PaymentStatus.PAID,
-        Invoice.id.in_(
-            db.query(BankTransaction.invoice_id).filter(BankTransaction.invoice_id.isnot(None))
-        ),
-    ).update(
-        {Invoice.payment_status: _PaymentStatus.PAID, Invoice.updated_at: datetime.utcnow()},
-        synchronize_session=False,
+    # Recompute payment status for all invoices with linked transactions.
+    from sqlalchemy import select as sa_select
+    from sqlalchemy.orm import joinedload
+    db.flush()
+    linked_ids_q = sa_select(invoice_bank_transaction.c.invoice_id).distinct()
+    invoices_to_recompute = (
+        db.query(Invoice)
+        .options(joinedload(Invoice.bank_transactions))
+        .filter(Invoice.id.in_(linked_ids_q))
+        .all()
     )
+    for inv in invoices_to_recompute:
+        _recompute_payment_status(db, inv)
 
     db.commit()
     logger.info("sync_bank: %d new transaction(s) from %d fetched", count, len(transactions))
@@ -667,9 +699,9 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     # ── Phase 1: transitive shortcut + authoritative payment reference ───────
     remaining: list[BankTransaction] = []
     for txn in unmatched:
-        if txn.invoice_id:
-            invoice = db.query(Invoice).filter_by(id=txn.invoice_id).first()
-            if invoice and invoice.invoice_file_id:
+        if txn.invoices:
+            invoice = txn.invoices[0]
+            if invoice.invoice_file_id:
                 _assign(txn, invoice.invoice_file_id, f"via invoice {invoice.invoice_number}")
                 continue
 
@@ -702,11 +734,10 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
         remaining.append(txn)
 
     # ── Phase 1.5: supplier-name + amount match for reference-less transactions ──
+    from sqlalchemy import select as sa_select
     linked_invoice_ids: set[int] = {
         row[0]
-        for row in db.query(BankTransaction.invoice_id)
-        .filter(BankTransaction.invoice_id.isnot(None))
-        .all()
+        for row in db.execute(sa_select(invoice_bank_transaction.c.invoice_id).distinct())
     }
     inv_pool = db.query(Invoice).filter(Invoice.id.notin_(linked_invoice_ids)).all()
     used_inv_ids: set[int] = set()
@@ -718,13 +749,12 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
             continue
         matched = _find_invoice_by_supplier_amount(txn, inv_pool, used_inv_ids)
         if matched:
-            txn.invoice_id = matched.id
+            _link_txn_to_invoice(txn, matched)
             if not txn.supplier_id:
                 txn.supplier_id = matched.supplier_id
             if not txn.customer_id:
                 txn.customer_id = matched.customer_id
-            matched.payment_status = _PaymentStatus.PAID
-            matched.updated_at = datetime.utcnow()
+            _recompute_payment_status(db, matched)
             used_inv_ids.add(matched.id)
             if matched.invoice_file_id and matched.invoice_file_id not in used_files:
                 _assign(txn, matched.invoice_file_id, f"supplier+amount {txn.counterparty_name}")
@@ -778,29 +808,32 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
             )
 
     # ── Phase 3: back-link transactions to invoices via shared invoice_file ────
-    to_backlink = db.query(BankTransaction).filter(
+    to_backlink_all = db.query(BankTransaction).filter(
         BankTransaction.invoice_file_id.isnot(None),
-        BankTransaction.invoice_id.is_(None),
     ).all()
+    to_backlink = [t for t in to_backlink_all if not t.invoices]
     for txn in to_backlink:
         invoice = db.query(Invoice).filter_by(invoice_file_id=txn.invoice_file_id).first()
         if invoice:
-            txn.invoice_id = invoice.id
+            _link_txn_to_invoice(txn, invoice)
             txn.updated_at = datetime.utcnow()
-            invoice.payment_status = _PaymentStatus.PAID
-            invoice.updated_at = datetime.utcnow()
+            _recompute_payment_status(db, invoice)
             logger.info(
                 "Backlinked bank txn %s → invoice %s via shared file_id %s",
                 txn.transaction_id, invoice.invoice_number, txn.invoice_file_id,
             )
 
     # ── Backfill supplier_id / customer_id from linked invoice ───────────────
-    needs_backfill = db.query(BankTransaction).filter(
-        BankTransaction.invoice_id.isnot(None),
-        (BankTransaction.supplier_id.is_(None)) | (BankTransaction.customer_id.is_(None)),
-    ).all()
+    needs_backfill = (
+        db.query(BankTransaction)
+        .join(BankTransaction.invoices)
+        .filter(
+            (BankTransaction.supplier_id.is_(None)) | (BankTransaction.customer_id.is_(None))
+        )
+        .all()
+    )
     for txn in needs_backfill:
-        invoice = db.query(Invoice).filter_by(id=txn.invoice_id).first()
+        invoice = txn.invoices[0] if txn.invoices else None
         if invoice:
             if not txn.supplier_id:
                 txn.supplier_id = invoice.supplier_id
@@ -821,6 +854,10 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
     errors: list[str] = []
     nav_count = pdf_count = bank_count = match_count = 0
     t0 = time.monotonic()
+
+    log = SyncLog(started_at=datetime.utcnow(), mode=mode.value)
+    db.add(log)
+    db.flush()
 
     if request.clear_cache:
         logger.info("Clearing downstream caches before sync")
@@ -856,6 +893,13 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
             errors.append(f"Match: {exc}")
 
     elapsed_ms = (time.monotonic() - t0) * 1000
+    log.finished_at = datetime.utcnow()
+    log.invoice_count = nav_count
+    log.bank_count = bank_count
+    log.error_count = len(errors)
+    log.errors = "; ".join(errors) if errors else None
+    db.commit()
+
     logger.info(
         "sync_all [%s] %s..%s: nav=%d pdf=%d bank=%d match=%d errors=%d in %.0fms",
         mode.value, start, end, nav_count, pdf_count, bank_count, match_count, len(errors), elapsed_ms,

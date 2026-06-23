@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -11,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from invoice_core.db import Invoice, SyncLog, get_db
+from invoice_core.db import Invoice, get_db
 from invoice_core.models import SyncMode, SyncRequest
 from invoice_core.service import sync_all
 from invoice_core.services import dashboard_service, invoice_file_service, invoice_service, partner_service, transaction_service
@@ -226,21 +225,10 @@ def sync_trigger(
     except ValueError:
         pass
 
-    log = SyncLog(started_at=datetime.utcnow(), mode=mode.value)
-    db.add(log)
-    db.flush()
-
     t0 = time.monotonic()
     sync_req = SyncRequest(start_date=date_from or None, end_date=date_to or None, sync_mode=mode)
     result = sync_all(sync_req, db)
     elapsed = time.monotonic() - t0
-
-    log.finished_at = datetime.utcnow()
-    log.invoice_count = result.nav_invoices_synced
-    log.bank_count = result.bank_transactions_synced
-    log.error_count = len(result.errors)
-    log.errors = "; ".join(result.errors) if result.errors else None
-    db.commit()
 
     ctx = _ctx(db,
         result=result,

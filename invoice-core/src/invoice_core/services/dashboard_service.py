@@ -16,6 +16,7 @@ from invoice_core.db import (
     SyncLog,
     _PaymentStatus,
     _enum_str,
+    invoice_bank_transaction,
     invoice_has_bank_txn,
 )
 
@@ -125,9 +126,7 @@ def get_recent_invoices(db: Session, limit: int = 10) -> list[RecentInvoiceRow]:
     )
     paid_via_bank = {
         r[0]
-        for r in db.query(BankTransaction.invoice_id)
-        .filter(BankTransaction.invoice_id.isnot(None))
-        .distinct()
+        for r in db.query(invoice_bank_transaction.c.invoice_id).distinct()
     }
     return [
         RecentInvoiceRow(
@@ -143,13 +142,24 @@ def get_recent_invoices(db: Session, limit: int = 10) -> list[RecentInvoiceRow]:
 
 
 def get_recent_transactions(db: Session, limit: int = 5) -> list[RecentTransactionRow]:
-    rows = (
-        db.query(BankTransaction, Invoice.invoice_number)
-        .outerjoin(Invoice, BankTransaction.invoice_id == Invoice.id)
+    ibt = invoice_bank_transaction
+    txns = (
+        db.query(BankTransaction)
         .order_by(BankTransaction.transaction_date.desc())
         .limit(limit)
         .all()
     )
+    txn_ids = [t.id for t in txns]
+    first_inv: dict[int, tuple[int, str]] = {}
+    if txn_ids:
+        links = (
+            db.query(ibt.c.bank_transaction_id, Invoice.id, Invoice.invoice_number)
+            .join(Invoice, Invoice.id == ibt.c.invoice_id)
+            .filter(ibt.c.bank_transaction_id.in_(txn_ids))
+            .all()
+        )
+        for txn_id, inv_id, inv_num in links:
+            first_inv.setdefault(txn_id, (inv_id, inv_num))
     return [
         RecentTransactionRow(
             id=t.id,
@@ -157,10 +167,10 @@ def get_recent_transactions(db: Session, limit: int = 5) -> list[RecentTransacti
             amount=t.amount,
             currency=t.currency,
             partner_name=t.counterparty_name,
-            invoice_number=inv_num,
-            invoice_id=t.invoice_id,
+            invoice_number=first_inv.get(t.id, (None, None))[1],
+            invoice_id=first_inv.get(t.id, (None, None))[0],
         )
-        for t, inv_num in rows
+        for t in txns
     ]
 
 

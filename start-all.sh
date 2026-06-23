@@ -7,6 +7,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGS="$ROOT/logs"
 mkdir -p "$LOGS"
+rm -f "$LOGS"/*.log
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

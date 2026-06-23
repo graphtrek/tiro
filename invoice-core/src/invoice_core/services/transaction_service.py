@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Optional
 
@@ -8,7 +8,7 @@ from fastapi import Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from invoice_core.db import BankTransaction, Invoice, InvoiceFile
+from invoice_core.db import BankTransaction, Invoice, InvoiceFile, invoice_bank_transaction
 
 
 @dataclass
@@ -37,8 +37,8 @@ class TransactionDetail:
     category: Optional[str]
     balance: Optional[float]
     fees: Optional[float]
-    invoice_id: Optional[int]
-    invoice_number: Optional[str]
+    invoice_ids: list[int]
+    invoice_numbers: list[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
     supplier_id: Optional[int]
@@ -61,11 +61,11 @@ class TransactionRow:
     description: Optional[str]
     payment_reference: Optional[str]
     partner_name: Optional[str]
-    invoice_id: Optional[int]
-    invoice_number: Optional[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
     fees: Optional[float] = None
+    invoice_ids: list[int] = field(default_factory=list)
+    invoice_numbers: list[str] = field(default_factory=list)
 
 
 class TransactionFilters:
@@ -95,9 +95,11 @@ def list_transactions(
     amount_min: Optional[float] = None,
     amount_max: Optional[float] = None,
 ) -> list[TransactionRow]:
+    from sqlalchemy import exists as sa_exists
+    ibt = invoice_bank_transaction
+
     q = (
-        db.query(BankTransaction, Invoice.invoice_number, InvoiceFile.filename)
-        .outerjoin(Invoice, BankTransaction.invoice_id == Invoice.id)
+        db.query(BankTransaction, InvoiceFile.filename)
         .outerjoin(InvoiceFile, BankTransaction.invoice_file_id == InvoiceFile.id)
     )
     if date_from:
@@ -105,9 +107,9 @@ def list_transactions(
     if date_to:
         q = q.filter(BankTransaction.transaction_date <= datetime.combine(date_to, datetime.max.time()))
     if linked == "yes":
-        q = q.filter(BankTransaction.invoice_id.isnot(None))
+        q = q.filter(sa_exists().where(ibt.c.bank_transaction_id == BankTransaction.id))
     elif linked == "no":
-        q = q.filter(BankTransaction.invoice_id.is_(None))
+        q = q.filter(~sa_exists().where(ibt.c.bank_transaction_id == BankTransaction.id))
     if partner_name:
         q = q.filter(BankTransaction.counterparty_name.ilike(f"%{partner_name}%"))
     if amount_min is not None:
@@ -116,6 +118,20 @@ def list_transactions(
         q = q.filter(BankTransaction.amount <= amount_max)
 
     q = q.order_by(BankTransaction.transaction_date.desc())
+    txn_rows_raw = q.all()
+
+    txn_ids = [t.id for t, _ in txn_rows_raw]
+    inv_by_txn: dict[int, list[tuple[int, str]]] = {}
+    if txn_ids:
+        links = (
+            db.query(ibt.c.bank_transaction_id, Invoice.id, Invoice.invoice_number)
+            .join(Invoice, Invoice.id == ibt.c.invoice_id)
+            .filter(ibt.c.bank_transaction_id.in_(txn_ids))
+            .all()
+        )
+        for txn_id, inv_id, inv_num in links:
+            inv_by_txn.setdefault(txn_id, []).append((inv_id, inv_num))
+
     return [
         TransactionRow(
             id=t.id,
@@ -128,27 +144,33 @@ def list_transactions(
             description=t.description,
             payment_reference=t.payment_reference,
             partner_name=t.counterparty_name,
-            invoice_id=t.invoice_id,
-            invoice_number=inv_num,
             invoice_file_id=t.invoice_file_id,
             invoice_file_filename=inv_file,
             fees=t.fees,
+            invoice_ids=[pair[0] for pair in inv_by_txn.get(t.id, [])],
+            invoice_numbers=[pair[1] for pair in inv_by_txn.get(t.id, [])],
         )
-        for t, inv_num, inv_file in q.all()
+        for t, inv_file in txn_rows_raw
     ]
 
 
 def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDetail]:
+    ibt = invoice_bank_transaction
     row = (
-        db.query(BankTransaction, Invoice.invoice_number, InvoiceFile.filename)
-        .outerjoin(Invoice, BankTransaction.invoice_id == Invoice.id)
+        db.query(BankTransaction, InvoiceFile.filename)
         .outerjoin(InvoiceFile, BankTransaction.invoice_file_id == InvoiceFile.id)
         .filter(BankTransaction.id == transaction_id)
         .first()
     )
     if not row:
         return None
-    t, inv_num, inv_file = row
+    t, inv_file = row
+    links = (
+        db.query(Invoice.id, Invoice.invoice_number)
+        .join(ibt, Invoice.id == ibt.c.invoice_id)
+        .filter(ibt.c.bank_transaction_id == t.id)
+        .all()
+    )
     return TransactionDetail(
         id=t.id,
         transaction_id=t.transaction_id,
@@ -166,8 +188,8 @@ def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDet
         category=t.category,
         balance=t.balance,
         fees=t.fees,
-        invoice_id=t.invoice_id,
-        invoice_number=inv_num,
+        invoice_ids=[r[0] for r in links],
+        invoice_numbers=[r[1] for r in links],
         invoice_file_id=t.invoice_file_id,
         invoice_file_filename=inv_file,
         supplier_id=t.supplier_id,

@@ -8,7 +8,7 @@ from fastapi import Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, _PaymentStatus, _enum_str, invoice_has_bank_txn
+from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, _PaymentStatus, _enum_str, invoice_bank_transaction, invoice_has_bank_txn
 
 
 @dataclass
@@ -84,6 +84,17 @@ class InvoiceDetail:
     bank_transactions: list[BankTxnRow] = field(default_factory=list)
 
 
+def _derive_payment_status(inv: Invoice, bank_txns: list) -> str:
+    if not bank_txns:
+        return _enum_str(inv.payment_status)
+    total = inv.amount_total or 0.0
+    currency = inv.currency
+    paid_sum = sum(abs(t.amount) for t in bank_txns if not currency or t.currency == currency)
+    if total <= 0 or paid_sum >= total:
+        return _PaymentStatus.PAID.value
+    return _PaymentStatus.PARTIAL.value
+
+
 class InvoiceFilters:
     def __init__(
         self,
@@ -109,9 +120,8 @@ def list_invoices(
     supplier_name: Optional[str] = None,
 ) -> list[InvoiceRow]:
     bank_sub = (
-        db.query(BankTransaction.invoice_id, func.count(BankTransaction.id).label("cnt"))
-        .filter(BankTransaction.invoice_id.isnot(None))
-        .group_by(BankTransaction.invoice_id)
+        db.query(invoice_bank_transaction.c.invoice_id, func.count(invoice_bank_transaction.c.bank_transaction_id).label("cnt"))
+        .group_by(invoice_bank_transaction.c.invoice_id)
         .subquery()
     )
     q = (
@@ -127,9 +137,13 @@ def list_invoices(
         q = q.filter(Invoice.invoice_date <= date_to)
     if payment_status == "PAID":
         q = q.filter(or_(Invoice.payment_status == _PaymentStatus.PAID, invoice_has_bank_txn()))
+    elif payment_status == "PARTIAL":
+        q = q.filter(Invoice.payment_status == _PaymentStatus.PARTIAL)
+    elif payment_status == "UNPAID":
+        q = q.filter(Invoice.payment_status == _PaymentStatus.UNPAID, ~invoice_has_bank_txn())
     elif payment_status:
         try:
-            q = q.filter(Invoice.payment_status == _PaymentStatus[payment_status], ~invoice_has_bank_txn())
+            q = q.filter(Invoice.payment_status == _PaymentStatus[payment_status])
         except KeyError:
             pass
     if has_pdf == "true":
@@ -143,7 +157,7 @@ def list_invoices(
     rows = []
     for inv, sup_name, cust_name, bank_cnt, file_filename in q.all():
         status = _enum_str(inv.payment_status)
-        if (bank_cnt or 0) > 0:
+        if (bank_cnt or 0) > 0 and status == _PaymentStatus.UNPAID.value:
             status = _PaymentStatus.PAID.value
         rows.append(
             InvoiceRow(
@@ -169,8 +183,9 @@ def list_invoices(
     if rows:
         invoice_ids = [r.id for r in rows]
         txn_rows = (
-            db.query(BankTransaction.invoice_id, BankTransaction.transaction_id, BankTransaction.id)
-            .filter(BankTransaction.invoice_id.in_(invoice_ids))
+            db.query(invoice_bank_transaction.c.invoice_id, BankTransaction.transaction_id, BankTransaction.id)
+            .join(BankTransaction, BankTransaction.id == invoice_bank_transaction.c.bank_transaction_id)
+            .filter(invoice_bank_transaction.c.invoice_id.in_(invoice_ids))
             .order_by(BankTransaction.transaction_date.desc())
             .all()
         )
@@ -207,7 +222,8 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
 
     bank_txns = (
         db.query(BankTransaction)
-        .filter(BankTransaction.invoice_id == invoice_id)
+        .join(invoice_bank_transaction, BankTransaction.id == invoice_bank_transaction.c.bank_transaction_id)
+        .filter(invoice_bank_transaction.c.invoice_id == invoice_id)
         .order_by(BankTransaction.transaction_date.desc())
         .all()
     )
@@ -225,7 +241,7 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         amount_net=inv.amount_net,
         amount_vat=inv.amount_vat,
         amount_total=inv.amount_total,
-        payment_status=_PaymentStatus.PAID.value if bank_txns else _enum_str(inv.payment_status),
+        payment_status=_derive_payment_status(inv, bank_txns),
         direction=_enum_str(inv.direction),
         currency=inv.currency,
         invoice_operation=inv.invoice_operation,

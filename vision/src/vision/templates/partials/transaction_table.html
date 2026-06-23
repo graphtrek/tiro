@@ -81,8 +81,10 @@
         {%- endif -%}
       </td>
       <td>
-        {% if row.invoice_id and row.invoice_number %}
-          <a href="/ui/invoices/{{ row.invoice_id }}">{{ row.invoice_number }}</a>
+        {% if row.invoice_ids %}
+          {% for i in range(row.invoice_ids | length) %}
+            <a href="/ui/invoices/{{ row.invoice_ids[i] }}">{{ row.invoice_numbers[i] }}</a>{% if not loop.last %}, {% endif %}
+          {% endfor %}
         {% else %}
           <span class="text-muted">—</span>
         {% endif %}

@@ -265,7 +265,7 @@ def test_file_shared_backlinks_transaction_to_invoice(mdb):
 
     sync_match(mdb)
 
-    assert t.invoice_id == inv.id
+    assert inv in t.invoices
     assert inv.payment_status == _PaymentStatus.PAID
 
 
@@ -304,7 +304,7 @@ def test_file_assigned_then_backlinked_in_same_call(mdb):
     sync_match(mdb)
 
     assert t.invoice_file_id == pdf.id    # Phase 2 matched the file
-    assert t.invoice_id == inv.id         # Phase 3 back-linked the invoice
+    assert inv in t.invoices              # Phase 3 back-linked the invoice
     assert inv.payment_status == _PaymentStatus.PAID
 
 
@@ -322,9 +322,10 @@ def test_transitive_shortcut_via_invoice(mdb):
     # transfer with no vendor/amount signal in the PDF — only the invoice link
     t = _txn(transaction_id="TRANSFER-1", amount=71440, direction="DEBIT",
              payment_reference="2026-000064",
-             description="Utalás Őrszem Services Kft. részére", invoice_id=inv.id)
+             description="Utalás Őrszem Services Kft. részére")
     mdb.add(t)
     mdb.flush()
+    inv.bank_transactions.append(t)
 
     assert sync_match(mdb) == 1
     assert t.invoice_file_id == pdf.id

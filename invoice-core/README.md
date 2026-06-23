@@ -56,9 +56,9 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/partners/suppliers/{supplier_id:int}` | Supplier detail with invoices and transactions |
 | `GET`  | `/api/v1/partners/customers` | Customer list |
 | `GET`  | `/api/v1/partners/customers/{customer_id:int}` | Customer detail with invoices and transactions |
-| `GET`  | `/api/v1/transactions` | Bank transaction list (filter: `date_from`, `date_to`, `linked`, `partner_name`, `amount_min`, `amount_max`) |
+| `GET`  | `/api/v1/transactions` | Bank transaction list (filter: `date_from`, `date_to`, `linked`, `partner_name`, `amount_min`, `amount_max`); each row includes `invoice_ids: list[int]` and `invoice_numbers: list[str]` |
 | `GET`  | `/api/v1/transactions/balances` | Latest balance per bank |
-| `GET`  | `/api/v1/transactions/{transaction_id:int}` | Transaction detail |
+| `GET`  | `/api/v1/transactions/{transaction_id:int}` | Transaction detail; includes `invoice_ids: list[int]` and `invoice_numbers: list[str]` (may contain multiple entries for split-payment transactions) |
 | `GET`  | `/api/v1/reports/dividend` | Annual dividend/tax calculation (query: `year`, `kiva_rate`) |
 | `GET`  | `/api/v1/reports/tax` | Tax payment report by month and type (query: `year`) |
 
@@ -149,7 +149,8 @@ uv run invoice-core sync-match [--json] [-v]      # match existing bank txns to 
 `sync-match` fetches nothing. It links unmatched `bank_transaction` records to
 `invoice_file` rows (via transitive invoice link, payment reference, or scored
 vendor/amount/date matching), then back-links any transaction that now shares an
-`invoice_file` with an `invoice` to that invoice and marks it PAID.
+`invoice_file` with an `invoice` to that invoice and recomputes its payment status
+(PAID / PARTIAL / UNPAID based on the sum of linked transaction amounts).
 
 ### link
 
@@ -215,7 +216,8 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `customer` | Customers sourced from NAV invoice data |
 | `invoice_file` | PDF files from invoice-file-filter: filename, filesystem path, and extracted word text |
 | `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier, customer, and optionally invoice_file |
-| `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to invoice, supplier, customer, and invoice_file |
+| `invoice_bank_transaction` | Junction table — many-to-many link between `invoice` and `bank_transaction` |
+| `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table |
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
 
 ### Alembic migrations
@@ -288,7 +290,9 @@ The `sync-match` step runs in three phases:
 1. **Transitive** — reuse the file from an already-linked invoice.
 2. **Authoritative reference** — a bank transfer with an invoice-like `payment_reference` must match a file that *contains* that reference; left unlinked if none found.
 3. **Scored best-match** — for card payments, scores vendor name tokens + amount variants + date proximity; greedy 1:1 assignment above the confidence threshold.
-4. **Invoice back-link** — after all file assignments, any `bank_transaction` that shares an `invoice_file` with an `invoice` (but has no `invoice_id` yet) is linked to that invoice and the invoice is marked PAID. Covers both file links just established and pre-existing ones from prior syncs.
+4. **Invoice back-link** — after all file assignments, any `bank_transaction` that shares an `invoice_file` with an `invoice` (but is not yet linked to that invoice) is added to the invoice's payment set via the `invoice_bank_transaction` junction. The invoice's payment status is then recomputed as PAID (sum of linked amounts ≥ invoice total), PARTIAL (partial coverage), or UNPAID (none). Covers file links just established and pre-existing ones from prior syncs.
+
+Because the invoice ↔ bank transaction relationship is many-to-many, a single invoice can be settled by multiple bank transfers (installments), and a single bank transfer can be linked to multiple invoices (split payments). Payment status is always derived from the sum of the linked transaction amounts at read time or after each sync pass.
 
 Run `invoice-core link-bank <transaction_id> <filename>` to create a manual link.
 

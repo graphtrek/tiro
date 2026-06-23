@@ -133,7 +133,8 @@ class BankTransactionOut(BaseModel):
     fees: Optional[float] = None
     supplier_id: Optional[int] = None
     customer_id: Optional[int] = None
-    invoice_id: Optional[int] = None
+    invoice_ids: list[int] = []
+    invoice_numbers: list[str] = []
     invoice_file_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime

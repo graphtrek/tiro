@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Table,
     Text,
     create_engine,
     func,
@@ -117,6 +118,14 @@ class InvoiceFile(Base):
     bank_transactions = relationship("BankTransaction", back_populates="invoice_file")
 
 
+invoice_bank_transaction = Table(
+    "invoice_bank_transaction",
+    Base.metadata,
+    Column("invoice_id", Integer, ForeignKey("invoice.id"), primary_key=True),
+    Column("bank_transaction_id", Integer, ForeignKey("bank_transaction.id"), primary_key=True),
+)
+
+
 class Invoice(Base):
     __tablename__ = "invoice"
 
@@ -150,7 +159,12 @@ class Invoice(Base):
     supplier = relationship("Supplier", back_populates="invoices")
     customer = relationship("Customer", back_populates="invoices")
     invoice_file = relationship("InvoiceFile", back_populates="invoices")
-    bank_transactions = relationship("BankTransaction", back_populates="invoice")
+    bank_transactions = relationship(
+        "BankTransaction",
+        secondary=invoice_bank_transaction,
+        back_populates="invoices",
+        lazy="select",
+    )
 
 
 class BankTransaction(Base):
@@ -174,14 +188,18 @@ class BankTransaction(Base):
     fees = Column(Float, nullable=True)
     supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=True)
     customer_id = Column(Integer, ForeignKey("customer.id"), nullable=True)
-    invoice_id = Column(Integer, ForeignKey("invoice.id"), nullable=True)
     invoice_file_id = Column(Integer, ForeignKey("invoice_file.id"), nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     supplier = relationship("Supplier", back_populates="bank_transactions")
     customer = relationship("Customer", back_populates="bank_transactions")
-    invoice = relationship("Invoice", back_populates="bank_transactions")
+    invoices = relationship(
+        "Invoice",
+        secondary=invoice_bank_transaction,
+        back_populates="bank_transactions",
+        lazy="select",
+    )
     invoice_file = relationship("InvoiceFile", back_populates="bank_transactions")
 
 
@@ -204,4 +222,4 @@ def invoice_has_bank_txn():
     """Correlated EXISTS: the invoice has at least one linked bank transaction."""
     from sqlalchemy import exists
 
-    return exists().where(BankTransaction.invoice_id == Invoice.id)
+    return exists().where(invoice_bank_transaction.c.invoice_id == Invoice.id)

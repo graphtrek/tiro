@@ -66,8 +66,10 @@
 <dl class="row mb-0 small">
   <dt class="col-5 text-muted">Számla</dt>
   <dd class="col-7">
-    {% if tx.invoice_id and tx.invoice_number %}
-      <a href="/ui/invoices/{{ tx.invoice_id }}">{{ tx.invoice_number }}</a>
+    {% if tx.invoice_ids %}
+      {% for i in range(tx.invoice_ids | length) %}
+        <a href="/ui/invoices/{{ tx.invoice_ids[i] }}">{{ tx.invoice_numbers[i] }}</a>{% if not loop.last %}<br>{% endif %}
+      {% endfor %}
     {% else %}
       <span class="text-muted">—</span>
     {% endif %}
