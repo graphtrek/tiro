@@ -1,4 +1,42 @@
-{% from "_macros.html" import amount_fmt %}
+{% from "_macros.html" import amount_fmt, payment_badge, direction_badge %}
+
+{% if invoice %}
+<div class="card border-primary mb-3">
+  <div class="card-header py-1 px-3 bg-primary bg-opacity-10 small fw-semibold text-primary">
+    <i class="bi bi-file-earmark-text me-1"></i>Számla
+  </div>
+  <div class="card-body py-2 px-3">
+    <div class="d-flex flex-wrap gap-3">
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Számlaszám</div>
+        <div class="small fw-bold font-monospace">{{ invoice.invoice_number }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Dátum</div>
+        <div class="small">{{ invoice.invoice_date or '—' }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Bruttó</div>
+        <div class="small fw-bold">{{ amount_fmt(invoice.amount_total, invoice.currency) }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Státusz</div>
+        <div class="small">{{ payment_badge(invoice.payment_status) }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Irány</div>
+        <div class="small">{{ direction_badge(invoice.direction) }}</div>
+      </div>
+      {% if invoice.supplier_name %}
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Szállító</div>
+        <div class="small">{{ invoice.supplier_name }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% if tx %}
 <div class="card border-info mb-3">

@@ -281,9 +281,14 @@ def picker_invoice_files(
     client = _client()
     rows = dict_to_ns(client.get_invoice_files())
     tx = None
+    invoice = None
     if source_type == "invoice":
         link_url_prefix = f"/ui/invoices/{source_id}/invoice-file/link"
         hx_target = "body"
+        if source_id:
+            inv_data = client.get_invoice(source_id)
+            if inv_data:
+                invoice = dict_to_ns(inv_data)
     else:
         link_url_prefix = f"/ui/transactions/{source_id}/invoice-file/link"
         hx_target = "#tx-offcanvas-body"
@@ -297,6 +302,7 @@ def picker_invoice_files(
         link_url_prefix=link_url_prefix,
         hx_target=hx_target,
         tx=tx,
+        invoice=invoice,
     )
 
 

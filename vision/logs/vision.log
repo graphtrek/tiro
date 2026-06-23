@@ -3509,3 +3509,29 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-06-23 18:13:38 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 88ms
 2026-06-23 18:13:38 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 83ms
 2026-06-23 18:13:38 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 67ms
+2026-06-23 18:15:07 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 134ms
+2026-06-23 18:15:07 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 88ms
+2026-06-23 18:15:07 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 69ms
+2026-06-23 18:15:07 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 64ms
+2026-06-23 18:16:45 INFO     main.py:309 3 changes detected
+2026-06-23 18:16:45 INFO     main.py:309 4 changes detected
+2026-06-23 18:16:54 INFO     main.py:309 3 changes detected
+2026-06-23 18:17:01 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice → 200 in 126ms
+2026-06-23 18:17:09 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 144ms
+2026-06-23 18:17:21 INFO     vision/api/main.py:42 GET /ui/invoices/29 → 200 in 84ms
+2026-06-23 18:17:21 INFO     vision/api/main.py:42 GET /static/custom.css → 200 in 2ms
+2026-06-23 18:17:21 INFO     vision/api/main.py:42 GET /favicon.ico → 404 in 0ms
+2026-06-23 18:17:24 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 156ms
+2026-06-23 18:18:10 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=29 → 200 in 146ms
+2026-06-23 18:19:08 INFO     vision/api/main.py:42 GET /ui/invoice-files/65/pdf → 307 in 1ms
+2026-06-23 18:19:34 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 74ms
+2026-06-23 18:19:52 INFO     vision/api/main.py:42 GET /ui/invoices/25 → 200 in 173ms
+2026-06-23 18:19:54 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=25 → 200 in 140ms
+2026-06-23 18:19:55 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=25 → 200 in 131ms
+2026-06-23 18:19:55 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=25 → 200 in 126ms
+2026-06-23 18:20:03 INFO     vision/api/main.py:42 GET /ui/invoice-files/35/pdf → 307 in 1ms
+2026-06-23 18:20:21 INFO     vision/api/main.py:42 GET /ui/invoice-files/35/pdf → 307 in 1ms
+2026-06-23 18:21:29 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=25 → 200 in 134ms
+2026-06-23 18:21:29 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=25 → 200 in 122ms
+2026-06-23 18:21:29 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=invoice&source_id=25 → 200 in 120ms
+2026-06-23 18:21:58 INFO     vision/api/main.py:42 GET /ui/invoice-files → 200 in 129ms
