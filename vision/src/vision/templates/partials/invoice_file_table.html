@@ -8,6 +8,7 @@
       <th>Szállító</th>
       <th class="text-end">Összeg</th>
       <th>Bank tranzakció</th>
+      <th>Szöveg</th>
     </tr>
   </thead>
   <tbody>
@@ -41,9 +42,10 @@
           <span class="text-muted">—</span>
         {% endif %}
       </td>
+      <td>{{ row.words or '' }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="6" class="text-center text-muted">Nincs találat</td></tr>
+    <tr><td colspan="7" class="text-center text-muted">Nincs találat</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -62,6 +64,7 @@
       columnDefs: [
         { targets: [1, 4], className: "text-end" },
         { targets: [5], orderable: false },
+        { targets: [6], visible: false },
       ],
     });
     $("#file-table tbody").on("click", "tr", function(e) {

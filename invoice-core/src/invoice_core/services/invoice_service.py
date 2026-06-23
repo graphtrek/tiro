@@ -79,6 +79,7 @@ class InvoiceDetail:
     nav_ins_date: Optional[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
+    invoice_file_locked: bool
     created_at: datetime
     updated_at: datetime
     bank_transactions: list[BankTxnRow] = field(default_factory=list)
@@ -249,6 +250,7 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         nav_ins_date=inv.nav_ins_date,
         invoice_file_id=inv.invoice_file_id,
         invoice_file_filename=filename,
+        invoice_file_locked=inv.invoice_file_locked,
         created_at=inv.created_at,
         updated_at=inv.updated_at,
         bank_transactions=[

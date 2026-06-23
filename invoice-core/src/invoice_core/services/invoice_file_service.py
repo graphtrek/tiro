@@ -27,6 +27,7 @@ class InvoiceFileRow:
     bank_date: Optional[datetime]
     bank_count: int
     is_bank_linked: bool
+    words: Optional[str] = None
 
 
 class InvoiceFileFilters:
@@ -40,6 +41,7 @@ class InvoiceFileFilters:
 def list_invoice_files(
     db: Session,
     linked: Optional[str] = None,
+    filename: Optional[str] = None,
 ) -> list[InvoiceFileRow]:
     from invoice_core.db import Supplier
 
@@ -52,6 +54,8 @@ def list_invoice_files(
         q = q.filter(Invoice.id.isnot(None))
     elif linked == "no":
         q = q.filter(Invoice.id.is_(None))
+    if filename:
+        q = q.filter(InvoiceFile.filename.ilike(f"%{filename}%"))
 
     q = q.order_by(InvoiceFile.created_at.desc())
     results = q.all()
@@ -89,6 +93,7 @@ def list_invoice_files(
                 bank_date=btxn.transaction_date if btxn else None,
                 bank_count=len(btxns),
                 is_bank_linked=btxn is not None,
+                words=f.words,
             )
         )
     return rows

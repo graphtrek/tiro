@@ -68,22 +68,57 @@
   <dd class="col-7">
     {% if tx.invoice_ids %}
       {% for i in range(tx.invoice_ids | length) %}
-        <a href="/ui/invoices/{{ tx.invoice_ids[i] }}">{{ tx.invoice_numbers[i] }}</a>{% if not loop.last %}<br>{% endif %}
+        <div class="d-flex align-items-center gap-1 mb-1">
+          <a href="/ui/invoices/{{ tx.invoice_ids[i] }}">{{ tx.invoice_numbers[i] }}</a>
+          <form hx-post="/ui/transactions/{{ tx.id }}/invoices/{{ tx.invoice_ids[i] }}/unlink"
+                hx-target="#tx-offcanvas-body" hx-swap="innerHTML" class="d-inline m-0">
+            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 lh-1"
+                    title="Kapcsolat törlése" style="font-size:0.7rem">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </form>
+        </div>
       {% endfor %}
     {% else %}
       <span class="text-muted">—</span>
     {% endif %}
+    <button class="btn btn-outline-primary btn-sm py-0 px-1 mt-1"
+            data-bs-toggle="modal" data-bs-target="#pickerModal"
+            data-picker-url="/ui/picker/invoices?txn_id={{ tx.id }}"
+            title="Számla kapcsolása">
+      <i class="bi bi-link-45deg"></i> Számla kapcsolása
+    </button>
   </dd>
 
   <dt class="col-5 text-muted">PDF fájl</dt>
   <dd class="col-7">
     {% if tx.invoice_file_id and tx.invoice_file_filename %}
-      <a href="/ui/invoice-files" title="{{ tx.invoice_file_filename }}">
-        <i class="bi bi-file-earmark-pdf text-danger"></i>
-        {{ tx.invoice_file_filename }}
-      </a>
+      <div class="d-flex align-items-center gap-1 flex-wrap">
+        <a href="/ui/invoice-files" title="{{ tx.invoice_file_filename }}">
+          <i class="bi bi-file-earmark-pdf text-danger"></i>
+          {{ tx.invoice_file_filename }}
+        </a>
+        {% if tx.invoice_file_locked %}
+          <span class="badge bg-warning text-dark" title="Manuálisan kapcsolva">
+            <i class="bi bi-lock-fill"></i>
+          </span>
+        {% endif %}
+        <form hx-post="/ui/transactions/{{ tx.id }}/invoice-file/unlink"
+              hx-target="#tx-offcanvas-body" hx-swap="innerHTML" class="d-inline m-0">
+          <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 lh-1"
+                  title="PDF kapcsolat törlése" style="font-size:0.7rem">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </form>
+      </div>
     {% else %}
       <span class="text-muted">—</span>
+      <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-1"
+              data-bs-toggle="modal" data-bs-target="#pickerModal"
+              data-picker-url="/ui/picker/invoice-files?source_type=transaction&source_id={{ tx.id }}"
+              title="PDF kapcsolása">
+        <i class="bi bi-link-45deg"></i> PDF kapcsolása
+      </button>
     {% endif %}
   </dd>
 

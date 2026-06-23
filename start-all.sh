@@ -34,7 +34,11 @@ start() {
     printf "  ${GREEN}%-34s${NC} pid %-6s  logs/%s.log\n" "$name" "$pid" "$name"
 }
 
+_CLEANED=0
 cleanup() {
+    (( _CLEANED )) && return
+    _CLEANED=1
+    trap - EXIT INT TERM
     echo ""
     echo -e "${YELLOW}Stopping services...${NC}"
     for i in "${!PIDS[@]}"; do
@@ -46,6 +50,7 @@ cleanup() {
     done
     wait 2>/dev/null
     echo -e "${GREEN}All services stopped.${NC}"
+    exit 0
 }
 trap cleanup EXIT INT TERM
 
@@ -70,13 +75,22 @@ echo ""
 echo -e "${GREEN}All services started. Press Ctrl+C to stop.${NC}"
 echo ""
 
-# Monitor: report if any service exits unexpectedly
+# Monitor: report if any service exits unexpectedly; stop when all are gone
 while true; do
     sleep 5
+    alive=0
     for i in "${!PIDS[@]}"; do
-        if [[ -n "${PIDS[$i]}" ]] && ! kill -0 "${PIDS[$i]}" 2>/dev/null; then
-            echo -e "${RED}[$(date '+%H:%M:%S')] '${NAMES[$i]}' exited unexpectedly — check logs/${NAMES[$i]}.log${NC}"
-            unset "PIDS[$i]"
+        if [[ -n "${PIDS[$i]}" ]]; then
+            if ! kill -0 "${PIDS[$i]}" 2>/dev/null; then
+                echo -e "${RED}[$(date '+%H:%M:%S')] '${NAMES[$i]}' exited unexpectedly — check logs/${NAMES[$i]}.log${NC}"
+                unset "PIDS[$i]"
+            else
+                (( alive++ )) || true
+            fi
         fi
     done
+    if (( alive == 0 )); then
+        echo -e "${RED}All services have stopped.${NC}"
+        break
+    fi
 done

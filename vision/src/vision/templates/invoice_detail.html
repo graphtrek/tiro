@@ -102,31 +102,65 @@
 </div>
 
 <!-- PDF szekció -->
-{% if invoice.invoice_file_id %}
 <div class="card shadow-sm mb-4">
-  <div class="card-header">
-    <i class="bi bi-file-earmark-pdf me-1 text-danger"></i><strong>Kapcsolt PDF</strong>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>
+      <i class="bi bi-file-earmark-pdf me-1 text-danger"></i><strong>Kapcsolt PDF</strong>
+      {% if invoice.invoice_file_locked %}
+        <span class="badge bg-warning text-dark ms-1" title="Manuálisan kapcsolva"><i class="bi bi-lock-fill"></i> Manuális</span>
+      {% endif %}
+    </span>
+    {% if invoice.invoice_file_id %}
+      <form hx-post="/ui/invoices/{{ invoice.id }}/invoice-file/unlink"
+            hx-target="body" hx-push-url="true" class="d-inline m-0">
+        <button type="submit" class="btn btn-outline-danger btn-sm">
+          <i class="bi bi-x-lg"></i> PDF leválaszt
+        </button>
+      </form>
+    {% else %}
+      <button class="btn btn-outline-primary btn-sm"
+              data-bs-toggle="modal" data-bs-target="#pickerModal"
+              data-picker-url="/ui/picker/invoice-files?source_type=invoice&source_id={{ invoice.id }}">
+        <i class="bi bi-link-45deg"></i> PDF kapcsolása
+      </button>
+    {% endif %}
   </div>
+  {% if invoice.invoice_file_id %}
   <div class="card-body">
     <a href="/ui/invoice-files/{{ invoice.invoice_file_id }}/pdf" target="_blank" class="font-monospace">
       <i class="bi bi-box-arrow-up-right me-1"></i>{{ invoice.invoice_file_filename or ('file_id: ' ~ invoice.invoice_file_id) }}
     </a>
   </div>
+  {% else %}
+  <div class="card-body text-muted">Nincs kapcsolt PDF fájl.</div>
+  {% endif %}
 </div>
-{% endif %}
 
 <!-- Bank tranzakciók -->
-{% if invoice.bank_transactions %}
-<div class="mb-2">
+<div class="mb-2 d-flex justify-content-between align-items-center">
   <h5 class="mb-3">
     <i class="bi bi-bank me-1 text-info"></i>Bank tranzakciók ({{ invoice.bank_transactions | length }})
   </h5>
+  <button class="btn btn-outline-primary btn-sm mb-3"
+          data-bs-toggle="modal" data-bs-target="#pickerModal"
+          data-picker-url="/ui/picker/transactions?invoice_id={{ invoice.id }}">
+    <i class="bi bi-link-45deg"></i> Tranzakció kapcsolása
+  </button>
 </div>
+{% if invoice.bank_transactions %}
 {% for t in invoice.bank_transactions %}
 <div class="card shadow-sm mb-3">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span class="font-monospace small">{{ t.bank | upper }}: {{ t.transaction_id }}</span>
-    <span class="fw-bold">{{ amount_fmt(t.amount, t.currency) }}</span>
+    <div class="d-flex gap-2 align-items-center">
+      <span class="fw-bold">{{ amount_fmt(t.amount, t.currency) }}</span>
+      <form hx-post="/ui/invoices/{{ invoice.id }}/transactions/{{ t.id }}/unlink"
+            hx-target="body" hx-push-url="true" class="d-inline m-0">
+        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" title="Kapcsolat törlése">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </form>
+    </div>
   </div>
   <div class="card-body">
     <div class="row g-3">

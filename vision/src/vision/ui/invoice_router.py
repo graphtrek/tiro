@@ -171,6 +171,162 @@ def transaction_detail_partial(request: Request, transaction_id: int):
     return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
 
 
+# ── Manual link / unlink (Invoice ↔ InvoiceFile) ─────────────────────────────
+
+@router.post("/invoices/{invoice_id}/invoice-file/link")
+def invoice_link_file(request: Request, invoice_id: int, file_id: int = Form(...)):
+    client = _client()
+    client.link_invoice_to_file(invoice_id, file_id)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
+@router.post("/invoices/{invoice_id}/invoice-file/unlink")
+def invoice_unlink_file(request: Request, invoice_id: int):
+    client = _client()
+    client.unlink_invoice_from_file(invoice_id)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
+# ── Manual link / unlink (BankTransaction ↔ InvoiceFile) ─────────────────────
+
+@router.post("/transactions/{txn_id}/invoice-file/link")
+def transaction_link_file(request: Request, txn_id: int, file_id: int = Form(...)):
+    client = _client()
+    client.link_transaction_to_file(txn_id, file_id)
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+
+
+@router.post("/transactions/{txn_id}/invoice-file/unlink")
+def transaction_unlink_file(request: Request, txn_id: int):
+    client = _client()
+    client.unlink_transaction_from_file(txn_id)
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+
+
+# ── Manual link / unlink (Invoice ↔ BankTransaction M2M) ─────────────────────
+
+@router.post("/invoices/{invoice_id}/transactions/{txn_id}/link")
+def invoice_link_transaction(request: Request, invoice_id: int, txn_id: int):
+    client = _client()
+    client.link_invoice_transaction(invoice_id, txn_id)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
+@router.post("/invoices/{invoice_id}/transactions/{txn_id}/unlink")
+def invoice_unlink_transaction(request: Request, invoice_id: int, txn_id: int):
+    client = _client()
+    client.unlink_invoice_transaction(invoice_id, txn_id)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
+# ── Manual link / unlink (BankTransaction ↔ Invoice, transaction-side) ───────
+# These are the same M2M link/unlink as the invoice-side routes above, but they
+# return the transaction detail partial so they can be used from the tx offcanvas.
+
+@router.post("/transactions/{txn_id}/invoices/{invoice_id}/link")
+def transaction_link_invoice(request: Request, txn_id: int, invoice_id: int):
+    client = _client()
+    client.link_invoice_transaction(invoice_id, txn_id)
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+
+
+@router.post("/transactions/{txn_id}/invoices/{invoice_id}/unlink")
+def transaction_unlink_invoice(request: Request, txn_id: int, invoice_id: int):
+    client = _client()
+    client.unlink_invoice_transaction(invoice_id, txn_id)
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+
+
+# ── Picker routes (HTMX-loaded candidate lists for modal) ─────────────────────
+
+@router.get("/picker/invoice-files")
+def picker_invoice_files(
+    request: Request,
+    source_type: Optional[str] = None,
+    source_id: Optional[int] = None,
+):
+    client = _client()
+    rows = dict_to_ns(client.get_invoice_files())
+    tx = None
+    if source_type == "invoice":
+        link_url_prefix = f"/ui/invoices/{source_id}/invoice-file/link"
+        hx_target = "body"
+    else:
+        link_url_prefix = f"/ui/transactions/{source_id}/invoice-file/link"
+        hx_target = "#tx-offcanvas-body"
+        if source_id:
+            txn_data = client.get_transaction(source_id)
+            if txn_data:
+                tx = dict_to_ns(txn_data)
+    return _resp(
+        request, "partials/picker_invoice_files.html", client,
+        rows=rows,
+        link_url_prefix=link_url_prefix,
+        hx_target=hx_target,
+        tx=tx,
+    )
+
+
+@router.get("/picker/transactions")
+def picker_transactions(
+    request: Request,
+    invoice_id: Optional[int] = None,
+):
+    client = _client()
+    rows = dict_to_ns(client.get_transactions())
+    return _resp(
+        request, "partials/picker_transactions.html", client,
+        rows=rows,
+        invoice_id=invoice_id,
+    )
+
+
+@router.get("/picker/invoices")
+def picker_invoices(
+    request: Request,
+    txn_id: Optional[int] = None,
+):
+    client = _client()
+    rows = dict_to_ns(client.get_invoices())
+    tx = None
+    if txn_id:
+        txn_data = client.get_transaction(txn_id)
+        if txn_data:
+            already_linked = set(txn_data.get("invoice_ids", []))
+            rows = [r for r in rows if r.id not in already_linked]
+            tx = dict_to_ns(txn_data)
+    return _resp(
+        request, "partials/picker_invoices.html", client,
+        rows=rows,
+        txn_id=txn_id,
+        tx=tx,
+    )
+
+
 # ── Dividend report ───────────────────────────────────────────────────────────
 
 @router.get("/dividend")

@@ -60,6 +60,28 @@ class InvoiceCoreClient:
             logger.warning("invoice-core POST %s failed: %s", path, exc)
             return None
 
+    def _put(self, path: str, json: dict | None = None) -> dict | None:
+        try:
+            resp = self.session.put(
+                f"{self.base_url}{path}",
+                json=json,
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except requests.RequestException as exc:
+            logger.warning("invoice-core PUT %s failed: %s", path, exc)
+            return None
+
+    def _delete(self, path: str) -> dict | None:
+        try:
+            resp = self.session.delete(f"{self.base_url}{path}", timeout=self.timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.RequestException as exc:
+            logger.warning("invoice-core DELETE %s failed: %s", path, exc)
+            return None
+
     # ── Dashboard ──────────────────────────────────────────────────────────────
 
     def get_dashboard(self) -> dict:
@@ -95,9 +117,29 @@ class InvoiceCoreClient:
 
     # ── Invoice files ──────────────────────────────────────────────────────────
 
-    def get_invoice_files(self, linked: str | None = None) -> list[dict]:
-        params = {"linked": linked} if linked is not None else None
-        return self._get("/api/v1/invoice-files", params)
+    def get_invoice_files(self, linked: str | None = None, filename: str | None = None) -> list[dict]:
+        params = {k: v for k, v in {"linked": linked, "filename": filename}.items() if v is not None}
+        return self._get("/api/v1/invoice-files", params or None)
+
+    # ── Manual link / unlink ───────────────────────────────────────────────────
+
+    def link_invoice_to_file(self, invoice_id: int, file_id: int) -> dict | None:
+        return self._put(f"/api/v1/invoices/{invoice_id}/invoice-file", {"invoice_file_id": file_id})
+
+    def unlink_invoice_from_file(self, invoice_id: int) -> dict | None:
+        return self._delete(f"/api/v1/invoices/{invoice_id}/invoice-file")
+
+    def link_transaction_to_file(self, txn_id: int, file_id: int) -> dict | None:
+        return self._put(f"/api/v1/transactions/{txn_id}/invoice-file", {"invoice_file_id": file_id})
+
+    def unlink_transaction_from_file(self, txn_id: int) -> dict | None:
+        return self._delete(f"/api/v1/transactions/{txn_id}/invoice-file")
+
+    def link_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict | None:
+        return self._put(f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}")
+
+    def unlink_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict | None:
+        return self._delete(f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}")
 
     # ── Partners ───────────────────────────────────────────────────────────────
 

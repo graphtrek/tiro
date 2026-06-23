@@ -108,8 +108,13 @@ class InvoiceOut(BaseModel):
     invoice_category: Optional[str] = None
     nav_ins_date: Optional[str] = None
     invoice_file_id: Optional[int] = None
+    invoice_file_locked: bool = False
     created_at: datetime
     updated_at: datetime
+
+
+class LinkFileRequest(BaseModel):
+    invoice_file_id: int
 
 
 class BankTransactionOut(BaseModel):

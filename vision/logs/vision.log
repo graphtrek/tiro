@@ -3294,3 +3294,201 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-06-23 12:06:27 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 125ms
 2026-06-23 12:06:45 INFO     vision/api/main.py:42 GET /ui/transactions/55 → 200 in 70ms
 2026-06-23 12:07:10 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 81ms
+2026-06-23 13:24:24 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 277ms
+2026-06-23 13:24:24 INFO     vision/api/main.py:42 GET /static/custom.css → 304 in 3ms
+2026-06-23 13:24:39 INFO     vision/api/main.py:42 GET /ui/ → 200 in 176ms
+2026-06-23 13:24:42 INFO     vision/api/main.py:42 GET /ui/dividend → 200 in 56ms
+2026-06-23 13:24:43 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 144ms
+2026-06-23 13:24:48 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 77ms
+2026-06-23 13:24:50 INFO     vision/api/main.py:42 GET /ui/invoice-files/70/pdf → 307 in 1ms
+2026-06-23 13:25:00 INFO     vision/api/main.py:42 GET /ui/sync → 200 in 55ms
+2026-06-23 13:26:25 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 83ms
+2026-06-23 13:26:31 INFO     vision/api/main.py:42 GET /ui/invoice-files/70/pdf → 307 in 1ms
+2026-06-23 13:26:37 INFO     vision/api/main.py:42 GET /ui/invoices/31 → 200 in 92ms
+2026-06-23 13:26:51 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 136ms
+2026-06-23 13:26:52 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 78ms
+2026-06-23 13:27:00 INFO     vision/api/main.py:42 GET /ui/invoice-files → 200 in 123ms
+2026-06-23 13:27:02 INFO     vision/api/main.py:42 GET /ui/invoice-files/6/pdf → 307 in 2ms
+2026-06-23 13:27:08 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 76ms
+2026-06-23 13:27:12 INFO     vision/api/main.py:42 GET /ui/invoices/31 → 200 in 74ms
+2026-06-23 13:27:15 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 67ms
+2026-06-23 13:27:19 INFO     vision/api/main.py:42 GET /ui/invoices/30 → 200 in 75ms
+2026-06-23 13:27:39 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 62ms
+2026-06-23 13:28:51 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 282ms
+2026-06-23 13:28:51 INFO     vision/api/main.py:42 GET /static/custom.css → 200 in 2ms
+2026-06-23 13:28:51 INFO     vision/api/main.py:42 GET /favicon.ico → 404 in 0ms
+2026-06-23 13:28:58 INFO     vision/api/main.py:42 GET /ui/invoices/31 → 200 in 80ms
+2026-06-23 13:29:12 INFO     vision/api/main.py:42 GET /ui/invoice-files → 200 in 98ms
+2026-06-23 13:29:16 INFO     vision/api/main.py:42 GET /ui/invoice-files/3/pdf → 307 in 1ms
+2026-06-23 13:29:21 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 123ms
+2026-06-23 13:29:27 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 69ms
+2026-06-23 13:29:36 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 65ms
+2026-06-23 13:29:36 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 59ms
+2026-06-23 13:30:42 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 129ms
+2026-06-23 13:38:43 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 344ms
+2026-06-23 13:38:44 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 122ms
+2026-06-23 13:38:46 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 68ms
+2026-06-23 13:38:52 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 128ms
+2026-06-23 13:39:01 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 109ms
+2026-06-23 13:39:05 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 111ms
+2026-06-23 13:39:08 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 168ms
+2026-06-23 13:39:18 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 112ms
+2026-06-23 13:40:06 INFO     main.py:309 3 changes detected
+2026-06-23 13:40:10 INFO     main.py:309 3 changes detected
+2026-06-23 13:40:14 INFO     main.py:309 3 changes detected
+2026-06-23 13:40:19 INFO     main.py:309 3 changes detected
+2026-06-23 13:40:45 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 106ms
+2026-06-23 13:40:45 INFO     vision/api/main.py:42 GET /static/custom.css → 200 in 2ms
+2026-06-23 13:40:45 INFO     vision/api/main.py:42 GET /favicon.ico → 404 in 1ms
+2026-06-23 13:40:47 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 62ms
+2026-06-23 13:40:50 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 106ms
+2026-06-23 13:40:55 INFO     vision/api/main.py:42 GET /ui/picker/invoices?q=fi&txn_id=2 → 200 in 145ms
+2026-06-23 13:41:00 INFO     vision/api/main.py:42 GET /ui/picker/invoices?q=f&txn_id=2 → 200 in 107ms
+2026-06-23 13:41:06 INFO     vision/api/main.py:42 GET /ui/picker/invoices?q=fi&txn_id=2 → 200 in 91ms
+2026-06-23 13:41:10 INFO     vision/api/main.py:42 GET /ui/picker/invoices?q=f&txn_id=2 → 200 in 97ms
+2026-06-23 13:41:14 INFO     vision/api/main.py:42 GET /ui/picker/invoices?q=&txn_id=2 → 200 in 96ms
+2026-06-23 13:41:19 INFO     vision/api/main.py:42 GET /ui/picker/invoices?q=AH&txn_id=2 → 200 in 105ms
+2026-06-23 13:41:26 INFO     vision/api/main.py:42 GET /ui/picker/invoices?q=A&txn_id=2 → 200 in 99ms
+2026-06-23 13:41:31 INFO     vision/api/main.py:42 GET /ui/picker/invoices?q=&txn_id=2 → 200 in 107ms
+2026-06-23 13:43:17 INFO     vision/api/main.py:42 GET /ui/dividend → 200 in 80ms
+2026-06-23 13:43:26 INFO     vision/api/main.py:42 GET /ui/ → 200 in 192ms
+2026-06-23 13:43:28 INFO     vision/api/main.py:42 GET /ui/ → 200 in 157ms
+2026-06-23 13:43:29 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 63ms
+2026-06-23 13:43:44 INFO     main.py:309 3 changes detected
+2026-06-23 13:43:54 INFO     main.py:309 3 changes detected
+2026-06-23 13:43:57 INFO     vision/api/main.py:42 GET /ui/invoice-files → 200 in 149ms
+2026-06-23 13:44:01 INFO     main.py:309 3 changes detected
+2026-06-23 13:44:06 INFO     main.py:309 3 changes detected
+2026-06-23 13:44:19 INFO     main.py:309 3 changes detected
+2026-06-23 13:44:20 INFO     main.py:309 4 changes detected
+2026-06-23 13:44:27 INFO     main.py:309 3 changes detected
+2026-06-23 13:44:27 INFO     main.py:309 3 changes detected
+2026-06-23 13:44:50 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 169ms
+2026-06-23 13:45:15 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 155ms
+2026-06-23 13:45:24 INFO     vision/api/main.py:42 GET /ui/transactions/10 → 200 in 71ms
+2026-06-23 13:45:46 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 103ms
+2026-06-23 13:46:11 INFO     vision/api/main.py:42 GET /ui/transactions/10 → 200 in 78ms
+2026-06-23 13:48:43 INFO     vision/api/main.py:42 GET /ui/transactions/6 → 200 in 62ms
+2026-06-23 13:49:49 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 123ms
+2026-06-23 13:49:53 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 72ms
+2026-06-23 13:49:55 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 102ms
+2026-06-23 13:49:55 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 100ms
+2026-06-23 13:50:58 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 122ms
+2026-06-23 13:53:37 INFO     main.py:309 3 changes detected
+2026-06-23 13:59:43 INFO     vision/api/main.py:42 GET / → 200 in 43ms
+2026-06-23 13:59:47 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 134ms
+2026-06-23 13:59:49 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 107ms
+2026-06-23 13:59:51 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 147ms
+2026-06-23 13:59:51 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 112ms
+2026-06-23 14:00:27 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=2 → 200 in 132ms
+2026-06-23 14:00:27 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=2 → 200 in 84ms
+2026-06-23 14:02:41 INFO     main.py:309 3 changes detected
+2026-06-23 14:02:42 INFO     main.py:309 4 changes detected
+2026-06-23 14:02:59 INFO     main.py:309 3 changes detected
+2026-06-23 14:09:26 INFO     vision/api/main.py:42 GET /ui/ → 200 in 196ms
+2026-06-23 14:09:39 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 117ms
+2026-06-23 14:09:41 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 69ms
+2026-06-23 14:09:45 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 106ms
+2026-06-23 14:09:45 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 101ms
+2026-06-23 14:35:23 INFO     vision/api/main.py:42 GET / → 200 in 98ms
+2026-06-23 14:35:26 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 195ms
+2026-06-23 14:35:28 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 103ms
+2026-06-23 14:35:30 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 214ms
+2026-06-23 14:35:31 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 172ms
+2026-06-23 14:35:45 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=2 → 200 in 93ms
+2026-06-23 14:35:45 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=2 → 200 in 144ms
+2026-06-23 14:37:02 INFO     main.py:309 3 changes detected
+2026-06-23 14:37:03 INFO     main.py:309 4 changes detected
+2026-06-23 14:37:16 INFO     main.py:309 3 changes detected
+2026-06-23 15:06:11 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 265ms
+2026-06-23 15:06:13 INFO     vision/api/main.py:42 GET /ui/transactions/4 → 200 in 137ms
+2026-06-23 15:06:15 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=4 → 200 in 147ms
+2026-06-23 15:07:40 INFO     main.py:309 3 changes detected
+2026-06-23 15:07:44 INFO     main.py:309 3 changes detected
+2026-06-23 15:07:50 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 203ms
+2026-06-23 15:08:16 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 85ms
+2026-06-23 15:08:29 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 130ms
+2026-06-23 15:09:00 INFO     main.py:309 3 changes detected
+2026-06-23 15:09:08 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 114ms
+2026-06-23 15:09:16 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 55ms
+2026-06-23 15:09:25 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=2 → 200 in 123ms
+2026-06-23 15:09:55 INFO     vision/api/main.py:42 GET /ui/transactions/1 → 200 in 85ms
+2026-06-23 15:09:59 INFO     vision/api/main.py:42 GET /ui/picker/invoices?txn_id=1 → 200 in 109ms
+2026-06-23 15:10:38 INFO     vision/api/main.py:42 POST /ui/transactions/1/invoices/31/link → 200 in 152ms
+2026-06-23 15:10:45 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=1 → 200 in 148ms
+2026-06-23 15:11:49 INFO     vision/api/main.py:42 POST /ui/transactions/1/invoice-file/link → 200 in 119ms
+2026-06-23 15:12:07 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 104ms
+2026-06-23 15:12:10 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 163ms
+2026-06-23 15:12:10 INFO     vision/api/main.py:42 GET /static/custom.css → 200 in 3ms
+2026-06-23 15:12:11 INFO     vision/api/main.py:42 GET /favicon.ico → 404 in 0ms
+2026-06-23 15:12:29 INFO     vision/api/main.py:42 GET /ui/invoices/31 → 200 in 96ms
+2026-06-23 15:12:37 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 63ms
+2026-06-23 15:13:10 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 135ms
+2026-06-23 15:14:40 INFO     main.py:309 3 changes detected
+2026-06-23 15:14:43 INFO     main.py:309 3 changes detected
+2026-06-23 15:15:03 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 139ms
+2026-06-23 15:15:03 INFO     vision/api/main.py:42 GET /static/custom.css → 200 in 0ms
+2026-06-23 15:15:04 INFO     vision/api/main.py:42 GET /favicon.ico → 404 in 0ms
+2026-06-23 15:15:39 INFO     vision/api/main.py:42 GET /ui/transactions/17 → 200 in 67ms
+2026-06-23 15:15:47 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=17 → 200 in 152ms
+2026-06-23 15:16:47 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=17 → 200 in 150ms
+2026-06-23 15:23:19 INFO     vision/api/main.py:42 GET /ui/transactions/16 → 200 in 75ms
+2026-06-23 15:23:21 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=16 → 200 in 164ms
+2026-06-23 15:24:19 INFO     main.py:309 3 changes detected
+2026-06-23 15:24:31 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 177ms
+2026-06-23 15:24:31 INFO     vision/api/main.py:42 GET /static/custom.css → 200 in 1ms
+2026-06-23 15:24:31 INFO     vision/api/main.py:42 GET /favicon.ico → 404 in 0ms
+2026-06-23 15:24:46 INFO     vision/api/main.py:42 GET /ui/transactions/17 → 200 in 54ms
+2026-06-23 15:24:50 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=17 → 200 in 161ms
+2026-06-23 15:25:05 INFO     vision/api/main.py:42 GET /ui/invoice-files/62/pdf → 307 in 2ms
+2026-06-23 15:25:21 INFO     vision/api/main.py:42 GET /ui/invoice-files/62/pdf → 307 in 1ms
+2026-06-23 15:25:28 INFO     vision/api/main.py:42 GET /ui/invoice-files/61/pdf → 307 in 1ms
+2026-06-23 15:25:45 INFO     vision/api/main.py:42 GET /ui/invoice-files/56/pdf → 307 in 1ms
+2026-06-23 15:26:23 INFO     vision/api/main.py:42 GET /ui/invoice-files/62/pdf → 307 in 1ms
+2026-06-23 15:26:27 INFO     vision/api/main.py:42 GET /ui/invoice-files/63/pdf → 307 in 1ms
+2026-06-23 15:26:43 INFO     vision/api/main.py:42 GET /ui/invoice-files/2/pdf → 307 in 1ms
+2026-06-23 15:26:57 INFO     vision/api/main.py:42 GET /ui/invoice-files/56/pdf → 307 in 1ms
+2026-06-23 15:44:49 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 76ms
+2026-06-23 15:49:45 INFO     main.py:309 3 changes detected
+2026-06-23 15:49:51 INFO     main.py:309 3 changes detected
+2026-06-23 15:49:55 INFO     main.py:309 3 changes detected
+2026-06-23 15:50:06 INFO     main.py:309 3 changes detected
+2026-06-23 15:52:14 INFO     vision/api/main.py:42 GET /ui/dividend → 200 in 249ms
+2026-06-23 15:52:17 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 121ms
+2026-06-23 15:52:27 INFO     vision/api/main.py:42 GET /ui/transactions/16 → 200 in 68ms
+2026-06-23 15:52:31 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=16 → 200 in 177ms
+2026-06-23 15:52:32 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=16 → 200 in 150ms
+2026-06-23 15:52:32 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=16 → 200 in 130ms
+2026-06-23 15:52:32 INFO     vision/api/main.py:42 GET /ui/picker/invoice-files?source_type=transaction&source_id=16 → 200 in 112ms
+2026-06-23 15:53:02 INFO     vision/api/main.py:42 GET /ui/invoice-files/62/pdf → 307 in 1ms
+2026-06-23 15:53:23 INFO     vision/api/main.py:42 GET /ui/invoice-files/62/pdf → 307 in 1ms
+2026-06-23 15:53:32 INFO     vision/api/main.py:42 GET /ui/invoice-files/63/pdf → 307 in 1ms
+2026-06-23 15:54:20 INFO     vision/api/main.py:42 GET /ui/invoice-files/62/pdf → 307 in 1ms
+2026-06-23 15:54:24 INFO     vision/api/main.py:42 GET /ui/invoice-files/52/pdf → 307 in 1ms
+2026-06-23 15:54:35 INFO     vision/api/main.py:42 GET /ui/invoice-files/63/pdf → 307 in 1ms
+2026-06-23 15:54:43 INFO     vision/api/main.py:42 POST /ui/transactions/16/invoice-file/link → 200 in 132ms
+2026-06-23 15:54:48 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 116ms
+2026-06-23 15:55:02 INFO     vision/api/main.py:42 GET /ui/invoice-files/63/pdf → 307 in 1ms
+2026-06-23 15:55:48 INFO     vision/api/main.py:42 GET /ui/invoice-files → 200 in 107ms
+2026-06-23 15:56:26 INFO     main.py:309 3 changes detected
+2026-06-23 15:56:29 INFO     main.py:309 3 changes detected
+2026-06-23 15:56:35 INFO     main.py:309 3 changes detected
+2026-06-23 15:56:44 INFO     vision/api/main.py:42 GET /ui/invoice-files → 200 in 135ms
+2026-06-23 15:56:54 INFO     vision/api/main.py:42 GET /ui/invoice-files/4/pdf → 307 in 2ms
+2026-06-23 15:57:06 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 67ms
+2026-06-23 15:57:45 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 147ms
+2026-06-23 15:57:57 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 67ms
+2026-06-23 15:58:29 INFO     vision/api/main.py:42 GET /ui/invoice-files/71/pdf → 307 in 1ms
+2026-06-23 15:58:49 INFO     vision/api/main.py:42 GET /ui/suppliers/1 → 200 in 212ms
+2026-06-23 15:59:54 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 134ms
+2026-06-23 16:00:05 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 94ms
+2026-06-23 16:00:17 INFO     vision/api/main.py:42 GET /ui/invoices/23 → 200 in 76ms
+2026-06-23 16:00:33 INFO     vision/api/main.py:42 GET /ui/picker/transactions?invoice_id=23 → 200 in 93ms
+2026-06-23 16:00:33 INFO     vision/api/main.py:42 GET /ui/picker/transactions?invoice_id=23 → 200 in 89ms
+2026-06-23 16:00:33 INFO     vision/api/main.py:42 GET /ui/picker/transactions?invoice_id=23 → 200 in 79ms
+2026-06-23 16:00:33 INFO     vision/api/main.py:42 GET /ui/picker/transactions?invoice_id=23 → 200 in 82ms
+2026-06-23 16:00:33 INFO     vision/api/main.py:42 GET /ui/picker/transactions?invoice_id=23 → 200 in 70ms
+2026-06-23 16:00:33 INFO     vision/api/main.py:42 GET /ui/picker/transactions?invoice_id=23 → 200 in 66ms
+2026-06-23 16:00:33 INFO     vision/api/main.py:42 GET /ui/picker/transactions?invoice_id=23 → 200 in 73ms
+2026-06-23 16:00:33 INFO     vision/api/main.py:42 GET /ui/picker/transactions?invoice_id=23 → 200 in 71ms
+2026-06-23 16:00:33 INFO     vision/api/main.py:42 GET /ui/picker/transactions?invoice_id=23 → 200 in 70ms

@@ -50,9 +50,9 @@
       <th>D/C</th>
       <th>Kapcsolt számla</th>
       <th>PDF</th>
-      <th>Leírás</th>
-      <th>Referencia</th>
       <th>Partner</th>
+      <th>Referencia</th>
+      <th>Leírás</th>
     </tr>
   </thead>
   <tbody>
@@ -99,9 +99,9 @@
           <span class="text-muted">—</span>
         {% endif %}
       </td>
-      <td>{{ row.description or '—' }}</td>
-      <td>{{ row.payment_reference or '—' }}</td>
       <td>{{ row.partner_name or '—' }}</td>
+      <td>{{ row.payment_reference or '—' }}</td>
+      <td>{{ row.description or '—' }}</td>
     </tr>
     {% else %}
     <tr><td colspan="9" class="text-center text-muted">Nincs találat</td></tr>
@@ -116,8 +116,8 @@
     }
     const dt = new DataTable("#transaction-table", {
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
-      pageLength: 15,
-      lengthMenu: [10, 15, 25, 50, 100],
+      pageLength: 10,
+      lengthMenu: [10, 25, 50, 100],
       order: [[1, "desc"]],
       scrollX: true,
       autoWidth: false,

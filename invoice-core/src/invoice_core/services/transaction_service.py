@@ -41,6 +41,7 @@ class TransactionDetail:
     invoice_numbers: list[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
+    invoice_file_locked: bool
     supplier_id: Optional[int]
     supplier_name: Optional[str]
     customer_id: Optional[int]
@@ -192,6 +193,7 @@ def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDet
         invoice_numbers=[r[1] for r in links],
         invoice_file_id=t.invoice_file_id,
         invoice_file_filename=inv_file,
+        invoice_file_locked=t.invoice_file_locked,
         supplier_id=t.supplier_id,
         supplier_name=t.supplier.name if t.supplier else None,
         customer_id=t.customer_id,

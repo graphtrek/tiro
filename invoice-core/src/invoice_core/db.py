@@ -7,6 +7,7 @@ from enum import Enum as PyEnum
 from typing import Generator
 
 from sqlalchemy import (
+    Boolean,
     Column,
     Date,
     DateTime,
@@ -123,6 +124,7 @@ invoice_bank_transaction = Table(
     Base.metadata,
     Column("invoice_id", Integer, ForeignKey("invoice.id"), primary_key=True),
     Column("bank_transaction_id", Integer, ForeignKey("bank_transaction.id"), primary_key=True),
+    Column("manual", Boolean, nullable=False, default=False),
 )
 
 
@@ -153,6 +155,7 @@ class Invoice(Base):
     invoice_category = Column(String, nullable=True)
     nav_ins_date = Column(String, nullable=True)
     invoice_file_id = Column(Integer, ForeignKey("invoice_file.id"), nullable=True)
+    invoice_file_locked = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -189,6 +192,7 @@ class BankTransaction(Base):
     supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=True)
     customer_id = Column(Integer, ForeignKey("customer.id"), nullable=True)
     invoice_file_id = Column(Integer, ForeignKey("invoice_file.id"), nullable=True, index=True)
+    invoice_file_locked = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

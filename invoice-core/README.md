@@ -49,7 +49,7 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/invoices` | Invoice list (filter: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`) |
 | `GET`  | `/api/v1/invoices/{invoice_id:int}` | Invoice detail by integer PK (includes linked bank transactions) |
 | `GET`  | `/api/v1/invoices/{invoice_number}` | Invoice by invoice number string |
-| `GET`  | `/api/v1/invoice-files` | Invoice file list (filter: `linked` = `yes`/`no`) |
+| `GET`  | `/api/v1/invoice-files` | Invoice file list (filter: `linked` = `yes`/`no`; `filename` = substring search) |
 | `GET`  | `/api/v1/invoice-files/{file_id:int}/pdf` | Serve PDF file inline |
 | `GET`  | `/api/v1/partners/suppliers` | Supplier list |
 | `GET`  | `/api/v1/partners/suppliers/summary` | Aggregate supplier stats |
@@ -61,6 +61,12 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/transactions/{transaction_id:int}` | Transaction detail; includes `invoice_ids: list[int]` and `invoice_numbers: list[str]` (may contain multiple entries for split-payment transactions) |
 | `GET`  | `/api/v1/reports/dividend` | Annual dividend/tax calculation (query: `year`, `kiva_rate`) |
 | `GET`  | `/api/v1/reports/tax` | Tax payment report by month and type (query: `year`) |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/invoice-file` | Manually link an invoice to a PDF file — sets `invoice_file_locked=True`; body: `{"invoice_file_id": int}` |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/invoice-file` | Remove manual PDF link from an invoice — clears `invoice_file_locked` so auto-sync may re-link |
+| `PUT`  | `/api/v1/transactions/{txn_id}/invoice-file` | Manually link a bank transaction to a PDF file — sets `invoice_file_locked=True`; body: `{"invoice_file_id": int}` |
+| `DELETE` | `/api/v1/transactions/{txn_id}/invoice-file` | Remove manual PDF link from a bank transaction — clears `invoice_file_locked` |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/transactions/{txn_id}` | Add a bank transaction to an invoice's payment set (M2M, `manual=True`) |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/transactions/{txn_id}` | Remove a bank transaction from an invoice's payment set |
 
 ### GET /health
 
@@ -152,24 +158,13 @@ vendor/amount/date matching), then back-links any transaction that now shares an
 `invoice_file` with an `invoice` to that invoice and recomputes its payment status
 (PAID / PARTIAL / UNPAID based on the sum of linked transaction amounts).
 
-### link
+### link / link-bank (legacy CLI)
 
-Manually link an invoice to a PDF file when automatic matching fails:
+Low-level CLI shortcuts that write a link directly without setting `invoice_file_locked`. Because the lock flag is not set, the next auto-sync may overwrite the link. Prefer the REST API (or vision UI) for permanent manual links.
 
 ```bash
 uv run invoice-core link <invoice_number> <filename>
-# e.g.
-uv run invoice-core link "87/2026" "2026-06-04_0020_GRAPHTREK_szamla.pdf"
-```
-
-### link-bank
-
-Manually link a bank transaction to a PDF file:
-
-```bash
 uv run invoice-core link-bank <transaction_id> <filename>
-# e.g.
-uv run invoice-core link-bank "CARD-3867572380" "2026-06-02_0017_scaleway-invoice-2026-05.pdf"
 ```
 
 ### report
@@ -215,9 +210,9 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `supplier` | Suppliers sourced from NAV invoice data |
 | `customer` | Customers sourced from NAV invoice data |
 | `invoice_file` | PDF files from invoice-file-filter: filename, filesystem path, and extracted word text |
-| `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier, customer, and optionally invoice_file |
-| `invoice_bank_transaction` | Junction table — many-to-many link between `invoice` and `bank_transaction` |
-| `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table |
+| `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier, customer, and optionally invoice_file; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
+| `invoice_bank_transaction` | Junction table — many-to-many link between `invoice` and `bank_transaction`; `manual` (bool) — `True` for rows created via the manual link API |
+| `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
 
 ### Alembic migrations
@@ -229,6 +224,13 @@ uv run alembic upgrade head
 # Generate a new migration after changing ORM models
 uv run alembic revision --autogenerate -m "describe change"
 ```
+
+**Migration history (recent):**
+
+| Revision | Description |
+|----------|-------------|
+| `f5g6h7i8j9k0` | invoice↔bank_transaction M2M junction table |
+| `g6h7i8j9k0l1` | Manual link fields: `invoice_file_locked` on `invoice` and `bank_transaction`; `manual` on `invoice_bank_transaction` |
 
 ## Code structure
 
@@ -275,7 +277,7 @@ For each unlinked `invoice` the service tries to match it against every `invoice
 1. **Filename match** — normalised invoice number (separators `/ \ - _ .` → `-`) appears as a substring of the filename.
 2. **Word search fallback** — searches the full extracted word list with the same normalised comparison.
 
-Run `invoice-core link <invoice_number> <filename>` to create a manual link when both automatic strategies fail.
+Use the vision UI (lock badge + "PDF kapcsolása" button on the invoice detail page) or `PUT /api/v1/invoices/{id}/invoice-file` to create a permanent manual link that survives future syncs.
 
 ### Bank transaction → Invoice / Supplier / Customer
 
@@ -294,7 +296,21 @@ The `sync-match` step runs in three phases:
 
 Because the invoice ↔ bank transaction relationship is many-to-many, a single invoice can be settled by multiple bank transfers (installments), and a single bank transfer can be linked to multiple invoices (split payments). Payment status is always derived from the sum of the linked transaction amounts at read time or after each sync pass.
 
-Run `invoice-core link-bank <transaction_id> <filename>` to create a manual link.
+Use the vision UI (transaction offcanvas → "PDF kapcsolása" button) or `PUT /api/v1/transactions/{id}/invoice-file` to create a permanent manual link that survives future syncs.
+
+### Manual linking
+
+When automatic strategies can't establish the correct relationship, all three link types (invoice↔PDF, transaction↔PDF, invoice↔transaction) can be set manually via the REST API or the vision UI. Manual links are protected from being overwritten by subsequent sync runs.
+
+**Lock semantics:**
+
+| Action | `invoice_file_locked` after | Effect on auto-sync |
+|--------|----------------------------|---------------------|
+| Manual link (`PUT`) | `True` | Sync skips re-assigning `invoice_file_id` for this record |
+| Manual unlink (`DELETE`) | `False` | Sync may auto-link again on the next run |
+| Never touched (default) | `False` | Sync behaves as normal |
+
+Invoice↔transaction M2M rows are never removed by sync, so manual M2M links are always preserved automatically. The `manual` flag on junction rows is an audit marker shown as a lock badge in the vision UI.
 
 ## Logs
 

@@ -1,0 +1,86 @@
+{% from "_macros.html" import amount_fmt, payment_badge %}
+
+{% if tx %}
+<div class="card border-info mb-3">
+  <div class="card-header py-1 px-3 bg-info bg-opacity-10 small fw-semibold text-info">
+    <i class="bi bi-bank me-1"></i>Bank tranzakció
+  </div>
+  <div class="card-body py-2 px-3">
+    <div class="d-flex flex-wrap gap-3">
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Dátum</div>
+        <div class="small fw-bold">{{ tx.transaction_date.strftime('%Y-%m-%d') if tx.transaction_date else '—' }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Összeg</div>
+        <div class="small fw-bold {% if tx.direction == 'CREDIT' %}text-success{% else %}text-danger{% endif %}">
+          {% if tx.direction == 'DEBIT' %}−{% else %}+{% endif %}{{ amount_fmt(tx.amount, tx.currency) }}
+        </div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Bank</div>
+        <div class="small">{{ tx.bank | upper }}</div>
+      </div>
+      {% if tx.counterparty_name %}
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Partner</div>
+        <div class="small">{{ tx.counterparty_name }}</div>
+      </div>
+      {% endif %}
+      {% if tx.payment_reference %}
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Referencia</div>
+        <div class="small font-monospace">{{ tx.payment_reference }}</div>
+      </div>
+      {% endif %}
+      {% if tx.description %}
+      <div class="flex-grow-1" style="min-width:0">
+        <div class="text-muted" style="font-size:.7rem">Leírás</div>
+        <div class="small text-truncate" title="{{ tx.description }}">{{ tx.description }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="table-responsive">
+  <table id="picker-invoices-table" class="table table-sm table-hover mb-0">
+    <thead class="table-light">
+      <tr>
+        <th>Számlaszám</th>
+        <th>Dátum</th>
+        <th>Szállító</th>
+        <th>Bruttó</th>
+        <th>Státusz</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="font-monospace small">{{ row.invoice_number }}</td>
+        <td class="small text-nowrap">{{ row.invoice_date or '—' }}</td>
+        <td class="small">{{ row.supplier_name }}</td>
+        <td class="small fw-bold text-nowrap">{{ amount_fmt(row.amount_total, row.currency) }}</td>
+        <td class="small">{{ payment_badge(row.payment_status) }}</td>
+        <td>
+          <form hx-post="/ui/transactions/{{ txn_id }}/invoices/{{ row.id }}/link"
+                hx-target="#tx-offcanvas-body"
+                hx-swap="innerHTML"
+                class="d-inline m-0">
+            <button type="submit" class="btn btn-primary btn-sm py-0"
+                    onclick="bootstrap.Modal.getInstance(document.getElementById('pickerModal'))?.hide()">
+              Kiválaszt
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" class="text-muted text-center py-3">Nincs találat</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

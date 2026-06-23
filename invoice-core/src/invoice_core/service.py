@@ -146,7 +146,10 @@ def _link_invoices_to_files(
     Works against any list of InvoiceFile objects (e.g. freshly fetched or all from DB).
     Returns the number of invoices newly linked.
     """
-    unlinked = db.query(Invoice).filter(Invoice.invoice_file_id == None).all()  # noqa: E711
+    unlinked = db.query(Invoice).filter(  # noqa: E711
+        Invoice.invoice_file_id == None,
+        Invoice.invoice_file_locked == False,
+    ).all()
     linked = 0
     for inv in unlinked:
         if not inv.invoice_number:
@@ -382,7 +385,7 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
         tax_txns = db.query(BankTransaction).filter(
             BankTransaction.counterparty_account.in_(tax_keys)
         ).all()
-        wrongly_linked = [t for t in tax_txns if t.invoices or t.invoice_file_id]
+        wrongly_linked = [t for t in tax_txns if (t.invoices or t.invoice_file_id) and not t.invoice_file_locked]
         for btxn in wrongly_linked:
             btxn.invoices.clear()
             btxn.invoice_file_id = None
@@ -672,8 +675,9 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     _link_invoices_to_files(db, files, pdf_client)
 
     tax_keys = list(settings.tax_accounts.keys())
-    unmatched_q = db.query(BankTransaction).filter(
-        BankTransaction.invoice_file_id == None  # noqa: E711
+    unmatched_q = db.query(BankTransaction).filter(  # noqa: E711
+        BankTransaction.invoice_file_id == None,
+        BankTransaction.invoice_file_locked == False,
     )
     if tax_keys:
         unmatched_q = unmatched_q.filter(

@@ -13,20 +13,24 @@ from typing import List, Optional
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func
+from sqlalchemy import insert as sa_insert
+from sqlalchemy import select as sa_select
 from sqlalchemy.orm import Session
 
 from invoice_core.config import configure_logging, get_settings
-from invoice_core.db import Customer, Invoice, InvoiceFile, Supplier, get_db
+from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, get_db, invoice_bank_transaction
 from invoice_core.models import (
     CustomerOut,
     InvoiceOut,
+    LinkFileRequest,
     SupplierOut,
     SyncMode,
     SyncRequest,
     SyncResponse,
 )
-from invoice_core.service import sync_all
+from invoice_core.service import _recompute_payment_status, sync_all
 from invoice_core.services import (
     dashboard_service,
     invoice_file_service,
@@ -175,9 +179,10 @@ def get_invoice(invoice_number: str, db: Session = Depends(get_db)):
 @app.get("/api/v1/invoice-files")
 def list_invoice_files(
     linked: Optional[str] = Query(None, description="yes | no"),
+    filename: Optional[str] = Query(None, description="filename substring filter"),
     db: Session = Depends(get_db),
 ):
-    rows = invoice_file_service.list_invoice_files(db, linked=linked)
+    rows = invoice_file_service.list_invoice_files(db, linked=linked, filename=filename)
     return [dataclasses.asdict(r) for r in rows]
 
 
@@ -261,6 +266,96 @@ def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return dataclasses.asdict(tx)
+
+
+# ── Manual link / unlink endpoints ───────────────────────────────────────────
+
+@app.put("/api/v1/invoices/{invoice_id}/invoice-file")
+def link_invoice_to_file(invoice_id: int, req: LinkFileRequest, db: Session = Depends(get_db)):
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    f = db.get(InvoiceFile, req.invoice_file_id)
+    if not f:
+        raise HTTPException(status_code=404, detail="InvoiceFile not found")
+    inv.invoice_file_id = req.invoice_file_id
+    inv.invoice_file_locked = True
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/v1/invoices/{invoice_id}/invoice-file")
+def unlink_invoice_from_file(invoice_id: int, db: Session = Depends(get_db)):
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    inv.invoice_file_id = None
+    inv.invoice_file_locked = False
+    db.commit()
+    return {"ok": True}
+
+
+@app.put("/api/v1/transactions/{txn_id}/invoice-file")
+def link_transaction_to_file(txn_id: int, req: LinkFileRequest, db: Session = Depends(get_db)):
+    txn = db.get(BankTransaction, txn_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    f = db.get(InvoiceFile, req.invoice_file_id)
+    if not f:
+        raise HTTPException(status_code=404, detail="InvoiceFile not found")
+    txn.invoice_file_id = req.invoice_file_id
+    txn.invoice_file_locked = True
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/v1/transactions/{txn_id}/invoice-file")
+def unlink_transaction_from_file(txn_id: int, db: Session = Depends(get_db)):
+    txn = db.get(BankTransaction, txn_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    txn.invoice_file_id = None
+    txn.invoice_file_locked = False
+    db.commit()
+    return {"ok": True}
+
+
+@app.put("/api/v1/invoices/{invoice_id}/transactions/{txn_id}")
+def link_invoice_to_transaction(invoice_id: int, txn_id: int, db: Session = Depends(get_db)):
+    if not db.get(Invoice, invoice_id):
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if not db.get(BankTransaction, txn_id):
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    existing = db.execute(
+        sa_select(invoice_bank_transaction).where(
+            invoice_bank_transaction.c.invoice_id == invoice_id,
+            invoice_bank_transaction.c.bank_transaction_id == txn_id,
+        )
+    ).first()
+    if not existing:
+        db.execute(sa_insert(invoice_bank_transaction).values(
+            invoice_id=invoice_id, bank_transaction_id=txn_id, manual=True,
+        ))
+    inv = db.get(Invoice, invoice_id)
+    _recompute_payment_status(db, inv)
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/v1/invoices/{invoice_id}/transactions/{txn_id}")
+def unlink_invoice_from_transaction(invoice_id: int, txn_id: int, db: Session = Depends(get_db)):
+    if not db.get(Invoice, invoice_id):
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    db.execute(
+        sa_delete(invoice_bank_transaction).where(
+            invoice_bank_transaction.c.invoice_id == invoice_id,
+            invoice_bank_transaction.c.bank_transaction_id == txn_id,
+        )
+    )
+    inv = db.get(Invoice, invoice_id)
+    _recompute_payment_status(db, inv)
+    db.commit()
+    return {"ok": True}
 
 
 # ── Report endpoints ──────────────────────────────────────────────────────────

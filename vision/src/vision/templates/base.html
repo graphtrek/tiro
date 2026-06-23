@@ -54,5 +54,70 @@
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
 
   {% block scripts %}{% endblock %}
+
+  <!-- Shared manual-link picker modal -->
+  <div class="modal fade" id="pickerModal" tabindex="-1" aria-labelledby="pickerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="pickerModalLabel">Kapcsolat kiválasztása</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div class="modal-body" id="picker-modal-body">
+          <p class="text-muted">Betöltés…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var pickerModal = document.getElementById('pickerModal');
+
+      // Store the URL when the modal is about to open; fetch only after it is fully shown
+      // so DataTables can measure column widths correctly on a visible element.
+      pickerModal.addEventListener('show.bs.modal', function (e) {
+        pickerModal._pickerUrl = e.relatedTarget
+          ? e.relatedTarget.getAttribute('data-picker-url')
+          : null;
+      });
+
+      pickerModal.addEventListener('shown.bs.modal', function () {
+        var url = pickerModal._pickerUrl;
+        if (!url) return;
+        fetch(url)
+          .then(function (r) { return r.text(); })
+          .then(function (html) {
+            var body = document.getElementById('picker-modal-body');
+            body.innerHTML = html;
+            htmx.process(body);          // register hx-post forms with HTMX
+            var tbl = body.querySelector('table[id]');
+            if (!tbl) return;
+            if ($.fn.DataTable.isDataTable('#' + tbl.id)) {
+              $('#' + tbl.id).DataTable().destroy();
+            }
+            var colDefs = [{ targets: -1, searchable: false, orderable: false }];
+            if (tbl.id === 'picker-invoice-files-table') {
+              colDefs.push({ targets: -2, visible: false });
+            }
+            new DataTable('#' + tbl.id, {
+              language: { url: 'https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json' },
+              pageLength: 10,
+              lengthMenu: [10, 25, 50],
+              autoWidth: false,
+              columnDefs: colDefs,
+            });
+          });
+      });
+
+      pickerModal.addEventListener('hidden.bs.modal', function () {
+        var body = document.getElementById('picker-modal-body');
+        var tbl = body.querySelector('table[id]');
+        if (tbl && $.fn.DataTable.isDataTable('#' + tbl.id)) {
+          $('#' + tbl.id).DataTable().destroy();
+        }
+        body.innerHTML = '<p class="text-muted">Betöltés…</p>';
+      });
+    })();
+  </script>
 </body>
 </html>
