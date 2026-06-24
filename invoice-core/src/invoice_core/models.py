@@ -117,6 +117,12 @@ class LinkFileRequest(BaseModel):
     invoice_file_id: int
 
 
+class PatchInvoiceRequest(BaseModel):
+    note: Optional[str] = None
+    payment_status_locked: Optional[bool] = None
+    payment_status: Optional[str] = None
+
+
 class BankTransactionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

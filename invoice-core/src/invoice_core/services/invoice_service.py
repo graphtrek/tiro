@@ -29,6 +29,10 @@ class InvoiceRow:
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
     bank_count: int
+    note: Optional[str] = None
+    payment_status_locked: bool = False
+    invoice_file_locked: bool = False
+    has_manual_bank_link: bool = False
     bank_transaction_ids: list[str] = field(default_factory=list)
     bank_transaction_db_ids: list[int] = field(default_factory=list)
 
@@ -80,6 +84,8 @@ class InvoiceDetail:
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
     invoice_file_locked: bool
+    note: Optional[str]
+    payment_status_locked: bool
     created_at: datetime
     updated_at: datetime
     bank_transactions: list[BankTxnRow] = field(default_factory=list)
@@ -158,7 +164,7 @@ def list_invoices(
     rows = []
     for inv, sup_name, cust_name, bank_cnt, file_filename in q.all():
         status = _enum_str(inv.payment_status)
-        if (bank_cnt or 0) > 0 and status == _PaymentStatus.UNPAID.value:
+        if (bank_cnt or 0) > 0 and status == _PaymentStatus.UNPAID.value and not inv.payment_status_locked:
             status = _PaymentStatus.PAID.value
         rows.append(
             InvoiceRow(
@@ -178,13 +184,21 @@ def list_invoices(
                 invoice_file_id=inv.invoice_file_id,
                 invoice_file_filename=file_filename,
                 bank_count=bank_cnt or 0,
+                note=inv.note,
+                payment_status_locked=bool(inv.payment_status_locked),
+                invoice_file_locked=bool(inv.invoice_file_locked),
             )
         )
 
     if rows:
         invoice_ids = [r.id for r in rows]
         txn_rows = (
-            db.query(invoice_bank_transaction.c.invoice_id, BankTransaction.transaction_id, BankTransaction.id)
+            db.query(
+                invoice_bank_transaction.c.invoice_id,
+                BankTransaction.transaction_id,
+                BankTransaction.id,
+                invoice_bank_transaction.c.manual,
+            )
             .join(BankTransaction, BankTransaction.id == invoice_bank_transaction.c.bank_transaction_id)
             .filter(invoice_bank_transaction.c.invoice_id.in_(invoice_ids))
             .order_by(BankTransaction.transaction_date.desc())
@@ -192,12 +206,16 @@ def list_invoices(
         )
         txn_map: dict[int, list[str]] = {}
         db_id_map: dict[int, list[int]] = {}
-        for inv_id, txn_id, db_id in txn_rows:
+        manual_set: set[int] = set()
+        for inv_id, txn_id, db_id, manual in txn_rows:
             txn_map.setdefault(inv_id, []).append(txn_id)
             db_id_map.setdefault(inv_id, []).append(db_id)
+            if manual:
+                manual_set.add(inv_id)
         for row in rows:
             row.bank_transaction_ids = txn_map.get(row.id, [])
             row.bank_transaction_db_ids = db_id_map.get(row.id, [])
+            row.has_manual_bank_link = row.id in manual_set
 
     return rows
 
@@ -251,6 +269,8 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         invoice_file_id=inv.invoice_file_id,
         invoice_file_filename=filename,
         invoice_file_locked=inv.invoice_file_locked,
+        note=inv.note,
+        payment_status_locked=bool(inv.payment_status_locked),
         created_at=inv.created_at,
         updated_at=inv.updated_at,
         bank_transactions=[

@@ -180,6 +180,31 @@ def transaction_detail_partial(request: Request, transaction_id: int):
     return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
 
 
+# ── Note and manual Fizetve ───────────────────────────────────────────────────
+
+@router.post("/invoices/{invoice_id}/note")
+def invoice_save_note(request: Request, invoice_id: int, note: str = Form("")):
+    client = _client()
+    client.patch_invoice(invoice_id, note=note)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
+@router.post("/invoices/{invoice_id}/fizetve")
+def invoice_set_fizetve(request: Request, invoice_id: int, locked: str = Form("true")):
+    client = _client()
+    if locked == "true":
+        client.patch_invoice(invoice_id, payment_status_locked=True, payment_status="PAID")
+    else:
+        client.patch_invoice(invoice_id, payment_status_locked=False)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
 # ── Manual link / unlink (Invoice ↔ InvoiceFile) ─────────────────────────────
 
 @router.post("/invoices/{invoice_id}/invoice-file/link")

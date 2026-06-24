@@ -65,6 +65,7 @@ class TransactionRow:
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
     fees: Optional[float] = None
+    invoice_file_locked: bool = False
     invoice_ids: list[int] = field(default_factory=list)
     invoice_numbers: list[str] = field(default_factory=list)
 
@@ -148,6 +149,7 @@ def list_transactions(
             invoice_file_id=t.invoice_file_id,
             invoice_file_filename=inv_file,
             fees=t.fees,
+            invoice_file_locked=bool(t.invoice_file_locked),
             invoice_ids=[pair[0] for pair in inv_by_txn.get(t.id, [])],
             invoice_numbers=[pair[1] for pair in inv_by_txn.get(t.id, [])],
         )

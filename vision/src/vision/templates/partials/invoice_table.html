@@ -18,7 +18,12 @@
   <tbody>
     {% for row in rows %}
     <tr{% if row.invoice_file_id %} data-pdf-url="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" style="cursor:pointer"{% endif %}>
-      <td><a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a></td>
+      <td>
+        <a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a>
+        {% if row.payment_status_locked or row.invoice_file_locked or row.has_manual_bank_link %}
+          <i class="bi bi-lock-fill text-warning ms-1" title="Manuálisan módosítva"></i>
+        {% endif %}
+      </td>
       <td>{{ row.invoice_date or '—' }}</td>
       <td><a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.supplier_name }}</a></td>
       <td><a href="/ui/customers/{{ row.customer_id }}">{{ row.customer_name }}</a></td>

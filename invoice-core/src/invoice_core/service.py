@@ -52,10 +52,13 @@ def _link_txn_to_invoice(txn: BankTransaction, invoice: Invoice) -> None:
 def _recompute_payment_status(db: Session, invoice: Invoice) -> None:
     """Set PAID/PARTIAL/UNPAID from the sum of linked transaction amounts.
 
+    Skipped when payment_status_locked is set (manually overridden status).
     Compares against invoice.amount_total using only transactions whose currency
     matches the invoice currency (if set). Falls back to PAID when amount_total
     is unknown.
     """
+    if getattr(invoice, "payment_status_locked", False):
+        return
     linked = invoice.bank_transactions
     if not linked:
         return

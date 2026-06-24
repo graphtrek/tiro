@@ -25,6 +25,7 @@ from invoice_core.models import (
     CustomerOut,
     InvoiceOut,
     LinkFileRequest,
+    PatchInvoiceRequest,
     SupplierOut,
     SyncMode,
     SyncRequest,
@@ -172,6 +173,26 @@ def get_invoice(invoice_number: str, db: Session = Depends(get_db)):
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     return inv
+
+
+@app.patch("/api/v1/invoices/{invoice_id:int}")
+def patch_invoice(invoice_id: int, req: PatchInvoiceRequest, db: Session = Depends(get_db)):
+    from invoice_core.db import _PaymentStatus
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if req.note is not None:
+        inv.note = req.note or None
+    if req.payment_status_locked is not None:
+        inv.payment_status_locked = req.payment_status_locked
+    if req.payment_status is not None:
+        try:
+            inv.payment_status = _PaymentStatus[req.payment_status]
+        except KeyError:
+            raise HTTPException(status_code=422, detail=f"Invalid payment_status: {req.payment_status}")
+    inv.updated_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True}
 
 
 # ── Invoice file endpoints ────────────────────────────────────────────────────

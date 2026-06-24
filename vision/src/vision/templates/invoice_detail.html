@@ -47,7 +47,25 @@
           <dd class="col-sm-8 text-muted">{{ invoice.nav_ins_date or '—' }}</dd>
 
           <dt class="col-sm-4">Státusz</dt>
-          <dd class="col-sm-8">{{ payment_badge(invoice.payment_status) }}</dd>
+          <dd class="col-sm-8">
+            {{ payment_badge(invoice.payment_status) }}
+            {% if invoice.payment_status_locked %}
+              <span class="badge bg-secondary ms-1" title="Manuálisan beállított fizetési státusz"><i class="bi bi-lock-fill"></i> Manuális</span>
+              <form hx-post="/ui/invoices/{{ invoice.id }}/fizetve" hx-target="body" hx-push-url="true" class="d-inline ms-1 m-0">
+                <input type="hidden" name="locked" value="false">
+                <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Manuális zár feloldása">
+                  <i class="bi bi-unlock"></i>
+                </button>
+              </form>
+            {% else %}
+              <form hx-post="/ui/invoices/{{ invoice.id }}/fizetve" hx-target="body" hx-push-url="true" class="d-inline ms-1 m-0">
+                <input type="hidden" name="locked" value="true">
+                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-1" title="Manuálisan megjelölés fizetve">
+                  <i class="bi bi-check-circle"></i> Fizetve
+                </button>
+              </form>
+            {% endif %}
+          </dd>
 
           <dt class="col-sm-4">Irány</dt>
           <dd class="col-sm-8">{{ direction_badge(invoice.direction) }}</dd>
@@ -98,6 +116,21 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Megjegyzés -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header"><i class="bi bi-pencil-square me-1"></i><strong>Megjegyzés</strong></div>
+  <div class="card-body">
+    <form hx-post="/ui/invoices/{{ invoice.id }}/note" hx-target="body" hx-push-url="true" class="m-0">
+      <div class="mb-2">
+        <textarea name="note" class="form-control form-control-sm font-monospace" rows="3" placeholder="Ide írhat megjegyzést a számlához…">{{ invoice.note or '' }}</textarea>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary">
+        <i class="bi bi-floppy me-1"></i>Mentés
+      </button>
+    </form>
   </div>
 </div>
 

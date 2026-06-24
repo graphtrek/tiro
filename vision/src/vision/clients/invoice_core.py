@@ -115,6 +115,19 @@ class InvoiceCoreClient:
     def get_invoice(self, invoice_id: int) -> dict | None:
         return self._get_one(f"/api/v1/invoices/{invoice_id}")
 
+    def patch_invoice(self, invoice_id: int, **kwargs) -> dict | None:
+        try:
+            resp = self.session.patch(
+                f"{self.base_url}/api/v1/invoices/{invoice_id}",
+                json=kwargs,
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as exc:
+            logger.warning("invoice-core PATCH /api/v1/invoices/%s failed: %s", invoice_id, exc)
+            return None
+
     # ── Invoice files ──────────────────────────────────────────────────────────
 
     def get_invoice_files(self, linked: str | None = None, filename: str | None = None) -> list[dict]:

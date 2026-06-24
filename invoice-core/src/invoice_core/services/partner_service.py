@@ -84,6 +84,8 @@ class CustomerRow:
     unpaid_count: int
     bank_count: int
     last_invoice_date: Optional[date]
+    invoice_total: Optional[float] = None
+    bank_total: Optional[float] = None
 
 
 @dataclass
@@ -263,22 +265,24 @@ def list_customers(db: Session) -> list[CustomerRow]:
             func.count(Invoice.id).label("inv_count"),
             func.count(case((Invoice.payment_status == _PaymentStatus.UNPAID, Invoice.id))).label("unpaid_count"),
             func.max(Invoice.invoice_date).label("last_date"),
+            func.sum(Invoice.amount_total).label("inv_total"),
         )
         .group_by(Invoice.customer_id)
         .all()
     )
     inv_map = {r.customer_id: r for r in inv_stats}
 
-    bank_map = {
-        r.customer_id: r.bank_count
-        for r in db.query(
+    bank_stats = (
+        db.query(
             BankTransaction.customer_id,
             func.count(BankTransaction.id).label("bank_count"),
+            func.sum(BankTransaction.amount).label("bank_total"),
         )
         .filter(BankTransaction.customer_id.isnot(None))
         .group_by(BankTransaction.customer_id)
         .all()
-    }
+    )
+    bank_map = {r.customer_id: r for r in bank_stats}
 
     customers = db.query(Customer).filter(~Customer.name.ilike("%graphtrek%")).order_by(Customer.name).all()
     return [
@@ -288,8 +292,10 @@ def list_customers(db: Session) -> list[CustomerRow]:
             tax_id=cust.tax_id,
             invoice_count=inv_map[cust.id].inv_count if cust.id in inv_map else 0,
             unpaid_count=inv_map[cust.id].unpaid_count if cust.id in inv_map else 0,
-            bank_count=bank_map.get(cust.id, 0),
+            bank_count=bank_map[cust.id].bank_count if cust.id in bank_map else 0,
             last_invoice_date=inv_map[cust.id].last_date if cust.id in inv_map else None,
+            invoice_total=inv_map[cust.id].inv_total if cust.id in inv_map else None,
+            bank_total=bank_map[cust.id].bank_total if cust.id in bank_map else None,
         )
         for cust in customers
     ]

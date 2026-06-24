@@ -61,7 +61,12 @@
         data-amount="{{ row.amount | abs }}"
         data-direction="{{ row.direction or '' }}"
         data-currency="{{ row.currency or '' }}">
-      <td><small class="text-muted font-monospace">{{ row.bank }}: {{ row.transaction_id }}</small></td>
+      <td>
+        <small class="text-muted font-monospace">{{ row.bank }}: {{ row.transaction_id }}</small>
+        {% if row.invoice_file_locked %}
+          <i class="bi bi-lock-fill text-warning ms-1" title="Manuálisan zárolva"></i>
+        {% endif %}
+      </td>
       <td>{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
       <td class="text-end">
         {%- if row.fees -%}
