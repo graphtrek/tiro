@@ -62,6 +62,7 @@ echo ""
 start "attachment-downloader (8000)" "attachment-downloader" "attachment-downloader/.venv/bin/python" "attachment-downloader/run_api.py"
 start "nav-invoice (8002)"           "nav-invoice"           "nav-invoice/.venv/bin/python"           "nav-invoice/run_api.py"
 start "bank (8005)"                  "bank"                  "bank/.venv/bin/python"                  "bank/run_api.py"
+start "uploader (8006)"              "uploader"              "uploader/.venv/bin/python"              "uploader/run_api.py"
 
 # Brief pause so leaf services are listening before dependents start
 sleep 2

@@ -2,7 +2,7 @@
 title: "Moneypenny - Projekt Index"
 description: "Számlázási, banki és tulajdonosi AI mikorszervízek - wiki navigáció"
 language: "HU"
-last_updated: "2026-06-22"
+last_updated: "2026-06-24"
 ---
 
 # 📚 Moneypenny - Wiki Index
@@ -18,6 +18,7 @@ A **Moneypenny** egy hat Python mikroszervizből álló pénzügyi automatizál�
 | 2   | `invoice-file-filter`   | 8001 | PDF metaadat kinyerés (OCR/Regex)                                          |
 | 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                                            |
 | 4   | `bank`                  | 8005 | Erste + Wise CSV konszolidáció – egységes bankkivonat API                  |
+| 7   | `uploader`              | 8006 | CSV bankkivonat feltöltés a bank storage mappájába; UI a vision-ben        |
 | 6   | `vision`                | 8009 | Frontend – teljes webes UI + SrcProfit (IBKR) aggregáció                  |
 
 Belépési pont (szinkron): `POST /api/v1/sync` → `invoice-core` (8004). Az 1–5. mikroszerviznek FastAPI REST interfésze és Typer/Click CLI-je is van. A `vision` (6.) a frontend szerviz: fogyasztja az invoice-core REST API-t, és kiszolgálja az összes UI oldalt (`/ui/*`). CLI nélkül.
@@ -114,6 +115,18 @@ MASTER ORCHESTRATOR
 
 ---
 
+### 7️⃣ Uploader – Bankkivonat Feltöltő
+**[[uploader-spec.md|📄 Specifikáció]]** | **[[uploader-promp.md|💭 Prompt]]**
+
+- **Meghívva**: böngészőből, a vision `/ui/upload` oldalán keresztül
+- **Meghívja**: (senki — csak fájlrendszert kezel)
+- **Funkció**: Erste / Wise CSV bankkivonatok feltöltése, bankdetektálás fájlnévből, mentés a bank szerviz storage mappájába
+- **Saját DB**: nincs — leaf szerviz, fájlrendszer I/O
+- **REST** (port 8006): `GET /health`, `GET /api/v1/files`, `POST /api/v1/upload`, `DELETE /api/v1/files/{bank}/{filename}`
+- **CLI**: `uploader status`, `uploader list`, `uploader upload <fájl>`, `uploader delete`
+
+---
+
 ### 6️⃣ Vision – Frontend
 **[[vision-spec.md|📄 Specifikáció]]** | **[[vision-prompt.md|💭 Prompt]]**
 
@@ -161,6 +174,7 @@ Hívási Lánc (Szinkron):
 - **invoice-file-filter**: [[invoice-file-filter-spec.md|spec]] (PDF extract)
 - **attachment-downloader**: [[attachment-downloader-spec.md|spec]] (Gmail download)
 - **bank**: [[bank-spec.md|spec]] (Erste + Wise CSV konszolidáció)
+- **uploader**: [[uploader-spec.md|spec]] (CSV feltöltés a bank storage mappájába)
 - **vision**: [[vision-spec.md|spec]] (Tulajdonosi AI dashboard)
 
 ### Promptok
@@ -169,6 +183,7 @@ Hívási Lánc (Szinkron):
 - **invoice-file-filter**: [[invoice-file-filter-prompt.md|prompt]]
 - **attachment-downloader**: [[attachment-downloader-prompt.md|prompt]]
 - **bank**: [[bank-prompt.md|prompt]]
+- **uploader**: [[uploader-promp.md|prompt]]
 - **vision**: [[vision-prompt.md|prompt]]
 
 ---
@@ -177,50 +192,87 @@ Hívási Lánc (Szinkron):
 
 ```mermaid
 flowchart TD
-    C[Client] -->|sync| SD[invoice-core]
-    SD -->|query| NAV[nav-invoice]
-    NAV -->|digest| SD
-    SD -->|extract| IFF[pdf-filter]
-    IFF -->|jobs| AD[gmail]
-    AD -->|files| IFF
-    IFF -->|index| SD
-    SD -->|statements| W[bank]
-    W -->|import| SD
-    SD -->|insert| DB[PostgreSQL]
-    DB -->|result| C
+    C[Client] -->|POST /api/v1/sync| SD[invoice-core :8004]
+    SD -->|GET /invoices| NAV[nav-invoice :8002]
+    NAV -->|InvoiceDigest| SD
+    SD -->|POST /api/v1/invoices/extract| IFF[invoice-file-filter :8001]
+    IFF -->|POST /api/v1/jobs| AD[attachment-downloader :8000]
+    AD -->|PDF fájlok| IFF
+    IFF -->|extracted metadata| SD
+    SD -->|GET /balance-statement/all| BK[bank :8005]
+    BK -->|ConsolidatedStatement| SD
+    SD -->|upsert| DB[(PostgreSQL)]
+    DB -->|SyncResult| C
+
+    B[Böngésző] -->|GET /ui/upload| V[vision :8009]
+    V -->|POST /api/v1/upload| UP[uploader :8006]
+    UP -->|write CSV| FS[(balance-statements/erste/ wise/)]
+    BK -->|read CSV| FS
 ```
 
-### Initiation (Invoice-Core)
+### Szinkronizálási lánc (invoice-core vezérli)
+
+**Belépési pont:**
 ```
 Client
   ↓
-POST /api/v1/sync (invoice-core)
+POST /api/v1/sync (invoice-core :8004)
   └─ start_date: "2026-05-01" (default: last 30 days)
   └─ end_date: "2026-05-31"
 ```
 
-### Chain Calls (Szinkron)
+**Lépések (szinkron, sorrendben):**
 ```
-1. invoice-core.sync()
-   ├─ nav_invoice.query(start_date, end_date)        [levél — csak NAV API]
-   │   └─ GET /invoices?from_date=...&to_date=...&direction=OUTBOUND
-   │   └─ Return: számlalista (InvoiceDigest[]), supplier/customer adatok
-   ├─ invoice_file_filter.extract(start_date, end_date)
-   │   └─ POST /api/v1/jobs → attachment_downloader [szinkron, Gmail API]
-   │       └─ Return: {total_files, files: [{filename, saved_path, ...}]}
-   └─ bank.balance_statements()                       [levél — CSV import]
-       └─ GET /balance-statement/all               → ConsolidatedStatement (legfrissebb kivonat)
+1. sync_nav — NAV Online Számla lekérdezés
+   └─ nav-invoice: GET /invoices?from_date=...&to_date=...&direction=OUTBOUND
+       └─ Return: InvoiceDigest[], supplier/customer adatok
+   └─ DB: upsert invoice, supplier, customer
 
-2. DB mentés:
-   └─ Insert: invoice_file (minden PDF nyers adat)
-   └─ Merge (words-alapú):
-       └─ Minden NAV számlaszámhoz: GET /api/v1/invoices/search?words=<számlaszám>
-   └─ Insert: supplier / customer (NAV adatok alapján)
-   └─ Insert: invoice (invoice_file_id FK-val ha volt egyezés)
-   └─ Insert: bank_transaction (idempotens: transaction_id ellenőrzés)
-       └─ supplier / customer létrehozás ha még nem létezik
-       └─ invoice_id összekapcsolás összeg + dátum alapján
-   └─ Return: Sync results
+2. sync_pdf — Gmail PDF mellékletek letöltése + metaadat kinyerés
+   └─ invoice-file-filter: POST /api/v1/invoices/extract
+       └─ attachment-downloader: POST /api/v1/jobs  [szinkron, Gmail OAuth2]
+           └─ Return: {total_files, files: [{filename, saved_path, ...}]}
+       └─ OCR/Regex feldolgozás
+       └─ Return: extracted invoice metadata
+   └─ DB: upsert invoice_file; link invoice ↔ file számlaszám alapján
+
+3. sync_bank — Bankkivonatok beolvasása
+   └─ bank: GET /balance-statement/all  [levél — balance-statements/ CSV-ket olvas]
+       └─ Return: ConsolidatedStatement (Erste + Wise tranzakciók)
+   └─ DB: upsert bank_transaction (idempotens: transaction_id); link invoice ↔ transaction
+
+4. sync_match — Kereszt-összekapcsolás
+   └─ Tranzakció → invoice_file → invoice lánc meghatározása
+   └─ Linked invoice → PAID státusz beállítás
+```
+
+### Uploader lánc (felhasználó indítja, szinkrontól független)
+
+```
+Böngésző
+  ↓
+GET /ui/upload  (vision :8009)
+  └─ UploaderClient.list_files() → GET /api/v1/files  (uploader :8006)
+  └─ Render: upload.html (drag & drop + fájllista)
+
+Feltöltés:
+  ↓
+POST /ui/upload/do  (vision)
+  └─ UploaderClient.upload_file(bytes, filename)
+      └─ POST /api/v1/upload  (uploader :8006)
+          ├─ Bankdetektálás: statement_* → wise | dátummintás → erste
+          ├─ Fájl mentés: balance-statements/{bank}/{filename}.csv
+          └─ Return: UploadResult {filename, bank, saved_path, size_bytes, overwritten}
+  └─ HTMX partial frissítés: GET /ui/upload/files → fájllista újratöltése
+
+Törlés:
+  ↓
+DELETE /ui/upload/files/{bank}/{filename}  (vision)
+  └─ DELETE /api/v1/files/{bank}/{filename}  (uploader :8006)
+      └─ Fájl törlése a storage-ból
+
+Megjegyzés: Az uploader által mentett CSV fájlokat a bank szerviz olvassa
+be automatikusan a következő sync_bank híváskor.
 ```
 
 ---
@@ -244,6 +296,7 @@ POST /api/v1/sync (invoice-core)
 | invoice-file-filter   | 8001 | `http://localhost:8001` |
 | nav-invoice           | 8002 | `http://localhost:8002` |
 | bank                  | 8005 | `http://localhost:8005` |
+| uploader              | 8006 | `http://localhost:8006` |
 | invoice-core          | 8004 | `http://localhost:8004` |
 | vision                | 8009 | `http://localhost:8009` |
 
@@ -337,4 +390,4 @@ SRCPROFIT_PASSWORD=<titkos>
 
 ---
 
-**Utolsó frissítés**: 2026-06-22
+**Utolsó frissítés**: 2026-06-24

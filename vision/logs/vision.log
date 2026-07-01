@@ -4248,3 +4248,431 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-06-24 09:17:44 INFO     vision/api/main.py:42 GET /ui/transactions/28 → 200 in 177ms
 2026-06-24 09:18:10 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 212ms
 2026-06-24 09:18:20 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 261ms
+2026-06-24 10:46:33 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:46:33 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:46:33 INFO     vision/api/main.py:42 GET /dashboard → 200 in 634ms
+2026-06-24 10:46:39 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:46:39 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:46:39 INFO     vision/api/main.py:42 GET /dashboard → 200 in 480ms
+2026-06-24 10:46:59 INFO     vision/api/main.py:42 GET /ui/suppliers → 200 in 110ms
+2026-06-24 10:47:02 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:47:02 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:47:02 INFO     vision/api/main.py:42 GET /dashboard → 200 in 480ms
+2026-06-24 10:47:06 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:47:06 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:47:06 INFO     vision/api/main.py:42 GET /dashboard → 200 in 467ms
+2026-06-24 10:47:07 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:47:08 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-06-24 10:47:08 INFO     vision/api/main.py:42 GET /dashboard → 200 in 556ms
+2026-06-24 10:47:47 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 82ms
+2026-06-24 10:47:51 INFO     vision/api/main.py:42 GET /ui/invoice-files → 200 in 119ms
+2026-06-24 10:47:54 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 67ms
+2026-06-24 10:48:01 INFO     vision/api/main.py:42 GET /ui/invoice-files → 200 in 98ms
+2026-06-24 10:48:02 INFO     vision/api/main.py:42 GET /ui/customers → 200 in 66ms
+2026-06-24 10:48:08 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 168ms
+2026-06-24 10:48:10 INFO     vision/api/main.py:42 GET /ui/dividend → 200 in 69ms
+2026-06-24 10:48:15 INFO     vision/api/main.py:42 GET /ui/adok → 200 in 62ms
+2026-06-24 10:48:19 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 71ms
+2026-06-24 10:48:33 INFO     vision/api/main.py:42 GET /ui/transactions/13 → 200 in 86ms
+2026-06-24 10:48:44 INFO     vision/api/main.py:42 GET /ui/transactions/13 → 200 in 85ms
+2026-06-24 10:48:52 INFO     vision/api/main.py:42 GET /ui/transactions/83 → 200 in 70ms
+2026-06-24 10:49:03 INFO     vision/api/main.py:42 GET /ui/suppliers → 200 in 112ms
+2026-06-24 10:49:19 INFO     vision/api/main.py:42 GET /ui/transactions → 200 in 97ms
+2026-06-24 10:49:23 INFO     vision/api/main.py:42 GET /ui/transactions/2 → 200 in 67ms
+2026-06-24 10:49:38 INFO     vision/api/main.py:42 GET /ui/dividend → 200 in 47ms
+2026-06-24 10:49:58 INFO     vision/api/main.py:42 GET /ui/adok → 200 in 51ms
+2026-06-24 10:50:26 INFO     vision/api/main.py:42 GET /ui/suppliers → 200 in 121ms
+2026-06-24 10:50:32 INFO     vision/api/main.py:42 GET /ui/customers → 200 in 69ms
+2026-06-24 10:50:33 INFO     vision/api/main.py:42 GET /ui/customers/2 → 200 in 112ms
+2026-06-24 10:50:42 INFO     vision/api/main.py:42 GET /ui/invoices → 200 in 77ms
+2026-06-24 10:50:54 INFO     vision/api/main.py:42 GET /ui/invoice-files/67/pdf → 307 in 1ms
+2026-06-24 10:51:10 INFO     vision/api/main.py:42 GET /ui/adok → 200 in 67ms
+2026-06-24 10:51:55 INFO     vision/api/main.py:42 GET /ui/customers → 200 in 80ms
+2026-06-24 10:51:56 INFO     vision/api/main.py:42 GET /ui/customers/2 → 200 in 119ms
+2026-06-24 10:52:02 INFO     vision/api/main.py:42 GET /ui/invoices/19 → 200 in 75ms
+2026-06-24 10:52:13 INFO     vision/api/main.py:42 GET /ui/adok → 200 in 66ms
+2026-06-24 10:53:24 INFO     vision/api/main.py:42 GET /ui/customers → 200 in 66ms
+2026-06-24 10:53:30 INFO     vision/api/main.py:42 GET /ui/customers/2 → 200 in 128ms
+2026-06-24 10:53:33 INFO     vision/api/main.py:42 GET /ui/invoices/26 → 200 in 86ms
+2026-06-24 10:53:51 INFO     vision/api/main.py:42 GET /ui/adok → 200 in 55ms
+2026-06-24 15:01:14 INFO     main.py:309 3 changes detected
+2026-06-24 15:01:14 INFO     main.py:309 1 change detected
+2026-06-24 15:01:19 INFO     main.py:309 3 changes detected
+2026-06-24 15:01:20 INFO     main.py:309 3 changes detected
+2026-06-24 15:01:34 INFO     main.py:309 3 changes detected
+2026-06-24 15:01:47 INFO     main.py:309 3 changes detected
+2026-06-24 15:02:13 INFO     main.py:309 3 changes detected
+2026-06-24 15:02:17 INFO     main.py:309 3 changes detected
+2026-06-24 15:02:18 INFO     main.py:309 9 changes detected
+2026-06-24 15:02:19 INFO     main.py:309 3 changes detected
+2026-06-24 15:02:19 INFO     main.py:309 3 changes detected
+2026-06-24 15:02:24 INFO     main.py:309 3 changes detected
+2026-07-01 19:40:06 INFO     vision/api/main.py:44 GET / → 200 in 841ms
+2026-07-01 19:40:06 INFO     vision/api/main.py:44 GET /static/custom.css → 304 in 3ms
+2026-07-01 19:40:07 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 15ms
+2026-07-01 19:40:15 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 180ms
+2026-07-01 19:40:15 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 12ms
+2026-07-01 19:46:51 INFO     main.py:309 3 changes detected
+2026-07-01 19:47:04 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 35ms
+2026-07-01 19:47:04 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 6ms
+2026-07-01 19:49:29 INFO     vision/api/main.py:44 POST /ui/upload/do → 200 in 10ms
+2026-07-01 19:49:29 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 5ms
+2026-07-01 19:49:37 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 48ms
+2026-07-01 19:49:37 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 3ms
+2026-07-01 19:52:17 INFO     vision/api/main.py:44 POST /ui/upload/do → 200 in 3ms
+2026-07-01 19:52:17 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 2ms
+2026-07-01 19:52:27 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 33ms
+2026-07-01 19:52:27 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 5ms
+2026-07-01 19:52:32 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 98ms
+2026-07-01 19:52:54 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-01 19:52:54 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10036ms
+2026-07-01 19:53:01 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 88ms
+2026-07-01 19:53:05 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 147ms
+2026-07-01 19:53:54 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 78ms
+2026-07-01 19:54:28 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 121ms
+2026-07-01 19:54:42 INFO     vision/api/main.py:44 GET /ui/transactions/117 → 200 in 77ms
+2026-07-01 19:54:46 INFO     vision/api/main.py:44 GET /ui/transactions/114 → 200 in 66ms
+2026-07-01 19:54:49 INFO     vision/api/main.py:44 GET /ui/transactions/115 → 200 in 63ms
+2026-07-01 19:54:52 INFO     vision/api/main.py:44 GET /ui/transactions/113 → 200 in 85ms
+2026-07-01 19:54:56 INFO     vision/api/main.py:44 GET /ui/transactions/112 → 200 in 88ms
+2026-07-01 19:56:02 INFO     vision/api/main.py:44 GET /ui/transactions/118 → 200 in 248ms
+2026-07-01 19:56:19 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 148ms
+2026-07-01 19:56:29 INFO     vision/api/main.py:44 GET /ui/invoice-files/76/pdf → 307 in 2ms
+2026-07-01 19:56:41 INFO     vision/api/main.py:44 GET /ui/invoice-files/76/pdf → 307 in 1ms
+2026-07-01 19:56:49 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 183ms
+2026-07-01 19:56:57 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 56ms
+2026-07-01 19:57:04 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 166ms
+2026-07-01 19:57:04 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 156ms
+2026-07-01 19:57:04 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 125ms
+2026-07-01 19:57:04 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 126ms
+2026-07-01 19:57:04 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 113ms
+2026-07-01 19:57:05 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 122ms
+2026-07-01 19:57:05 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 151ms
+2026-07-01 19:57:05 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 121ms
+2026-07-01 19:57:05 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 131ms
+2026-07-01 19:57:05 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 109ms
+2026-07-01 19:57:35 INFO     vision/api/main.py:44 GET /ui/invoice-files/76/pdf → 307 in 1ms
+2026-07-01 19:58:11 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 133ms
+2026-07-01 19:58:11 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 144ms
+2026-07-01 19:58:11 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 117ms
+2026-07-01 19:58:11 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 133ms
+2026-07-01 19:58:11 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 107ms
+2026-07-01 19:58:11 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 116ms
+2026-07-01 19:58:11 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 147ms
+2026-07-01 19:58:11 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 115ms
+2026-07-01 19:58:12 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 117ms
+2026-07-01 19:58:12 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 119ms
+2026-07-01 19:58:17 INFO     vision/api/main.py:44 POST /ui/transactions/111/invoice-file/link → 200 in 167ms
+2026-07-01 19:58:23 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 140ms
+2026-07-01 19:58:46 INFO     vision/api/main.py:44 GET /ui/transactions/118 → 200 in 75ms
+2026-07-01 19:58:50 INFO     vision/api/main.py:44 GET /ui/picker/invoices?txn_id=118 → 200 in 136ms
+2026-07-01 20:03:51 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 194ms
+2026-07-01 20:04:02 INFO     vision/api/main.py:44 GET /ui/invoice-files/1/pdf → 307 in 2ms
+2026-07-01 20:04:15 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 99ms
+2026-07-01 20:04:28 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-01 20:04:28 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10029ms
+2026-07-01 20:04:32 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 104ms
+2026-07-01 20:04:34 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 98ms
+2026-07-01 20:04:48 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 149ms
+2026-07-01 20:04:55 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 137ms
+2026-07-01 20:04:59 INFO     vision/api/main.py:44 GET /ui/transactions/118 → 200 in 67ms
+2026-07-01 20:05:01 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=118 → 200 in 153ms
+2026-07-01 20:05:01 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=118 → 200 in 133ms
+2026-07-01 20:05:01 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=118 → 200 in 116ms
+2026-07-01 20:05:01 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=118 → 200 in 118ms
+2026-07-01 20:05:01 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=118 → 200 in 113ms
+2026-07-01 20:05:02 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=118 → 200 in 114ms
+2026-07-01 20:05:02 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=118 → 200 in 118ms
+2026-07-01 20:05:22 INFO     vision/api/main.py:44 GET /ui/invoice-files/77/pdf → 307 in 2ms
+2026-07-01 20:05:37 INFO     vision/api/main.py:44 POST /ui/transactions/118/invoice-file/link → 200 in 226ms
+2026-07-01 20:05:39 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 129ms
+2026-07-01 20:05:47 INFO     vision/api/main.py:44 GET /ui/transactions/119 → 200 in 79ms
+2026-07-01 20:05:50 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=119 → 200 in 141ms
+2026-07-01 20:06:06 INFO     vision/api/main.py:44 GET /ui/invoice-files/7/pdf → 307 in 2ms
+2026-07-01 20:06:36 INFO     vision/api/main.py:44 POST /ui/transactions/119/invoice-file/link → 200 in 158ms
+2026-07-01 20:06:48 INFO     vision/api/main.py:44 GET /ui/transactions/119 → 200 in 158ms
+2026-07-01 20:06:54 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 120ms
+2026-07-01 20:06:57 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 145ms
+2026-07-01 20:07:03 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 137ms
+2026-07-01 20:07:03 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-01 20:07:03 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-01 20:07:43 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 80ms
+2026-07-01 20:07:58 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 260ms
+2026-07-01 20:08:06 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 127ms
+2026-07-01 20:08:10 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 47ms
+2026-07-01 20:08:10 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 6ms
+2026-07-01 20:18:43 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 137ms
+2026-07-01 20:18:45 INFO     main.py:309 3 changes detected
+2026-07-01 20:18:46 INFO     main.py:309 4 changes detected
+2026-07-01 20:18:49 INFO     main.py:309 3 changes detected
+2026-07-01 20:18:50 INFO     main.py:309 3 changes detected
+2026-07-01 20:18:53 INFO     main.py:309 3 changes detected
+2026-07-01 20:18:53 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 167ms
+2026-07-01 20:19:02 INFO     vision/api/main.py:44 GET /ui/customers → 200 in 56ms
+2026-07-01 20:19:14 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 140ms
+2026-07-01 20:20:32 INFO     vision/api/main.py:44 GET /ui/upload/files/erste/11600006-00000001-97860425_2026-01-01_2026-06-19.csv/download → 307 in 2ms
+2026-07-01 20:20:39 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 4ms
+2026-07-01 20:21:04 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 44ms
+2026-07-01 20:21:04 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 3ms
+2026-07-01 20:21:12 INFO     vision/api/main.py:44 GET /ui/upload/files/erste/11600006-00000001-97860425_2026-01-01_2026-07-01.csv/download → 307 in 0ms
+2026-07-01 20:21:19 INFO     vision/api/main.py:44 GET /ui/upload/files/erste/11600006-00000001-97860425_2026-01-01_2026-07-01.csv/download → 307 in 1ms
+2026-07-01 20:21:23 INFO     vision/api/main.py:44 GET /ui/upload/files/erste/11600006-00000001-97860425_2026-01-01_2026-06-19.csv/download → 307 in 1ms
+2026-07-01 20:21:26 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 32ms
+2026-07-01 20:21:26 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 2ms
+2026-07-01 20:21:26 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 4ms
+2026-07-01 20:21:27 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-01 20:21:28 INFO     vision/api/main.py:44 GET /ui/upload/files/erste/11600006-00000001-97860425_2026-01-01_2026-06-19.csv/download → 307 in 2ms
+2026-07-01 20:21:33 INFO     vision/api/main.py:44 GET /ui/upload/files/wise/statement_25546267_HUF_2026-01-01_2026-07-01.csv/download → 307 in 1ms
+2026-07-01 20:21:35 INFO     vision/api/main.py:44 GET /ui/upload/files/wise/statement_25546267_HUF_2026-01-01_2026-07-01.csv/download → 307 in 1ms
+2026-07-01 20:21:35 INFO     vision/api/main.py:44 GET /ui/upload/files/wise/statement_25546267_HUF_2026-01-01_2026-07-01.csv/download → 307 in 0ms
+2026-07-01 20:21:35 INFO     vision/api/main.py:44 GET /ui/upload/files/wise/statement_25546267_HUF_2026-01-01_2026-07-01.csv/download → 307 in 1ms
+2026-07-01 20:22:13 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 68ms
+2026-07-01 20:22:54 INFO     vision/api/main.py:44 GET /ui/invoices/29 → 200 in 99ms
+2026-07-01 20:23:21 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 109ms
+2026-07-01 20:24:16 INFO     vision/api/main.py:44 GET /ui/invoices/26 → 200 in 145ms
+2026-07-01 20:24:21 INFO     vision/api/main.py:44 GET /ui/picker/transactions?invoice_id=26 → 200 in 213ms
+2026-07-01 20:24:21 INFO     vision/api/main.py:44 GET /ui/picker/transactions?invoice_id=26 → 200 in 160ms
+2026-07-01 20:24:21 INFO     vision/api/main.py:44 GET /ui/picker/transactions?invoice_id=26 → 200 in 144ms
+2026-07-01 20:24:21 INFO     vision/api/main.py:44 GET /ui/picker/transactions?invoice_id=26 → 200 in 147ms
+2026-07-01 20:24:21 INFO     vision/api/main.py:44 GET /ui/picker/transactions?invoice_id=26 → 200 in 153ms
+2026-07-01 20:24:45 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 78ms
+2026-07-01 20:25:06 INFO     vision/api/main.py:44 GET /ui/ → 200 in 154ms
+2026-07-01 20:25:13 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 87ms
+2026-07-01 20:31:40 INFO     main.py:309 3 changes detected
+2026-07-01 20:31:47 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 5ms
+2026-07-01 20:32:12 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 121ms
+2026-07-01 20:32:15 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 116ms
+2026-07-01 20:32:20 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 32ms
+2026-07-01 20:32:20 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 5ms
+2026-07-01 20:32:22 INFO     vision/api/main.py:44 GET /ui/upload/files/erste/11600006-00000001-97860425_2026-01-01_2026-06-19.csv/download → 307 in 2ms
+2026-07-01 20:32:27 INFO     vision/api/main.py:44 GET /ui/upload/files/erste/11600006-00000001-97860425_2026-01-01_2026-07-01.csv/download → 307 in 1ms

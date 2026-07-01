@@ -1,0 +1,50 @@
+<div id="upload-files-table">
+{% if storage and storage.total_files > 0 %}
+<div class="card shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Tárolt fájlok</strong>
+    <span class="badge bg-secondary">{{ storage.total_files }} fájl</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Bank</th>
+          <th>Fájlnév</th>
+          <th class="text-end">Méret</th>
+          <th>Módosítva</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for bank, files in storage.banks.items() %}
+          {% for f in files %}
+          <tr id="file-row-{{ loop.index }}-{{ bank }}">
+            <td><span class="badge bg-{{ 'primary' if bank == 'erste' else 'info' }}">{{ bank }}</span></td>
+            <td class="font-monospace small">
+              <a href="/ui/upload/files/{{ bank }}/{{ f.filename }}/download" download hx-boost="false">{{ f.filename }}</a>
+            </td>
+            <td class="text-end small text-muted">{{ "{:,}".format(f.size_bytes) }} B</td>
+            <td class="small text-muted">{{ f.modified_at[:16] if f.modified_at is string else f.modified_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-danger"
+                      hx-delete="/ui/upload/files/{{ bank }}/{{ f.filename }}"
+                      hx-target="closest tr"
+                      hx-swap="outerHTML"
+                      hx-confirm="Biztosan törli? {{ f.filename }}">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-secondary">
+  <i class="bi bi-inbox me-2"></i>Nincs még feltöltött CSV fájl.
+</div>
+{% endif %}
+</div>

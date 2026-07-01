@@ -49,6 +49,7 @@ class Settings(BaseSettings):
 
     # Upstream services
     invoice_core_url: str = "http://localhost:8004"
+    uploader_url: str = "http://localhost:8006"
     srcprofit_url: str = "https://srcprofit2.graphtrek.co"
     srcprofit_user: str = "admin"
     srcprofit_password: str = ""

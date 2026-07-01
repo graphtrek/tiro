@@ -11,10 +11,14 @@
             "id": "c2bbcac132954be2",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Gráf nézet"
+              "type": "markdown",
+              "state": {
+                "file": "INDEX.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "INDEX"
             }
           }
         ]
@@ -40,7 +44,7 @@
                 "autoReveal": false
               },
               "icon": "lucide-folder-closed",
-              "title": "Fájlkezelő"
+              "title": "Files"
             }
           },
           {
@@ -170,21 +174,28 @@
   },
   "left-ribbon": {
     "hiddenItems": {
-      "switcher:Gyors váltó megnyitása": false,
-      "graph:Gráf nézet megnyitása": false,
-      "canvas:Új vászon létrehozása": false,
-      "daily-notes:Mai jegyzet megnyitása": false,
-      "templates:Sablon beszúrása": false,
-      "command-palette:Parancspaletta megnyitása": false,
-      "bases:Új bázis létrehozása": false
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
     }
   },
-  "active": "5400acc1fc744ffb",
+  "active": "c2bbcac132954be2",
   "lastOpenFiles": [
+    "invoice-core-spec.md",
+    "invoice-core-prompt.md",
+    "docs/wiki",
+    "docs",
+    "uploader-promp.md",
+    "uploader-spec.md",
+    "attachment-downloader-prompt.md",
     "INDEX.md",
+    "attachment-downloader-spec.md",
     "google-számlák-spec.md",
     "google-számlák-prompt.md",
-    "attachment-downloader-prompt.md",
     "API reference _ Enable Banking Docs.md",
     "Clippings/Welcome to the Wise API documentation portal.md",
     "Clippings",
@@ -192,14 +203,11 @@
     "inventory-promp.md",
     "bank-spec.md",
     "Névtelen.base",
-    "attachment-downloader-spec.md",
     "invoice-file-filter-spec.md",
     "bank-prompt.md",
     "wise-prompt.md",
     "wise-spec.md",
     "invoice-core-ui-prompt.md",
-    "invoice-core-spec.md",
-    "invoice-core-prompt.md",
     "invoice-core-ui-spec.md",
     "vision-spec.md",
     "vision-prompt.md",
@@ -207,15 +215,10 @@
     "nav-invoice-prompt.md",
     "invoice-file-filter-prompt.md",
     "INDEX.md.tmp.55289.3d1e1f651571",
-    "nav-számla-prompt.md",
-    "szamla-db-prompt.md",
-    "szamla-db-spec.md",
     "15dbf37e-f40d-40d0-b236-bdd93fb536e9.pem",
     "Nincs megerősítve 584038.crdownload",
     "INDEX.md.tmp.99594.ef1496322ee0",
     "pdf-szamla-prompt.md.tmp.81206.e72371f3db51",
-    "INDEX.md.tmp.81206.71b2a63f12a4",
-    "szamla-db-spec.md.tmp.81206.504e97465aa8",
-    "szamla-db-spec.md.tmp.81206.a2d92659641d"
+    "INDEX.md.tmp.81206.71b2a63f12a4"
   ]
 }
