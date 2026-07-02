@@ -95,7 +95,7 @@
     </thead>
     <tbody>
       {% for row in rows %}
-      <tr>
+      <tr data-preview="{{ row.preview_base64 or '' }}">
         <td class="font-monospace small">
           <a href="/ui/invoice-files/{{ row.id }}/pdf" target="_blank" rel="noopener">{{ row.filename }}</a>
         </td>

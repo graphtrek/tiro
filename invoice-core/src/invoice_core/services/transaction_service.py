@@ -68,6 +68,7 @@ class TransactionRow:
     invoice_file_locked: bool = False
     invoice_ids: list[int] = field(default_factory=list)
     invoice_numbers: list[str] = field(default_factory=list)
+    invoice_file_preview_base64: Optional[str] = None
 
 
 class TransactionFilters:
@@ -101,7 +102,7 @@ def list_transactions(
     ibt = invoice_bank_transaction
 
     q = (
-        db.query(BankTransaction, InvoiceFile.filename)
+        db.query(BankTransaction, InvoiceFile.filename, InvoiceFile.preview_base64)
         .outerjoin(InvoiceFile, BankTransaction.invoice_file_id == InvoiceFile.id)
     )
     if date_from:
@@ -122,7 +123,7 @@ def list_transactions(
     q = q.order_by(BankTransaction.transaction_date.desc())
     txn_rows_raw = q.all()
 
-    txn_ids = [t.id for t, _ in txn_rows_raw]
+    txn_ids = [t.id for t, _, _ in txn_rows_raw]
     inv_by_txn: dict[int, list[tuple[int, str]]] = {}
     if txn_ids:
         links = (
@@ -152,8 +153,9 @@ def list_transactions(
             invoice_file_locked=bool(t.invoice_file_locked),
             invoice_ids=[pair[0] for pair in inv_by_txn.get(t.id, [])],
             invoice_numbers=[pair[1] for pair in inv_by_txn.get(t.id, [])],
+            invoice_file_preview_base64=inv_preview,
         )
-        for t, inv_file in txn_rows_raw
+        for t, inv_file, inv_preview in txn_rows_raw
     ]
 
 

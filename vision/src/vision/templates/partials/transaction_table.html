@@ -96,7 +96,8 @@
       </td>
       <td>
         {% if row.invoice_file_id and row.invoice_file_filename %}
-          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}">
+          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}"
+             data-preview="{{ row.invoice_file_preview_base64 or '' }}">
             <i class="bi bi-file-earmark-pdf text-danger"></i>
             <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
           </a>
@@ -113,6 +114,10 @@
     {% endfor %}
   </tbody>
 </table>
+
+<div id="tx-preview-popup" style="display:none; position:fixed; z-index:2000; max-width:640px; max-height:85vh; padding:4px; background:#fff; border:1px solid #ccc; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,.25); pointer-events:none;">
+  <img style="max-width:100%; max-height:calc(85vh - 8px); display:block;">
+</div>
 
 <script>
   (function() {
@@ -176,6 +181,29 @@
         target: "#tx-offcanvas-body",
         swap: "innerHTML"
       });
+    });
+
+    var $txPreview = $("#tx-preview-popup");
+    var $txPreviewImg = $txPreview.find("img");
+    $("#transaction-table tbody").on("mouseenter", "a[data-preview]", function(e) {
+      var data = $(this).data("preview");
+      if (!data) return;
+      $txPreviewImg.attr("src", "data:image/png;base64," + data);
+      $txPreview.show();
+    });
+    $("#transaction-table tbody").on("mousemove", "a[data-preview]", function(e) {
+      if ($txPreview.is(":visible")) {
+        var w = $txPreview.outerWidth();
+        var h = $txPreview.outerHeight();
+        var top = e.clientY + 16;
+        var left = e.clientX + 16;
+        if (left + w > window.innerWidth) left = e.clientX - w - 16;
+        if (top + h > window.innerHeight) top = Math.max(8, window.innerHeight - h - 8);
+        $txPreview.css({ top: top, left: left });
+      }
+    });
+    $("#transaction-table tbody").on("mouseleave", "a[data-preview]", function() {
+      $txPreview.hide();
     });
   })();
 </script>

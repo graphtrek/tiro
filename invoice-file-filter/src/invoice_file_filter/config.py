@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+_LOG_PID = os.getpid()
 _SRC_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -29,7 +31,7 @@ def configure_logging(log_level: str = "INFO") -> None:
     )
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(fmt)
-    file_handler = logging.FileHandler(_LOG_DIR / "invoice-file-filter.log", encoding="utf-8")
+    file_handler = logging.FileHandler(_LOG_DIR / f"invoice-file-filter ({_LOG_PID}).log", encoding="utf-8")
     file_handler.setFormatter(fmt)
     logging.getLogger("pdfminer").setLevel(logging.ERROR)
 

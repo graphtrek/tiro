@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from pydantic import BaseModel, Field
+from pydantic_settings import SettingsConfigDict
 
 
 # ── Processed invoice file (service output) ─────────────────────────────────
@@ -12,11 +13,17 @@ from pydantic import BaseModel, Field
 
 class ProcessedFile(BaseModel):
     """A single invoice PDF identified by the service."""
+    model_config = SettingsConfigDict(extra="allow", populate_by_name=True)
 
     filename: str
     path: str
     modified: datetime
     file_size: int | None = None
+    preview_base64: str | None = None
+
+
+
+
 
 
 # ── Request / response models ───────────────────────────────────────────────

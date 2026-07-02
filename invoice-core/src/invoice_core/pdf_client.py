@@ -46,6 +46,8 @@ class PdfClient:
             ) from exc
         data = resp.json()
         files = data.get("files", [])
+        for f in files:
+            f.setdefault("preview_base64", None)
         elapsed_ms = (time.monotonic() - t0) * 1000
         logger.info(
             "POST %s/api/v1/invoices/extract → %d file(s) in %.0fms",

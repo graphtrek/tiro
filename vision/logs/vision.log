@@ -4676,3 +4676,256 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-07-01 20:32:20 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 5ms
 2026-07-01 20:32:22 INFO     vision/api/main.py:44 GET /ui/upload/files/erste/11600006-00000001-97860425_2026-01-01_2026-06-19.csv/download → 307 in 2ms
 2026-07-01 20:32:27 INFO     vision/api/main.py:44 GET /ui/upload/files/erste/11600006-00000001-97860425_2026-01-01_2026-07-01.csv/download → 307 in 1ms
+2026-07-01 20:53:40 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 53ms
+2026-07-01 20:53:53 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-01 20:53:53 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10141ms
+2026-07-01 20:53:59 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 122ms
+2026-07-01 20:54:16 INFO     vision/api/main.py:44 GET /ui/invoice-files/4/pdf → 307 in 1ms
+2026-07-01 20:54:30 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 126ms
+2026-07-01 20:54:35 INFO     vision/api/main.py:44 POST /ui/transactions/111/invoice-file/unlink → 200 in 216ms
+2026-07-01 20:54:37 INFO     vision/api/main.py:44 GET /ui/picker/invoices?txn_id=111 → 200 in 171ms
+2026-07-01 20:54:37 INFO     vision/api/main.py:44 GET /ui/picker/invoices?txn_id=111 → 200 in 93ms
+2026-07-01 20:54:37 INFO     vision/api/main.py:44 GET /ui/picker/invoices?txn_id=111 → 200 in 106ms
+2026-07-01 20:54:37 INFO     vision/api/main.py:44 GET /ui/picker/invoices?txn_id=111 → 200 in 94ms
+2026-07-01 20:54:38 INFO     vision/api/main.py:44 GET /ui/picker/invoices?txn_id=111 → 200 in 101ms
+2026-07-01 20:55:15 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 127ms
+2026-07-01 20:55:20 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 67ms
+2026-07-01 20:55:31 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-01 20:55:31 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10025ms
+2026-07-01 20:55:35 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 144ms
+2026-07-01 20:55:43 INFO     vision/api/main.py:44 GET /ui/invoice-files/76/pdf → 307 in 1ms
+2026-07-01 20:56:22 INFO     vision/api/main.py:44 GET /ui/invoice-files/76/pdf → 307 in 1ms
+2026-07-01 20:56:30 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 155ms
+2026-07-01 20:56:35 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 73ms
+2026-07-01 20:56:40 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 136ms
+2026-07-01 20:56:40 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 123ms
+2026-07-01 20:56:40 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 121ms
+2026-07-01 20:56:40 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 112ms
+2026-07-01 20:56:40 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 112ms
+2026-07-01 20:56:41 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 124ms
+2026-07-01 20:56:41 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 117ms
+2026-07-01 20:56:41 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 110ms
+2026-07-01 20:56:41 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=111 → 200 in 132ms
+2026-07-01 20:57:06 INFO     vision/api/main.py:44 GET /ui/invoice-files/76/pdf → 307 in 2ms
+2026-07-01 20:57:14 INFO     vision/api/main.py:44 POST /ui/transactions/111/invoice-file/link → 200 in 122ms
+2026-07-01 20:57:21 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 111ms
+2026-07-02 13:51:16 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 345ms
+2026-07-02 13:51:18 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 52ms
+2026-07-02 13:51:32 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 13:51:32 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10029ms
+2026-07-02 13:51:57 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 57ms
+2026-07-02 13:52:08 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoice-files failed: 500 Server Error: Internal Server Error for url: http://localhost:8004/api/v1/invoice-files
+2026-07-02 13:52:08 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 70ms
+2026-07-02 13:52:11 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoice-files failed: 500 Server Error: Internal Server Error for url: http://localhost:8004/api/v1/invoice-files
+2026-07-02 13:52:11 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 61ms
+2026-07-02 13:52:24 INFO     vision/api/main.py:44 GET /.well-known/appspecific/com.chrome.devtools.json → 404 in 3ms
+2026-07-02 13:52:28 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoice-files failed: 500 Server Error: Internal Server Error for url: http://localhost:8004/api/v1/invoice-files
+2026-07-02 13:52:28 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 69ms
+2026-07-02 14:22:50 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoice-files failed: 500 Server Error: Internal Server Error for url: http://localhost:8004/api/v1/invoice-files
+2026-07-02 14:22:50 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 475ms
+2026-07-02 14:22:50 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 2ms
+2026-07-02 14:22:50 INFO     vision/api/main.py:44 GET /.well-known/appspecific/com.chrome.devtools.json → 404 in 3ms
+2026-07-02 14:22:55 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 148ms
+2026-07-02 14:22:58 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoice-files failed: 500 Server Error: Internal Server Error for url: http://localhost:8004/api/v1/invoice-files
+2026-07-02 14:22:58 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 65ms
+2026-07-02 14:40:26 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 290ms
+2026-07-02 14:40:26 INFO     vision/api/main.py:44 GET /.well-known/appspecific/com.chrome.devtools.json → 404 in 3ms
+2026-07-02 14:40:26 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 6ms
+2026-07-02 14:41:03 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 65ms
+2026-07-02 14:41:09 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 134ms
+2026-07-02 14:41:20 INFO     vision/api/main.py:44 GET /ui/suppliers/3 → 200 in 195ms
+2026-07-02 14:41:34 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 53ms
+2026-07-02 14:41:46 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 14:41:46 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10041ms
+2026-07-02 14:41:50 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 70ms
+2026-07-02 14:42:05 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 95ms
+2026-07-02 14:48:01 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 1ms
+2026-07-02 15:08:34 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 317ms
+2026-07-02 15:08:37 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 56ms
+2026-07-02 15:08:49 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 15:08:49 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10040ms
+2026-07-02 15:16:40 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 6731ms
+2026-07-02 15:22:30 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 15:22:30 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10094ms
+2026-07-02 15:25:16 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 15:25:16 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10050ms
+2026-07-02 15:25:36 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 15:25:36 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10028ms
+2026-07-02 15:43:03 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 15:43:03 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10052ms
+2026-07-02 15:43:50 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 15:44:00 WARNING  vision/clients/invoice_core.py:47 invoice-core GET /api/v1/invoices/count failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 15:44:00 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 20016ms
+2026-07-02 15:46:12 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 15:46:12 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10045ms
+2026-07-02 16:58:12 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 289ms
+2026-07-02 16:58:23 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 16:58:23 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10030ms
+2026-07-02 16:59:03 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 16:59:13 WARNING  vision/clients/invoice_core.py:47 invoice-core GET /api/v1/invoices/count failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 16:59:13 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 20016ms
+2026-07-02 17:18:00 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 300ms
+2026-07-02 17:18:12 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 17:18:12 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10038ms
+2026-07-02 17:18:56 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/sync/logs failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 17:19:06 WARNING  vision/clients/invoice_core.py:47 invoice-core GET /api/v1/invoices/count failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 17:19:06 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 20019ms
+2026-07-02 17:20:03 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 265ms
+2026-07-02 17:20:16 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 17:20:16 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10033ms
+2026-07-02 17:56:32 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 341ms
+2026-07-02 17:56:44 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 17:56:44 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10030ms
+2026-07-02 17:56:50 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 49ms
+2026-07-02 17:57:00 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 52ms
+2026-07-02 17:57:02 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 55ms
+2026-07-02 17:57:17 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 17:57:17 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10031ms
+2026-07-02 17:57:24 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 68ms
+2026-07-02 18:40:10 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 310ms
+2026-07-02 18:40:11 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 60ms
+2026-07-02 18:40:12 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 54ms
+2026-07-02 18:40:14 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 57ms
+2026-07-02 18:40:15 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 51ms
+2026-07-02 18:40:15 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 53ms
+2026-07-02 18:40:15 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 54ms
+2026-07-02 18:40:16 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 68ms
+2026-07-02 18:40:27 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 18:40:27 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10038ms
+2026-07-02 18:42:32 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 18:42:32 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10034ms
+2026-07-02 18:42:38 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 53ms
+2026-07-02 19:33:42 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 313ms
+2026-07-02 19:33:44 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 54ms
+2026-07-02 19:34:11 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 68ms
+2026-07-02 19:34:36 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 19:34:36 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10160ms
+2026-07-02 19:46:20 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 270ms
+2026-07-02 19:46:22 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 51ms
+2026-07-02 19:46:38 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 19:46:38 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10031ms
+2026-07-02 19:52:15 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 222ms
+2026-07-02 19:52:28 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 19:52:28 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10029ms
+2026-07-02 20:06:08 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 215ms
+2026-07-02 20:06:20 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 20:06:20 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10034ms
+2026-07-02 20:30:40 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 326ms
+2026-07-02 20:30:54 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 20:30:54 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10029ms
+2026-07-02 20:32:13 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 20:32:13 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10031ms
+2026-07-02 21:22:16 INFO     vision/api/main.py:44 GET / → 200 in 310ms
+2026-07-02 21:22:20 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 149ms
+2026-07-02 21:22:32 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 21:22:32 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10033ms
+2026-07-02 21:23:18 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 21:23:18 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10026ms
+2026-07-02 21:29:31 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 217ms
+2026-07-02 21:29:54 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 21:29:54 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10028ms
+2026-07-02 21:30:52 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 255ms
+2026-07-02 21:31:04 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-02 21:31:04 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10035ms
+2026-07-02 21:38:50 INFO     main.py:309 3 changes detected
+2026-07-02 21:39:02 INFO     main.py:309 3 changes detected
+2026-07-02 21:39:35 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 234ms
+2026-07-02 21:39:35 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 179ms
+2026-07-02 21:39:35 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 177ms
+2026-07-02 21:40:32 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 223ms
+2026-07-02 21:40:32 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 2ms
+2026-07-02 21:40:34 INFO     vision/api/main.py:44 GET /ui/invoice-files/3/pdf → 307 in 1ms
+2026-07-02 21:41:14 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 217ms
+2026-07-02 21:41:14 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 21:41:59 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 225ms
+2026-07-02 21:41:59 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 21:42:12 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 202ms
+2026-07-02 21:42:12 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
+2026-07-02 21:42:15 INFO     vision/api/main.py:44 GET /ui/invoice-files/3/pdf → 307 in 1ms
+2026-07-02 21:42:26 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 196ms
+2026-07-02 21:42:26 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 21:42:27 INFO     vision/api/main.py:44 GET /ui/invoice-files/3/pdf → 307 in 1ms
+2026-07-02 21:42:36 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 209ms
+2026-07-02 21:42:36 INFO     vision/api/main.py:44 HEAD /ui/invoice-files/187/pdf → 405 in 3ms
+2026-07-02 21:42:41 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 215ms
+2026-07-02 21:42:41 INFO     vision/api/main.py:44 GET /ui/invoice-files/187/pdf → 307 in 1ms
+2026-07-02 21:42:46 INFO     vision/api/main.py:44 GET /ui/invoice-files/187/pdf → 307 in 0ms
+2026-07-02 21:53:37 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 62ms
+2026-07-02 21:53:41 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 233ms
+2026-07-02 21:53:54 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 373ms
+2026-07-02 21:54:01 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 90ms
+2026-07-02 21:54:07 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 230ms
+2026-07-02 21:55:16 INFO     main.py:309 3 changes detected
+2026-07-02 21:55:22 INFO     main.py:309 3 changes detected
+2026-07-02 21:55:47 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 221ms
+2026-07-02 21:55:47 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
+2026-07-02 21:55:53 INFO     vision/api/main.py:44 GET /ui/invoice-files/3/pdf → 307 in 1ms
+2026-07-02 21:56:04 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 245ms
+2026-07-02 21:56:05 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 246ms
+2026-07-02 21:57:21 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 64ms
+2026-07-02 21:57:38 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 115ms
+2026-07-02 21:57:42 INFO     vision/api/main.py:44 GET /ui/transactions/113 → 200 in 57ms
+2026-07-02 21:57:47 INFO     vision/api/main.py:44 GET /ui/transactions/114 → 200 in 49ms
+2026-07-02 21:57:54 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 108ms
+2026-07-02 21:58:06 INFO     vision/api/main.py:44 GET /ui/transactions/116 → 200 in 66ms
+2026-07-02 21:58:10 INFO     vision/api/main.py:44 GET /ui/picker/invoices?txn_id=116 → 200 in 116ms
+2026-07-02 21:58:19 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=116 → 200 in 404ms
+2026-07-02 21:58:38 INFO     vision/api/main.py:44 GET /.well-known/appspecific/com.chrome.devtools.json → 404 in 2ms
+2026-07-02 21:59:02 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=116 → 200 in 239ms
+2026-07-02 22:01:06 INFO     main.py:309 3 changes detected
+2026-07-02 22:01:10 INFO     main.py:309 3 changes detected
+2026-07-02 22:01:14 INFO     main.py:309 3 changes detected
+2026-07-02 22:01:50 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 115ms
+2026-07-02 22:01:50 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 22:01:51 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 155ms
+2026-07-02 22:02:31 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 159ms
+2026-07-02 22:02:31 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 22:02:32 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 54ms
+2026-07-02 22:03:16 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 121ms
+2026-07-02 22:03:16 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 22:03:17 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 62ms
+2026-07-02 22:03:19 INFO     vision/api/main.py:44 GET /ui/transactions/114 → 200 in 72ms
+2026-07-02 22:03:32 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 119ms
+2026-07-02 22:03:32 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 22:03:33 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 54ms
+2026-07-02 22:03:35 INFO     vision/api/main.py:44 GET /ui/transactions/114 → 200 in 55ms
+2026-07-02 22:03:37 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=114 → 200 in 293ms
+2026-07-02 22:07:52 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 425ms
+2026-07-02 22:07:56 INFO     vision/api/main.py:44 GET /ui/transactions/114 → 200 in 64ms
+2026-07-02 22:07:59 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=114 → 200 in 618ms
+2026-07-02 22:07:59 INFO     vision/api/main.py:44 GET /ui/picker/invoice-files?source_type=transaction&source_id=114 → 200 in 259ms
+2026-07-02 22:08:39 INFO     vision/api/main.py:44 GET /ui/invoice-files/5/pdf → 307 in 1ms
+2026-07-02 22:08:48 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 104ms
+2026-07-02 22:08:50 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 254ms
+2026-07-02 22:08:53 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 113ms
+2026-07-02 22:08:53 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 22:08:54 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-02 22:10:49 INFO     main.py:309 3 changes detected
+2026-07-02 22:10:57 INFO     main.py:309 3 changes detected
+2026-07-02 22:11:07 INFO     main.py:309 3 changes detected
+2026-07-02 22:11:33 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 699ms
+2026-07-02 22:11:33 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 22:11:35 INFO     vision/api/main.py:44 GET /ui/invoice-files/76/pdf → 307 in 1ms
+2026-07-02 22:30:45 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 223ms
+2026-07-02 22:30:54 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 73ms
+2026-07-02 22:31:06 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 83ms
+2026-07-02 22:31:08 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 289ms
+2026-07-02 22:31:12 INFO     vision/api/main.py:44 GET /ui/ → 200 in 214ms
+2026-07-02 22:31:12 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 90ms
+2026-07-02 22:31:41 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 314ms
+2026-07-02 22:32:09 INFO     main.py:309 3 changes detected
+2026-07-02 22:32:11 INFO     vision/api/main.py:44 GET /ui/ → 200 in 699ms
+2026-07-02 22:32:14 INFO     main.py:309 3 changes detected
+2026-07-02 22:32:21 INFO     main.py:309 3 changes detected
+2026-07-02 22:32:25 INFO     vision/api/main.py:44 GET /ui/adok → 200 in 67ms
+2026-07-02 22:32:34 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 132ms
+2026-07-02 22:32:42 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 341ms
+2026-07-02 22:32:47 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 450ms
+2026-07-02 22:32:47 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-02 22:32:49 INFO     vision/api/main.py:44 GET /ui/invoice-files/191/pdf → 307 in 1ms
+2026-07-02 22:32:58 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 173ms
+2026-07-02 22:33:29 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 58ms
+2026-07-02 22:33:34 INFO     vision/api/main.py:44 GET /ui/transactions/114 → 200 in 58ms
+2026-07-02 22:33:57 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 188ms
+2026-07-02 22:34:23 INFO     vision/api/main.py:44 GET /ui/invoices/32 → 200 in 284ms
+2026-07-02 22:34:37 INFO     vision/api/main.py:44 GET /ui/ → 200 in 419ms

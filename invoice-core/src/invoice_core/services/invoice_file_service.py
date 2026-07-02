@@ -28,6 +28,7 @@ class InvoiceFileRow:
     bank_count: int
     is_bank_linked: bool
     words: Optional[str] = None
+    preview_base64: Optional[str] = None
 
 
 class InvoiceFileFilters:
@@ -94,6 +95,7 @@ def list_invoice_files(
                 bank_count=len(btxns),
                 is_bank_linked=btxn is not None,
                 words=f.words,
+                preview_base64=f.preview_base64,
             )
         )
     return rows

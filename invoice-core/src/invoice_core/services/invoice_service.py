@@ -35,6 +35,7 @@ class InvoiceRow:
     has_manual_bank_link: bool = False
     bank_transaction_ids: list[str] = field(default_factory=list)
     bank_transaction_db_ids: list[int] = field(default_factory=list)
+    invoice_file_preview_base64: Optional[str] = None
 
 
 @dataclass
@@ -132,7 +133,7 @@ def list_invoices(
         .subquery()
     )
     q = (
-        db.query(Invoice, Supplier.name, Customer.name, func.coalesce(bank_sub.c.cnt, 0), InvoiceFile.filename)
+        db.query(Invoice, Supplier.name, Customer.name, func.coalesce(bank_sub.c.cnt, 0), InvoiceFile.filename, InvoiceFile.preview_base64)
         .join(Supplier, Invoice.supplier_id == Supplier.id)
         .join(Customer, Invoice.customer_id == Customer.id)
         .outerjoin(bank_sub, Invoice.id == bank_sub.c.invoice_id)
@@ -162,7 +163,7 @@ def list_invoices(
 
     q = q.order_by(Invoice.invoice_date.desc().nullslast(), Invoice.id.desc())
     rows = []
-    for inv, sup_name, cust_name, bank_cnt, file_filename in q.all():
+    for inv, sup_name, cust_name, bank_cnt, file_filename, file_preview in q.all():
         status = _enum_str(inv.payment_status)
         if (bank_cnt or 0) > 0 and status == _PaymentStatus.UNPAID.value and not inv.payment_status_locked:
             status = _PaymentStatus.PAID.value
@@ -187,6 +188,7 @@ def list_invoices(
                 note=inv.note,
                 payment_status_locked=bool(inv.payment_status_locked),
                 invoice_file_locked=bool(inv.invoice_file_locked),
+                invoice_file_preview_base64=file_preview,
             )
         )
 

@@ -6,6 +6,7 @@ import csv
 import io
 import logging
 import os
+import base64
 import re
 import time
 import unicodedata
@@ -179,19 +180,35 @@ def describe_file(pdf_path: str) -> ProcessedFile:
     """Return the filename, absolute path, modification date and size of a PDF file."""
     abs_path = os.path.abspath(pdf_path)
     modified = datetime.fromtimestamp(os.path.getmtime(abs_path))
+    size = os.path.getsize(abs_path)
     try:
-        size = os.path.getsize(abs_path)
-    except OSError:
-        size = None
+        with pdfplumber.open(abs_path) as pdf:
+            if len(pdf.pages) > 0:
+                page = pdf.pages[0]
+                img = page.to_image(resolution=72)
+                import io
+                buf = io.BytesIO()
+                img.save(buf, format="PNG")
+                preview_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    except Exception as e:
+        logger.warning("Could not generate preview for %s: %s", abs_path, e)
+        preview_base64 = None
+    
+    if preview_base64:
+        logger.info("Preview base64 generated successfully for %s", os.path.basename(abs_path))
+    else:
+        logger.info("Preview base64 generation failed for %s", os.path.basename(abs_path))
+    
     return ProcessedFile(
         filename=os.path.basename(abs_path),
         path=abs_path,
         modified=modified,
         file_size=size,
+        preview_base64=preview_base64,
     )
 
 
-def _iter_pdf_paths(paths_or_dir: str | Path | Sequence[str | Path]) -> list[str]:
+def _iter_pdf_paths(paths_or_dir: 'str | Path | Sequence[str | Path]') -> list[str]:
     """Normalize input (a directory, a single path, or a list) to PDF paths."""
     if isinstance(paths_or_dir, (str, Path)):
         p = Path(paths_or_dir)
@@ -222,7 +239,7 @@ def process_directory(
         if not is_invoice(filename, text, kws):
             logger.info("Skipping non-invoice file: %s", filename)
             continue
-        if page_count == 0 or page_count > 2:
+        if page_count == 0 or page_count > 5:
             logger.warning("Skipping file (%d pages): %s", page_count, filename)
             continue
         results.append(describe_file(pdf_path))

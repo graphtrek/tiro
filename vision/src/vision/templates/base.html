@@ -118,9 +118,35 @@
       </div>
     </div>
   </div>
+  <div id="picker-preview-popup" style="display:none; position:fixed; z-index:2000; max-width:640px; max-height:85vh; padding:4px; background:#fff; border:1px solid #ccc; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,.25); pointer-events:none;">
+    <img style="max-width:100%; max-height:calc(85vh - 8px); display:block;">
+  </div>
   <script>
     (function () {
       var pickerModal = document.getElementById('pickerModal');
+
+      var $pickerPreview = $('#picker-preview-popup');
+      var $pickerPreviewImg = $pickerPreview.find('img');
+      $('#picker-modal-body').on('mouseenter', 'tr', function () {
+        var data = $(this).data('preview');
+        if (!data) return;
+        $pickerPreviewImg.attr('src', 'data:image/png;base64,' + data);
+        $pickerPreview.show();
+      });
+      $('#picker-modal-body').on('mousemove', 'tr', function (e) {
+        if ($pickerPreview.is(':visible')) {
+          var w = $pickerPreview.outerWidth();
+          var h = $pickerPreview.outerHeight();
+          var top = e.clientY + 16;
+          var left = e.clientX + 16;
+          if (left + w > window.innerWidth) left = e.clientX - w - 16;
+          if (top + h > window.innerHeight) top = Math.max(8, window.innerHeight - h - 8);
+          $pickerPreview.css({ top: top, left: left });
+        }
+      });
+      $('#picker-modal-body').on('mouseleave', 'tr', function () {
+        $pickerPreview.hide();
+      });
 
       // Bootstrap 5.3 bug: modal + offcanvas focus traps recurse infinitely.
       // Work-around: hide the offcanvas before the modal opens; restore it after.
@@ -162,6 +188,7 @@
       });
 
       pickerModal.addEventListener('hidden.bs.modal', function () {
+        $pickerPreview.hide();
         var body = document.getElementById('picker-modal-body');
         var tbl = body.querySelector('table[id]');
         if (tbl && $.fn.DataTable.isDataTable('#' + tbl.id)) {

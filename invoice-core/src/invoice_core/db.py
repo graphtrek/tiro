@@ -112,6 +112,7 @@ class InvoiceFile(Base):
     path = Column(String, nullable=True)
     file_size = Column(Integer, nullable=True)
     words = Column(Text, nullable=True)
+    preview_base64 = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

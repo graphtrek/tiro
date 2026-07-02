@@ -13,7 +13,7 @@
   </thead>
   <tbody>
     {% for row in rows %}
-    <tr data-pdf-url="/ui/invoice-files/{{ row.id }}/pdf" style="cursor:pointer">
+    <tr data-pdf-url="/ui/invoice-files/{{ row.id }}/pdf" data-preview="{{ row.preview_base64 or '' }}" style="cursor:pointer">
       <td><span class="font-monospace small">{{ row.filename }}</span></td>
       <td class="text-end text-muted small">
         {% if row.file_size is not none %}
@@ -50,6 +50,10 @@
   </tbody>
 </table>
 
+<div id="file-preview-popup" style="display:none; position:fixed; z-index:2000; max-width:640px; max-height:85vh; padding:4px; background:#fff; border:1px solid #ccc; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,.25); pointer-events:none;">
+  <img style="max-width:100%; max-height:calc(85vh - 8px); display:block;">
+</div>
+
 <script>
   (function() {
     if ($.fn.DataTable && $.fn.DataTable.isDataTable("#file-table")) {
@@ -71,6 +75,29 @@
       if ($(e.target).closest("a").length) return;
       var url = $(this).data("pdf-url");
       if (url) window.open(url, "_blank");
+    });
+
+    var $preview = $("#file-preview-popup");
+    var $previewImg = $preview.find("img");
+    $("#file-table tbody").on("mouseenter", "tr", function(e) {
+      var data = $(this).data("preview");
+      if (!data) return;
+      $previewImg.attr("src", "data:image/png;base64," + data);
+      $preview.show();
+    });
+    $("#file-table tbody").on("mousemove", "tr", function(e) {
+      if ($preview.is(":visible")) {
+        var w = $preview.outerWidth();
+        var h = $preview.outerHeight();
+        var top = e.clientY + 16;
+        var left = e.clientX + 16;
+        if (left + w > window.innerWidth) left = e.clientX - w - 16;
+        if (top + h > window.innerHeight) top = Math.max(8, window.innerHeight - h - 8);
+        $preview.css({ top: top, left: left });
+      }
+    });
+    $("#file-table tbody").on("mouseleave", "tr", function() {
+      $preview.hide();
     });
   })();
 </script>
