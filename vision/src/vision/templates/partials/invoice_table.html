@@ -2,6 +2,7 @@
 <table id="invoice-table" class="table table-hover table-sm nowrap" style="width:100%">
   <thead class="table-dark">
     <tr>
+      <th>Státusz</th>
       <th>Számlaszám</th>
       <th>Dátum</th>
       <th>Szállító</th>
@@ -12,12 +13,12 @@
       <th>PDF</th>
       <th class="text-center">Bank</th>
       <th>Irány</th>
-      <th>Státusz</th>
     </tr>
   </thead>
   <tbody>
     {% for row in rows %}
     <tr{% if row.invoice_file_id %} data-pdf-url="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" data-preview="{{ row.invoice_file_preview_base64 or '' }}" style="cursor:pointer"{% endif %}>
+      <td>{{ payment_badge(row.payment_status) }}</td>
       <td>
         <a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a>
         {% if row.payment_status_locked or row.invoice_file_locked or row.has_manual_bank_link %}
@@ -56,7 +57,6 @@
         {% endif %}
       </td>
       <td>{{ direction_badge(row.direction) }}</td>
-      <td>{{ payment_badge(row.payment_status) }}</td>
     </tr>
     {% else %}
     <tr><td colspan="11" class="text-center text-muted">Nincs találat</td></tr>
@@ -77,12 +77,12 @@
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
-      order: [[1, "desc"]],
+      order: [[2, "desc"]],
       scrollX: true,
       autoWidth: false,
       columnDefs: [
-        { targets: [4, 5, 6], className: "text-end" },
-        { targets: [7, 8], orderable: false },
+        { targets: [5, 6, 7], className: "text-end" },
+        { targets: [8, 9], orderable: false },
       ],
     });
     $("#invoice-table tbody").on("click", "tr", function(e) {

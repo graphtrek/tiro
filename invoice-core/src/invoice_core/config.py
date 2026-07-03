@@ -87,6 +87,12 @@ class Settings(BaseSettings):
         "12100011-10639683-00000000": "Iparkamara",
     }
 
+    # ── Bank code → supplier name (used for fee/interest transactions) ───────
+    bank_supplier_names: dict[str, str] = {
+        "erste": "Erste Bank Hungary Zrt.",
+        "wise": "Wise",
+    }
+
 
 def get_settings() -> Settings:
     """Return a settings instance loaded from the environment."""

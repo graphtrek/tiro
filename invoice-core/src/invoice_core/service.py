@@ -396,9 +396,38 @@ def _find_invoice_by_ref(db: Session, payment_ref: str) -> Optional[Invoice]:
     return None
 
 
+_BANK_FEE_KEYWORDS = ("fee", "díj", "kamat")
+
+
+def _is_bank_fee_or_interest(t: dict) -> bool:
+    """True if a transaction's description/type/category names it as a bank fee or interest."""
+    haystack = " ".join(
+        str(t.get(field) or "") for field in ("description", "transaction_type", "category")
+    ).lower()
+    return any(keyword in haystack for keyword in _BANK_FEE_KEYWORDS)
+
+
+def _get_or_create_bank_supplier(db: Session, bank_code: str, settings: Settings) -> Supplier:
+    """Return the Supplier representing the bank itself, creating it if needed."""
+    name = settings.bank_supplier_names.get(bank_code, bank_code.capitalize())
+    supplier = db.query(Supplier).filter_by(name=name).first()
+    if supplier:
+        return supplier
+    supplier = Supplier(name=name)
+    db.add(supplier)
+    db.flush()
+    return supplier
+
+
 def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
     """Fetch bank transactions, insert new ones, and link to invoice/supplier/customer."""
     settings = settings or get_settings()
+
+    # Ensure every configured bank has a supplier record, ready to receive
+    # fee/interest transactions even before any such transaction exists.
+    for bank_code in settings.bank_supplier_names:
+        _get_or_create_bank_supplier(db, bank_code, settings)
+    db.commit()
 
     # Clear any previously created links on tax-account transactions.
     tax_keys = list(settings.tax_accounts.keys())
@@ -496,6 +525,11 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
                 ).first()
                 if customer:
                     btxn.customer_id = customer.id
+
+        # ── Link bank fee/interest transactions to the bank's own supplier ────
+        if not btxn.supplier_id and _is_bank_fee_or_interest(t):
+            bank_supplier = _get_or_create_bank_supplier(db, btxn.bank, settings)
+            btxn.supplier_id = bank_supplier.id
 
     # Recompute payment status for all invoices with linked transactions.
     from sqlalchemy import select as sa_select
