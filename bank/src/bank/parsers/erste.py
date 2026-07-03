@@ -82,18 +82,25 @@ def _opt_str(row: dict, col: str) -> str | None:
     return (row.get(col) or "").strip() or None
 
 
-def _make_id(row: dict, index: int) -> str:
-    """Determinisztikus ID generálás, ha a Tranzakcióazonosító üres (pl. kártyás tranzakció)."""
-    raw = f"{row.get(_COL_DATE,'')}{row.get(_COL_AMOUNT,'')}{row.get(_COL_DESCRIPTION,'')}{index}"
+def _make_id(row: dict, occurrence: int) -> str:
+    """Determinisztikus ID generálás, ha a Tranzakcióazonosító üres (pl. kártyás tranzakció).
+
+    `occurrence` a hányadik előfordulása ennek a (dátum, összeg, leírás) kulcsnak a
+    fájlon belül — nem a sor abszolút pozíciója. Ez stabil marad akkor is, ha egy
+    későbbi export átfedő (más kezdő/záró dátumú) időszakot tartalmaz és emiatt a
+    releváns sor előtt más sorok száma megváltozik.
+    """
+    raw = f"{row.get(_COL_DATE,'')}{row.get(_COL_AMOUNT,'')}{row.get(_COL_DESCRIPTION,'')}{occurrence}"
     return "ERSTE-" + hashlib.sha1(raw.encode()).hexdigest()[:16].upper()
 
 
 def parse_erste_csv(path: Path) -> list[BankTransaction]:
     """Beolvas egy Erste CSV fájlt és BankTransaction listát ad vissza."""
     transactions: list[BankTransaction] = []
+    dup_occurrences: dict[tuple[str, str, str], int] = {}
     with path.open(encoding="utf-16", newline="") as fh:
         reader = csv.DictReader(fh)
-        for i, row in enumerate(reader):
+        for row in reader:
             raw_date = _opt_str(row, _COL_DATE)
             if not raw_date:
                 continue
@@ -111,7 +118,12 @@ def parse_erste_csv(path: Path) -> list[BankTransaction]:
                 logger.warning("Érvénytelen összeg: %s", raw_amount)
                 continue
 
-            txn_id = _opt_str(row, _COL_TXN_ID) or _make_id(row, i)
+            txn_id = _opt_str(row, _COL_TXN_ID)
+            if not txn_id:
+                key = (raw_date, raw_amount, _opt_str(row, _COL_DESCRIPTION) or "")
+                occurrence = dup_occurrences.get(key, 0)
+                dup_occurrences[key] = occurrence + 1
+                txn_id = _make_id(row, occurrence)
             direction = "CREDIT" if amount >= 0 else "DEBIT"
 
             transactions.append(

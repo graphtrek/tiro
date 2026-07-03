@@ -207,18 +207,56 @@ def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDet
     )
 
 
+def _latest_of_same_day(rows: list[BankTransaction]) -> BankTransaction:
+    """Pick the chronologically last transaction among rows sharing one bank+date.
+
+    Row insertion order (id) is not a reliable proxy for real chronological order —
+    source CSVs are sometimes newest-first, sometimes oldest-first, depending on the
+    export. Instead, reconstruct the running-balance chain: undo each row's own
+    amount/direction to get the balance that must have existed immediately before it
+    (its "prior"). The row whose balance is never anyone else's "prior" is the one
+    nothing in the group comes after — i.e. the latest. Falls back to max(id) if the
+    chain doesn't resolve to exactly one terminal row (e.g. unrelated/duplicate rows).
+    """
+    if len(rows) == 1:
+        return rows[0]
+    priors = {
+        round((r.balance - r.amount) if r.direction == "CREDIT" else (r.balance + r.amount), 2)
+        for r in rows
+    }
+    terminal = [r for r in rows if round(r.balance, 2) not in priors]
+    if len(terminal) == 1:
+        return terminal[0]
+    return max(rows, key=lambda r: r.id)
+
+
 def get_bank_balances(db: Session) -> list[BankBalance]:
-    """Return the latest balance record for each bank that has balance data."""
-    subq = (
-        db.query(BankTransaction.bank, func.max(BankTransaction.transaction_date).label("max_date"))
-        .filter(BankTransaction.balance.isnot(None))
-        .group_by(BankTransaction.bank)
-        .subquery()
-    )
-    rows = (
-        db.query(BankTransaction)
-        .join(subq, (BankTransaction.bank == subq.c.bank) & (BankTransaction.transaction_date == subq.c.max_date))
-        .filter(BankTransaction.balance.isnot(None))
-        .all()
-    )
-    return [BankBalance(bank=r.bank, balance=r.balance, currency=r.currency, as_of=r.transaction_date) for r in rows]
+    """Return the single latest balance record for each bank that has balance data.
+
+    Multiple transactions can share the same transaction_date (e.g. Erste rows
+    without a time component all land on midnight of the same day), so picking
+    every row that matches the max date would double-count balances — resolve
+    same-day ties via _latest_of_same_day to get exactly one row per bank.
+    """
+    banks = [r[0] for r in db.query(BankTransaction.bank).filter(BankTransaction.balance.isnot(None)).distinct()]
+    result = []
+    for bank in banks:
+        max_date = (
+            db.query(func.max(BankTransaction.transaction_date))
+            .filter(BankTransaction.bank == bank, BankTransaction.balance.isnot(None))
+            .scalar()
+        )
+        if max_date is None:
+            continue
+        rows = (
+            db.query(BankTransaction)
+            .filter(
+                BankTransaction.bank == bank,
+                BankTransaction.transaction_date == max_date,
+                BankTransaction.balance.isnot(None),
+            )
+            .all()
+        )
+        r = _latest_of_same_day(rows)
+        result.append(BankBalance(bank=r.bank, balance=r.balance, currency=r.currency, as_of=r.transaction_date))
+    return result

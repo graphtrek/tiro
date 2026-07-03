@@ -105,6 +105,14 @@ def invoice_file_pdf(file_id: int):
     return RedirectResponse(f"{client.base_url}/api/v1/invoice-files/{file_id}/pdf")
 
 
+@router.delete("/invoice-files/{file_id:int}/delete")
+def invoice_file_delete(request: Request, file_id: int):
+    client = _client()
+    client.delete_invoice_file(file_id)
+    rows = dict_to_ns(client.get_invoice_files())
+    return _resp(request, "partials/invoice_file_table.html", client, rows=rows)
+
+
 # ── Suppliers ─────────────────────────────────────────────────────────────────
 
 @router.get("/suppliers")

@@ -218,6 +218,19 @@ def invoice_file_pdf(file_id: int, db: Session = Depends(get_db)):
     return FileResponse(p, media_type="application/pdf", content_disposition_type="inline")
 
 
+@app.patch("/api/v1/invoice-files/{file_id:int}")
+def delete_invoice_file(file_id: int, db: Session = Depends(get_db)):
+    f = db.get(InvoiceFile, file_id)
+    if not f:
+        raise HTTPException(status_code=404, detail="Invoice file not found")
+    if f.is_deleted:
+        raise HTTPException(status_code=409, detail="This invoice file is already deleted")
+    f.is_deleted = True
+    f.updated_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True, "id": file_id, "filename": f.filename}
+
+
 # ── Partner endpoints ─────────────────────────────────────────────────────────
 
 @app.get("/api/v1/partners/suppliers/summary")

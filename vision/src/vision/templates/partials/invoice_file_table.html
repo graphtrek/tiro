@@ -9,6 +9,7 @@
       <th class="text-end">Összeg</th>
       <th>Bank tranzakció</th>
       <th>Szöveg</th>
+      <th class="text-end">Művelet</th>
     </tr>
   </thead>
   <tbody>
@@ -43,9 +44,18 @@
         {% endif %}
       </td>
       <td>{{ row.words or '' }}</td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-danger"
+                hx-delete="/ui/invoice-files/{{ row.id }}/delete"
+                hx-target="#table-container"
+                hx-swap="innerHTML"
+                hx-confirm="Biztosan törli a fájlt? '{{ row.filename }}'">
+          <i class="bi bi-trash"></i>
+        </button>
+      </td>
     </tr>
     {% else %}
-    <tr><td colspan="7" class="text-center text-muted">Nincs találat</td></tr>
+    <tr><td colspan="8" class="text-center text-muted">Nincs találat</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -72,7 +82,7 @@
       ],
     });
     $("#file-table tbody").on("click", "tr", function(e) {
-      if ($(e.target).closest("a").length) return;
+      if ($(e.target).closest("a, button").length) return;
       var url = $(this).data("pdf-url");
       if (url) window.open(url, "_blank");
     });

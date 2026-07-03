@@ -154,6 +154,24 @@ class InvoiceCoreClient:
     def unlink_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict | None:
         return self._delete(f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}")
 
+    # ── Invoice file delete ────────────────────────────────────────────────────
+
+    def delete_invoice_file(self, file_id: int) -> dict | None:
+        return self.patch_invoice_file(file_id, is_deleted=True)
+
+    def patch_invoice_file(self, file_id: int, **kwargs) -> dict | None:
+        try:
+            resp = self.session.patch(
+                f"{self.base_url}/api/v1/invoice-files/{file_id}",
+                json=kwargs,
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as exc:
+            logger.warning("invoice-core PATCH /api/v1/invoice-files/%s failed: %s", file_id, exc)
+            return None
+
     # ── Partners ───────────────────────────────────────────────────────────────
 
     def get_suppliers(self) -> list[dict]:

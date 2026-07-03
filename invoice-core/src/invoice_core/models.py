@@ -76,6 +76,7 @@ class InvoiceFileOut(BaseModel):
     path: Optional[str] = None
     words: Optional[str] = None
     preview_base64: Optional[str] = None
+    is_deleted: bool = False
     created_at: datetime
     updated_at: datetime
 

@@ -295,6 +295,12 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
     return count
 
 
+def _is_deleted(db: Session, filename: str) -> bool:
+    """Check if an InvoiceFile record exists with is_deleted=True."""
+    existing = db.query(InvoiceFile).filter(InvoiceFile.filename.ilike(filename)).first()
+    return existing is not None and existing.is_deleted
+
+
 def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
     """Fetch PDF file index and upsert InvoiceFile records, then link to Invoice.
 
@@ -308,6 +314,13 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
     files = pdf_client.extract(start, end)
     if not files:
         logger.warning("sync_pdf: no invoice files returned by invoice-file-filter for %s..%s", start, end)
+        return 0
+
+    # Skip any already-deleted files (is_deleted=True)
+    files = [f for f in files if not _is_deleted(db, f.get("filename", ""))]
+
+    if not files:
+        logger.info("sync_pdf: all files for %s..%s already deleted or not found")
         return 0
 
     # ── Phase 1: upsert InvoiceFile rows, keep (record, path) for link pass ──

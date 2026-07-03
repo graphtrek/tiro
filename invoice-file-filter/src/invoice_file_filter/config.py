@@ -31,7 +31,12 @@ def configure_logging(log_level: str = "INFO") -> None:
     )
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(fmt)
-    file_handler = logging.FileHandler(_LOG_DIR / f"invoice-file-filter ({_LOG_PID}).log", encoding="utf-8")
+    file_handler = logging.handlers.RotatingFileHandler(
+        _LOG_DIR / "invoice-file-filter.log",
+        encoding="utf-8",
+        maxBytes=10_485_760,  # 10 MB
+        backupCount=3,
+    )
     file_handler.setFormatter(fmt)
     logging.getLogger("pdfminer").setLevel(logging.ERROR)
 

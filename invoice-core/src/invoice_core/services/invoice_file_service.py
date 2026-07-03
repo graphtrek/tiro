@@ -29,6 +29,7 @@ class InvoiceFileRow:
     is_bank_linked: bool
     words: Optional[str] = None
     preview_base64: Optional[str] = None
+    is_deleted: bool = False
 
 
 class InvoiceFileFilters:
@@ -57,6 +58,7 @@ def list_invoice_files(
         q = q.filter(Invoice.id.is_(None))
     if filename:
         q = q.filter(InvoiceFile.filename.ilike(f"%{filename}%"))
+    q = q.filter(InvoiceFile.is_deleted.is_(False))
 
     q = q.order_by(InvoiceFile.created_at.desc())
     results = q.all()
@@ -96,6 +98,7 @@ def list_invoice_files(
                 is_bank_linked=btxn is not None,
                 words=f.words,
                 preview_base64=f.preview_base64,
+                is_deleted=f.is_deleted,
             )
         )
     return rows
