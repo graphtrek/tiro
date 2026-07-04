@@ -19,6 +19,7 @@ from invoice_core.db import (
     invoice_bank_transaction,
     invoice_has_bank_txn,
 )
+from invoice_core.services._helpers import OWN_COMPANY_NAME_FILTER
 
 
 @dataclass
@@ -198,7 +199,7 @@ def get_top_suppliers(db: Session, limit: int = 10) -> list[TopSupplierRow]:
     rows = (
         db.query(Supplier.id, Supplier.name, func.sum(Invoice.amount_total).label("total"))
         .join(Invoice, Invoice.supplier_id == Supplier.id)
-        .filter(~Supplier.name.ilike("%GRAPHTREK%"))
+        .filter(~Supplier.name.ilike(OWN_COMPANY_NAME_FILTER))
         .group_by(Supplier.id, Supplier.name)
         .order_by(func.sum(Invoice.amount_total).desc())
         .limit(limit)

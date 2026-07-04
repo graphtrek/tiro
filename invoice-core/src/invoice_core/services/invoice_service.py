@@ -127,6 +127,16 @@ def list_invoices(
     has_pdf: Optional[str] = None,
     supplier_name: Optional[str] = None,
 ) -> list[InvoiceRow]:
+    """Return invoices matching the given filters, joined with supplier/customer/file info.
+
+    Non-obvious rule: an invoice whose stored `payment_status` is still UNPAID
+    is reported as PAID here if it has at least one linked bank transaction
+    (`bank_cnt > 0`) and its status hasn't been manually locked
+    (`payment_status_locked`). This keeps the list in sync with reality even
+    if `_recompute_payment_status()` (in service.py) hasn't run since the
+    transaction was linked, without needing to write to the database on every
+    read. A manually locked invoice is never auto-overridden this way.
+    """
     bank_sub = (
         db.query(invoice_bank_transaction.c.invoice_id, func.count(invoice_bank_transaction.c.bank_transaction_id).label("cnt"))
         .group_by(invoice_bank_transaction.c.invoice_id)
@@ -223,8 +233,6 @@ def list_invoices(
 
 
 def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
-    from invoice_core.db import InvoiceFile
-
     row = (
         db.query(Invoice, Supplier, Customer)
         .join(Supplier, Invoice.supplier_id == Supplier.id)

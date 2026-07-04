@@ -59,7 +59,15 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        # "jdbc:postgresql://host:port/db" → "postgresql+psycopg2://user:pwd@host:port/db"
+        """Convert the JDBC-style DB_URL from .env into a SQLAlchemy connection string.
+
+        The .env file stores the DB URL in JDBC format (e.g. what a Java tool would
+        expect): "jdbc:postgresql://host:port/db". SQLAlchemy instead needs a URL that
+        also carries the driver name and credentials, e.g.
+        "postgresql+psycopg2://user:pwd@host:port/db". This property does that
+        rewrite: drop the leading "jdbc:", then splice in the "+psycopg2" driver
+        suffix and "user:pwd@" credentials right after "postgresql://".
+        """
         url = self.db_url.removeprefix("jdbc:")
         return url.replace("postgresql://", f"postgresql+psycopg2://{self.db_user}:{self.db_pwd}@", 1)
 
@@ -75,6 +83,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # ── Tax account → label mapping (override via TAX_ACCOUNTS JSON in .env) ─
+    # Maps Hungarian tax-authority (NAV) and local-council bank account numbers to
+    # a human-readable label, so bank transactions paid to these accounts can be
+    # shown in reports as e.g. "NAV ÁFA" (VAT) instead of a raw account number.
     tax_accounts: dict[str, str] = {
         "10032000-01076868-00000000": "NAV ÁFA",
         "10032000-01076301-00000000": "NAV Bírság",
@@ -88,6 +99,10 @@ class Settings(BaseSettings):
     }
 
     # ── Bank code → supplier name (used for fee/interest transactions) ───────
+    # Bank fee/interest transactions don't come with a real counterparty name, so
+    # we treat the bank itself as the "supplier" for these transactions and use
+    # this mapping to turn the short bank code ("erste", "wise") into a proper
+    # display name.
     bank_supplier_names: dict[str, str] = {
         "erste": "Erste Bank Hungary Zrt.",
         "wise": "Wise",

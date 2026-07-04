@@ -1,4 +1,13 @@
-"""HTTP client for the wise service (:8003)."""
+"""HTTP client for the wise service (:8003).
+
+ORPHANED / DEAD CODE: invoice-core's sync pipeline was migrated from calling a
+dedicated `wise` service to calling the consolidated `bank` service instead
+(see `bank_client.py` and `service.py`'s `sync_bank`). Nothing in this project
+imports `WiseClient` anymore, and `Settings` (config.py) no longer even
+defines the `wise_url` field this class reads from `self.settings.wise_url` —
+so calling `WiseClient()` today would raise an `AttributeError` before it ever
+made a request. Kept only for reference; safe to delete once confirmed unneeded.
+"""
 
 from __future__ import annotations
 

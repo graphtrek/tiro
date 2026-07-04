@@ -16,6 +16,7 @@ from invoice_core.config import configure_logging, get_settings
 from invoice_core.db import BankTransaction, Invoice, InvoiceFile, SessionLocal
 from invoice_core.models import SyncMode, SyncRequest, SyncResponse
 from invoice_core.service import sync_all
+from invoice_core.services.dividend_service import calculate_dividend
 
 app = typer.Typer(
     help="Invoice Core — master orchestrator for the Moneypenny pipeline.",
@@ -23,6 +24,12 @@ app = typer.Typer(
 )
 console = Console()
 logger = logging.getLogger(__name__)
+
+# Shared typer.Option definitions reused across several `sync*`/`report` commands
+# below, so the flag names/help text only need to be defined once.
+_AS_JSON_OPTION = typer.Option(False, "--json")
+_VERBOSE_OPTION = typer.Option(False, "--verbose", "-v")
+_CLEAR_CACHE_OPTION = typer.Option(False, "--clear-cache", help="Clear all downstream caches before syncing")
 
 
 @app.callback()
@@ -77,9 +84,9 @@ def _print_result(result: SyncResponse, as_json: bool) -> None:
 def sync(
     start: Optional[str] = typer.Option(None, "--start", help="YYYY-MM-DD"),
     end: Optional[str] = typer.Option(None, "--end", help="YYYY-MM-DD"),
-    clear_cache: bool = typer.Option(False, "--clear-cache", help="Clear all downstream caches before syncing"),
-    as_json: bool = typer.Option(False, "--json"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    clear_cache: bool = _CLEAR_CACHE_OPTION,
+    as_json: bool = _AS_JSON_OPTION,
+    verbose: bool = _VERBOSE_OPTION,
 ):
     """Full synchronization: NAV + PDF + Bank."""
     result = _run_sync(SyncMode.full, start=start, end=end, clear_cache=clear_cache, verbose=verbose)
@@ -90,9 +97,9 @@ def sync(
 def sync_nav(
     start: Optional[str] = typer.Option(None, "--start"),
     end: Optional[str] = typer.Option(None, "--end"),
-    clear_cache: bool = typer.Option(False, "--clear-cache", help="Clear all downstream caches before syncing"),
-    as_json: bool = typer.Option(False, "--json"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    clear_cache: bool = _CLEAR_CACHE_OPTION,
+    as_json: bool = _AS_JSON_OPTION,
+    verbose: bool = _VERBOSE_OPTION,
 ):
     """Synchronize NAV invoice data only."""
     result = _run_sync(SyncMode.nav_only, start=start, end=end, clear_cache=clear_cache, verbose=verbose)
@@ -103,9 +110,9 @@ def sync_nav(
 def sync_pdf(
     start: Optional[str] = typer.Option(None, "--start"),
     end: Optional[str] = typer.Option(None, "--end"),
-    clear_cache: bool = typer.Option(False, "--clear-cache", help="Clear all downstream caches before syncing"),
-    as_json: bool = typer.Option(False, "--json"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    clear_cache: bool = _CLEAR_CACHE_OPTION,
+    as_json: bool = _AS_JSON_OPTION,
+    verbose: bool = _VERBOSE_OPTION,
 ):
     """Synchronize PDF invoice file index only."""
     result = _run_sync(SyncMode.pdf_only, start=start, end=end, clear_cache=clear_cache, verbose=verbose)
@@ -114,9 +121,9 @@ def sync_pdf(
 
 @app.command("sync-bank")
 def sync_bank(
-    clear_cache: bool = typer.Option(False, "--clear-cache", help="Clear all downstream caches before syncing"),
-    as_json: bool = typer.Option(False, "--json"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    clear_cache: bool = _CLEAR_CACHE_OPTION,
+    as_json: bool = _AS_JSON_OPTION,
+    verbose: bool = _VERBOSE_OPTION,
 ):
     """Synchronize bank transactions only (Erste + Wise CSV via bank service)."""
     result = _run_sync(SyncMode.bank_only, clear_cache=clear_cache, verbose=verbose)
@@ -125,8 +132,8 @@ def sync_bank(
 
 @app.command("sync-match")
 def sync_match(
-    as_json: bool = typer.Option(False, "--json"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    as_json: bool = _AS_JSON_OPTION,
+    verbose: bool = _VERBOSE_OPTION,
 ):
     """Best-match existing bank transactions to invoice files (no fetching)."""
     result = _run_sync(SyncMode.match_only, verbose=verbose)
@@ -136,26 +143,31 @@ def sync_match(
 @app.command()
 def report(
     month: str = typer.Option(..., "--month", help="Month in YYYY-MM format"),
-    clear_cache: bool = typer.Option(False, "--clear-cache", help="Clear all downstream caches before syncing"),
-    as_json: bool = typer.Option(False, "--json"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    clear_cache: bool = _CLEAR_CACHE_OPTION,
+    as_json: bool = _AS_JSON_OPTION,
+    verbose: bool = _VERBOSE_OPTION,
 ):
     """Full sync for a specific month and print a summary report."""
     result = _run_sync(SyncMode.full, month=month, clear_cache=clear_cache, verbose=verbose)
-    if as_json:
-        console.print_json(_json.dumps(result.model_dump()))
-        return
-    console.print(f"\n[bold]Monthly report: {month}[/bold]\n")
-    _print_result(result, as_json=False)
+    if not as_json:
+        console.print(f"\n[bold]Monthly report: {month}[/bold]\n")
+    _print_result(result, as_json)
 
 
 @app.command()
 def dividend(
     year: Optional[int] = typer.Option(None, "--year", help="Year (default: current year)"),
+    # Passed into calculate_dividend()'s `tao_rate` parameter, not a separate
+    # KIVA calculation — see the docstring below for why.
     kiva_rate: float = typer.Option(0.10, "--kiva-rate", help="KIVA tax rate"),
 ):
-    """Calculate KIVA-based dividend for the given year."""
-    from invoice_core.services.dividend_service import calculate_dividend
+    """Calculate estimated dividend for the given year.
+
+    `kiva_rate` overrides the corporate-tax-rate assumption used internally
+    (`calculate_dividend`'s `tao_rate`, normally 9% TAO): a Hungarian company
+    pays either TAO or KIVA, never both, so this lets a KIVA-taxed company
+    plug in their own flat rate instead of the TAO default.
+    """
     effective_year = year or date.today().year
     db = SessionLocal()
     try:
@@ -172,7 +184,10 @@ def dividend(
     summary.add_row("Kiadás (bejövő számlák nettó)", f"{report.expenses:>18,.0f} HUF".replace(",", " "))
     summary.add_row("─" * 30, "─" * 22)
     summary.add_row("Bruttó nyereség", f"{report.gross_profit:>18,.0f} HUF".replace(",", " "))
-    summary.add_row(f"KIVA ({int(report.kiva_rate * 100)}%)", f"{report.kiva_tax:>18,.0f} HUF".replace(",", " "))
+    # `report.tao_rate`/`tao_tax` hold whatever rate was passed in above (the
+    # --kiva-rate value), labeled "KIVA" here since that's what the CLI user
+    # actually asked to compute with.
+    summary.add_row(f"KIVA ({int(report.tao_rate * 100)}%)", f"{report.tao_tax:>18,.0f} HUF".replace(",", " "))
     summary.add_row("─" * 30, "─" * 22)
     summary.add_row("[green]Nettó nyereség (kivehető osztalék)[/green]", f"[green]{report.net_profit:>18,.0f} HUF[/green]".replace(",", " "))
     console.print(summary)
@@ -198,6 +213,26 @@ def dividend(
         console.print(monthly)
 
 
+def _link_entity_to_file(db, entity, entity_label: str, entity_display: str, filename: str) -> None:
+    """Shared body of `link`/`link-bank`: find the file, point *entity* at it, commit, print.
+
+    *entity* is the already-looked-up Invoice or BankTransaction row (or None
+    if the caller's lookup found nothing) — this helper only knows it has an
+    `invoice_file_id` column to set, not which specific table it came from.
+    """
+    if not entity:
+        console.print(f"[red]{entity_label} not found: {entity_display}[/red]")
+        raise typer.Exit(1)
+    invoice_file = db.query(InvoiceFile).filter(InvoiceFile.filename.ilike(filename)).first()
+    if not invoice_file:
+        console.print(f"[red]InvoiceFile not found: {filename}[/red]")
+        console.print("[yellow]Run sync-pdf first to import the file.[/yellow]")
+        raise typer.Exit(1)
+    entity.invoice_file_id = invoice_file.id
+    db.commit()
+    console.print(f"[green]✓ Linked {entity_display} → {filename}[/green]")
+
+
 @app.command()
 def link(
     invoice_number: str = typer.Argument(help="Invoice number as stored in NAV (e.g. '87/2026')"),
@@ -207,17 +242,7 @@ def link(
     db = SessionLocal()
     try:
         invoice = db.query(Invoice).filter_by(invoice_number=invoice_number).first()
-        if not invoice:
-            console.print(f"[red]Invoice not found: {invoice_number}[/red]")
-            raise typer.Exit(1)
-        invoice_file = db.query(InvoiceFile).filter(InvoiceFile.filename.ilike(filename)).first()
-        if not invoice_file:
-            console.print(f"[red]InvoiceFile not found: {filename}[/red]")
-            console.print("[yellow]Run sync-pdf first to import the file.[/yellow]")
-            raise typer.Exit(1)
-        invoice.invoice_file_id = invoice_file.id
-        db.commit()
-        console.print(f"[green]✓ Linked {invoice_number} → {filename}[/green]")
+        _link_entity_to_file(db, invoice, "Invoice", invoice_number, filename)
     finally:
         db.close()
 
@@ -231,17 +256,7 @@ def link_bank(
     db = SessionLocal()
     try:
         txn = db.query(BankTransaction).filter_by(transaction_id=transaction_id).first()
-        if not txn:
-            console.print(f"[red]Bank transaction not found: {transaction_id}[/red]")
-            raise typer.Exit(1)
-        invoice_file = db.query(InvoiceFile).filter(InvoiceFile.filename.ilike(filename)).first()
-        if not invoice_file:
-            console.print(f"[red]InvoiceFile not found: {filename}[/red]")
-            console.print("[yellow]Run sync-pdf first to import the file.[/yellow]")
-            raise typer.Exit(1)
-        txn.invoice_file_id = invoice_file.id
-        db.commit()
-        console.print(f"[green]✓ Linked {transaction_id} → {filename}[/green]")
+        _link_entity_to_file(db, txn, "Bank transaction", transaction_id, filename)
     finally:
         db.close()
 

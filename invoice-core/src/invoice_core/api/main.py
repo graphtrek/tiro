@@ -20,7 +20,16 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.orm import Session
 
 from invoice_core.config import configure_logging, get_settings
-from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, get_db, invoice_bank_transaction
+from invoice_core.db import (
+    BankTransaction,
+    Customer,
+    Invoice,
+    InvoiceFile,
+    Supplier,
+    _PaymentStatus,
+    get_db,
+    invoice_bank_transaction,
+)
 from invoice_core.models import (
     CustomerOut,
     InvoiceOut,
@@ -34,9 +43,11 @@ from invoice_core.models import (
 from invoice_core.service import _recompute_payment_status, sync_all
 from invoice_core.services import (
     dashboard_service,
+    dividend_service,
     invoice_file_service,
     invoice_service,
     partner_service,
+    tax_service,
     transaction_service,
 )
 
@@ -119,11 +130,13 @@ def sync_logs(
 
 @app.get("/api/v1/dashboard")
 def dashboard(db: Session = Depends(get_db)):
+    """Aggregate the KPI cards, recent lists, and last-sync info shown on the dashboard page."""
+    last_sync = dashboard_service.get_last_sync(db)
     return {
         "kpis": dataclasses.asdict(dashboard_service.get_kpis(db)),
         "recent_invoices": [dataclasses.asdict(r) for r in dashboard_service.get_recent_invoices(db)],
         "recent_transactions": [dataclasses.asdict(r) for r in dashboard_service.get_recent_transactions(db)],
-        "last_sync": dataclasses.asdict(dashboard_service.get_last_sync(db)) if dashboard_service.get_last_sync(db) else None,
+        "last_sync": dataclasses.asdict(last_sync) if last_sync else None,
         "top_suppliers": [dataclasses.asdict(r) for r in dashboard_service.get_top_suppliers(db)],
     }
 
@@ -159,6 +172,12 @@ def list_invoices(
     return [dataclasses.asdict(r) for r in rows]
 
 
+# Two routes exist for fetching a single invoice: one by numeric database id
+# ("/invoices/42") and one by the invoice's business number ("/invoices/HU-42").
+# FastAPI matches routes in the order they're declared, so the `{invoice_id:int}`
+# route (which only matches all-digit paths) MUST be declared before the more
+# general `{invoice_number}` route below it — otherwise every request would be
+# swallowed by the string route and the int route would never match.
 @app.get("/api/v1/invoices/{invoice_id:int}")
 def get_invoice_by_id(invoice_id: int, db: Session = Depends(get_db)):
     inv = invoice_service.get_invoice(db, invoice_id)
@@ -177,7 +196,13 @@ def get_invoice(invoice_number: str, db: Session = Depends(get_db)):
 
 @app.patch("/api/v1/invoices/{invoice_id:int}")
 def patch_invoice(invoice_id: int, req: PatchInvoiceRequest, db: Session = Depends(get_db)):
-    from invoice_core.db import _PaymentStatus
+    """Apply up to three independent, optional edits to one invoice.
+
+    Each field on `req` is handled separately and only touched if the caller
+    actually sent it (`is not None`) — so a request can update just the note,
+    just the lock flag, just the status, or any combination, without needing
+    to resend the invoice's other current values.
+    """
     inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -209,31 +234,38 @@ def list_invoice_files(
 
 @app.get("/api/v1/invoice-files/{file_id:int}/pdf")
 def invoice_file_pdf(file_id: int, db: Session = Depends(get_db)):
-    f = db.get(InvoiceFile, file_id)
-    if not f or not f.path:
+    invoice_file = db.get(InvoiceFile, file_id)
+    if not invoice_file or not invoice_file.path:
         raise HTTPException(status_code=404, detail="PDF nem található")
-    p = Path(f.path)
+    p = Path(invoice_file.path)
     if not p.is_file():
         raise HTTPException(status_code=404, detail="PDF fájl nem elérhető")
     return FileResponse(
         p,
         media_type="application/pdf",
-        filename=f.filename,
+        filename=invoice_file.filename,
         content_disposition_type="inline",
     )
 
 
 @app.patch("/api/v1/invoice-files/{file_id:int}")
 def delete_invoice_file(file_id: int, db: Session = Depends(get_db)):
-    f = db.get(InvoiceFile, file_id)
-    if not f:
+    """Soft-delete an invoice file: mark it hidden without removing the DB row or the PDF on disk.
+
+    This is a PATCH (not a DELETE) on purpose — the file record and the
+    physical PDF both stay in place, only the `is_deleted` flag flips to True,
+    so the file simply stops appearing in file lists but can still be
+    inspected/restored later if needed.
+    """
+    invoice_file = db.get(InvoiceFile, file_id)
+    if not invoice_file:
         raise HTTPException(status_code=404, detail="Invoice file not found")
-    if f.is_deleted:
+    if invoice_file.is_deleted:
         raise HTTPException(status_code=409, detail="This invoice file is already deleted")
-    f.is_deleted = True
-    f.updated_at = datetime.utcnow()
+    invoice_file.is_deleted = True
+    invoice_file.updated_at = datetime.utcnow()
     db.commit()
-    return {"ok": True, "id": file_id, "filename": f.filename}
+    return {"ok": True, "id": file_id, "filename": invoice_file.filename}
 
 
 # ── Partner endpoints ─────────────────────────────────────────────────────────
@@ -405,9 +437,16 @@ def dividend_report(
     kiva_rate: float = Query(0.10, description="KIVA tax rate (default 0.10)"),
     db: Session = Depends(get_db),
 ):
-    from invoice_core.services.dividend_service import calculate_dividend
+    """Estimate dividend for *year*, defaulting to the current year if omitted.
+
+    `kiva_rate` is passed in as the corporate-level tax rate instead of the
+    9% TAO default inside `calculate_dividend`: in Hungary a company pays
+    either TAO (corporate income tax) or KIVA (a small-business flat-tax
+    alternative), never both, so this lets a KIVA-taxed company get an
+    accurate estimate using their own rate instead of the TAO default.
+    """
     effective_year = year or _date.today().year
-    report = calculate_dividend(db, effective_year, kiva_rate)
+    report = dividend_service.calculate_dividend(db, effective_year, kiva_rate)
     return dataclasses.asdict(report)
 
 
@@ -416,9 +455,9 @@ def tax_report(
     year: Optional[int] = Query(None, description="Year (default: current year)"),
     db: Session = Depends(get_db),
 ):
-    from invoice_core.services.tax_service import get_tax_report
+    """Summarize *year*'s payments to tax-authority accounts, defaulting to the current year."""
     effective_year = year or _date.today().year
-    report = get_tax_report(db, effective_year)
+    report = tax_service.get_tax_report(db, effective_year)
     return dataclasses.asdict(report)
 
 

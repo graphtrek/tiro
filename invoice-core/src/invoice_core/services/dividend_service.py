@@ -38,6 +38,15 @@ class DividendReport:
 
 
 def calculate_dividend(db: Session, year: int, tao_rate: float = 0.09, szja_rate: float = 0.15, szocho_rate: float = 0.13) -> DividendReport:
+    """Estimate how much dividend a shareholder could take out of the company for *year*.
+
+    The default rates are current Hungarian tax rates:
+    - tao_rate: "társasági adó" (corporate income tax), applied to gross profit.
+    - szja_rate: "személyi jövedelemadó" (personal income tax on dividends).
+    - szocho_rate: "szociális hozzájárulási adó" (social contribution tax on dividends,
+      capped in reality but not modeled here — see the two "net_dividend_*" fields
+      for the estimate with and without this tax).
+    """
     rows = (
         db.query(Invoice.invoice_date, Invoice.direction, Invoice.amount_net)
         .filter(

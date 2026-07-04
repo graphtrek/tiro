@@ -19,6 +19,7 @@ from sqlalchemy import (
     Table,
     Text,
     create_engine,
+    exists,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
@@ -51,6 +52,12 @@ def get_db() -> Generator[Session, None, None]:
 
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
+#
+# These two enums are the ORM/database-facing versions used by SQLAlchemy columns
+# below. `models.py` defines its own `PaymentStatus`/`InvoiceDirection` enums for
+# the Pydantic API layer (they must have the exact same member names/values as
+# these). If you add or rename a member here, update `models.py` too, or the
+# two layers will silently drift apart.
 
 class _PaymentStatus(PyEnum):
     PAID = "PAID"
@@ -228,6 +235,4 @@ class SyncLog(Base):
 
 def invoice_has_bank_txn():
     """Correlated EXISTS: the invoice has at least one linked bank transaction."""
-    from sqlalchemy import exists
-
     return exists().where(invoice_bank_transaction.c.invoice_id == Invoice.id)

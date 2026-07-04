@@ -81,6 +81,9 @@ class InvoiceFileOut(BaseModel):
     updated_at: datetime
 
 
+# These mirror `db.py`'s `_PaymentStatus`/`_InvoiceDirection` SQLAlchemy enums
+# (same member names/values), just re-declared here so the API layer doesn't need
+# to import the "private" ORM enums directly. Keep both pairs in sync by hand.
 class PaymentStatus(str, Enum):
     PAID = "PAID"
     UNPAID = "UNPAID"

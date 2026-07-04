@@ -8,6 +8,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from invoice_core.db import BankTransaction, Customer, Invoice, Supplier, _PaymentStatus, _enum_str
+from invoice_core.services._helpers import OWN_COMPANY_NAME_FILTER
 
 
 @dataclass
@@ -101,7 +102,7 @@ class CustomerDetail:
     bank_transactions: list[PartnerTxnRow] = field(default_factory=list)
 
 
-def _partner_invoice_rows(invoices: list) -> list[PartnerInvoiceRow]:
+def _partner_invoice_rows(invoices: list[Invoice]) -> list[PartnerInvoiceRow]:
     rows = []
     for i in invoices:
         txn = i.bank_transactions[0] if i.bank_transactions else None
@@ -118,6 +119,10 @@ def _partner_invoice_rows(invoices: list) -> list[PartnerInvoiceRow]:
     return rows
 
 
+# list_suppliers() and list_customers() below are intentionally near-identical
+# (same stats-join shape, just Supplier vs. Customer) — with only 2 call sites,
+# sharing that logic isn't worth the extra indirection. If you change one,
+# check whether the other needs the same change.
 def list_suppliers(db: Session) -> list[SupplierRow]:
     inv_stats = (
         db.query(
@@ -144,7 +149,7 @@ def list_suppliers(db: Session) -> list[SupplierRow]:
     )
     bank_map = {r.supplier_id: r for r in bank_stats}
 
-    suppliers = db.query(Supplier).filter(~Supplier.name.ilike("%graphtrek%")).order_by(Supplier.name).all()
+    suppliers = db.query(Supplier).filter(~Supplier.name.ilike(OWN_COMPANY_NAME_FILTER)).order_by(Supplier.name).all()
     return [
         SupplierRow(
             id=sup.id,
@@ -162,7 +167,10 @@ def list_suppliers(db: Session) -> list[SupplierRow]:
 
 
 def get_supplier_summary(db: Session) -> SupplierSummary:
-    excluded = db.query(Supplier.id).filter(Supplier.name.ilike("%graphtrek%")).subquery()
+    # `excluded` is the mirror image of the filter used elsewhere: it collects
+    # the IDs of suppliers that ARE our own company, so they can be subtracted
+    # out of every count/sum below via `~Supplier.id.in_(excluded)`.
+    excluded = db.query(Supplier.id).filter(Supplier.name.ilike(OWN_COMPANY_NAME_FILTER)).subquery()
 
     supplier_count = (
         db.query(func.count(Supplier.id))
@@ -284,7 +292,7 @@ def list_customers(db: Session) -> list[CustomerRow]:
     )
     bank_map = {r.customer_id: r for r in bank_stats}
 
-    customers = db.query(Customer).filter(~Customer.name.ilike("%graphtrek%")).order_by(Customer.name).all()
+    customers = db.query(Customer).filter(~Customer.name.ilike(OWN_COMPANY_NAME_FILTER)).order_by(Customer.name).all()
     return [
         CustomerRow(
             id=cust.id,

@@ -39,6 +39,13 @@ class TaxReport:
 
 
 def get_tax_report(db: Session, year: int) -> TaxReport:
+    """Summarize *year*'s outgoing bank payments to known tax-authority accounts.
+
+    Matches transactions by counterparty account number against
+    `settings.tax_accounts` (see config.py) to label each payment with the tax
+    type it represents (e.g. "NAV ÁFA" = VAT, "NAV TAO" = corporate tax), then
+    totals them by month and by tax type.
+    """
     tax_accounts = get_settings().tax_accounts
     rows = (
         db.query(BankTransaction)
