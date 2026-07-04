@@ -7,8 +7,9 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
+import requests
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import Response
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.invoice_core import InvoiceCoreClient
@@ -102,7 +103,19 @@ def invoice_files_page(request: Request, linked: Optional[str] = None):
 @router.get("/invoice-files/{file_id:int}/pdf")
 def invoice_file_pdf(file_id: int):
     client = _client()
-    return RedirectResponse(f"{client.base_url}/api/v1/invoice-files/{file_id}/pdf")
+    try:
+        upstream = client.get_invoice_file_pdf(file_id)
+    except requests.RequestException:
+        raise HTTPException(status_code=404, detail="PDF nem található")
+    headers = {}
+    content_disposition = upstream.headers.get("content-disposition")
+    if content_disposition:
+        headers["content-disposition"] = content_disposition
+    return Response(
+        content=upstream.content,
+        media_type=upstream.headers.get("content-type", "application/pdf"),
+        headers=headers,
+    )
 
 
 @router.delete("/invoice-files/{file_id:int}/delete")

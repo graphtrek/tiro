@@ -134,6 +134,14 @@ class InvoiceCoreClient:
         params = {k: v for k, v in {"linked": linked, "filename": filename}.items() if v is not None}
         return self._get("/api/v1/invoice-files", params or None)
 
+    def get_invoice_file_pdf(self, file_id: int) -> requests.Response:
+        resp = self.session.get(
+            f"{self.base_url}/api/v1/invoice-files/{file_id}/pdf",
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp
+
     # ── Manual link / unlink ───────────────────────────────────────────────────
 
     def link_invoice_to_file(self, invoice_id: int, file_id: int) -> dict | None:
