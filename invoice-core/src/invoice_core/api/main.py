@@ -215,7 +215,12 @@ def invoice_file_pdf(file_id: int, db: Session = Depends(get_db)):
     p = Path(f.path)
     if not p.is_file():
         raise HTTPException(status_code=404, detail="PDF fájl nem elérhető")
-    return FileResponse(p, media_type="application/pdf", content_disposition_type="inline")
+    return FileResponse(
+        p,
+        media_type="application/pdf",
+        filename=f.filename,
+        content_disposition_type="inline",
+    )
 
 
 @app.patch("/api/v1/invoice-files/{file_id:int}")
