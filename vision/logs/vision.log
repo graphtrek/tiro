@@ -5407,3 +5407,56 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-07-05 00:23:38 INFO     vision/api/main.py:44 GET /ui/invoice-files/70/pdf → 200 in 53ms
 2026-07-05 00:23:38 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
 2026-07-05 00:27:27 INFO     vision/api/main.py:44 GET /ui/invoice-files/76/pdf → 200 in 38ms
+2026-07-05 00:32:59 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 202ms
+2026-07-05 00:45:27 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 523ms
+2026-07-05 00:46:33 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 159ms
+2026-07-05 12:30:07 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 291ms
+2026-07-05 12:30:11 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 384ms
+2026-07-05 12:30:12 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 5ms
+2026-07-05 12:30:13 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 3ms
+2026-07-05 12:30:28 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 176ms
+2026-07-05 12:30:29 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 160ms
+2026-07-05 12:30:31 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 233ms
+2026-07-05 12:30:31 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-05 12:30:32 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-05 12:30:33 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 255ms
+2026-07-05 12:30:36 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 102ms
+2026-07-05 12:30:40 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 296ms
+2026-07-05 12:30:46 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 268ms
+2026-07-05 13:57:54 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 237ms
+2026-07-06 08:36:24 INFO     vision/api/main.py:44 GET / → 200 in 50ms
+2026-07-06 08:36:26 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 168ms
+2026-07-06 08:38:55 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 257ms
+2026-07-06 08:38:58 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 135ms
+2026-07-06 08:39:00 INFO     vision/api/main.py:44 GET /ui/customers → 200 in 79ms
+2026-07-06 08:39:02 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 209ms
+2026-07-06 09:15:58 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 427ms
+2026-07-06 09:16:07 INFO     vision/api/main.py:44 GET /ui/invoice-files/200/pdf → 200 in 37ms
+2026-07-06 10:35:04 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 68ms
+2026-07-06 10:35:16 WARNING  vision/clients/invoice_core.py:60 invoice-core POST /api/v1/sync failed: HTTPConnectionPool(host='localhost', port=8004): Read timed out. (read timeout=10)
+2026-07-06 10:35:16 INFO     vision/api/main.py:44 POST /ui/sync/trigger → 200 in 10042ms
+2026-07-06 10:35:17 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 181ms
+2026-07-06 10:35:23 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 269ms
+2026-07-06 10:35:39 INFO     vision/api/main.py:44 GET /ui/ → 200 in 206ms
+2026-07-06 10:35:47 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 116ms
+2026-07-06 10:46:22 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 405ms
+2026-07-06 10:46:26 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 264ms
+2026-07-06 10:46:37 INFO     vision/api/main.py:44 GET /ui/transactions/114 → 200 in 75ms
+2026-07-06 10:46:41 INFO     vision/api/main.py:44 GET /ui/transactions/117 → 200 in 74ms
+2026-07-06 10:46:55 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 114ms
+2026-07-06 11:02:17 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 157ms
+2026-07-06 13:04:52 INFO     main.py:309 3 changes detected
+2026-07-06 13:04:52 INFO     main.py:309 4 changes detected
+2026-07-06 13:05:05 INFO     main.py:309 3 changes detected
+2026-07-06 13:05:12 INFO     main.py:309 3 changes detected
+2026-07-06 13:05:17 INFO     main.py:309 3 changes detected
+2026-07-06 13:05:21 INFO     main.py:309 3 changes detected
+2026-07-06 13:36:11 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 277ms
+2026-07-06 13:36:16 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 79ms
+2026-07-06 13:36:16 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 2ms
+2026-07-06 13:36:16 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 4ms
+2026-07-06 13:38:15 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 282ms
+2026-07-06 13:38:17 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 60ms
+2026-07-06 13:38:25 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 67ms
+2026-07-06 13:38:25 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 3ms
+2026-07-06 13:38:26 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 5ms

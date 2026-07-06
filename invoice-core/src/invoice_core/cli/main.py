@@ -160,8 +160,9 @@ def dividend(
     # Passed into calculate_dividend()'s `tao_rate` parameter, not a separate
     # KIVA calculation — see the docstring below for why.
     kiva_rate: float = typer.Option(0.10, "--kiva-rate", help="KIVA tax rate"),
+    hipa_rate: float = typer.Option(0.02, "--hipa-rate", help="HIPA (helyi iparűzési adó) tax rate"),
 ):
-    """Calculate estimated dividend for the given year.
+    """Calculate estimated dividend advance (osztalékelőleg) for the given year.
 
     `kiva_rate` overrides the corporate-tax-rate assumption used internally
     (`calculate_dividend`'s `tao_rate`, normally 9% TAO): a Hungarian company
@@ -171,7 +172,7 @@ def dividend(
     effective_year = year or date.today().year
     db = SessionLocal()
     try:
-        report = calculate_dividend(db, effective_year, kiva_rate)
+        report = calculate_dividend(db, effective_year, kiva_rate, hipa_rate=hipa_rate)
     finally:
         db.close()
 
@@ -188,8 +189,9 @@ def dividend(
     # --kiva-rate value), labeled "KIVA" here since that's what the CLI user
     # actually asked to compute with.
     summary.add_row(f"KIVA ({int(report.tao_rate * 100)}%)", f"{report.tao_tax:>18,.0f} HUF".replace(",", " "))
+    summary.add_row(f"HIPA ({int(report.hipa_rate * 100)}%)", f"{report.hipa_tax:>18,.0f} HUF".replace(",", " "))
     summary.add_row("─" * 30, "─" * 22)
-    summary.add_row("[green]Nettó nyereség (kivehető osztalék)[/green]", f"[green]{report.net_profit:>18,.0f} HUF[/green]".replace(",", " "))
+    summary.add_row("[green]Nettó nyereség (kivehető osztalékelőleg)[/green]", f"[green]{report.net_profit:>18,.0f} HUF[/green]".replace(",", " "))
     console.print(summary)
 
     console.print(f"\n  Kimenő számlák száma: {report.invoice_count_out}")

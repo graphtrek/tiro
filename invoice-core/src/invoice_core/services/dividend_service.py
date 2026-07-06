@@ -25,6 +25,8 @@ class DividendReport:
     gross_profit: float
     tao_rate: float
     tao_tax: float
+    hipa_rate: float
+    hipa_tax: float
     net_profit: float
     szja_rate: float
     szja_tax: float
@@ -37,11 +39,26 @@ class DividendReport:
     monthly: list[MonthlyRow] = field(default_factory=list)
 
 
-def calculate_dividend(db: Session, year: int, tao_rate: float = 0.09, szja_rate: float = 0.15, szocho_rate: float = 0.13) -> DividendReport:
-    """Estimate how much dividend a shareholder could take out of the company for *year*.
+def calculate_dividend(
+    db: Session,
+    year: int,
+    tao_rate: float = 0.09,
+    szja_rate: float = 0.15,
+    szocho_rate: float = 0.13,
+    hipa_rate: float = 0.02,
+) -> DividendReport:
+    """Estimate how much dividend advance (osztalékelőleg) a shareholder could take for *year*.
+
+    This is an in-year advance estimate, not a year-end closing: TAO and HIPA for
+    the current year aren't actually paid/assessed until the following year, so
+    both must be accrued and deducted from gross profit *before* arriving at the
+    dividend base — otherwise the estimate overstates what's safely withdrawable.
 
     The default rates are current Hungarian tax rates:
     - tao_rate: "társasági adó" (corporate income tax), applied to gross profit.
+    - hipa_rate: "helyi iparűzési adó" (local business tax), applied to revenue
+      (net árbevétel) as a simplification — the real HIPA base allows deducting
+      COGS/materials/subcontractor costs, which this system doesn't track separately.
     - szja_rate: "személyi jövedelemadó" (personal income tax on dividends).
     - szocho_rate: "szociális hozzájárulási adó" (social contribution tax on dividends,
       capped in reality but not modeled here — see the two "net_dividend_*" fields
@@ -76,7 +93,8 @@ def calculate_dividend(db: Session, year: int, tao_rate: float = 0.09, szja_rate
 
     gross_profit = revenue - expenses
     tao_tax = max(0.0, gross_profit * tao_rate)
-    net_profit = gross_profit - tao_tax
+    hipa_tax = max(0.0, revenue * hipa_rate)
+    net_profit = gross_profit - tao_tax - hipa_tax
     szja_tax = max(0.0, net_profit * szja_rate)
     szocho_tax = max(0.0, net_profit * szocho_rate)
     net_dividend_without_szocho = net_profit - szja_tax
@@ -99,6 +117,8 @@ def calculate_dividend(db: Session, year: int, tao_rate: float = 0.09, szja_rate
         gross_profit=gross_profit,
         tao_rate=tao_rate,
         tao_tax=tao_tax,
+        hipa_rate=hipa_rate,
+        hipa_tax=hipa_tax,
         net_profit=net_profit,
         szja_rate=szja_rate,
         szja_tax=szja_tax,

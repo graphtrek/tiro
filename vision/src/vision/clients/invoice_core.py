@@ -243,8 +243,8 @@ class InvoiceCoreClient:
 
     # ── Reports ────────────────────────────────────────────────────────────────
 
-    def get_dividend_report(self, year: int | None = None, kiva_rate: float = 0.10) -> dict:
-        params = {k: v for k, v in {"year": year, "kiva_rate": kiva_rate}.items() if v is not None}
+    def get_dividend_report(self, year: int | None = None, kiva_rate: float = 0.10, hipa_rate: float = 0.02) -> dict:
+        params = {k: v for k, v in {"year": year, "kiva_rate": kiva_rate, "hipa_rate": hipa_rate}.items() if v is not None}
         return self._get_one("/api/v1/reports/dividend", params) or {}
 
     def get_tax_report(self, year: int | None = None) -> dict:

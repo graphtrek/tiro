@@ -435,9 +435,10 @@ def unlink_invoice_from_transaction(invoice_id: int, txn_id: int, db: Session = 
 def dividend_report(
     year: Optional[int] = Query(None, description="Year (default: current year)"),
     kiva_rate: float = Query(0.10, description="KIVA tax rate (default 0.10)"),
+    hipa_rate: float = Query(0.02, description="HIPA (local business tax) rate (default 0.02)"),
     db: Session = Depends(get_db),
 ):
-    """Estimate dividend for *year*, defaulting to the current year if omitted.
+    """Estimate dividend advance for *year*, defaulting to the current year if omitted.
 
     `kiva_rate` is passed in as the corporate-level tax rate instead of the
     9% TAO default inside `calculate_dividend`: in Hungary a company pays
@@ -446,7 +447,7 @@ def dividend_report(
     accurate estimate using their own rate instead of the TAO default.
     """
     effective_year = year or _date.today().year
-    report = dividend_service.calculate_dividend(db, effective_year, kiva_rate)
+    report = dividend_service.calculate_dividend(db, effective_year, kiva_rate, hipa_rate=hipa_rate)
     return dataclasses.asdict(report)
 
 
