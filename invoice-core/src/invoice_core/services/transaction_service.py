@@ -37,6 +37,13 @@ class TransactionDetail:
     category: Optional[str]
     balance: Optional[float]
     fees: Optional[float]
+    counterparty_address: Optional[str]
+    sender_address: Optional[str]
+    counterparty_bank_code: Optional[str]
+    exchange_rate: Optional[float]
+    exchange_to_currency: Optional[str]
+    card_last_four: Optional[str]
+    note: Optional[str]
     invoice_ids: list[int]
     invoice_numbers: list[str]
     invoice_file_id: Optional[int]
@@ -194,6 +201,13 @@ def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDet
         category=t.category,
         balance=t.balance,
         fees=t.fees,
+        counterparty_address=t.counterparty_address,
+        sender_address=t.sender_address,
+        counterparty_bank_code=t.counterparty_bank_code,
+        exchange_rate=t.exchange_rate,
+        exchange_to_currency=t.exchange_to_currency,
+        card_last_four=t.card_last_four,
+        note=t.note,
         invoice_ids=[r[0] for r in links],
         invoice_numbers=[r[1] for r in links],
         invoice_file_id=t.invoice_file_id,

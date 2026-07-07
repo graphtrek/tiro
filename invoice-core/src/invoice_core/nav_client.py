@@ -21,10 +21,13 @@ class NavClient:
     """Thin client over nav-invoice's GET /invoices endpoint.
 
     Returns raw dicts (InvoiceDigest fields) — no cross-package Pydantic import.
-    Fields consumed by service.py:
+    Fields consumed by service.py from get_invoices():
         invoice_number, invoice_issue_date, supplier_tax_number, supplier_name,
         customer_tax_number, customer_name, invoice_net_amount, invoice_vat_amount,
         currency, invoice_operation, invoice_category, ins_date
+    Fields consumed by service.py from get_invoice_detail() (InvoiceDetailData):
+        supplier_address, supplier_bank_account, customer_address,
+        customer_bank_account, payment_method, payment_due_date
     """
 
     def __init__(self, settings: Optional[Settings] = None):
@@ -48,6 +51,26 @@ class NavClient:
         for item in data:
             item["direction"] = direction
         return data
+
+    def get_invoice_detail(
+        self, invoice_number: str, direction: str, supplier_tax_number: str = ""
+    ) -> Optional[dict]:
+        """GET /invoices/{invoice_number} → enriched dict (address/bank account/payment fields).
+
+        Returns None on any failure (404, network error) so callers can degrade
+        gracefully rather than aborting the whole sync.
+        """
+        try:
+            resp = self.session.get(
+                f"{self.base_url}/invoices/{invoice_number}",
+                params={"direction": direction, "supplier_tax_number": supplier_tax_number},
+                timeout=self.settings.sync_timeout,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except requests.RequestException as exc:
+            logger.warning("Could not fetch full invoice data for %s: %s", invoice_number, exc)
+            return None
 
     def clear_cache(self) -> int:
         """POST /cache/clear → number of cleared entries (0 on error)."""

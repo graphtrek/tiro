@@ -16,6 +16,16 @@
             <dt class="col-sm-4 text-muted">Deviza</dt>
             <dd class="col-sm-8">{{ invoice.currency or 'HUF' }}</dd>
 
+            {% if invoice.payment_method %}
+            <dt class="col-sm-4 text-muted">Fizetési mód</dt>
+            <dd class="col-sm-8">{{ invoice.payment_method }}</dd>
+            {% endif %}
+
+            {% if invoice.payment_due_date %}
+            <dt class="col-sm-4 text-muted">Fizetési határidő</dt>
+            <dd class="col-sm-8">{{ invoice.payment_due_date }}</dd>
+            {% endif %}
+
             <dt class="col-sm-4 text-muted">Státusz</dt>
             <dd class="col-sm-8">{{ payment_badge(invoice.payment_status) }}</dd>
 

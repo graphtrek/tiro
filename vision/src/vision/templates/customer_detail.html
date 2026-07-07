@@ -28,6 +28,8 @@
           {% if customer.payment_terms %}
           <dt class="col-5">Fizetési határidő</dt><dd class="col-7">{{ customer.payment_terms }} nap</dd>
           {% endif %}
+          <dt class="col-5">IBAN</dt><dd class="col-7">{{ customer.iban or '—' }}</dd>
+          <dt class="col-5">Bankszámlaszám</dt><dd class="col-7">{{ customer.bban or '—' }}</dd>
         </dl>
       </div>
     </div>

@@ -56,6 +56,13 @@ class BankTxnRow:
     category: Optional[str] = None
     balance: Optional[float] = None
     fees: Optional[float] = None
+    counterparty_address: Optional[str] = None
+    sender_address: Optional[str] = None
+    counterparty_bank_code: Optional[str] = None
+    exchange_rate: Optional[float] = None
+    exchange_to_currency: Optional[str] = None
+    card_last_four: Optional[str] = None
+    note: Optional[str] = None
     invoice_file_id: Optional[int] = None
     invoice_file_filename: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -89,6 +96,8 @@ class InvoiceDetail:
     payment_status_locked: bool
     created_at: datetime
     updated_at: datetime
+    payment_method: Optional[str] = None
+    payment_due_date: Optional[date] = None
     bank_transactions: list[BankTxnRow] = field(default_factory=list)
 
 
@@ -283,6 +292,8 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         payment_status_locked=bool(inv.payment_status_locked),
         created_at=inv.created_at,
         updated_at=inv.updated_at,
+        payment_method=inv.payment_method,
+        payment_due_date=inv.payment_due_date,
         bank_transactions=[
             BankTxnRow(
                 id=t.id,
@@ -301,6 +312,13 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
                 category=t.category,
                 balance=t.balance,
                 fees=t.fees,
+                counterparty_address=t.counterparty_address,
+                sender_address=t.sender_address,
+                counterparty_bank_code=t.counterparty_bank_code,
+                exchange_rate=t.exchange_rate,
+                exchange_to_currency=t.exchange_to_currency,
+                card_last_four=t.card_last_four,
+                note=t.note,
                 invoice_file_id=t.invoice_file_id,
                 invoice_file_filename=t.invoice_file.filename if t.invoice_file else None,
                 created_at=t.created_at,

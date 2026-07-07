@@ -26,6 +26,13 @@ class BankTransaction(BaseModel):
     category: str | None
     balance: Decimal | None
     fees: Decimal | None
+    counterparty_address: str | None = None       # Erste "Partner címe"
+    sender_address: str | None = None              # Erste "Küldő címe"
+    counterparty_bank_code: str | None = None       # Erste "Partner bankkódja"
+    exchange_rate: Decimal | None = None            # Wise "Exchange Rate"
+    exchange_to_currency: str | None = None         # Wise "Exchange To"
+    card_last_four: str | None = None               # Wise "Card Last Four Digits"
+    note: str | None = None                         # Wise "Note"
 
 
 class StatementFile(BaseModel):

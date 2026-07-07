@@ -51,6 +51,21 @@
 
   <dt class="col-5 text-muted">IBAN</dt>
   <dd class="col-7 font-monospace">{{ tx.counterparty_iban or '—' }}</dd>
+
+  {% if tx.counterparty_bank_code %}
+  <dt class="col-5 text-muted">Bankkód</dt>
+  <dd class="col-7 font-monospace">{{ tx.counterparty_bank_code }}</dd>
+  {% endif %}
+
+  {% if tx.counterparty_address %}
+  <dt class="col-5 text-muted">Partner címe</dt>
+  <dd class="col-7">{{ tx.counterparty_address }}</dd>
+  {% endif %}
+
+  {% if tx.sender_address %}
+  <dt class="col-5 text-muted">Küldő címe</dt>
+  <dd class="col-7">{{ tx.sender_address }}</dd>
+  {% endif %}
 </dl>
 
 {% if tx.fees %}
@@ -58,6 +73,25 @@
 <dl class="row mb-0 small">
   <dt class="col-5 text-muted">Díjak összesen</dt>
   <dd class="col-7">{{ amount_fmt(tx.fees, tx.currency) }}</dd>
+</dl>
+{% endif %}
+
+{% if tx.exchange_rate or tx.exchange_to_currency or tx.card_last_four or tx.note %}
+<hr class="my-3">
+<h6 class="text-muted mb-2">Deviza / kártya</h6>
+<dl class="row mb-0 small">
+  {% if tx.exchange_rate %}
+  <dt class="col-5 text-muted">Árfolyam</dt>
+  <dd class="col-7">{{ tx.exchange_rate }}{% if tx.exchange_to_currency %} → {{ tx.exchange_to_currency }}{% endif %}</dd>
+  {% endif %}
+  {% if tx.card_last_four %}
+  <dt class="col-5 text-muted">Kártya</dt>
+  <dd class="col-7 font-monospace">•••• {{ tx.card_last_four }}</dd>
+  {% endif %}
+  {% if tx.note %}
+  <dt class="col-5 text-muted">Megjegyzés</dt>
+  <dd class="col-7">{{ tx.note }}</dd>
+  {% endif %}
 </dl>
 {% endif %}
 

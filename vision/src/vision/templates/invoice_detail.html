@@ -46,6 +46,16 @@
           <dt class="col-sm-4">NAV beérkezés</dt>
           <dd class="col-sm-8 text-muted">{{ invoice.nav_ins_date or '—' }}</dd>
 
+          {% if invoice.payment_method %}
+          <dt class="col-sm-4">Fizetési mód</dt>
+          <dd class="col-sm-8">{{ invoice.payment_method }}</dd>
+          {% endif %}
+
+          {% if invoice.payment_due_date %}
+          <dt class="col-sm-4">Fizetési határidő</dt>
+          <dd class="col-sm-8">{{ invoice.payment_due_date }}</dd>
+          {% endif %}
+
           <dt class="col-sm-4">Státusz</dt>
           <dd class="col-sm-8">
             {{ payment_badge(invoice.payment_status) }}
@@ -245,8 +255,43 @@
 
           <dt class="col-5 text-muted">IBAN</dt>
           <dd class="col-7 font-monospace">{{ t.counterparty_iban or '—' }}</dd>
+
+          {% if t.counterparty_bank_code %}
+          <dt class="col-5 text-muted">Bankkód</dt>
+          <dd class="col-7 font-monospace">{{ t.counterparty_bank_code }}</dd>
+          {% endif %}
+
+          {% if t.counterparty_address %}
+          <dt class="col-5 text-muted">Partner címe</dt>
+          <dd class="col-7">{{ t.counterparty_address }}</dd>
+          {% endif %}
+
+          {% if t.sender_address %}
+          <dt class="col-5 text-muted">Küldő címe</dt>
+          <dd class="col-7">{{ t.sender_address }}</dd>
+          {% endif %}
         </dl>
       </div>
+
+      {% if t.exchange_rate or t.exchange_to_currency or t.card_last_four or t.note %}
+      <!-- Deviza / kártya / megjegyzés -->
+      <div class="col-12">
+        <dl class="row mb-0 small">
+          {% if t.exchange_rate %}
+          <dt class="col-sm-2 text-muted">Árfolyam</dt>
+          <dd class="col-sm-4">{{ t.exchange_rate }}{% if t.exchange_to_currency %} → {{ t.exchange_to_currency }}{% endif %}</dd>
+          {% endif %}
+          {% if t.card_last_four %}
+          <dt class="col-sm-2 text-muted">Kártya</dt>
+          <dd class="col-sm-4 font-monospace">•••• {{ t.card_last_four }}</dd>
+          {% endif %}
+          {% if t.note %}
+          <dt class="col-sm-2 text-muted">Megjegyzés</dt>
+          <dd class="col-sm-10">{{ t.note }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+      {% endif %}
 
       <!-- PDF kapcsolat -->
       {% if t.invoice_file_id %}

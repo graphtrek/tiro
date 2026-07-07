@@ -35,6 +35,10 @@ _COL_MERCHANT = "Merchant"
 _COL_TOTAL_FEES = "Total fees"
 _COL_TXN_TYPE = "Transaction Type"
 _COL_TXN_DETAILS_TYPE = "Transaction Details Type"
+_COL_EXCHANGE_RATE = "Exchange Rate"
+_COL_EXCHANGE_TO = "Exchange To"
+_COL_CARD_LAST_FOUR = "Card Last Four Digits"
+_COL_NOTE = "Note"
 
 _DATE_FORMATS = (
     "%d-%m-%Y %H:%M:%S.%f",
@@ -119,6 +123,9 @@ def parse_wise_csv(path: Path) -> list[BankTransaction]:
             balance_raw = _opt_str(row, _COL_RUNNING_BALANCE)
             balance = _parse_amount(balance_raw) if balance_raw else None
 
+            exchange_rate_raw = _opt_str(row, _COL_EXCHANGE_RATE)
+            exchange_rate = _parse_amount(exchange_rate_raw) if exchange_rate_raw else None
+
             transactions.append(
                 BankTransaction(
                     bank="wise",
@@ -137,6 +144,10 @@ def parse_wise_csv(path: Path) -> list[BankTransaction]:
                     category=None,
                     balance=balance,
                     fees=fees,
+                    exchange_rate=exchange_rate,
+                    exchange_to_currency=_opt_str(row, _COL_EXCHANGE_TO),
+                    card_last_four=_opt_str(row, _COL_CARD_LAST_FOUR),
+                    note=_opt_str(row, _COL_NOTE),
                 )
             )
 

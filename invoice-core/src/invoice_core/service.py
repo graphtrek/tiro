@@ -7,7 +7,7 @@ import re
 import time
 import unicodedata
 from datetime import date, datetime, timedelta
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
@@ -38,6 +38,25 @@ def _opt_float(d: dict, key: str) -> Optional[float]:
         return v if v != 0.0 else None
     except (TypeError, ValueError):
         return None
+
+
+_IBAN_RE = re.compile(r"^[A-Za-z]{2}\d{2}")
+
+
+def classify_bank_account(raw: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """Split a single NAV bank-account string into (iban, bban).
+
+    NAV exposes exactly one string per party (supplierBankAccountNumber /
+    customerBankAccountNumber) with no separate IBAN/BBAN fields, unlike bank
+    CSV data. An IBAN starts with a 2-letter country code + 2 check digits
+    (e.g. "HU42..."); anything else is treated as a domestic account number (BBAN).
+    """
+    value = (raw or "").strip()
+    if not value:
+        return None, None
+    if _IBAN_RE.match(value):
+        return value, None
+    return None, value
 
 
 def _is_tax_account(account: Optional[str], settings: Settings) -> bool:
@@ -225,25 +244,43 @@ def _default_dates(start: Optional[str], end: Optional[str]) -> tuple[str, str]:
     return start_obj.isoformat(), end_obj.isoformat()
 
 
-def _upsert_supplier(db: Session, tax_id: str, name: str) -> Supplier:
+def _upsert_supplier(
+    db: Session, tax_id: str, name: str,
+    address: Optional[str] = None, iban: Optional[str] = None, bban: Optional[str] = None,
+) -> Supplier:
     existing = db.query(Supplier).filter_by(tax_id=tax_id).first()
     if existing:
         existing.name = name
+        if address:
+            existing.address = address
+        if iban:
+            existing.iban = iban
+        if bban:
+            existing.bban = bban
         existing.updated_at = datetime.utcnow()
         return existing
-    supplier = Supplier(name=name, tax_id=tax_id)
+    supplier = Supplier(name=name, tax_id=tax_id, address=address, iban=iban, bban=bban)
     db.add(supplier)
     db.flush()
     return supplier
 
 
-def _upsert_customer(db: Session, tax_id: str, name: str) -> Customer:
+def _upsert_customer(
+    db: Session, tax_id: str, name: str,
+    address: Optional[str] = None, iban: Optional[str] = None, bban: Optional[str] = None,
+) -> Customer:
     existing = db.query(Customer).filter_by(tax_id=tax_id).first()
     if existing:
         existing.name = name
+        if address:
+            existing.address = address
+        if iban:
+            existing.iban = iban
+        if bban:
+            existing.bban = bban
         existing.updated_at = datetime.utcnow()
         return existing
-    customer = Customer(name=name, tax_id=tax_id)
+    customer = Customer(name=name, tax_id=tax_id, address=address, iban=iban, bban=bban)
     db.add(customer)
     db.flush()
     return customer
@@ -252,7 +289,8 @@ def _upsert_customer(db: Session, tax_id: str, name: str) -> Customer:
 def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
     """Fetch NAV invoices and upsert suppliers, customers, and invoices."""
     settings = settings or get_settings()
-    digests = NavClient(settings).get_invoices(start, end)
+    nav_client = NavClient(settings)
+    digests = nav_client.get_invoices(start, end)
     count = 0
     for digest in digests:
         supplier_tax = digest.get("supplier_tax_number", "")
@@ -263,17 +301,39 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
         if not invoice_number:
             continue
 
-        supplier = _upsert_supplier(db, tax_id=supplier_tax or invoice_number, name=supplier_name)
-        customer = _upsert_customer(db, tax_id=customer_tax or invoice_number, name=customer_name)
+        direction_str = digest.get("direction", "OUTBOUND")
+        direction = _InvoiceDirection[direction_str] if direction_str in _InvoiceDirection.__members__ else _InvoiceDirection.OUTBOUND
+
+        existing = db.query(Invoice).filter_by(invoice_number=invoice_number).first()
+
+        # Fetch enriched per-invoice data (address/bank account/payment terms)
+        # only for invoices that need it — new ones, or ones synced before this
+        # enrichment existed — to bound the extra NAV round-trips per sync run.
+        detail: dict = {}
+        if not existing or not existing.payment_method:
+            detail = nav_client.get_invoice_detail(
+                invoice_number, direction_str, supplier_tax_number=supplier_tax
+            ) or {}
+
+        supplier_iban, supplier_bban = classify_bank_account(detail.get("supplier_bank_account"))
+        customer_iban, customer_bban = classify_bank_account(detail.get("customer_bank_account"))
+
+        supplier = _upsert_supplier(
+            db, tax_id=supplier_tax or invoice_number, name=supplier_name,
+            address=detail.get("supplier_address") or None,
+            iban=supplier_iban, bban=supplier_bban,
+        )
+        customer = _upsert_customer(
+            db, tax_id=customer_tax or invoice_number, name=customer_name,
+            address=detail.get("customer_address") or None,
+            iban=customer_iban, bban=customer_bban,
+        )
 
         issue_date_str = digest.get("invoice_issue_date", "")
         try:
             issue_date = date.fromisoformat(issue_date_str) if issue_date_str else None
         except ValueError:
             issue_date = None
-
-        direction_str = digest.get("direction", "OUTBOUND")
-        direction = _InvoiceDirection[direction_str] if direction_str in _InvoiceDirection.__members__ else _InvoiceDirection.OUTBOUND
 
         amount_net = digest.get("invoice_net_amount")
         amount_vat = digest.get("invoice_vat_amount")
@@ -286,7 +346,13 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
         invoice_operation = digest.get("invoice_operation") or None
         invoice_category = digest.get("invoice_category") or None
 
-        existing = db.query(Invoice).filter_by(invoice_number=invoice_number).first()
+        payment_method = detail.get("payment_method") or None
+        payment_due_date_str = detail.get("payment_due_date") or ""
+        try:
+            payment_due_date = date.fromisoformat(payment_due_date_str) if payment_due_date_str else None
+        except ValueError:
+            payment_due_date = None
+
         if existing:
             existing.invoice_date = issue_date
             existing.amount_net = amount_net
@@ -296,6 +362,10 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
             existing.currency = currency
             existing.invoice_operation = invoice_operation
             existing.invoice_category = invoice_category
+            if payment_method:
+                existing.payment_method = payment_method
+            if payment_due_date:
+                existing.payment_due_date = payment_due_date
             existing.updated_at = datetime.utcnow()
         else:
             db.add(Invoice(
@@ -312,6 +382,8 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
                 invoice_operation=invoice_operation,
                 invoice_category=invoice_category,
                 nav_ins_date=digest.get("ins_date"),
+                payment_method=payment_method,
+                payment_due_date=payment_due_date,
             ))
             count += 1
 
@@ -494,6 +566,24 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
         existing = db.query(BankTransaction).filter_by(transaction_id=txn_id).first()
         if existing:
             btxn = existing
+            # Refresh fields the bank service may only be able to supply on a
+            # later re-export (e.g. address/FX data added to the CSV after
+            # the transaction was first synced) — never overwrite with blanks.
+            if txn_dict.get("counterparty_address"):
+                btxn.counterparty_address = txn_dict["counterparty_address"]
+            if txn_dict.get("sender_address"):
+                btxn.sender_address = txn_dict["sender_address"]
+            if txn_dict.get("counterparty_bank_code"):
+                btxn.counterparty_bank_code = txn_dict["counterparty_bank_code"]
+            if txn_dict.get("exchange_rate") is not None:
+                btxn.exchange_rate = _opt_float(txn_dict, "exchange_rate")
+            if txn_dict.get("exchange_to_currency"):
+                btxn.exchange_to_currency = txn_dict["exchange_to_currency"]
+            if txn_dict.get("card_last_four"):
+                btxn.card_last_four = txn_dict["card_last_four"]
+            if txn_dict.get("note"):
+                btxn.note = txn_dict["note"]
+            btxn.updated_at = datetime.utcnow()
         else:
             # Use datetime if available, fall back to date
             txn_dt_raw = txn_dict.get("datetime") or txn_dict.get("date")
@@ -524,6 +614,13 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
                 category=txn_dict.get("category"),
                 balance=_opt_float(txn_dict, "balance"),
                 fees=_opt_float(txn_dict, "fees"),
+                counterparty_address=txn_dict.get("counterparty_address"),
+                sender_address=txn_dict.get("sender_address"),
+                counterparty_bank_code=txn_dict.get("counterparty_bank_code"),
+                exchange_rate=_opt_float(txn_dict, "exchange_rate"),
+                exchange_to_currency=txn_dict.get("exchange_to_currency"),
+                card_last_four=txn_dict.get("card_last_four"),
+                note=txn_dict.get("note"),
             )
             db.add(btxn)
             db.flush()

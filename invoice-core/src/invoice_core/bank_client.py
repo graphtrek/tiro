@@ -26,7 +26,9 @@ class BankClient:
     BankTransaction fields consumed by service.py:
         bank, transaction_id, date, datetime, amount, currency, direction,
         description, payment_reference, counterparty_name, counterparty_account,
-        counterparty_iban, transaction_type, category, balance, fees
+        counterparty_iban, transaction_type, category, balance, fees,
+        counterparty_address, sender_address, counterparty_bank_code,
+        exchange_rate, exchange_to_currency, card_last_four, note
     """
 
     def __init__(self, settings: Optional[Settings] = None):

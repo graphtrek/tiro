@@ -35,6 +35,9 @@ _COL_DESCRIPTION = "Könyvelési információk"
 _COL_TXN_TYPE = "Tranzakció típusa"
 _COL_CATEGORY = "Kategória"
 _COL_BALANCE = "Számlaegyenleg"
+_COL_PARTNER_BANK_CODE = "Partner bankkódja"
+_COL_PARTNER_ADDRESS = "Partner címe"
+_COL_SENDER_ADDRESS = "Küldő címe"
 
 
 def _parse_amount(raw: str) -> Decimal:
@@ -144,6 +147,9 @@ def parse_erste_csv(path: Path) -> list[BankTransaction]:
                     category=_opt_str(row, _COL_CATEGORY),
                     balance=_parse_balance(_opt_str(row, _COL_BALANCE) or ""),
                     fees=None,
+                    counterparty_address=_opt_str(row, _COL_PARTNER_ADDRESS),
+                    sender_address=_opt_str(row, _COL_SENDER_ADDRESS),
+                    counterparty_bank_code=_opt_str(row, _COL_PARTNER_BANK_CODE),
                 )
             )
 

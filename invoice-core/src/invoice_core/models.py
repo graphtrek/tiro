@@ -49,7 +49,8 @@ class SupplierOut(BaseModel):
     address: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
-    bank_account: Optional[str] = None
+    iban: Optional[str] = None
+    bban: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -64,6 +65,8 @@ class CustomerOut(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     payment_terms: Optional[int] = None
+    iban: Optional[str] = None
+    bban: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -112,6 +115,8 @@ class InvoiceOut(BaseModel):
     invoice_operation: Optional[str] = None
     invoice_category: Optional[str] = None
     nav_ins_date: Optional[str] = None
+    payment_method: Optional[str] = None
+    payment_due_date: Optional[date] = None
     invoice_file_id: Optional[int] = None
     invoice_file_locked: bool = False
     created_at: datetime
@@ -147,6 +152,13 @@ class BankTransactionOut(BaseModel):
     category: Optional[str] = None
     balance: Optional[float] = None
     fees: Optional[float] = None
+    counterparty_address: Optional[str] = None
+    sender_address: Optional[str] = None
+    counterparty_bank_code: Optional[str] = None
+    exchange_rate: Optional[float] = None
+    exchange_to_currency: Optional[str] = None
+    card_last_four: Optional[str] = None
+    note: Optional[str] = None
     supplier_id: Optional[int] = None
     customer_id: Optional[int] = None
     invoice_ids: list[int] = []

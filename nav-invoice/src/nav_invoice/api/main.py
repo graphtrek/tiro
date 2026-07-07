@@ -18,6 +18,7 @@ from nav_invoice.models import (
     SubmitInvoiceRequest,
     SubmitInvoiceResponse,
 )
+from nav_invoice.invoice_data import parse_invoice_data
 from nav_invoice.query import query_invoice_data, query_invoice_digest
 from nav_invoice.reporting import submit_invoice
 
@@ -91,17 +92,21 @@ def get_invoices(
 def get_invoice(
     szamlaszam: str,
     direction: InvoiceDirection = Query(InvoiceDirection.OUTBOUND),
+    supplier_tax_number: Optional[str] = Query(None),
 ):
-    """Get a single invoice's decoded XML (queryInvoiceData)."""
+    """Get a single invoice's decoded XML + parsed detail fields (queryInvoiceData)."""
     try:
-        invoice_xml = query_invoice_data(szamlaszam, direction)
+        invoice_xml = query_invoice_data(
+            szamlaszam, direction, supplier_tax_number=supplier_tax_number or ""
+        )
     except NavApiError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
     if not invoice_xml:
         raise HTTPException(status_code=404, detail=f"Invoice {szamlaszam} not found")
 
-    return {"szamlaszam": szamlaszam, "invoice_xml": invoice_xml}
+    detail = parse_invoice_data(invoice_xml, invoice_number=szamlaszam)
+    return {"szamlaszam": szamlaszam, "invoice_xml": invoice_xml, **detail.model_dump()}
 
 
 # ── Reporting (Adatszolgáltatás) ───────────────────────

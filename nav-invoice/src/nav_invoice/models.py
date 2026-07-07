@@ -180,6 +180,23 @@ class DigestQueryParams(BaseModel):
         return self
 
 
+class InvoiceDetailData(BaseModel):
+    """Kiegészítő mezők a teljes queryInvoiceData XML-ből.
+
+    Nem az InvoiceData XSD teljes tükrözése — csak azok a mezők, amiket
+    invoice-core a digestből nem kap meg (cím, bankszámla, fizetési mód/határidő).
+    Tételsorok és ÁFA-kulcsonkénti összesítők szándékosan kimaradnak.
+    """
+
+    invoice_number: str = ""
+    supplier_address: str = ""
+    supplier_bank_account: str = ""
+    customer_address: str = ""
+    customer_bank_account: str = ""
+    payment_method: str = ""
+    payment_due_date: str = ""
+
+
 class TokenExchangeResult(BaseModel):
     """tokenExchange eredménye."""
 
