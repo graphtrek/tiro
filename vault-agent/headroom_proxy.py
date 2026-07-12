@@ -19,9 +19,9 @@ The CLI drives a single ProxyManager: `ensure(spec)` before each agent build (it
 on exit. `resolve_model()` in main.py checks `proxy_base_url()` to route the model
 through the proxy only while it's actually running.
 
-Only providers with a routable upstream go through the proxy (local / deepseek /
-openrouter); anything else runs direct. A proxy we didn't start (already listening
-on the port) is reused but never stopped by us.
+Only providers with a routable upstream go through the proxy (local / ollama /
+deepseek / openrouter); anything else runs direct. A proxy we didn't start (already
+listening on the port) is reused but never stopped by us.
 """
 
 from __future__ import annotations
@@ -130,6 +130,14 @@ def _local_upstream() -> str:
     return url.rstrip("/")
 
 
+def _ollama_upstream() -> str:
+    """OLLAMA_LLM_URL with a trailing /v1 removed, same reasoning as `_local_upstream`."""
+    url = os.environ.get("OLLAMA_LLM_URL", "http://localhost:11434/v1").strip()
+    if url.endswith("/v1"):
+        return url[: -len("/v1")]
+    return url.rstrip("/")
+
+
 # Provider prefix -> how to route it: the env the proxy needs to reach the upstream
 # and the API key the client sends (which the proxy forwards on). deepseek and
 # openrouter are OpenAI-compatible, so all three route through the same
@@ -141,6 +149,12 @@ def _provider_config(spec: str) -> dict | None:
             "prefix": "local:",
             "env": {"OPENAI_TARGET_API_URL": _local_upstream()},
             "api_key": os.environ.get("LOCAL_API_KEY", "local"),
+        }
+    if spec.startswith("ollama:"):
+        return {
+            "prefix": "ollama:",
+            "env": {"OPENAI_TARGET_API_URL": _ollama_upstream()},
+            "api_key": os.environ.get("OLLAMA_API_KEY", "ollama"),
         }
     if spec.startswith("deepseek:"):
         return {

@@ -127,7 +127,7 @@ HELP = """\
   [cyan]/read <note>[/cyan]    print a note (or its outline if it's long)
   [cyan]/save-note <name>[/cyan]  save the last answer to the vault (add [cyan]--full[/cyan] for the whole conversation)
   [cyan]/vault \\[name][/cyan]   list vaults in the base dir, or switch to one (persists to .env)
-    [cyan]/model \[name][/cyan]   list model providers, or switch to one — [cyan]local[/cyan]/[cyan]gemma[/cyan]/[cyan]ornith-uncensored[/cyan]/[cyan]deepseek[/cyan]/[cyan]gemma-cloud[/cyan]/[cyan]gemma-mlx[/cyan] (persists to .env)
+  [cyan]/model \\[name][/cyan]   list model providers, or switch to one — [cyan]local[/cyan]/[cyan]gemma[/cyan]/[cyan]ornith-uncensored[/cyan]/[cyan]deepseek[/cyan]/[cyan]gemma-cloud[/cyan]/[cyan]gemma-mlx[/cyan] (persists to .env)
   [cyan]/prompt[/cyan]         show the system prompt file in use
   [cyan]/reload[/cyan]         rebuild the agent (picks up system_prompt.md edits)
   [cyan]/clear[/cyan]          clear the conversation history
