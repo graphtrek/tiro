@@ -11,10 +11,14 @@
             "id": "c2bbcac132954be2",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "type": "markdown",
+              "state": {
+                "file": "attachment-downloader-prompt.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "attachment-downloader-prompt"
             }
           }
         ]
@@ -181,9 +185,9 @@
   },
   "active": "c2bbcac132954be2",
   "lastOpenFiles": [
+    "attachment-downloader-prompt.md",
     "INDEX.md",
     "invoice-core-prompt.md",
-    "attachment-downloader-prompt.md",
     "invoice-core-spec.md",
     "docs/wiki",
     "docs",
