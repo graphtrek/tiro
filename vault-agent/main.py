@@ -54,6 +54,8 @@ PROVIDERS = {
         "ORNITH_UNCENSORED_MODEL", "local:Ornith-1.0-9B-Uncensored-mlx-bf16"
     ),
     "deepseek": os.environ.get("DEEPSEEK_MODEL", "deepseek:deepseek-reasoner"),
+    "gemma-cloud": os.environ.get("GEMMA_CLOUD_MODEL", "ollama:gemma4:31b-cloud"),
+    "gemma-mlx": os.environ.get("GEMMA_MLX_MODEL", "ollama:gemma4:12b-mlx"),
 }
 
 MODEL = os.environ.get("MODEL", PROVIDERS["local"])
@@ -63,6 +65,13 @@ LOCAL_LLM_URL = os.environ.get("LOCAL_LLM_URL", "http://localhost:1234/v1")
 # API key sent to OpenAI-compatible local servers (some require a specific value,
 # e.g. "test").
 LOCAL_API_KEY = os.environ.get("LOCAL_API_KEY", "local")
+
+# Where "ollama:" models are served - the Ollama app's OpenAI-compatible endpoint,
+# which also proxies cloud models (tag suffix "-cloud") once `ollama signin` has run.
+OLLAMA_LLM_URL = os.environ.get("OLLAMA_LLM_URL", "http://localhost:11434/v1")
+# Ollama doesn't check this for local/cloud use via the signed-in app; only needed
+# if pointing OLLAMA_LLM_URL straight at api.ollama.com.
+OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY", "ollama")
 
 # pydantic-ai caps model/tool round-trips per run() call at 50 by default; a vault
 # question can need several search_vault/read_note calls before the model answers,
@@ -104,6 +113,17 @@ def resolve_model(spec: str):
         return OpenAIChatModel(
             spec.removeprefix("local:"),
             provider=OpenAIProvider(base_url=LOCAL_LLM_URL, api_key=LOCAL_API_KEY),
+        )
+    if spec.startswith("ollama:"):
+        from pydantic_ai.models.openai import OpenAIChatModel
+        from pydantic_ai.providers.openai import OpenAIProvider
+
+        # Ollama's OpenAI-compatible endpoint serves both local and cloud models
+        # (tag suffix "-cloud", e.g. gemma4:31b-cloud) once `ollama signin` has run;
+        # no real API key needed unless hitting ollama.com directly.
+        return OpenAIChatModel(
+            spec.removeprefix("ollama:"),
+            provider=OpenAIProvider(base_url=OLLAMA_LLM_URL, api_key=OLLAMA_API_KEY),
         )
     return spec
 
