@@ -26,6 +26,7 @@ import atexit
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -64,7 +65,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from capabilities import VaultCapability, log_interaction
+from capabilities import AUDIT, VaultCapability, log, log_interaction, setup_logging
 from headroom_proxy import (
     HeadroomError,
     ProxyManager,
@@ -126,7 +127,7 @@ HELP = """\
   [cyan]/read <note>[/cyan]    print a note (or its outline if it's long)
   [cyan]/save-note <name>[/cyan]  save the last answer to the vault (add [cyan]--full[/cyan] for the whole conversation)
   [cyan]/vault \\[name][/cyan]   list vaults in the base dir, or switch to one (persists to .env)
-  [cyan]/model \\[name][/cyan]   list model providers, or switch to one — [cyan]local[/cyan]/[cyan]deepseek[/cyan] (persists to .env)
+    [cyan]/model \\[name][/cyan]   list model providers, or switch to one — [cyan]local[/cyan]/[cyan]gemma[/cyan]/[cyan]ornith-uncensored[/cyan]/[cyan]deepseek[/cyan] (persists to .env)
   [cyan]/prompt[/cyan]         show the system prompt file in use
   [cyan]/reload[/cyan]         rebuild the agent (picks up system_prompt.md edits)
   [cyan]/clear[/cyan]          clear the conversation history
@@ -217,6 +218,7 @@ def _apply_proxy(proxy: ProxyManager, spec: str) -> None:
     try:
         status = proxy.ensure(spec)
     except HeadroomError as exc:
+        log.warning("headroom proxy unavailable for %s: %s", spec, exc)
         console.print(
             Panel(
                 f"{exc}\n\n[dim]continuing without the proxy \u2014 LLM calls go direct[/dim]",
@@ -243,8 +245,10 @@ def _shutdown(session: Session) -> None:
 
 
 def run() -> int:
+    setup_logging()  # wire up the log file before anything else can fail
     missing = missing_credentials(MODEL)
     if missing:
+        log.error("missing credentials for %s: %s not set", MODEL, missing)
         console.print(
             Panel(
                 f"[bold red]No API key found for {MODEL}.[/bold red]\n\n"
@@ -267,9 +271,11 @@ def run() -> int:
         vault, _ = open_vault(sys.argv[1:])
         session = Session(vault, proxy)
     except SystemExit as exc:
+        log.error("failed to open vault: %s", exc)
         console.print(f"[bold red]{exc}[/bold red]")
         return 1
     except Exception as exc:  # noqa: BLE001 - surface any build error cleanly
+        log.error("failed to open vault: %s", exc, exc_info=True)
         console.print(f"[bold red]Failed to open vault:[/bold red] {exc}")
         return 1
 
@@ -406,6 +412,7 @@ def _handle_save_note(session: Session, args: str) -> None:
     try:
         path = session.vault.write_note(name, content, model=session.model)
     except (ValueError, OSError) as exc:
+        log.warning("save-note %r failed: %s", name, exc)
         console.print(Panel(str(exc), title="[red]save failed[/red]", border_style="red"))
         return
 
@@ -481,6 +488,7 @@ def _handle_vault_command(session: Session, name: str) -> None:
         vault = Vault(target)
     except ValueError as exc:
         available = ", ".join(_list_vaults(base)) or "none"
+        log.warning("vault switch to %r failed: %s", name, exc)
         console.print(
             Panel(
                 f"{exc}\n\nAvailable vaults: [cyan]{available}[/cyan]",
@@ -494,6 +502,7 @@ def _handle_vault_command(session: Session, name: str) -> None:
     try:
         _persist_vault_choice(ENV_FILE, base, name)
     except OSError as exc:
+        log.warning("couldn't persist vault choice %r to .env: %s", name, exc)
         console.print(f"[yellow]switched for this session, but couldn't write .env: {exc}[/yellow]")
     console.print(f"[dim]switched to {name} — conversation cleared[/dim]")
     _print_banner(session)
@@ -525,6 +534,7 @@ def _handle_model_command(session: Session, name: str) -> None:
 
     missing = missing_credentials(spec)
     if missing:
+        log.warning("model switch to %r failed: missing %s", name, missing)
         console.print(
             Panel(
                 f"[bold red]{name} needs {missing}.[/bold red]\n\n"
@@ -541,20 +551,52 @@ def _handle_model_command(session: Session, name: str) -> None:
     try:
         _update_env(ENV_FILE, {"MODEL": spec})
     except OSError as exc:
+        log.warning("couldn't persist model choice %r to .env: %s", spec, exc)
         console.print(f"[yellow]switched for this session, but couldn't write .env: {exc}[/yellow]")
     console.print(f"[dim]switched to {name} ({spec})[/dim]")
     _print_banner(session)
 
 
+def _friendly_error(exc: Exception) -> str:
+    """Translate known local-server failure modes into an actionable message.
+
+    Some local OpenAI-compatible servers (e.g. LM Studio's MLX runtime) answer
+    with HTTP 200 but an error-shaped JSON body when they reject a request —
+    pydantic-ai then fails to validate it as a ChatCompletion and raises a wall
+    of "Input should be a valid string/list" errors that hide the real cause.
+    """
+    text = str(exc)
+    if "prefill_memory_exceeded" in text or "Prefill context too large" in text:
+        return (
+            "[bold]local model rejected the prompt: not enough memory for this context.[/bold]\n\n"
+            "The prompt (vault context + tools + history) is too large for the model's "
+            "memory guard. Try:\n"
+            "  • asking a narrower question, or [cyan]/clear[/cyan] to drop conversation history\n"
+            "  • raising the memory guard ceiling / setting it to \"aggressive\" in LM Studio\n"
+            "  • switching to a smaller local model, e.g. [cyan]/model local[/cyan]\n"
+            "  • freeing system memory and retrying"
+        )
+    if "validation errors for ChatCompletion" in text:
+        return (
+            "[bold]local model returned an error instead of a completion.[/bold]\n\n"
+            f"{text}"
+        )
+    return text
+
+
 def _handle_turn(session: Session, prompt: str) -> None:
+    audit_start = len(AUDIT)
+    t0 = time.perf_counter()
     try:
         with console.status("[magenta]reading the vault…[/magenta]", spinner="dots"):
             result = session.agent.run_sync(
                 prompt, message_history=session.history, usage_limits=USAGE_LIMITS
             )
     except Exception as exc:  # noqa: BLE001 - keep the REPL alive on errors
-        console.print(Panel(str(exc), title="[red]error[/red]", border_style="red"))
+        log.error("turn failed for prompt %r: %s", prompt, exc, exc_info=True)
+        console.print(Panel(_friendly_error(exc), title="[red]error[/red]", border_style="red"))
         return
+    elapsed_s = time.perf_counter() - t0
 
     console.print(
         Panel(
@@ -565,7 +607,9 @@ def _handle_turn(session: Session, prompt: str) -> None:
     )
 
     used = _tools_used(result.new_messages())
-    console.print(_render_used(used))
+    timings = _extract_timings(AUDIT[audit_start:])
+    requests = result.usage.requests or 0
+    console.print(_render_used(used, timings, session.model, elapsed_s, requests))
 
     log_interaction(prompt, result.output or "", sorted({tool for tool, _ in used}))
 
@@ -589,19 +633,55 @@ def _tools_used(new_messages: list[ModelMessage]) -> list[tuple[str, str]]:
     return used
 
 
-def _render_used(used: list[tuple[str, str]]) -> Panel:
+def _extract_timings(audit_entries: list[str]) -> list[float | None]:
+    """Parse per-call elapsed ms from AUDIT entries produced by audit_hooks."""
+    timings: list[float | None] = []
+    for entry in audit_entries:
+        if entry.startswith("run-complete"):
+            continue
+        if "⏱️" in entry:
+            try:
+                ms = float(entry.split("⏱️")[1].strip().split()[0])
+                timings.append(ms)
+            except (ValueError, IndexError):
+                timings.append(None)
+        elif "failed after" in entry:
+            try:
+                ms = float(entry.split("failed after")[1].strip().split()[0])
+                timings.append(ms)
+            except (ValueError, IndexError):
+                timings.append(None)
+    return timings
+
+
+def _render_used(
+    used: list[tuple[str, str]],
+    timings: list[float | None],
+    model: str,
+    elapsed_s: float = 0.0,
+    requests: int = 0,
+) -> Panel:
     body = Table.grid(padding=(0, 2))
     body.add_column()
     body.add_column(style="dim")
+    body.add_column(style="dim")
     if used:
-        for tool, detail in used:
+        for i, (tool, detail) in enumerate(used):
             style = TOOL_STYLE.get(tool, "magenta")
-            body.add_row(Text(f"▪ {tool}", style=f"bold {style}"), detail)
+            elapsed = timings[i] if (tool != "thinking" and i < len(timings)) else None
+            elapsed_str = f"⏱️ {elapsed:.0f} ms" if elapsed is not None else ""
+            body.add_row(Text(f"▪ {tool}", style=f"bold {style}"), detail, elapsed_str)
     else:
-        body.add_row(Text("▪ answered from conversation context, no tools", style="dim"), "")
+        body.add_row(Text("▪ answered from conversation context, no tools", style="dim"), "", "")
+    elapsed_str = f"{elapsed_s:.1f}s" if elapsed_s >= 1 else f"{elapsed_s * 1000:.0f}ms"
+    trips_str = f"{requests} round-trip" + ("s" if requests != 1 else "")
     return Panel(
         body,
-        title="[bold]vault tools used this turn[/bold]",
+        title=(
+            f"[bold]vault tools used this turn[/bold]"
+            f" · [italic cyan]{model}[/italic cyan]"
+            f" · [italic cyan]⏱️ {elapsed_str} · {trips_str}[/italic cyan]"
+        ),
         title_align="left",
         border_style="blue",
     )

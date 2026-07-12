@@ -94,6 +94,16 @@ def proxy_mode() -> str:
     return mode if mode in {"token", "cache"} else "token"
 
 
+def proxy_reuse_external() -> bool:
+    """Whether to reuse a proxy already listening on HEADROOM_HOST:HEADROOM_PORT.
+
+    Disabled by default because we cannot verify its upstream/provider wiring.
+    Opt in with HEADROOM_REUSE_EXTERNAL=1.
+    """
+    val = os.environ.get("HEADROOM_REUSE_EXTERNAL", "0")
+    return val.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _client_host() -> str:
     """The host a local client should dial. 0.0.0.0 means "all interfaces" to the
     server, but a client must connect to a concrete address."""
@@ -130,7 +140,7 @@ def _provider_config(spec: str) -> dict | None:
         return {
             "prefix": "local:",
             "env": {"OPENAI_TARGET_API_URL": _local_upstream()},
-            "api_key": "local",
+            "api_key": os.environ.get("LOCAL_API_KEY", "local"),
         }
     if spec.startswith("deepseek:"):
         return {
@@ -200,8 +210,19 @@ class ProxyManager:
             _ACTIVE_BASE_URL, _ACTIVE_SPEC = _base_url(), spec
             return ProxyStatus(active=True)
 
-        # A proxy is already listening that we didn't start: reuse, never manage it.
+        # A proxy is already listening that we didn't start.
         if self._proc is None and self._healthy():
+            if not proxy_reuse_external():
+                _ACTIVE_BASE_URL = None
+                _ACTIVE_SPEC = None
+                return ProxyStatus(
+                    active=False,
+                    reason=(
+                        "a proxy is already running on "
+                        f"{_client_host()}:{proxy_port()}, but external reuse is disabled "
+                        "(HEADROOM_REUSE_EXTERNAL=1 to opt in)"
+                    ),
+                )
             self._external = True
             self._provider = prefix
             _ACTIVE_BASE_URL, _ACTIVE_SPEC = _base_url(), spec

@@ -57,8 +57,9 @@ REPL commands: `/notes` (the vault's notes + link graph), `/read <note>`,
 `/vault [name]` (list the vaults in the base dir, or switch to one — persists to
 `.env`), `/model [name]` (list model providers, or switch between `local` and
 `deepseek` — persists to `.env`), `/prompt`, `/reload`, `/clear`, `/help`, `/exit`.
-After every answer the CLI shows which vault tools fired, so you can see where the
-answer came from.
+After every answer the CLI shows a **vault tools used this turn** panel listing which
+tools fired, the arguments passed, the elapsed time per call (⏱️ ms), and the active
+model name — so you can see where the answer came from and how long each lookup took.
 
 ## Tests
 

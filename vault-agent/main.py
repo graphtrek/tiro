@@ -36,7 +36,7 @@ from pydantic_ai import Agent
 from pydantic_ai.capabilities import Thinking, WebSearch
 from pydantic_ai.usage import UsageLimits
 
-from capabilities import AUDIT, VaultCapability, audit_hooks, log_interaction, setup_logging
+from capabilities import AUDIT, VaultCapability, audit_hooks, log, log_interaction, setup_logging
 from obsidian_vault import Vault
 
 # Default expects a local OpenAI-compatible server (LM Studio etc.) on LOCAL_LLM_URL
@@ -45,10 +45,14 @@ DEFAULT_LOCAL_MODEL = "local:mlx-community-ornith-1.0-9b-bf16"
 
 # Named model providers the REPL's /model command can switch between. "local" is the
 # default (an OpenAI-compatible server, no key); "deepseek" hits the DeepSeek API
-# (https://api-docs.deepseek.com/) and needs DEEPSEEK_API_KEY. Override either target
-# with LOCAL_MODEL=... / DEEPSEEK_MODEL=... in .env.
+# (https://api-docs.deepseek.com/) and needs DEEPSEEK_API_KEY. Two extra local presets
+# make it easy to switch between installed local models.
 PROVIDERS = {
     "local": os.environ.get("LOCAL_MODEL", DEFAULT_LOCAL_MODEL),
+    "gemma": os.environ.get("GEMMA_MODEL", "local:gemma-4-12B-it-bf16"),
+    "ornith-uncensored": os.environ.get(
+        "ORNITH_UNCENSORED_MODEL", "local:Ornith-1.0-9B-Uncensored-mlx-bf16"
+    ),
     "deepseek": os.environ.get("DEEPSEEK_MODEL", "deepseek:deepseek-reasoner"),
 }
 
@@ -56,6 +60,9 @@ MODEL = os.environ.get("MODEL", PROVIDERS["local"])
 
 # Where "local:" models are served (LM Studio's default). Any OpenAI-compatible URL works.
 LOCAL_LLM_URL = os.environ.get("LOCAL_LLM_URL", "http://localhost:1234/v1")
+# API key sent to OpenAI-compatible local servers (some require a specific value,
+# e.g. "test").
+LOCAL_API_KEY = os.environ.get("LOCAL_API_KEY", "local")
 
 # pydantic-ai caps model/tool round-trips per run() call at 50 by default; a vault
 # question can need several search_vault/read_note calls before the model answers,
@@ -93,10 +100,10 @@ def resolve_model(spec: str):
         from pydantic_ai.models.openai import OpenAIChatModel
         from pydantic_ai.providers.openai import OpenAIProvider
 
-        # Local servers don't check the key, but the OpenAI client requires one.
+        # Some local servers validate the key (e.g. require "test").
         return OpenAIChatModel(
             spec.removeprefix("local:"),
-            provider=OpenAIProvider(base_url=LOCAL_LLM_URL, api_key="local"),
+            provider=OpenAIProvider(base_url=LOCAL_LLM_URL, api_key=LOCAL_API_KEY),
         )
     return spec
 
@@ -180,7 +187,11 @@ def main() -> None:
     print(f"\n>>> {question}")
 
     AUDIT.clear()
-    result = agent.run_sync(question, usage_limits=USAGE_LIMITS)
+    try:
+        result = agent.run_sync(question, usage_limits=USAGE_LIMITS)
+    except Exception as exc:  # noqa: BLE001 - log before letting the process exit non-zero
+        log.error("run failed for question %r: %s", question, exc, exc_info=True)
+        raise
     print(result.output)
 
     tools = sorted({a.split(":", 1)[0] for a in AUDIT if "⏱️" in a or "failed after" in a})
