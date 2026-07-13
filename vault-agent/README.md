@@ -53,6 +53,27 @@ uv run python cli.py                                # vault from VAULT_PATH/VAUL
 In `.env`, `VAULT_PATH` is the base directory holding all your vaults and `VAULT_NAME`
 picks the active one (a `VAULT_PATH` pointing straight at a vault still works).
 
+## Web terminal
+
+The same REPL in the browser — a dark terminal page with the identical slash
+commands, markdown-rendered answers, and the per-turn tools footer:
+
+```bash
+uv run python web.py                # serves http://127.0.0.1:8010
+```
+
+The vault comes from `VAULT_PATH`/`VAULT_NAME` in `.env` (same as the CLI);
+`WEB_HOST`/`WEB_PORT` override the bind address. `/vault` and `/model` persist to
+`.env` exactly like the CLI, so both frontends stay on the same configuration.
+`/exit` is CLI-only — close the tab (the server keeps running); one turn runs at a
+time, a second message while the agent is busy gets an explicit "turn already
+running" warning.
+
+Avoid `uvicorn --reload` while the Headroom proxy is enabled — every reload
+respawns the proxy subprocess. `static/index.html` is re-read per request, so
+frontend edits need no reload anyway; for backend work under `--reload` set
+`HEADROOM=0`.
+
 REPL commands: `/notes` (the vault's notes + link graph), `/read <note>`,
 `/vault [name]` (list the vaults in the base dir, or switch to one — persists to
 `.env`), `/model [name]` (list model providers, or switch between `local` and
@@ -66,6 +87,7 @@ model name — so you can see where the answer came from and how long each looku
 ```bash
 uv run python test_agent.py            # unit tests: vault layer + wiring (no API)
 uv run python test_agent.py --live     # + end-to-end checks against a real model
+uv run python test_web.py              # web terminal: endpoints + dispatch (no API)
 ```
 
 ## Model / keys

@@ -124,7 +124,7 @@ HELP = """\
 [bold]Commands[/bold]
   [cyan]/help[/cyan]           show this help (also just [cyan]/[/cyan])
   [cyan]/notes[/cyan]          list the vault's notes and their wikilinks
-  [cyan]/read <note>[/cyan]    print a note (or its outline if it's long)
+  [cyan]/read <id|note>[/cyan] print a note by its /notes number or name (or its outline if it's long)
   [cyan]/save-note <name>[/cyan]  save the last answer to the vault (add [cyan]--full[/cyan] for the whole conversation)
   [cyan]/vault \\[name][/cyan]   list vaults in the base dir, or switch to one (persists to .env)
   [cyan]/model \\[name][/cyan]   list model providers, or switch to one — [cyan]local[/cyan]/[cyan]gemma[/cyan]/[cyan]ornith-uncensored[/cyan]/[cyan]deepseek[/cyan]/[cyan]gemma-cloud[/cyan]/[cyan]gemma-mlx[/cyan] (persists to .env)
@@ -332,8 +332,9 @@ def _chat_loop(session: Session) -> None:
         if prompt == "/read" or prompt.startswith("/read "):
             name = prompt[len("/read") :].strip()
             if not name:
-                console.print("[dim]usage: /read <note name>[/dim]")
+                console.print("[dim]usage: /read <id | note name>[/dim]")
                 continue
+            name = _note_by_id(session, name)
             console.print(Panel(Markdown(session.vault.read_note(name)), title=name))
             continue
         if prompt == "/save-note" or prompt.startswith("/save-note "):
@@ -372,14 +373,26 @@ def _chat_loop(session: Session) -> None:
         _handle_turn(session, prompt)
 
 
+def _note_by_id(session: Session, arg: str) -> str:
+    """Resolve a numeric /notes sequence number to its note name. Anything
+    non-numeric (or out of range) passes through unchanged as a name."""
+    if arg.isdigit():
+        notes = session.vault.list_notes()
+        i = int(arg)
+        if 1 <= i <= len(notes):
+            return str(notes[i - 1]["note"])
+    return arg
+
+
 def _print_notes(session: Session) -> None:
     table = Table(title=f"notes in {session.vault.root.name}", border_style="blue")
+    table.add_column("#", justify="right", style="dim")
     table.add_column("note", style="bold")
     table.add_column("chars", justify="right", style="dim")
     table.add_column("links to", style="dim")
-    for entry in session.vault.list_notes():
+    for i, entry in enumerate(session.vault.list_notes(), start=1):
         links = ", ".join(str(l) for l in entry["links_to"]) or "—"
-        table.add_row(str(entry["note"]), str(entry["chars"]), links)
+        table.add_row(str(i), str(entry["note"]), str(entry["chars"]), links)
     console.print(table)
 
 

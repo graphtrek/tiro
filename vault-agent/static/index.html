@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Obsidian vault chat</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --fg: #e6edf3; --dim: #8b949e;
+    --cyan: #56d4dd; --green: #7ee787; --yellow: #e3b341;
+    --magenta: #d2a8ff; --red: #ff7b72; --blue: #79c0ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.5 "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    display: flex; flex-direction: column;
+  }
+  #header {
+    padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--border);
+    color: var(--dim); white-space: nowrap; overflow-x: auto; flex: none;
+  }
+  #header .title { color: var(--magenta); font-weight: bold; margin-right: 12px; }
+  #header b { color: var(--fg); font-weight: 600; }
+  #scroll { flex: 1; overflow-y: auto; padding: 14px; }
+  .line { margin: 0 0 10px; }
+  .you { color: var(--cyan); font-weight: bold; }
+  .you .text { color: var(--fg); font-weight: normal; white-space: pre-wrap; }
+  .answer, .info {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px; background: var(--panel); overflow-x: auto;
+  }
+  .answer { border-color: #1f6feb44; }
+  .error { color: var(--red); white-space: pre-wrap; }
+  .warn { color: var(--yellow); }
+  .dim { color: var(--dim); }
+  .tools { color: var(--dim); font-size: 12px; margin: 6px 0 0 2px; }
+  .tools .head { color: var(--blue); }
+  .tools .t-search_vault { color: var(--cyan); font-weight: bold; }
+  .tools .t-read_note { color: var(--green); font-weight: bold; }
+  .tools .t-list_notes { color: var(--yellow); font-weight: bold; }
+  .tools .t-other { color: var(--magenta); font-weight: bold; }
+  #inputrow {
+    display: flex; gap: 8px; align-items: center; flex: none;
+    padding: 10px 14px; background: var(--panel); border-top: 1px solid var(--border);
+  }
+  #prompt { color: var(--cyan); font-weight: bold; flex: none; }
+  #input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--fg); font: inherit;
+  }
+  #input:disabled { opacity: .4; }
+  #spinner { color: var(--magenta); display: none; }
+  /* rendered markdown */
+  .md h1, .md h2, .md h3, .md h4 { margin: .6em 0 .3em; line-height: 1.25; }
+  .md h1 { font-size: 1.25em; } .md h2 { font-size: 1.15em; } .md h3 { font-size: 1.05em; }
+  .md p, .md ul, .md ol { margin: .4em 0; }
+  .md pre { background: #0a0d12; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; overflow-x: auto; }
+  .md code { background: #0a0d12; border-radius: 4px; padding: 1px 4px; }
+  .md pre code { background: none; padding: 0; }
+  .md table { border-collapse: collapse; margin: .4em 0; }
+  .md th, .md td { border: 1px solid var(--border); padding: 3px 10px; text-align: left; }
+  .md th { color: var(--blue); }
+  .md a { color: var(--blue); }
+  .md blockquote { border-left: 3px solid var(--border); margin: .4em 0; padding: 0 10px; color: var(--dim); }
+</style>
+</head>
+<body>
+  <div id="header"><span class="title">Obsidian vault chat</span><span id="status" class="dim">connecting…</span></div>
+  <div id="scroll"></div>
+  <div id="inputrow">
+    <span id="prompt">you ›</span>
+    <input id="input" autocomplete="off" spellcheck="false" placeholder="ask the vault — /help for commands" autofocus>
+    <span id="spinner">⠋ reading the vault…</span>
+  </div>
+
+<script>
+"use strict";
+const scrollEl = document.getElementById("scroll");
+const inputEl = document.getElementById("input");
+const spinnerEl = document.getElementById("spinner");
+const statusEl = document.getElementById("status");
+
+const history = [];
+let histIdx = -1;
+let draft = "";
+let spinTimer = null;
+const SPIN = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
+
+function esc(s) {
+  return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function renderMarkdown(md) {
+  if (window.marked && window.DOMPurify) {
+    return DOMPurify.sanitize(marked.parse(md));
+  }
+  return "<pre>" + esc(md) + "</pre>";   // CDN unreachable: degrade to plain text
+}
+
+function addLine(html, cls) {
+  const div = document.createElement("div");
+  div.className = "line" + (cls ? " " + cls : "");
+  div.innerHTML = html;
+  scrollEl.appendChild(div);
+  scrollEl.scrollTop = scrollEl.scrollHeight;
+  return div;
+}
+
+function addUser(text) {
+  addLine('<span class="you">you › <span class="text">' + esc(text) + "</span></span>");
+}
+
+function fmtWall(ms) {
+  return ms >= 1000 ? (ms / 1000).toFixed(1) + "s" : Math.round(ms) + "ms";
+}
+
+function toolsFooter(resp) {
+  const rows = (resp.tools || []).map(t => {
+    const cls = ["search_vault","read_note","list_notes"].includes(t.tool) ? "t-" + t.tool : "t-other";
+    const ms = t.ms != null ? ' <span class="dim">⏱️ ' + Math.round(t.ms) + " ms</span>" : "";
+    return '<div>▪ <span class="' + cls + '">' + esc(t.tool) + "</span>  " + esc(t.args || "") + ms + "</div>";
+  });
+  if (!rows.length) rows.push('<div class="dim">▪ answered from conversation context, no tools</div>');
+  const trips = resp.requests + " round-trip" + (resp.requests === 1 ? "" : "s");
+  return '<div class="tools"><span class="head">vault tools used this turn</span> · '
+    + esc(resp.model) + " · ⏱️ " + fmtWall(resp.wall_ms) + " · " + trips + rows.join("") + "</div>";
+}
+
+function addResponse(resp) {
+  if (resp.kind === "answer") {
+    addLine('<div class="answer md">' + renderMarkdown(resp.markdown || "_no text output_") + "</div>"
+      + toolsFooter(resp));
+  } else if (resp.kind === "info") {
+    addLine('<div class="info md">' + renderMarkdown(resp.markdown || "") + "</div>");
+    if (resp.status_changed) refreshStatus();
+  } else {
+    addLine(esc(resp.error || "unknown error"), "error");
+  }
+}
+
+async function refreshStatus() {
+  try {
+    const r = await fetch("/api/status");
+    const s = await r.json();
+    let line = "vault <b>" + esc(s.vault_name) + "</b> (" + s.notes + " notes) · model <b>" + esc(s.model) + "</b>";
+    if (s.headroom) line += " · headroom <b>" + esc(s.headroom) + "</b>";
+    statusEl.innerHTML = line;
+  } catch (e) {
+    statusEl.textContent = "server unreachable";
+  }
+}
+
+function setPending(on) {
+  inputEl.disabled = on;
+  spinnerEl.style.display = on ? "inline" : "none";
+  if (on) {
+    let i = 0;
+    spinTimer = setInterval(() => { spinnerEl.textContent = SPIN[i++ % SPIN.length] + " reading the vault…"; }, 90);
+  } else {
+    clearInterval(spinTimer);
+    inputEl.focus();
+  }
+}
+
+async function send(text) {
+  addUser(text);
+  setPending(true);
+  try {
+    // no timeout on purpose: local models can take minutes per turn
+    const r = await fetch("/api/message", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    const resp = await r.json();
+    if (r.status === 409) addLine(esc(resp.error), "warn");
+    else {
+      if (text === "/clear" && resp.kind === "info") scrollEl.innerHTML = "";
+      addResponse(resp);
+    }
+  } catch (e) {
+    addLine("request failed: " + esc(String(e)), "error");
+  } finally {
+    setPending(false);
+  }
+}
+
+inputEl.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") {
+    const text = inputEl.value.trim();
+    if (!text || inputEl.disabled) return;
+    history.push(text);
+    histIdx = history.length;
+    inputEl.value = "";
+    send(text);
+  } else if (ev.key === "ArrowUp") {
+    if (!history.length) return;
+    if (histIdx === history.length) draft = inputEl.value;
+    if (histIdx > 0) { histIdx--; inputEl.value = history[histIdx]; }
+    ev.preventDefault();
+  } else if (ev.key === "ArrowDown") {
+    if (histIdx >= history.length) return;
+    histIdx++;
+    inputEl.value = histIdx === history.length ? draft : history[histIdx];
+    ev.preventDefault();
+  }
+});
+
+document.body.addEventListener("click", () => { if (!inputEl.disabled) inputEl.focus(); });
+
+refreshStatus();
+addLine('<span class="dim">/help for commands — anything else is a question for the vault</span>');
+</script>
+</body>
+</html>

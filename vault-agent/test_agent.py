@@ -50,6 +50,8 @@ def make_vault(root: Path) -> Vault:
         + "Blade grinders are cheap. " * 2000,  # push the note past MAX_NOTE_CHARS
         encoding="utf-8",
     )
+    (root / "Tasting Log.txt").write_text("Not a note: only .md files are notes.\n", encoding="utf-8")
+    (root / "beans.pdf").write_bytes(b"%PDF-1.4 an attachment, not a note")
     return Vault(root)
 
 
@@ -64,6 +66,7 @@ def unit_tests() -> bool:
         names = {e["note"] for e in notes}
         ok &= check("indexes notes recursively", names == {"INDEX", "Coffee Brewing", "guides/Grinders"})
         ok &= check("skips hidden dirs like .obsidian", "hidden" not in str(names))
+        ok &= check("lists only .md files, not attachments", "Tasting Log" not in names and "beans" not in str(names))
         index = next(e for e in notes if e["note"] == "INDEX")
         ok &= check(
             "list_notes extracts wikilink targets (alias/heading stripped)",
@@ -79,6 +82,7 @@ def unit_tests() -> bool:
         ok &= check("read_note resolves a [[wikilink|alias]]", "1:16" in vault.read_note("[[Coffee Brewing|brewing]]"))
         ok &= check("read_note resolves basename across folders", "Burr" in vault.read_note("Grinders", section="Burr"))
         ok &= check("read_note is case-insensitive", "1:16" in vault.read_note("coffee brewing"))
+        ok &= check("read_note won't read a non-.md file", "No note named" in vault.read_note("Tasting Log"))
         ok &= check("unknown note lists alternatives", "Notes include" in vault.read_note("Nope"))
 
         long_note = vault.read_note("guides/Grinders")

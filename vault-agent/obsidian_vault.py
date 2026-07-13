@@ -2,9 +2,10 @@
 
 A `Vault` exposes exactly three operations, designed to be handed to an agent as
 tools: list the notes, search across them, and read one note (or one section of a
-long note). Notes reference each other with `[[wikilinks]]`; `read_note` resolves
-the same targets Obsidian would (`[[Name]]`, `[[Name|alias]]`, `[[Name#Heading]]`,
-with or without the `.md` extension, case-insensitive).
+long note). Only markdown files (`.md`) count as notes; attachments (PDFs, images,
+...) are ignored. Notes reference each other with `[[wikilinks]]`; `read_note`
+resolves the same targets Obsidian would (`[[Name]]`, `[[Name|alias]]`,
+`[[Name#Heading]]`, with or without the `.md` extension, case-insensitive).
 """
 
 from __future__ import annotations
@@ -13,6 +14,9 @@ import re
 import unicodedata
 from datetime import datetime
 from pathlib import Path
+
+# Only these file types are notes; anything else in the vault is an attachment.
+NOTE_SUFFIXES = (".md",)
 
 # Notes longer than this come back as a heading outline instead of full text,
 # so a 500 KB regulation dump doesn't flood the model's context.
@@ -50,19 +54,23 @@ class Vault:
     def _build_index(self) -> None:
         """Map note names to files. Wikilinks use the basename, so index both the
         basename and the vault-relative path (Obsidian disambiguates the same way)."""
-        for path in sorted(self.root.rglob("*.md")):
+        for path in sorted(p for p in self.root.rglob("*") if p.suffix.lower() in NOTE_SUFFIXES):
+            if not path.is_file():
+                continue
             rel = path.relative_to(self.root)
             if any(part.startswith(".") for part in rel.parts):
                 continue  # .obsidian, .trash, .claude, ...
-            self._index.setdefault(_key(rel.as_posix()[:-3]), path)
+            self._index.setdefault(_key(rel.with_suffix("").as_posix()), path)
             self._index.setdefault(_key(path.stem), path)
 
     def _resolve(self, name: str) -> Path | None:
         """Resolve a note name or wikilink target to a file, like Obsidian would."""
         target = name.strip().strip("[]")
         target = target.split("|")[0].split("#")[0].strip()
-        if target.lower().endswith(".md"):
-            target = target[:-3]
+        for suffix in NOTE_SUFFIXES:
+            if target.lower().endswith(suffix):
+                target = target[: -len(suffix)]
+                break
         return self._index.get(_key(target))
 
     def _notes(self) -> list[Path]:
@@ -82,7 +90,7 @@ class Vault:
             links = sorted({m.group(1).strip() for m in _WIKILINK.finditer(text)})
             entries.append(
                 {
-                    "note": path.relative_to(self.root).as_posix()[:-3],
+                    "note": path.relative_to(self.root).with_suffix("").as_posix(),
                     "chars": len(text),
                     "links_to": links,
                 }
@@ -116,7 +124,7 @@ class Vault:
         for _, path, text in scored[:MAX_RESULTS]:
             results.append(
                 {
-                    "note": path.relative_to(self.root).as_posix()[:-3],
+                    "note": path.relative_to(self.root).with_suffix("").as_posix(),
                     "excerpt": _excerpt(text, terms),
                 }
             )
