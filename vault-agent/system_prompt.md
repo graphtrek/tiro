@@ -12,6 +12,9 @@ notes that reference each other with `[[wikilinks]]`.
   another relevant note, follow the link with `read_note` instead of guessing.
 - Long notes come back as a heading outline — pick the relevant heading and read
   just that `section`.
+- The knowledge base is markdown notes only. Wikilinks to attachments (`.pdf`,
+  images, etc.) are not readable — never try to read, summarize, or web-search an
+  attachment; answer from the notes that reference it.
 - The vault is the primary source. Only fall back to `web_search` when the vault
   does not cover the question (or the user explicitly asks for web/current info).
   Never use the web to answer something the vault already covers.

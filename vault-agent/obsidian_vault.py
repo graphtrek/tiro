@@ -29,6 +29,16 @@ MAX_RESULTS = 5
 _WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 
+# A file extension: a dot followed by a letter (so 'NAV 3.0' isn't one), then a few
+# alphanumerics. Anything with such an extension that isn't .md is an attachment.
+_ATTACHMENT_SUFFIX = re.compile(r"\.[A-Za-z][A-Za-z0-9]{0,9}$")
+
+
+def _is_attachment_target(target: str) -> bool:
+    """A wikilink target that names a non-markdown file (PDF, image, ...)."""
+    t = target.strip()
+    return bool(_ATTACHMENT_SUFFIX.search(t)) and not t.lower().endswith(NOTE_SUFFIXES)
+
 
 def _key(s: str) -> str:
     """Case- and Unicode-normalization-insensitive comparison key. macOS stores
@@ -87,7 +97,13 @@ class Vault:
         entries: list[dict[str, object]] = []
         for path in self._notes():
             text = _read_text(path)
-            links = sorted({m.group(1).strip() for m in _WIKILINK.finditer(text)})
+            links = sorted(
+                {
+                    t
+                    for m in _WIKILINK.finditer(text)
+                    if not _is_attachment_target(t := m.group(1).strip())
+                }
+            )
             entries.append(
                 {
                     "note": path.relative_to(self.root).with_suffix("").as_posix(),
@@ -142,6 +158,12 @@ class Vault:
         Long notes return a heading outline instead of full text; pass one of the
         listed headings (or 'chunk N') as `section` to read that part.
         """
+        target = name.strip().strip("[]").split("|")[0].split("#")[0].strip()
+        if _is_attachment_target(target):
+            return (
+                f"{target!r} is an attachment (PDF/image/...), not a markdown note. "
+                "Only .md notes are part of this knowledge base — ignore links to attachments."
+            )
         path = self._resolve(name)
         if path is None:
             known = ", ".join(p.stem for p in self._notes()[:40])

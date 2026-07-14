@@ -5,6 +5,9 @@ markdown notes that reference each other with `[[wikilinks]]`. Point it at any v
 and it searches the notes, follows the links between them, reads long notes section
 by section, and cites its sources as wikilinks.
 
+The knowledge base is **`.md` files only**: attachments in the vault (PDFs, images,
+...) are never listed, read, or sent to the model — even when notes wikilink to them.
+
 ## How it works
 
 The agent is composed from *capabilities* (Pydantic AI 2.0). `VaultCapability` is the

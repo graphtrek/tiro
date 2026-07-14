@@ -41,7 +41,8 @@ def make_vault(root: Path) -> Vault:
         encoding="utf-8",
     )
     (root / "Coffee Brewing.md").write_text(
-        "# Coffee Brewing\n\nUse a 1:16 ratio of coffee to water. See [[guides/Grinders]].\n",
+        "# Coffee Brewing\n\nUse a 1:16 ratio of coffee to water. See [[guides/Grinders]].\n"
+        "Scan: ![[beans.pdf]] and [[Tasting Log.txt]].\n",
         encoding="utf-8",
     )
     (root / "guides").mkdir()
@@ -72,6 +73,11 @@ def unit_tests() -> bool:
             "list_notes extracts wikilink targets (alias/heading stripped)",
             index["links_to"] == ["Coffee Brewing", "guides/Grinders"],
         )
+        brewing = next(e for e in notes if e["note"] == "Coffee Brewing")
+        ok &= check(
+            "links_to drops attachment links but keeps note links",
+            brewing["links_to"] == ["guides/Grinders"],
+        )
 
         hits = vault.search_vault("coffee ratio")
         ok &= check("search finds the right note first", hits and hits[0]["note"] == "Coffee Brewing")
@@ -84,6 +90,10 @@ def unit_tests() -> bool:
         ok &= check("read_note is case-insensitive", "1:16" in vault.read_note("coffee brewing"))
         ok &= check("read_note won't read a non-.md file", "No note named" in vault.read_note("Tasting Log"))
         ok &= check("unknown note lists alternatives", "Notes include" in vault.read_note("Nope"))
+        pdf_reply = vault.read_note("beans.pdf")
+        ok &= check("read_note refuses an attachment by name", "attachment" in pdf_reply and "%PDF" not in pdf_reply)
+        wikilink_reply = vault.read_note("[[beans.pdf]]")
+        ok &= check("read_note refuses an attachment wikilink", "attachment" in wikilink_reply and "%PDF" not in wikilink_reply)
 
         long_note = vault.read_note("guides/Grinders")
         ok &= check("long notes return an outline, not full text", "Blade" in long_note and len(long_note) < MAX_NOTE_CHARS)
