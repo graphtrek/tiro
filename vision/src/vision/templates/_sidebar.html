@@ -16,24 +16,65 @@
       </a>
     </li>
     <li class="nav-item mt-2">
-      <hr class="border-secondary my-1">
-      <small class="text-muted px-3" style="font-size:0.75rem">GRAPHTREK KFT</small>
+      <span class="nav-heading">Graphtrek Kft</span>
     </li>
     <li class="nav-item">
       <a class="nav-link {% if request.url.path == '/ui/' %}active{% endif %}" href="/ui/">
         <i class="bi bi-speedometer2"></i> Dashboard
       </a>
     </li>
+    {% set szamlak_open = '/ui/invoices' in request.url.path
+        or '/ui/invoice-files' in request.url.path
+        or '/ui/transactions' in request.url.path
+        or '/ui/dividend' in request.url.path
+        or '/ui/adok' in request.url.path
+        or '/ui/sync' in request.url.path
+        or '/ui/upload' in request.url.path %}
     <li class="nav-item">
-      <a class="nav-link {% if '/ui/invoices' in request.url.path %}active{% endif %}" href="/ui/invoices">
+      <a class="nav-link {% if not szamlak_open %}collapsed{% endif %}" href="#szamlak-nav"
+         data-bs-toggle="collapse" role="button"
+         aria-expanded="{{ 'true' if szamlak_open else 'false' }}" aria-controls="szamlak-nav">
         <i class="bi bi-file-earmark-text"></i> Számlák
-        <span id="invoice-count-badge" class="badge bg-secondary ms-1">{{ invoice_count or '' }}</span>
+        <i class="bi bi-chevron-down nav-chevron ms-auto"></i>
       </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if '/ui/invoice-files' in request.url.path %}active{% endif %}" href="/ui/invoice-files">
-        <i class="bi bi-file-earmark-pdf"></i> Szla Fájlok
-      </a>
+      <ul id="szamlak-nav" class="nav-content collapse {% if szamlak_open %}show{% endif %}">
+        <li>
+          <a class="nav-link {% if '/ui/invoices' in request.url.path %}active{% endif %}" href="/ui/invoices">
+            <i class="bi bi-circle"></i> Számlák
+            <span id="invoice-count-badge" class="badge">{{ invoice_count or '' }}</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/invoice-files' in request.url.path %}active{% endif %}" href="/ui/invoice-files">
+            <i class="bi bi-circle"></i> Szla Fájlok
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/transactions' in request.url.path %}active{% endif %}" href="/ui/transactions">
+            <i class="bi bi-circle"></i> Bank
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/dividend' in request.url.path %}active{% endif %}" href="/ui/dividend">
+            <i class="bi bi-circle"></i> Osztalék
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/adok' in request.url.path %}active{% endif %}" href="/ui/adok">
+            <i class="bi bi-circle"></i> Adók
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/sync' in request.url.path %}active{% endif %}" href="/ui/sync">
+            <i class="bi bi-circle"></i> Sync
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/upload' in request.url.path %}active{% endif %}" href="/ui/upload">
+            <i class="bi bi-circle"></i> Feltöltés
+          </a>
+        </li>
+      </ul>
     </li>
     <li class="nav-item">
       <a class="nav-link {% if '/ui/suppliers' in request.url.path %}active{% endif %}" href="/ui/suppliers">
@@ -45,34 +86,8 @@
         <i class="bi bi-people"></i> Vevők
       </a>
     </li>
-    <li class="nav-item">
-      <a class="nav-link {% if '/ui/transactions' in request.url.path %}active{% endif %}" href="/ui/transactions">
-        <i class="bi bi-bank"></i> Bank
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if '/ui/dividend' in request.url.path %}active{% endif %}" href="/ui/dividend">
-        <i class="bi bi-piggy-bank"></i> Osztalék
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if '/ui/adok' in request.url.path %}active{% endif %}" href="/ui/adok">
-        <i class="bi bi-receipt"></i> Adók
-      </a>
-    </li>
     <li class="nav-item mt-3">
-      <a class="nav-link {% if '/ui/sync' in request.url.path %}active{% endif %}" href="/ui/sync">
-        <i class="bi bi-arrow-repeat"></i> Sync
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if '/ui/upload' in request.url.path %}active{% endif %}" href="/ui/upload">
-        <i class="bi bi-upload"></i> Feltöltés
-      </a>
-    </li>
-    <li class="nav-item mt-3">
-      <hr class="border-secondary my-1">
-      <small class="text-muted px-3" style="font-size:0.75rem">KÜLSŐ LINKEK</small>
+      <span class="nav-heading">Külső linkek</span>
     </li>
     <li class="nav-item">
       <a class="nav-link" href="https://srcprofit2.graphtrek.co/" target="_blank">
