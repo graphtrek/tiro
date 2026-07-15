@@ -2,14 +2,14 @@
 title: "Moneypenny - Projekt Index"
 description: "Számlázási, banki és tulajdonosi AI mikorszervízek - wiki navigáció"
 language: "HU"
-last_updated: "2026-06-24"
+last_updated: "2026-07-15"
 ---
 
 # 📚 Moneypenny - Wiki Index
 
 ## Összefoglalás
 
-A **Moneypenny** egy hat Python mikroszervizből álló pénzügyi automatizálási rendszer, amely a Graphtrek számlázási és vagyonkezelési folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti az Erste és Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva. A **Vision** szerviz tulajdonosi dashboardon aggregálja az invoice-core és SrcProfit (IBKR) adatait.
+A **Moneypenny** egy nyolc Python mikroszervizből álló pénzügyi automatizálási rendszer, amely a Graphtrek számlázási és vagyonkezelési folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti az Erste és Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva. A **Vision** szerviz tulajdonosi dashboardon aggregálja az invoice-core és SrcProfit (IBKR) adatait.
 
 | #   | Mikroszerviz            | Port | Szerep                                                                     |
 | --- | ----------------------- | ---- | -------------------------------------------------------------------------- |
@@ -20,8 +20,9 @@ A **Moneypenny** egy hat Python mikroszervizből álló pénzügyi automatizál�
 | 4   | `bank`                  | 8005 | Erste + Wise CSV konszolidáció – egységes bankkivonat API                  |
 | 7   | `uploader`              | 8006 | CSV bankkivonat feltöltés a bank storage mappájába; UI a vision-ben        |
 | 6   | `vision`                | 8009 | Frontend – teljes webes UI + SrcProfit (IBKR) aggregáció                  |
+| 8   | `auth`                  | 8007 | Központi authentication – Google OAuth 2.0 / OIDC belépés, JWT kiállítás   |
 
-Belépési pont (szinkron): `POST /api/v1/sync` → `invoice-core` (8004). Az 1–5. mikroszerviznek FastAPI REST interfésze és Typer/Click CLI-je is van. A `vision` (6.) a frontend szerviz: fogyasztja az invoice-core REST API-t, és kiszolgálja az összes UI oldalt (`/ui/*`). CLI nélkül.
+Belépési pont (szinkron): `POST /api/v1/sync` → `invoice-core` (8004). Az 1–5. mikroszerviznek FastAPI REST interfésze és Typer/Click CLI-je is van. A `vision` (6.) a frontend szerviz: fogyasztja az invoice-core REST API-t, és kiszolgálja az összes UI oldalt (`/ui/*`). CLI nélkül. Az `auth` (8.) a központi belépési szerviz: **minden mikroszerviz-végpont JWT-vel védett** — kivéve a vision pitch oldalát (`/`), a `/login` oldalt és a technikai végpontokat; a szervizek a JWT-t lokálisan validálják (JWKS).
 
 ---
 
@@ -134,8 +135,21 @@ MASTER ORCHESTRATOR
 - **Meghívja**: [[invoice-core-spec.md|invoice-core]] REST API (olvas) + [SrcProfit](https://srcprofit2.graphtrek.co/) (IBKR, olvas)
 - **Funkció**: Teljes Moneypenny frontend — az összes `/ui/*` oldalt kiszolgálja, fogyasztja az invoice-core REST API-t; plusz saját tulajdonosi portfólió dashboard (Chart.js, IBKR)
 - **Saját DB**: nincs — tiszta frontend, read-only aggregátor
-- **REST** (port 8009): `GET /health`, `GET /` (koncepcióoldal), `GET /dashboard` (portfólió), `GET /ui/*` (összes Moneypenny UI oldal)
+- **REST** (port 8009): `GET /health`, `GET /` (koncepcióoldal), `GET /login` (belépés), `GET /dashboard` (portfólió), `GET /ui/*` (összes Moneypenny UI oldal)
 - **CLI**: nincs
+
+---
+
+### 8️⃣ Auth – Központi Authentication
+**[[auth-service-spec.md|📄 Specifikáció]]** | **[[auth-service-prompt.md|💭 Prompt]]**
+
+- **Meghívva**: böngészőből (a vision `/login` oldaláról indított OAuth flow); a többi szerviz csak a JWKS publikus kulcsot tölti le tőle
+- **Meghívja**: Google (OAuth 2.0 / OpenID Connect) — **egyedül ez a szerviz kommunikál a Google-lel**
+- **Funkció**: Google belépés, RS256 JWT kiállítás (access + refresh), e-mail whitelist; a többi szerviz a JWT-t lokálisan validálja
+- **Publikus kivételek**: vision `/` (pitch), `/login`, `/static/*`, auth callback/JWKS/refresh, `/health` végpontok — **minden más végpont tokent igényel**
+- **Saját DB**: nincs — leaf szerviz (fájl alapú refresh-denylist)
+- **REST** (port 8007): `GET /health`, `GET /.well-known/jwks.json`, `GET /auth/providers`, `GET /auth/{provider}/login`, `GET /auth/{provider}/callback`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`
+- **CLI**: `auth status`, `auth keygen`, `auth verify <token>`, `auth revoke <jti>`, `auth providers`
 
 ---
 
@@ -176,6 +190,7 @@ Hívási Lánc (Szinkron):
 - **bank**: [[bank-spec.md|spec]] (Erste + Wise CSV konszolidáció)
 - **uploader**: [[uploader-spec.md|spec]] (CSV feltöltés a bank storage mappájába)
 - **vision**: [[vision-spec.md|spec]] (Tulajdonosi AI dashboard)
+- **auth**: [[auth-service-spec.md|spec]] (Google OAuth 2.0 / OIDC + JWT)
 
 ### Promptok
 - **invoice-core**: [[invoice-core-prompt.md|prompt]] | [[invoice-core-ui-prompt.md|UI prompt]] | [[invoice-core-ui-spec.md|UI spec]]
@@ -185,6 +200,7 @@ Hívási Lánc (Szinkron):
 - **bank**: [[bank-prompt.md|prompt]]
 - **uploader**: [[uploader-promp.md|prompt]]
 - **vision**: [[vision-prompt.md|prompt]]
+- **auth**: [[auth-service-prompt.md|prompt]]
 
 ---
 
@@ -208,6 +224,11 @@ flowchart TD
     V -->|POST /api/v1/upload| UP[uploader :8006]
     UP -->|write CSV| FS[(balance-statements/erste/ wise/)]
     BK -->|read CSV| FS
+
+    B -->|GET /login → OAuth flow| AU[auth :8007]
+    AU <-->|OAuth 2.0 / OIDC| GO[Google]
+    AU -.->|JWT cookie / JWKS| V
+    AU -.->|JWKS| SD
 ```
 
 ### Szinkronizálási lánc (invoice-core vezérli)
@@ -297,6 +318,7 @@ be automatikusan a következő sync_bank híváskor.
 | nav-invoice           | 8002 | `http://localhost:8002` |
 | bank                  | 8005 | `http://localhost:8005` |
 | uploader              | 8006 | `http://localhost:8006` |
+| auth                  | 8007 | `http://localhost:8007` |
 | invoice-core          | 8004 | `http://localhost:8004` |
 | vision                | 8009 | `http://localhost:8009` |
 
@@ -329,9 +351,17 @@ BALANCE_STATEMENTS_DIR=./balance-statements
 
 # vision
 INVOICE_CORE_URL=http://localhost:8004
+AUTH_SERVICE_URL=http://localhost:8007
 SRCPROFIT_URL=https://srcprofit2.graphtrek.co
 SRCPROFIT_USER=admin
 SRCPROFIT_PASSWORD=<titkos>
+
+# auth
+GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=<titkos>
+JWT_PRIVATE_KEY_PATH=./keys/jwt_private.pem
+ALLOWED_DOMAINS=graphtrek.co
+ENABLED_PROVIDERS=google
 ```
 
 ---
@@ -379,6 +409,7 @@ SRCPROFIT_PASSWORD=<titkos>
 - **PDF ág**: [[invoice-file-filter-spec.md|invoice-file-filter]] → hívja → [[attachment-downloader-spec.md|attachment-downloader]] (levél)
 - **MASTER**: [[invoice-core-spec.md|invoice-core]] → hívja → [[bank-spec.md|bank]] (levél — Erste + Wise CSV)
 - **FRONTEND**: [[vision-spec.md|vision]] → olvassa → [[invoice-core-spec.md|invoice-core]] REST API + SrcProfit; kiszolgálja az összes `/ui/*` oldalt
+- **AUTH**: [[auth-service-spec.md|auth]] → hívja → Google (OAuth 2.0 / OIDC); minden szerviz tőle tölti a JWKS kulcsot és lokálisan validálja a JWT-t
 
 ### Prompt Links
 - [[invoice-core-prompt.md|Invoice-Core Prompt]]
@@ -387,7 +418,8 @@ SRCPROFIT_PASSWORD=<titkos>
 - [[attachment-downloader-prompt.md|Attachment Downloader Prompt]]
 - [[bank-prompt.md|Bank Prompt]]
 - [[vision-prompt.md|Vision Prompt]]
+- [[auth-service-prompt.md|Auth Service Prompt]]
 
 ---
 
-**Utolsó frissítés**: 2026-06-24
+**Utolsó frissítés**: 2026-07-15

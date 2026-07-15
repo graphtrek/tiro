@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Belépés – Vision</title>
+
+  <script>
+    (function () {
+      var t = localStorage.getItem('mp-theme') ||
+              (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-bs-theme', t);
+    })();
+  </script>
+
+  <!-- NiceAdmin fonts: Nunito Sans (body) + Poppins (headings) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&family=Poppins:wght@500;600;700&display=swap">
+  <!-- Bootstrap 5 — Bootswatch Yeti theme -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/yeti/bootstrap.min.css">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/static/custom.css">
+
+  <style>
+    body {
+      font-family: 'Nunito Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .login-page {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+    }
+    .login-brand {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: 1.5rem;
+      text-decoration: none;
+    }
+    .login-card h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+    }
+    .btn-provider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .6rem;
+      padding: .65rem 1rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <main class="login-page">
+    <div class="login-card">
+
+      <!-- Logo / brand (NiceAdmin: logo + name above the card) -->
+      <div class="text-center mb-4">
+        <a href="/" class="login-brand text-body">
+          <i class="bi bi-eye me-2"></i>Vision
+        </a>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-4 p-sm-5">
+
+          <div class="text-center mb-4">
+            <h1 class="mb-2">Biztonságos belépés</h1>
+            <p class="text-muted mb-0">Jelentkezz be a Moneypenny rendszer használatához.</p>
+          </div>
+
+          {% if error %}
+          <div class="alert alert-danger py-2" role="alert">
+            <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+          </div>
+          {% endif %}
+
+          <!-- Provider-alapú belépés: a lista bővítésével automatikusan
+               megjelenik minden új provider gombja (jelenleg csak Google). -->
+          <div class="d-grid gap-2">
+            {% for provider in providers %}
+            <a href="{{ provider.login_url }}{% if next %}?next={{ next }}{% endif %}"
+               class="btn btn-primary btn-provider">
+              <i class="bi {{ provider.icon }}"></i>{{ provider.label }}
+            </a>
+            {% endfor %}
+          </div>
+
+          <p class="text-muted text-center small mt-4 mb-0">
+            Csak engedélyezett Google-fiókkal lehet belépni.
+          </p>
+
+        </div>
+      </div>
+
+      <p class="text-center text-muted small mt-4 mb-0">
+        &copy; {{ current_year }} Graphtrek &middot; <a href="/" class="text-muted">Vision bemutató</a>
+      </p>
+
+    </div>
+  </main>
+
+</body>
+</html>

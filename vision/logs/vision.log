@@ -6833,3 +6833,15 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-07-15 17:35:38 INFO     vision/api/main.py:46 GET /ui/invoices → 200 in 150ms
 2026-07-15 17:35:48 INFO     vision/api/main.py:46 GET /ui/transactions → 200 in 176ms
 2026-07-15 17:36:08 INFO     vision/api/main.py:46 GET /ui/ → 200 in 163ms
+2026-07-15 17:37:36 INFO     vision/api/main.py:46 GET /ui/controlling/timesheet → 200 in 1ms
+2026-07-15 17:37:41 INFO     vision/api/main.py:46 GET /ui/controlling/reports → 200 in 1ms
+2026-07-15 17:37:43 INFO     vision/api/main.py:46 GET /ui/controlling/projects → 200 in 2ms
+2026-07-15 17:37:44 INFO     vision/api/main.py:46 GET /ui/controlling/activity-types → 200 in 0ms
+2026-07-15 17:37:48 INFO     vision/api/main.py:46 GET / → 200 in 9ms
+2026-07-15 17:37:54 INFO     vision/api/main.py:46 GET /ui/ → 200 in 160ms
+2026-07-15 19:49:02 INFO     vision/api/main.py:46 GET /ui/controlling/timesheet → 200 in 2ms
+2026-07-15 20:25:07 INFO     vision/api/main.py:46 GET / → 200 in 1ms
+2026-07-15 20:34:22 INFO     vision/api/main.py:46 GET /login → 200 in 2ms
+2026-07-15 20:34:22 INFO     _client.py:1025 HTTP Request: GET http://testserver/login "HTTP/1.1 200 OK"
+2026-07-15 20:34:22 INFO     vision/api/main.py:46 GET /login?next=/ui/dashboard → 200 in 0ms
+2026-07-15 20:34:22 INFO     _client.py:1025 HTTP Request: GET http://testserver/login?next=/ui/dashboard "HTTP/1.1 200 OK"
