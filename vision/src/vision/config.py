@@ -47,6 +47,11 @@ class Settings(BaseSettings):
         env_file=".env", case_sensitive=False, extra="ignore"
     )
 
+    # Auth — minden /ui/* oldal JWT-vel védett (teszthez kikapcsolható)
+    auth_enabled: bool = True
+    jwt_audience: str = "moneypenny"
+    jwt_issuer: str = "auth-service"
+
     # Upstream services
     auth_service_url: str = "http://localhost:8007"
     invoice_core_url: str = "http://localhost:8004"
@@ -67,6 +72,11 @@ def get_settings() -> Settings:
 
 
 def make_http_session() -> requests.Session:
+    from vision.auth import TokenPassthrough  # lazy import (körkörös import ellen)
+
     session = requests.Session()
     session.headers.update({"Accept": "application/json"})
+    # A beérkező kérés Bearer tokenjét továbbadjuk a hívott szerviznek
+    # (per-request `auth=` — pl. srcprofit basic auth — felülírja ezt).
+    session.auth = TokenPassthrough()
     return session

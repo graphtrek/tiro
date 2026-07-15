@@ -5,10 +5,11 @@ import time
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
 from nav_invoice import cache as _cache
 from nav_invoice.auth import login
+from nav_invoice.jwt_auth import require_auth
 from nav_invoice.client import NavApiError
 from nav_invoice.config import configure_logging, get_settings
 from nav_invoice.models import (
@@ -29,6 +30,7 @@ app = FastAPI(
     title="NAV Online Számla API",
     description="REST API for querying and submitting NAV invoices.",
     version="0.1.0",
+    dependencies=[Depends(require_auth)],
 )
 
 

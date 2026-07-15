@@ -6,8 +6,9 @@ import logging
 import time
 from datetime import date, datetime
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
+from bank.auth import require_auth
 from bank.config import configure_logging, get_settings
 from bank.models import BankStatement, ConsolidatedStatement, StatementFile
 from bank.service import (
@@ -28,6 +29,7 @@ app = FastAPI(
         "Levél szolgáltatás: CSV fájlokat olvas, DB-t nem kezel."
     ),
     version="0.1.0",
+    dependencies=[Depends(require_auth)],
 )
 
 

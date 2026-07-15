@@ -7,9 +7,10 @@ import time
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
+from uploader.auth import require_auth
 from uploader.config import configure_logging, get_settings
 from uploader.detector import detect_bank
 from uploader.models import StorageFile, StorageStatus, UploadResult
@@ -32,6 +33,7 @@ app = FastAPI(
         "balance-statements/ tároló mappájába."
     ),
     version="0.1.0",
+    dependencies=[Depends(require_auth)],
 )
 
 

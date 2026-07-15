@@ -310,6 +310,21 @@ A `storage/` mappa `.gitignore`-ban van.
 | `API_HOST`               | `0.0.0.0`              | FastAPI bind cím                                   |
 | `API_PORT`               | `8005`                 | FastAPI port                                       |
 | `LOG_LEVEL`              | `INFO`                 | Napló szint (`DEBUG`, `INFO`, `WARNING`, `ERROR`)  |
+| `AUTH_ENABLED`           | `true` *(a `.env`-ben jelenleg `false`)* | JWT ellenőrzés be/ki                |
+| `AUTH_SERVICE_URL`       | `http://localhost:8007` | Központi auth szerviz base URL (JWKS)             |
+
+## Authentikáció (JWT)
+
+`AUTH_ENABLED=true` esetén a `GET /health` kivételével minden végpont érvényes
+JWT-t igényel, amelyet a központi **auth** szerviz (:8007) állít ki Google
+belépés után. A token `Authorization: Bearer <token>` fejlécben vagy
+`mp_access_token` HttpOnly cookie-ban érkezhet; az ellenőrzés lokális (RS256
+aláírás a `/.well-known/jwks.json` publikus kulcsaival + `exp`/`aud`/`iss`) —
+kérésenként nincs hálózati hívás az auth szerviz felé. Token nélkül a válasz
+`401 Unauthorized`.
+
+Implementáció: `src/bank/auth.py` (projektenként bemásolt modul) · specifikáció:
+`../moneypenny/auth-service-spec.md`.
 
 ## Naplózás
 

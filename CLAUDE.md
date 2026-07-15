@@ -18,6 +18,7 @@ This is a multi-project `uv`-based Python workspace. **Each sub-project has its 
 | `wise/` | Wise bank-statement download/sync (FastAPI + CLI), port 8003 — **on hold** (no Wise partner program; use `bank/` instead) |
 | `bank/` | Consolidated bank statement service — Erste + Wise CSV, port 8005 |
 | `vision/` | Frontend — serves all web UI by consuming invoice-core REST API + SrcProfit (FastAPI), port 8009 |
+| `auth/` | Central authentication — Google OAuth 2.0/OIDC login + RS256 JWT issuance (FastAPI + CLI), port 8007 |
 
 Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs), `.env.example` (Scaleway inference defaults: `SCALEWAY_BASE_URL`, `SCALEWAY_API_KEY`), `AGENTS.md`, this file.
 
@@ -209,6 +210,42 @@ uv run pytest tests/ -v
 
 ### Environment
 `INVOICE_CORE_URL` (`:8004`), `SRCPROFIT_URL`, `SRCPROFIT_USER`, `SRCPROFIT_PASSWORD`, `API_HOST`/`API_PORT` (8009), `LOG_LEVEL`, `REQUEST_TIMEOUT`.
+
+## auth — central authentication microservice
+
+Google OAuth 2.0 / OpenID Connect login (authorization code + PKCE + state, email/domain whitelist); issues its own **RS256 JWT** pair (access 15 min, refresh 30 days). Only this service talks to Google — every other service validates JWTs **locally** against `/.well-known/jwks.json` (PyJWKClient cache, no per-request network call). Leaf service, no DB (refresh-token revocation is a file-based jti denylist). Spec: `moneypenny/auth-service-spec.md`. `requires-python >=3.11`.
+
+### Running
+
+```bash
+cd auth
+uv sync
+uv run auth keygen              # RS256 keypair into keys/ (gitignored) — required once
+
+# REST API (port 8007)
+python run_api.py
+# or: uv run uvicorn auth_service.api.main:app --host 0.0.0.0 --port 8007 --reload
+
+# CLI (installed as `auth` script)
+uv run auth status | providers | verify <token> | revoke <jti>
+
+# Tests
+uv run pytest tests/ -v
+```
+
+### Architecture
+- `src/auth_service/` — `config.py`, `models.py` (UserInfo, TokenPair, ProviderInfo, JWTClaims), `jwt_service.py` (RS256 issue/verify + JWKS + keygen), `providers/` (`base.py` AuthProvider Protocol, `google.py`; registry in `__init__.py`, enable via `ENABLED_PROVIDERS`), `service.py` (login flow, whitelist, refresh, revoke), `api/main.py`, `cli/main.py`.
+- **Endpoints**: public — `/health`, `/.well-known/jwks.json`, `/auth/providers`, `/auth/{provider}/login?next=`, `/auth/{provider}/callback`, `POST /auth/refresh`, `POST /auth/verify`; JWT-protected — `/auth/me`, `POST /auth/logout`, `/settings`.
+- Browser gets HttpOnly `mp_access_token` + `mp_refresh_token` cookies (SameSite=Lax; `COOKIE_SECURE=true` behind HTTPS); services also accept `Authorization: Bearer`.
+
+### Environment (`.env` from `.env.example`)
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_REDIRECT_URL`, `JWT_PRIVATE_KEY_PATH`/`JWT_PUBLIC_KEY_PATH`, `ACCESS_TOKEN_TTL`/`REFRESH_TOKEN_TTL`, `JWT_AUDIENCE`/`JWT_ISSUER`, `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` (whitelist), `ENABLED_PROVIDERS`, `COOKIE_SECURE`, `VISION_URL`, `API_HOST`/`API_PORT` (8007), `LOG_LEVEL`.
+
+### JWT protection in the other services
+- Every backend service (invoice-core, nav-invoice, invoice-file-filter, attachment-downloader, bank, uploader) has a copied `auth.py` module (`jwt_auth.py` in nav-invoice — its `auth.py` is the NAV tokenExchange) wired as an app-level dependency; only `GET /health` is public. Toggle per service with `AUTH_ENABLED` in `.env`.
+- **`AUTH_ENABLED=false` is the current state in every service's `.env`** (auth is opt-in until Google OAuth is configured; the code default is `true`, so a missing flag means protected). To enable: configure `auth/.env` Google credentials, then flip `AUTH_ENABLED=true` in each service's `.env` (vision included). Keep it `false` where the `invoice-core sync` CLI (no user token) hits leaf services.
+- vision uses a middleware instead: public `/`, `/pitch`, `/login`, `/logout`, `/static/*`, `/health`; other pages redirect browsers to `/login?next=…` (API calls get 401 JSON). The login page (NiceAdmin-style, provider buttons from `GET /auth/providers`) silently refreshes via `POST /auth/refresh` when a valid refresh cookie exists.
+- Token passthrough: vision and invoice-core (and invoice-file-filter → attachment-downloader) forward the incoming Bearer token to downstream services via a `TokenPassthrough` requests-auth hook + `current_token` ContextVar.
 
 ## wise — Wise bank-statement service
 

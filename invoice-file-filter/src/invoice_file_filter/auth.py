@@ -1,0 +1,123 @@
+"""JWT validálás a központi auth szerviz (:8007) JWKS kulcsaival.
+
+Projektenként bemásolt modul (nincs közös package a workspace-ben) — a mintát
+a moneypenny/auth-service-spec.md írja le. A tokent kérésenként lokálisan
+validáljuk: a JWKS publikus kulcsokat a PyJWKClient tölti le és cache-eli
+(1 óra TTL, ismeretlen `kid` esetén újratöltés), így nincs kérésenkénti
+hálózati hívás az auth szerviz felé.
+
+Használat (app szintű dependency, a publikus útvonalakat a PUBLIC_PATHS adja):
+
+    from fastapi import Depends
+    from <pkg>.auth import require_auth
+
+    app = FastAPI(..., dependencies=[Depends(require_auth)])
+"""
+
+from __future__ import annotations
+
+import logging
+from contextvars import ContextVar
+from typing import Optional
+
+import jwt
+import requests.auth
+from fastapi import HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+ACCESS_COOKIE_NAME = "mp_access_token"
+PUBLIC_PATHS = {"/health"}
+
+# A beérkező kérés Bearer tokenje — a downstream kliensek (nav-invoice,
+# invoice-file-filter, bank) ezt adják tovább (token passthrough).
+current_token: ContextVar[Optional[str]] = ContextVar("current_token", default=None)
+
+
+class TokenPassthrough(requests.auth.AuthBase):
+    """A beérkező kérés Bearer tokenjének továbbadása a hívott szerviznek."""
+
+    def __call__(self, prepared):
+        token = current_token.get()
+        if token and "Authorization" not in prepared.headers:
+            prepared.headers["Authorization"] = f"Bearer {token}"
+        return prepared
+
+
+class AuthSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env", case_sensitive=False, extra="ignore"
+    )
+
+    auth_enabled: bool = True  # teszthez kikapcsolható: AUTH_ENABLED=false
+    auth_service_url: str = "http://localhost:8007"
+    jwt_audience: str = "moneypenny"
+    jwt_issuer: str = "auth-service"
+
+
+_settings: Optional[AuthSettings] = None
+_jwk_client: Optional[jwt.PyJWKClient] = None
+
+
+def get_auth_settings() -> AuthSettings:
+    global _settings
+    if _settings is None:
+        _settings = AuthSettings()
+    return _settings
+
+
+def _get_signing_key(token: str):
+    global _jwk_client
+    if _jwk_client is None:
+        url = f"{get_auth_settings().auth_service_url.rstrip('/')}/.well-known/jwks.json"
+        _jwk_client = jwt.PyJWKClient(url, cache_keys=True, lifespan=3600)
+    return _jwk_client.get_signing_key_from_jwt(token).key
+
+
+def verify_jwt(token: str) -> dict:
+    """RS256 aláírás + exp + aud + iss ellenőrzés → claims; hibánál HTTPException."""
+    settings = get_auth_settings()
+    try:
+        claims = jwt.decode(
+            token,
+            _get_signing_key(token),
+            algorithms=["RS256"],
+            audience=settings.jwt_audience,
+            issuer=settings.jwt_issuer,
+        )
+    except jwt.PyJWTError as exc:
+        raise HTTPException(status_code=401, detail=f"Érvénytelen access token: {exc}") from exc
+    except Exception as exc:  # a JWKS nem érhető el
+        logger.error("JWT validálás sikertelen (fut az auth szerviz?): %s", exc)
+        raise HTTPException(status_code=503, detail="Az auth szerviz nem érhető el") from exc
+    if claims.get("typ") != "access":
+        raise HTTPException(status_code=401, detail="Nem access token")
+    return claims
+
+
+security = HTTPBearer(auto_error=False)
+
+
+async def require_auth(request: Request):
+    """App szintű dependency: érvényes JWT kell (Bearer fejléc vagy cookie).
+
+    Yield-dependency: a kérés idejére beállítja a `current_token`-t, hogy a
+    downstream kliensek továbbadhassák (token passthrough).
+    """
+    settings = get_auth_settings()
+    if not settings.auth_enabled or request.url.path in PUBLIC_PATHS:
+        yield None
+        return
+    credentials: Optional[HTTPAuthorizationCredentials] = await security(request)
+    token = credentials.credentials if credentials else request.cookies.get(ACCESS_COOKIE_NAME)
+    if not token:
+        raise HTTPException(status_code=401, detail="Hiányzó access token")
+    claims = verify_jwt(token)
+    request.state.user = claims
+    ctx = current_token.set(token)
+    try:
+        yield claims
+    finally:
+        current_token.reset(ctx)

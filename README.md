@@ -12,10 +12,10 @@ attachment-downloader (:8000)   invoice-file-filter (:8001)
                   nav-invoice (:8002)
                         │
                         ▼
-                  invoice-core (:8004)  ◄── bank (:8005)
+                  invoice-core (:8004)  ◄── bank (:8005) ◄── uploader (:8006)
                         │
                         ▼
-                   vision (:8009)
+                   vision (:8009)  ── login ──►  auth (:8007) ◄─► Google OAuth
 ```
 
 | Service | Port | Purpose |
@@ -25,6 +25,8 @@ attachment-downloader (:8000)   invoice-file-filter (:8001)
 | `nav-invoice` | 8002 | NAV Online Számla 3.0 REST/XML client |
 | `invoice-core` | 8004 | Master orchestrator — PostgreSQL persistence, reconciliation, JSON REST API |
 | `bank` | 8005 | Consolidated bank statement service (Erste + Wise CSV) |
+| `uploader` | 8006 | Bank statement CSV upload into the bank service's storage |
+| `auth` | 8007 | Central authentication — Google OAuth 2.0/OIDC login, RS256 JWT issuance + JWKS |
 | `vision` | 8009 | Web frontend — consumes invoice-core REST API |
 
 Each service is independent: its own `.venv`, `pyproject.toml`, and `.env`.
@@ -38,12 +40,14 @@ cd invoice-core && uv sync
 # 2. Apply DB migrations (invoice-core only)
 uv run alembic upgrade head
 
-# 3. Start all services (separate terminals)
+# 3. Start all services (separate terminals) — or just run ./start-all.sh
 cd attachment-downloader && uv run uvicorn attachment_downloader.api.main:app --port 8000 --reload
 cd invoice-file-filter   && python run_api.py   # :8001
 cd nav-invoice           && python run_api.py   # :8002
 cd invoice-core          && python run_api.py   # :8004
 cd bank                  && python run_api.py   # :8005
+cd uploader              && python run_api.py   # :8006
+cd auth                  && python run_api.py   # :8007
 cd vision                && python run_api.py   # :8009
 ```
 
@@ -82,6 +86,12 @@ Key variables for `invoice-core`:
 Key variables for `nav-invoice`: `USERNAME`, `PASSWORD`, `LICENSE_KEY`, `CSERE_KEY`, `TAX_NUMBER`, `ENVIRONMENT`.
 
 Key variables for `attachment-downloader`: place OAuth2 `credentials.json` in the project root; `token.json` is generated on first auth.
+
+## Authentication
+
+The `auth` service (:8007) handles Google OAuth 2.0 / OpenID Connect login and issues RS256 JWTs (15-min access + 30-day refresh, HttpOnly cookies). Every other service validates tokens locally against its JWKS; vision redirects browsers to `/login`, the backends return `401`.
+
+**Currently disabled**: every service's `.env` has `AUTH_ENABLED=false`. To enable, configure `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `auth/.env`, run `uv run auth keygen` once, then flip `AUTH_ENABLED=true` per service. Details: `auth/README.md` and `moneypenny/auth-service-spec.md`.
 
 ## Development
 

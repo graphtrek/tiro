@@ -190,6 +190,8 @@ Runs a full sync for the given calendar month and prints a Rich summary table.
 | `API_PORT` | `8004` | FastAPI port |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 | `TAX_ACCOUNTS` | *(see below)* | JSON object mapping bank account numbers to display labels for the Adók page |
+| `AUTH_ENABLED` | `true` *(currently `false` in `.env`)* | JWT validation on/off |
+| `AUTH_SERVICE_URL` | `http://localhost:8007` | Central auth service base URL (JWKS) |
 
 `TAX_ACCOUNTS` defaults to all NAV (ÁFA, Bírság, SZJA, Szochó, TAO, TB), HIPA, HIPA-Késedelmi, and Iparkamara accounts. Override in `.env` as a single-line JSON string:
 
@@ -198,6 +200,12 @@ TAX_ACCOUNTS={"10032000-01076868-00000000":"NAV ÁFA","12001008-00272513-0010000
 ```
 
 The `DB_URL` field accepts the JDBC format already present in the project `.env`. The driver prefix (`jdbc:`) is stripped automatically and credentials are injected to produce a SQLAlchemy-compatible URL (`postgresql+psycopg2://user:pwd@host:port/db`).
+
+## Authentication (JWT)
+
+With `AUTH_ENABLED=true`, every endpoint except `GET /health` requires a valid JWT issued by the central **auth** service (:8007) after a Google login. The token arrives as an `Authorization: Bearer <token>` header or an `mp_access_token` HttpOnly cookie (vision forwards it automatically); validation is local (RS256 signature against the `/.well-known/jwks.json` public keys + `exp`/`aud`/`iss`) — no per-request network call to the auth service. Without a token the response is `401 Unauthorized`.
+
+The incoming Bearer token is passed through to downstream calls (nav-invoice, invoice-file-filter, bank) via `TokenPassthrough` in `src/invoice_core/auth.py`. Note: the `invoice-core sync` **CLI** carries no user token, so keep `AUTH_ENABLED=false` on the leaf services if you use it. Spec: `../moneypenny/auth-service-spec.md`.
 
 ## Database
 

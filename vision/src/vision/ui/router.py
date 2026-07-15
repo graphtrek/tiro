@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from pathlib import Path
 
+import requests
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from vision.config import get_settings
+from vision.config import Settings, get_settings
+
+logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -27,15 +31,19 @@ def pitch():
     return RedirectResponse("/", status_code=308)
 
 
-@router.get("/login")
-def login(request: Request, next: str | None = None, error: str | None = None):
-    """NiceAdmin-style login page — provider-based sign-in only.
-
-    Extend the list below to enable further providers (Microsoft, GitHub, ...);
-    the template renders one button per entry.
-    """
-    settings = get_settings()
-    providers = [
+def _load_providers(settings: Settings) -> list[dict]:
+    """Provider gombok az auth szerviztől; ha nem érhető el, Google fallback."""
+    try:
+        resp = requests.get(f"{settings.auth_service_url}/auth/providers", timeout=2)
+        resp.raise_for_status()
+        providers = resp.json()
+        for provider in providers:
+            provider["login_url"] = f"{settings.auth_service_url}{provider['login_url']}"
+        if providers:
+            return providers
+    except requests.RequestException as exc:
+        logger.warning("Auth szerviz providers nem érhető el: %s", exc)
+    return [
         {
             "key": "google",
             "label": "Belépés Google-fiókkal",
@@ -43,14 +51,43 @@ def login(request: Request, next: str | None = None, error: str | None = None):
             "login_url": f"{settings.auth_service_url}/auth/google/login",
         },
     ]
+
+
+@router.get("/login")
+def login(request: Request, next: str | None = None, error: str | None = None):
+    """NiceAdmin-style login page — provider-based sign-in only."""
+    settings = get_settings()
     return templates.TemplateResponse(
         request,
         "login.html",
         {
             "request": request,
-            "providers": providers,
-            "next": next,
+            "providers": _load_providers(settings),
+            "next": next or "/ui/",
             "error": error,
+            "auth_service_url": settings.auth_service_url,
             "current_year": date.today().year,
         },
     )
+
+
+@router.get("/logout")
+def logout(request: Request):
+    """Kijelentkezés: refresh token visszavonása az auth szerviznél + cookie törlés."""
+    settings = get_settings()
+    access = request.cookies.get("mp_access_token")
+    refresh = request.cookies.get("mp_refresh_token")
+    if access:
+        try:
+            requests.post(
+                f"{settings.auth_service_url}/auth/logout",
+                headers={"Authorization": f"Bearer {access}"},
+                cookies={"mp_refresh_token": refresh} if refresh else None,
+                timeout=settings.request_timeout,
+            )
+        except requests.RequestException as exc:
+            logger.warning("Auth szerviz logout nem érhető el: %s", exc)
+    response = RedirectResponse("/login", status_code=302)
+    response.delete_cookie("mp_access_token", path="/")
+    response.delete_cookie("mp_refresh_token", path="/")
+    return response

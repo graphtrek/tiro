@@ -9,9 +9,10 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from invoice_file_filter.auth import require_auth
 from invoice_file_filter.client import AttachmentDownloaderError
 from invoice_file_filter.config import configure_logging, get_settings
 from invoice_file_filter.extractor import clear_words_cache, extract_words_csv, words_cache_info
@@ -30,6 +31,7 @@ app = FastAPI(
     title="PDF Számla Feldolgozó",
     description="Downloads invoice PDFs via attachment-downloader and extracts metadata.",
     version="0.1.0",
+    dependencies=[Depends(require_auth)],
 )
 
 

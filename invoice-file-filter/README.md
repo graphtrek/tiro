@@ -242,6 +242,12 @@ Written to stdout and `logs/invoice-file-filter.log`.
 | `OCR_ENABLED` | `true` | Enable Tesseract OCR fallback for scanned PDFs |
 | `OCR_LANGUAGE` | `hun+eng` | Tesseract language(s) — `+`-separated Tesseract lang codes |
 | `OCR_MIN_CHARS` | `50` | pdfplumber char count below which OCR is attempted |
+| `AUTH_ENABLED` | `true` *(currently `false` in `.env`)* | JWT validation on/off |
+| `AUTH_SERVICE_URL` | `http://localhost:8007` | Central auth service base URL (JWKS) |
+
+## Authentication (JWT)
+
+With `AUTH_ENABLED=true`, every endpoint except `GET /health` requires a valid JWT issued by the central **auth** service (:8007) after a Google login. The token arrives as an `Authorization: Bearer <token>` header or an `mp_access_token` HttpOnly cookie (invoice-core forwards it automatically); validation is local against the JWKS public keys. Without a token the response is `401 Unauthorized`. The incoming token is passed through to attachment-downloader (`TokenPassthrough` in `src/invoice_file_filter/auth.py`). Spec: `../moneypenny/auth-service-spec.md`.
 
 ## Pipeline
 

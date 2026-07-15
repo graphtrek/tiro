@@ -51,8 +51,9 @@ Filter forms use HTMX partial updates so filtered views stay responsive without 
 | Page | URL | Description |
 |------|-----|-------------|
 | Portfólió | `/dashboard` | KPI cards + 4 Chart.js charts (cash-flow, invoice status, IBKR holdings, top suppliers) |
-| Pitch | `/pitch` | Startup-pitch landing page (standalone dark theme, no sidebar) |
-| Home | `/` | Redirects to dashboard |
+| Home / Pitch | `/` | Startup-pitch landing page (standalone dark theme, no sidebar); `/pitch` redirects here |
+| Login | `/login` | NiceAdmin-style login page — provider buttons from the auth service (`GET /auth/providers`), silent re-login via refresh cookie |
+| Logout | `/logout` | Revokes the refresh token at the auth service, clears cookies, redirects to `/login` |
 
 ## REST API
 
@@ -126,6 +127,10 @@ src/vision/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `AUTH_ENABLED` | `true` *(currently `false` in `.env`)* | JWT protection of the UI on/off |
+| `AUTH_SERVICE_URL` | `http://localhost:8007` | Central auth service base URL (JWKS, login, logout) |
+| `JWT_AUDIENCE` | `moneypenny` | Expected `aud` claim |
+| `JWT_ISSUER` | `auth-service` | Expected `iss` claim |
 | `INVOICE_CORE_URL` | `http://localhost:8004` | invoice-core base URL |
 | `SRCPROFIT_URL` | `https://srcprofit2.graphtrek.co` | SrcProfit base URL |
 | `SRCPROFIT_USER` | `admin` | Basic auth user |
@@ -134,6 +139,19 @@ src/vision/
 | `API_PORT` | `8009` | Uvicorn bind port |
 | `LOG_LEVEL` | `INFO` | Python log level |
 | `REQUEST_TIMEOUT` | `10` | HTTP client timeout (seconds) |
+
+## Authentication (JWT)
+
+With `AUTH_ENABLED=true`, a middleware protects every route except `/`, `/pitch`, `/login`, `/logout`, `/static/*`, and `/health`:
+
+- **Browser requests** (`Accept: text/html`) without a valid token are redirected to `/login?next=<original URL>`.
+- **API requests** get `401` JSON.
+- Tokens are accepted as an `Authorization: Bearer` header or the `mp_access_token` HttpOnly cookie set by the auth service (:8007) after Google login. Validation is local (RS256 against the auth service's JWKS, cached 1h).
+- The incoming Bearer token is forwarded to invoice-core/uploader calls (`TokenPassthrough` in `src/vision/auth.py`).
+- The navbar shows the logged-in user (name/avatar from JWT claims) with a logout button.
+- The login page silently calls `POST /auth/refresh` (credentials included), so an expired 15-minute access token renews without a Google round-trip while the 30-day refresh cookie is valid.
+
+Spec: `../moneypenny/auth-service-spec.md`.
 
 ## Tech stack
 

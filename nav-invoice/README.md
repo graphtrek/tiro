@@ -46,6 +46,21 @@ cp .env.example .env
 | `API_PORT` | FastAPI szerver port (`.env` alapján; `run_api.py` 8002-t hardkódol) | `8000` |
 | `LOG_LEVEL` | Naplózási szint | `INFO` |
 | `CACHE_TTL_SECONDS` | Memória-cache TTL másodpercben | `3600` |
+| `AUTH_ENABLED` | JWT ellenőrzés be/ki (a `.env`-ben jelenleg `false`) | `true` |
+| `AUTH_SERVICE_URL` | Központi auth szerviz base URL (JWKS) | `http://localhost:8007` |
+
+## Authentikáció (JWT)
+
+`AUTH_ENABLED=true` esetén a `GET /health` kivételével minden végpont érvényes
+JWT-t igényel, amelyet a központi **auth** szerviz (:8007) állít ki Google
+belépés után. A token `Authorization: Bearer <token>` fejlécben vagy
+`mp_access_token` HttpOnly cookie-ban érkezhet (az invoice-core automatikusan
+továbbadja); az ellenőrzés lokális a JWKS publikus kulcsokkal. Token nélkül a
+válasz `401 Unauthorized`.
+
+> Implementáció: `src/nav_invoice/jwt_auth.py` — itt szándékosan **nem**
+> `auth.py` a neve, mert az a NAV `tokenExchange` (belépés) modulja.
+> Specifikáció: `../moneypenny/auth-service-spec.md`.
 
 ## Használat
 

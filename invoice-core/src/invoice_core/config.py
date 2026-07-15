@@ -116,6 +116,10 @@ def get_settings() -> Settings:
 
 def make_http_session() -> requests.Session:
     """Create a pre-configured requests.Session for internal service clients."""
+    from invoice_core.auth import TokenPassthrough  # lazy import (körkörös import ellen)
+
     session = requests.Session()
     session.headers.update({"Accept": "application/json"})
+    # A beérkező kérés Bearer tokenjét továbbadjuk a hívott szerviznek.
+    session.auth = TokenPassthrough()
     return session

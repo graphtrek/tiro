@@ -29,6 +29,10 @@ class AttachmentDownloaderClient:
         self.base_url = self.settings.attachment_downloader_url.rstrip("/")
         self.session = requests.Session()
         self.session.headers.update({"Accept": "application/json"})
+        # A beérkező kérés Bearer tokenjét továbbadjuk az attachment-downloadernek.
+        from invoice_file_filter.auth import TokenPassthrough
+
+        self.session.auth = TokenPassthrough()
 
     def download(self, start_date: str, end_date: str) -> DownloadResult:
         """POST a download job and return the full result (files + output_dir)."""

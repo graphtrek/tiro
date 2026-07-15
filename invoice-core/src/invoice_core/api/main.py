@@ -19,6 +19,7 @@ from sqlalchemy import insert as sa_insert
 from sqlalchemy import select as sa_select
 from sqlalchemy.orm import Session
 
+from invoice_core.auth import require_auth
 from invoice_core.config import configure_logging, get_settings
 from invoice_core.db import (
     BankTransaction,
@@ -59,6 +60,7 @@ app = FastAPI(
     title="Invoice Core",
     description="Master orchestrator for the Moneypenny invoice automation pipeline.",
     version="0.1.0",
+    dependencies=[Depends(require_auth)],
 )
 
 app.add_middleware(

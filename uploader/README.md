@@ -237,8 +237,21 @@ uv run uploader delete wise statement_25546267_HUF_2026-01-01_2026-06-17.csv
 | `API_HOST`           | `0.0.0.0`                             | FastAPI bind cím                                   |
 | `API_PORT`           | `8006`                                | FastAPI port                                       |
 | `LOG_LEVEL`          | `INFO`                                | Napló szint (`DEBUG`, `INFO`, `WARNING`, `ERROR`)  |
+| `AUTH_ENABLED`       | `true` *(a `.env`-ben jelenleg `false`)* | JWT ellenőrzés be/ki                            |
+| `AUTH_SERVICE_URL`   | `http://localhost:8007`               | Központi auth szerviz base URL (JWKS)              |
 
 > `STORAGE_DIR` ugyanaz a könyvtár, mint a `bank` szerviz `BALANCE_STATEMENTS_DIR`-je. Dev környezetben relatív elérési úttal konfigurálható; prodban abszolút út ajánlott.
+
+## Authentikáció (JWT)
+
+`AUTH_ENABLED=true` esetén a `GET /health` kivételével minden végpont érvényes
+JWT-t igényel, amelyet a központi **auth** szerviz (:8007) állít ki Google
+belépés után. A token `Authorization: Bearer <token>` fejlécben vagy
+`mp_access_token` HttpOnly cookie-ban érkezhet (a vision automatikusan
+továbbadja); az ellenőrzés lokális a JWKS publikus kulcsokkal. Token nélkül a
+válasz `401 Unauthorized`.
+
+Implementáció: `src/uploader/auth.py` · specifikáció: `../moneypenny/auth-service-spec.md`.
 
 ## Vision UI
 

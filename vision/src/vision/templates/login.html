@@ -113,5 +113,19 @@
     </div>
   </main>
 
+  <script>
+    // Silent login: ha van érvényes refresh cookie, új access tokent kérünk és
+    // vissza sem jutunk a Google-höz — egyből a cél oldalra megyünk tovább.
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('error')) return; // explicit hiba után ne próbálkozzunk
+      var next = params.get('next') || '/ui/';
+      if (next.charAt(0) !== '/' || next.charAt(1) === '/') next = '/ui/';
+      fetch('{{ auth_service_url }}/auth/refresh', { method: 'POST', credentials: 'include' })
+        .then(function (resp) { if (resp.ok) window.location.replace(next); })
+        .catch(function () { /* auth szerviz nem érhető el — marad a login gomb */ });
+    })();
+  </script>
+
 </body>
 </html>

@@ -4,7 +4,16 @@
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
-    
+
+    {
+      "name": "8007_auth API",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/auth/run_api.py",
+      "python": "${workspaceFolder}/auth/.venv/bin/python",
+      "cwd": "${workspaceFolder}/auth",
+      "console": "integratedTerminal"
+    },
     {
       "name": "8002_nav-invoice API",
       "type": "debugpy",

@@ -3,7 +3,8 @@ import logging
 import time
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from attachment_downloader.auth import require_auth
 from attachment_downloader.config import configure_logging, get_settings
 from attachment_downloader.models import CacheInfo, DownloadRequest, DownloadResult
 from attachment_downloader.providers import get_client
@@ -12,7 +13,10 @@ _settings = get_settings()
 configure_logging(_settings.log_level)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Attachment Downloader API")
+app = FastAPI(
+    title="Attachment Downloader API",
+    dependencies=[Depends(require_auth)],
+)
 client = get_client("gmail", settings=_settings)
 
 

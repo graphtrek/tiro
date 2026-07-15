@@ -5,6 +5,7 @@ description = "CSV bank statement uploader microservice (Erste + Wise) for Money
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "pyjwt[crypto]>=2.8",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
     "pydantic>=2.0",

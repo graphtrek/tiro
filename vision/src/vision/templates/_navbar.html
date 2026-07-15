@@ -4,6 +4,17 @@
     <i class="fas fa-eye me-1"></i>Vision
   </a>
   <div class="ms-auto d-flex align-items-center gap-2">
+    {% if request.state.user %}
+    <span class="text-muted small d-none d-sm-flex align-items-center">
+      {% if request.state.user.picture %}
+      <img src="{{ request.state.user.picture }}" alt="" class="rounded-circle me-2" width="24" height="24" referrerpolicy="no-referrer">
+      {% endif %}
+      {{ request.state.user.name or request.state.user.email }}
+    </span>
+    <a class="btn btn-link p-1 border-0" href="/logout" hx-boost="false" title="Kijelentkezés" aria-label="Kijelentkezés">
+      <i class="fas fa-sign-out-alt" style="font-size:1.1rem"></i>
+    </a>
+    {% endif %}
     <button class="btn btn-link p-1 border-0" onclick="toggleTheme()" title="Téma váltás" aria-label="Téma váltás">
       <i class="fas fa-moon theme-icon-dark" style="font-size:1.1rem"></i>
       <i class="fas fa-sun theme-icon-light" style="font-size:1.1rem"></i>

@@ -6845,3 +6845,109 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-07-15 20:34:22 INFO     _client.py:1025 HTTP Request: GET http://testserver/login "HTTP/1.1 200 OK"
 2026-07-15 20:34:22 INFO     vision/api/main.py:46 GET /login?next=/ui/dashboard → 200 in 0ms
 2026-07-15 20:34:22 INFO     _client.py:1025 HTTP Request: GET http://testserver/login?next=/ui/dashboard "HTTP/1.1 200 OK"
+2026-07-15 20:50:00 INFO     vision/api/main.py:46 GET / → 200 in 8ms
+2026-07-15 20:50:01 INFO     vision/api/main.py:46 GET / → 200 in 1ms
+2026-07-15 20:50:05 INFO     vision/api/main.py:46 GET /ui/ → 200 in 198ms
+2026-07-15 21:01:05 INFO     vision/api/main.py:86 GET /health → 200 in 8ms
+2026-07-15 21:01:05 INFO     _client.py:1025 HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-07-15 21:01:05 INFO     vision/api/main.py:86 GET / → 200 in 7ms
+2026-07-15 21:01:05 INFO     _client.py:1025 HTTP Request: GET http://testserver/ "HTTP/1.1 200 OK"
+2026-07-15 21:01:05 WARNING  vision/ui/router.py:45 Auth szerviz providers nem érhető el: HTTPConnectionPool(host='localhost', port=8007): Max retries exceeded with url: /auth/providers (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8007): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:01:05 INFO     vision/api/main.py:86 GET /login → 200 in 5ms
+2026-07-15 21:01:05 INFO     _client.py:1025 HTTP Request: GET http://testserver/login "HTTP/1.1 200 OK"
+2026-07-15 21:01:05 INFO     vision/api/main.py:86 GET /ui/invoices → 302 in 0ms
+2026-07-15 21:01:05 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 302 Found"
+2026-07-15 21:01:05 INFO     vision/api/main.py:86 GET /ui/invoices?direction=INBOUND → 302 in 0ms
+2026-07-15 21:01:05 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices?direction=INBOUND "HTTP/1.1 302 Found"
+2026-07-15 21:01:05 INFO     vision/api/main.py:86 GET /ui/invoices → 401 in 0ms
+2026-07-15 21:01:05 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 401 Unauthorized"
+2026-07-15 21:01:06 INFO     vision/api/main.py:86 GET /ui/invoices → 200 in 145ms
+2026-07-15 21:01:06 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 200 OK"
+2026-07-15 21:01:06 INFO     vision/api/main.py:86 GET /ui/invoices → 200 in 101ms
+2026-07-15 21:01:06 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 200 OK"
+2026-07-15 21:01:06 INFO     vision/api/main.py:86 GET /ui/invoices → 302 in 0ms
+2026-07-15 21:01:06 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 302 Found"
+2026-07-15 21:01:06 INFO     vision/api/main.py:86 GET /ui/invoices → 401 in 0ms
+2026-07-15 21:01:06 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 401 Unauthorized"
+2026-07-15 21:01:06 INFO     vision/api/main.py:86 GET /ui/invoices → 401 in 0ms
+2026-07-15 21:01:06 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 401 Unauthorized"
+2026-07-15 21:01:06 WARNING  vision/ui/router.py:89 Auth szerviz logout nem érhető el: HTTPConnectionPool(host='localhost', port=8007): Max retries exceeded with url: /auth/logout (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8007): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:01:06 INFO     vision/api/main.py:86 GET /logout → 302 in 2ms
+2026-07-15 21:01:06 INFO     _client.py:1025 HTTP Request: GET http://testserver/logout "HTTP/1.1 302 Found"
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /health → 200 in 7ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET / → 200 in 7ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/ "HTTP/1.1 200 OK"
+2026-07-15 21:23:23 WARNING  vision/ui/router.py:45 Auth szerviz providers nem érhető el: HTTPConnectionPool(host='localhost', port=8007): Max retries exceeded with url: /auth/providers (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8007): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /login → 200 in 6ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/login "HTTP/1.1 200 OK"
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /ui/invoices → 302 in 0ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 302 Found"
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /ui/invoices?direction=INBOUND → 302 in 0ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices?direction=INBOUND "HTTP/1.1 302 Found"
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /ui/invoices → 401 in 0ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 401 Unauthorized"
+2026-07-15 21:23:23 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoices failed: 401 Client Error: Unauthorized for url: http://localhost:8004/api/v1/invoices
+2026-07-15 21:23:23 WARNING  vision/clients/invoice_core.py:47 invoice-core GET /api/v1/invoices/count failed: 401 Client Error: Unauthorized for url: http://localhost:8004/api/v1/invoices/count
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /ui/invoices → 200 in 27ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 200 OK"
+2026-07-15 21:23:23 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoices failed: 401 Client Error: Unauthorized for url: http://localhost:8004/api/v1/invoices
+2026-07-15 21:23:23 WARNING  vision/clients/invoice_core.py:47 invoice-core GET /api/v1/invoices/count failed: 401 Client Error: Unauthorized for url: http://localhost:8004/api/v1/invoices/count
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /ui/invoices → 200 in 4ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 200 OK"
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /ui/invoices → 302 in 0ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 302 Found"
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /ui/invoices → 401 in 0ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 401 Unauthorized"
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /ui/invoices → 401 in 0ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 401 Unauthorized"
+2026-07-15 21:23:23 WARNING  vision/ui/router.py:89 Auth szerviz logout nem érhető el: HTTPConnectionPool(host='localhost', port=8007): Max retries exceeded with url: /auth/logout (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8007): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:23:23 INFO     vision/api/main.py:86 GET /logout → 302 in 2ms
+2026-07-15 21:23:23 INFO     _client.py:1025 HTTP Request: GET http://testserver/logout "HTTP/1.1 302 Found"
+2026-07-15 21:25:21 INFO     vision/api/main.py:86 GET /ui/ → 302 in 1ms
+2026-07-15 21:25:21 INFO     vision/api/main.py:86 GET /login?next=%2Fui%2F → 200 in 45ms
+2026-07-15 21:25:21 INFO     vision/api/main.py:86 GET /static/custom.css → 304 in 3ms
+2026-07-15 21:25:28 INFO     vision/api/main.py:86 GET /l → 302 in 1ms
+2026-07-15 21:25:28 INFO     vision/api/main.py:86 GET /login?next=%2Fl → 200 in 3ms
+2026-07-15 21:25:34 INFO     vision/api/main.py:86 GET / → 200 in 5ms
+2026-07-15 21:25:39 INFO     vision/api/main.py:86 GET /ui/ → 302 in 1ms
+2026-07-15 21:25:39 INFO     vision/api/main.py:86 GET /login?next=%2Fui%2F → 200 in 3ms
+2026-07-15 21:28:08 INFO     vision/api/main.py:86 GET /health → 200 in 8ms
+2026-07-15 21:28:08 INFO     _client.py:1025 HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-07-15 21:28:08 INFO     vision/api/main.py:86 GET / → 200 in 5ms
+2026-07-15 21:28:08 INFO     _client.py:1025 HTTP Request: GET http://testserver/ "HTTP/1.1 200 OK"
+2026-07-15 21:28:08 WARNING  vision/ui/router.py:45 Auth szerviz providers nem érhető el: HTTPConnectionPool(host='localhost', port=8007): Max retries exceeded with url: /auth/providers (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8007): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:28:08 INFO     vision/api/main.py:86 GET /login → 200 in 6ms
+2026-07-15 21:28:08 INFO     _client.py:1025 HTTP Request: GET http://testserver/login "HTTP/1.1 200 OK"
+2026-07-15 21:28:08 INFO     vision/api/main.py:86 GET /ui/invoices → 302 in 1ms
+2026-07-15 21:28:08 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 302 Found"
+2026-07-15 21:28:08 INFO     vision/api/main.py:86 GET /ui/invoices?direction=INBOUND → 302 in 1ms
+2026-07-15 21:28:08 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices?direction=INBOUND "HTTP/1.1 302 Found"
+2026-07-15 21:28:08 INFO     vision/api/main.py:86 GET /ui/invoices → 401 in 1ms
+2026-07-15 21:28:08 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 401 Unauthorized"
+2026-07-15 21:28:08 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoices failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:28:08 WARNING  vision/clients/invoice_core.py:47 invoice-core GET /api/v1/invoices/count failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices/count (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:28:08 INFO     vision/api/main.py:86 GET /ui/invoices → 200 in 14ms
+2026-07-15 21:28:08 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 200 OK"
+2026-07-15 21:28:09 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoices failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:28:09 WARNING  vision/clients/invoice_core.py:47 invoice-core GET /api/v1/invoices/count failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices/count (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:28:09 INFO     vision/api/main.py:86 GET /ui/invoices → 200 in 3ms
+2026-07-15 21:28:09 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 200 OK"
+2026-07-15 21:28:09 INFO     vision/api/main.py:86 GET /ui/invoices → 302 in 1ms
+2026-07-15 21:28:09 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 302 Found"
+2026-07-15 21:28:09 INFO     vision/api/main.py:86 GET /ui/invoices → 401 in 1ms
+2026-07-15 21:28:09 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 401 Unauthorized"
+2026-07-15 21:28:09 INFO     vision/api/main.py:86 GET /ui/invoices → 401 in 1ms
+2026-07-15 21:28:09 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 401 Unauthorized"
+2026-07-15 21:28:09 WARNING  vision/ui/router.py:89 Auth szerviz logout nem érhető el: HTTPConnectionPool(host='localhost', port=8007): Max retries exceeded with url: /auth/logout (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8007): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:28:09 INFO     vision/api/main.py:86 GET /logout → 302 in 2ms
+2026-07-15 21:28:09 INFO     _client.py:1025 HTTP Request: GET http://testserver/logout "HTTP/1.1 302 Found"
+2026-07-15 21:28:09 WARNING  vision/clients/invoice_core.py:34 invoice-core GET /api/v1/invoices failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:28:09 WARNING  vision/clients/invoice_core.py:47 invoice-core GET /api/v1/invoices/count failed: HTTPConnectionPool(host='localhost', port=8004): Max retries exceeded with url: /api/v1/invoices/count (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8004): Failed to establish a new connection: [Errno 61] Connection refused"))
+2026-07-15 21:28:09 INFO     vision/api/main.py:86 GET /ui/invoices → 200 in 22ms
+2026-07-15 21:28:09 INFO     _client.py:1025 HTTP Request: GET http://testserver/ui/invoices "HTTP/1.1 200 OK"
+2026-07-15 22:16:56 INFO     vision/api/main.py:86 GET / → 200 in 17ms
+2026-07-15 22:16:58 INFO     vision/api/main.py:86 GET / → 200 in 3ms
+2026-07-15 22:17:00 INFO     vision/api/main.py:86 GET /ui/ → 200 in 610ms
+2026-07-15 22:17:00 INFO     vision/api/main.py:86 GET /static/custom.css → 304 in 3ms
+2026-07-15 22:17:03 INFO     vision/api/main.py:86 GET /ui/invoices → 200 in 190ms

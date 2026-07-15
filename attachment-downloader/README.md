@@ -157,8 +157,14 @@ Returns `204 No Content`.
 | `API_PORT` | `8000` | Port for the FastAPI server |
 | `GOOGLE_CREDENTIALS_FILE` | `credentials.json` | Path to OAuth2 Desktop credentials JSON |
 | `GOOGLE_TOKEN_FILE` | `token.json` | Path to generated token (auto-created on first auth) |
+| `AUTH_ENABLED` | `true` *(currently `false` in `.env`)* | JWT validation on/off |
+| `AUTH_SERVICE_URL` | `http://localhost:8007` | Central auth service base URL (JWKS) |
 
 Logs are written to stdout and `logs/attachment-downloader.log`.
+
+## Authentication (JWT)
+
+With `AUTH_ENABLED=true`, every endpoint except `GET /health` requires a valid JWT issued by the central **auth** service (:8007) after a Google login (this is separate from the Gmail OAuth credentials above, which are for reading the mailbox). The token arrives as an `Authorization: Bearer <token>` header or an `mp_access_token` HttpOnly cookie (invoice-file-filter forwards it automatically); validation is local against the JWKS public keys. Without a token the response is `401 Unauthorized`. Implementation: `src/attachment_downloader/auth.py` · spec: `../moneypenny/auth-service-spec.md`.
 
 ## Architecture
 
