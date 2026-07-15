@@ -18,9 +18,9 @@
   <dt class="col-5 text-muted">Irány</dt>
   <dd class="col-7">
     {% if tx.direction == 'CREDIT' %}
-      <span class="badge bg-success">CREDIT</span>
+      <span class="inv-status paid">CREDIT</span>
     {% else %}
-      <span class="badge bg-danger">DEBIT</span>
+      <span class="inv-status overdue">DEBIT</span>
     {% endif %}
   </dd>
 

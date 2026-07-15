@@ -78,9 +78,9 @@
       </td>
       <td>
         {%- if row.direction == 'CREDIT' -%}
-          <span class="badge text-bg-success">CREDIT</span>
+          <span class="inv-status paid">CREDIT</span>
         {%- elif row.direction == 'DEBIT' -%}
-          <span class="badge text-bg-danger">DEBIT</span>
+          <span class="inv-status overdue">DEBIT</span>
         {%- else -%}
           <span class="text-muted">—</span>
         {%- endif -%}

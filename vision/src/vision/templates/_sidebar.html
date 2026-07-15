@@ -2,17 +2,17 @@
   <ul class="nav flex-column gap-1">
     <li class="nav-item">
       <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">
-        <i class="bi bi-house"></i> Kezdőlap
+        <i class="fas fa-home"></i> Kezdőlap
       </a>
     </li>
     <li class="nav-item">
       <a class="nav-link {% if request.url.path == '/pitch' %}active{% endif %}" href="/pitch">
-        <i class="bi bi-megaphone"></i> Pitch
+        <i class="fas fa-bullhorn"></i> Pitch
       </a>
     </li>
     <li class="nav-item">
       <a class="nav-link {% if request.url.path == '/dashboard' %}active{% endif %}" href="/dashboard">
-        <i class="bi bi-graph-up-arrow"></i> Portfólió
+        <i class="fas fa-chart-line"></i> Portfólió
       </a>
     </li>
     <li class="nav-item mt-2">
@@ -20,7 +20,7 @@
     </li>
     <li class="nav-item">
       <a class="nav-link {% if request.url.path == '/ui/' %}active{% endif %}" href="/ui/">
-        <i class="bi bi-speedometer2"></i> Dashboard
+        <i class="fas fa-tachometer-alt"></i> Dashboard
       </a>
     </li>
     {% set szamlak_open = '/ui/invoices' in request.url.path
@@ -34,56 +34,56 @@
       <a class="nav-link {% if not szamlak_open %}collapsed{% endif %}" href="#szamlak-nav"
          data-bs-toggle="collapse" role="button"
          aria-expanded="{{ 'true' if szamlak_open else 'false' }}" aria-controls="szamlak-nav">
-        <i class="bi bi-file-earmark-text"></i> Számlák
-        <i class="bi bi-chevron-down nav-chevron ms-auto"></i>
+        <i class="fas fa-file-invoice"></i> Számlák
+        <i class="fas fa-chevron-down nav-chevron ms-auto"></i>
       </a>
       <ul id="szamlak-nav" class="nav-content collapse {% if szamlak_open %}show{% endif %}">
         <li>
           <a class="nav-link {% if '/ui/invoices' in request.url.path %}active{% endif %}" href="/ui/invoices">
-            <i class="bi bi-circle"></i> Számlák
+            <i class="fas fa-file-invoice-dollar"></i> Számlák
             <span id="invoice-count-badge" class="badge">{{ invoice_count or '' }}</span>
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/invoice-files' in request.url.path %}active{% endif %}" href="/ui/invoice-files">
-            <i class="bi bi-circle"></i> Szla Fájlok
+            <i class="fas fa-file-pdf"></i> Szla Fájlok
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/transactions' in request.url.path %}active{% endif %}" href="/ui/transactions">
-            <i class="bi bi-circle"></i> Bank
+            <i class="fas fa-university"></i> Bank
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/dividend' in request.url.path %}active{% endif %}" href="/ui/dividend">
-            <i class="bi bi-circle"></i> Osztalék
+            <i class="fas fa-coins"></i> Osztalék
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/adok' in request.url.path %}active{% endif %}" href="/ui/adok">
-            <i class="bi bi-circle"></i> Adók
+            <i class="fas fa-percent"></i> Adók
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/sync' in request.url.path %}active{% endif %}" href="/ui/sync">
-            <i class="bi bi-circle"></i> Sync
+            <i class="fas fa-sync-alt"></i> Sync
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/upload' in request.url.path %}active{% endif %}" href="/ui/upload">
-            <i class="bi bi-circle"></i> Feltöltés
+            <i class="fas fa-upload"></i> Feltöltés
           </a>
         </li>
       </ul>
     </li>
     <li class="nav-item">
       <a class="nav-link {% if '/ui/suppliers' in request.url.path %}active{% endif %}" href="/ui/suppliers">
-        <i class="bi bi-building"></i> Szállítók
+        <i class="fas fa-truck"></i> Szállítók
       </a>
     </li>
     <li class="nav-item">
       <a class="nav-link {% if '/ui/customers' in request.url.path %}active{% endif %}" href="/ui/customers">
-        <i class="bi bi-people"></i> Vevők
+        <i class="fas fa-users"></i> Vevők
       </a>
     </li>
     <li class="nav-item mt-3">
@@ -91,8 +91,8 @@
     </li>
     <li class="nav-item">
       <a class="nav-link" href="https://srcprofit2.graphtrek.co/" target="_blank">
-        <i class="bi bi-graph-up-arrow"></i> SrcProfit
-        <i class="bi bi-box-arrow-up-right ms-1" style="font-size:0.7rem"></i>
+        <i class="fas fa-chart-line"></i> SrcProfit
+        <i class="fas fa-external-link-alt ms-1" style="font-size:0.7rem"></i>
       </a>
     </li>
   </ul>

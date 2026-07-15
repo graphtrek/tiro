@@ -30,6 +30,12 @@
     --table-stripe-bg: #f8faff;
     --input-bg: #ffffff;
     --input-focus-ring: rgb(65 84 241 / 0.25);
+    --success-color: #21a66c;
+    --success-color-light: #dcf8ea;
+    --warning-color: #ec9f05;
+    --warning-color-light: #fff3d8;
+    --danger-color: #e74c63;
+    --danger-color-light: #ffe3e8;
 }
 [data-bs-theme="light"] {
     --bs-body-bg: #f5f7ff;
@@ -65,6 +71,12 @@
     --bs-secondary-bg: #0f203d;
     --bs-tertiary-bg: #0d203f;
     --bs-border-color: #274166;
+    --success-color: #3dd598;
+    --success-color-light: rgba(61, 213, 152, 0.2);
+    --warning-color: #f9b233;
+    --warning-color-light: rgba(249, 178, 51, 0.2);
+    --danger-color: #ff6b8f;
+    --danger-color-light: rgba(255, 107, 143, 0.2);
 }
 
 /* Typography — NiceAdmin fonts (loaded in base.html) */
@@ -400,4 +412,30 @@ table.dataTable td.dt-empty {
 table.dataTable tbody td.text-wrap {
     white-space: normal !important;
     overflow-wrap: anywhere;
+}
+
+/* Invoice status pills (NiceAdmin invoice-list "inv-status" pattern) */
+.inv-status {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.69rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 4px;
+}
+.inv-status.paid {
+    color: var(--success-color);
+    background: var(--success-color-light);
+}
+.inv-status.pending {
+    color: var(--warning-color);
+    background: var(--warning-color-light);
+}
+.inv-status.overdue {
+    color: var(--danger-color);
+    background: var(--danger-color-light);
+}
+.inv-status.draft {
+    color: var(--muted-color);
+    background: color-mix(in srgb, var(--muted-color), transparent 86%);
 }

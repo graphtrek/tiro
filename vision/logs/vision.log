@@ -6021,3 +6021,74 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-07-15 11:56:42 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
 2026-07-15 11:56:44 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 141ms
 2026-07-15 11:56:48 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 217ms
+2026-07-15 11:59:36 INFO     main.py:309 3 changes detected
+2026-07-15 11:59:58 INFO     main.py:309 3 changes detected
+2026-07-15 12:01:08 INFO     main.py:309 5 changes detected
+2026-07-15 12:01:32 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 244ms
+2026-07-15 12:01:32 INFO     vision/api/main.py:44 GET /static/custom.css → 304 in 1ms
+2026-07-15 12:01:34 INFO     main.py:309 459 changes detected
+2026-07-15 12:01:42 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 225ms
+2026-07-15 12:01:42 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
+2026-07-15 12:01:42 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 12:02:00 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 125ms
+2026-07-15 12:02:55 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 111ms
+2026-07-15 12:02:55 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
+2026-07-15 12:02:55 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 12:03:45 INFO     vision/api/main.py:44 GET / → 200 in 34ms
+2026-07-15 12:03:46 INFO     main.py:309 1 change detected
+2026-07-15 12:04:05 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 123ms
+2026-07-15 12:04:06 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 12:04:06 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 12:05:16 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 51ms
+2026-07-15 12:05:20 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 132ms
+2026-07-15 12:05:21 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 225ms
+2026-07-15 12:05:27 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 202ms
+2026-07-15 12:05:32 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 57ms
+2026-07-15 12:05:33 INFO     vision/api/main.py:44 GET /ui/adok → 200 in 62ms
+2026-07-15 12:05:44 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 56ms
+2026-07-15 12:05:47 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 35ms
+2026-07-15 12:05:47 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 4ms
+2026-07-15 12:06:49 INFO     main.py:309 3 changes detected
+2026-07-15 12:06:52 INFO     main.py:309 3 changes detected
+2026-07-15 12:07:10 INFO     main.py:309 1 change detected
+2026-07-15 12:07:47 INFO     main.py:309 3 changes detected
+2026-07-15 12:08:29 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 128ms
+2026-07-15 12:08:33 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 131ms
+2026-07-15 12:08:33 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
+2026-07-15 12:08:33 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 12:08:37 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 212ms
+2026-07-15 12:08:39 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 197ms
+2026-07-15 12:08:41 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 49ms
+2026-07-15 12:08:43 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 205ms
+2026-07-15 12:08:53 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 134ms
+2026-07-15 12:09:00 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 231ms
+2026-07-15 12:09:02 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 150ms
+2026-07-15 12:09:04 INFO     vision/api/main.py:44 GET /ui/invoices/35 → 200 in 126ms
+2026-07-15 12:09:29 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 166ms
+2026-07-15 12:09:29 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 4ms
+2026-07-15 12:09:29 INFO     main.py:309 1 change detected
+2026-07-15 12:10:11 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 143ms
+2026-07-15 12:10:16 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 238ms
+2026-07-15 12:10:25 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 213ms
+2026-07-15 12:10:30 INFO     main.py:309 3 changes detected
+2026-07-15 12:10:47 INFO     main.py:309 3 changes detected
+2026-07-15 12:11:15 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 134ms
+2026-07-15 12:11:46 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 238ms
+2026-07-15 12:11:46 INFO     main.py:309 1 change detected
+2026-07-15 12:12:13 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 250ms
+2026-07-15 12:12:14 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 193ms
+2026-07-15 12:12:20 INFO     vision/api/main.py:44 GET /ui/transactions/111 → 200 in 87ms
+2026-07-15 12:12:28 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 123ms
+2026-07-15 12:12:32 INFO     vision/api/main.py:44 GET /ui/customers → 200 in 65ms
+2026-07-15 12:12:33 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 104ms
+2026-07-15 12:12:38 INFO     vision/api/main.py:44 GET /ui/customers → 200 in 66ms
+2026-07-15 12:12:47 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 130ms
+2026-07-15 12:12:49 INFO     vision/api/main.py:44 GET /ui/customers → 200 in 73ms
+2026-07-15 12:12:51 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 130ms
+2026-07-15 12:13:01 INFO     vision/api/main.py:44 GET /ui/customers → 200 in 73ms
+2026-07-15 12:13:06 INFO     vision/api/main.py:44 GET /ui/customers/2 → 200 in 146ms
+2026-07-15 12:13:15 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 111ms
+2026-07-15 12:13:20 INFO     vision/api/main.py:44 GET /ui/suppliers/5 → 200 in 150ms
+2026-07-15 12:13:42 INFO     vision/api/main.py:44 GET /ui/customers → 200 in 69ms
+2026-07-15 12:13:46 INFO     vision/api/main.py:44 GET /ui/customers/1 → 200 in 78ms
+2026-07-15 12:13:56 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 108ms

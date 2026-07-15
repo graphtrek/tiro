@@ -21,14 +21,14 @@
 
 {% macro payment_badge(status) %}
   {% set cfg = {
-    "PAID":    ("bg-success", "Fizetve"),
-    "UNPAID":  ("bg-danger",  "Fizetetlen"),
-    "PARTIAL": ("bg-warning text-dark", "Részleges"),
+    "PAID":    ("paid",    "Fizetve"),
+    "UNPAID":  ("overdue", "Fizetetlen"),
+    "PARTIAL": ("pending", "Részleges"),
   } %}
   {% if status in cfg %}
-    <span class="badge {{ cfg[status][0] }}">{{ cfg[status][1] }}</span>
+    <span class="inv-status {{ cfg[status][0] }}">{{ cfg[status][1] }}</span>
   {% else %}
-    <span class="badge bg-secondary">{{ status }}</span>
+    <span class="inv-status draft">{{ status }}</span>
   {% endif %}
 {% endmacro %}
 
