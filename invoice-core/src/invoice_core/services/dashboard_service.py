@@ -74,8 +74,10 @@ class TopCustomerRow:
 @dataclass
 class MonthlyFinanceRow:
     month: str  # "YYYY-MM"
-    income: float  # OUTBOUND invoice totals
-    expense: float  # INBOUND invoice totals
+    income: float  # CREDIT bank-transaction totals
+    expense: float  # DEBIT bank-transaction totals
+    invoice_income: float  # OUTBOUND invoice totals
+    invoice_expense: float  # INBOUND invoice totals
 
 
 @dataclass
@@ -193,13 +195,24 @@ def get_recent_transactions(db: Session, limit: int = 5) -> list[RecentTransacti
 
 
 def get_monthly_finance(db: Session, months: int = 12) -> list[MonthlyFinanceRow]:
-    """Monthly invoice totals split by direction (OUTBOUND=income, INBOUND=expense).
+    """Monthly totals: bank transactions (CREDIT=income, DEBIT=expense) plus
+    invoice totals by direction (OUTBOUND=invoice_income, INBOUND=invoice_expense).
 
     Aggregated in Python so it works on both PostgreSQL and SQLite.
     """
     today = datetime.utcnow().date()
     start = (today.replace(day=1) - timedelta(days=(months - 1) * 31)).replace(day=1)
-    rows = (
+    start_dt = datetime(start.year, start.month, start.day)
+    bank_rows = (
+        db.query(
+            BankTransaction.transaction_date,
+            BankTransaction.direction,
+            BankTransaction.amount,
+        )
+        .filter(BankTransaction.transaction_date >= start_dt)
+        .all()
+    )
+    invoice_rows = (
         db.query(Invoice.invoice_date, Invoice.direction, Invoice.amount_total)
         .filter(Invoice.invoice_date.isnot(None), Invoice.invoice_date >= start)
         .all()
@@ -207,16 +220,28 @@ def get_monthly_finance(db: Session, months: int = 12) -> list[MonthlyFinanceRow
     buckets: dict[str, list[float]] = {}
     cursor = start
     while cursor <= today:
-        buckets[cursor.strftime("%Y-%m")] = [0.0, 0.0]
+        buckets[cursor.strftime("%Y-%m")] = [0.0, 0.0, 0.0, 0.0]
         cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
-    for invoice_date, direction, amount_total in rows:
+    for transaction_date, direction, amount in bank_rows:
+        bucket = buckets.get(transaction_date.strftime("%Y-%m"))
+        if bucket is None:
+            continue
+        idx = 0 if direction == "CREDIT" else 1
+        bucket[idx] += abs(amount or 0.0)
+    for invoice_date, direction, amount_total in invoice_rows:
         bucket = buckets.get(invoice_date.strftime("%Y-%m"))
         if bucket is None:
             continue
-        idx = 0 if _enum_str(direction) == _InvoiceDirection.OUTBOUND.value else 1
+        idx = 2 if _enum_str(direction) == _InvoiceDirection.OUTBOUND.value else 3
         bucket[idx] += amount_total or 0.0
     return [
-        MonthlyFinanceRow(month=month, income=vals[0], expense=vals[1])
+        MonthlyFinanceRow(
+            month=month,
+            income=vals[0],
+            expense=vals[1],
+            invoice_income=vals[2],
+            invoice_expense=vals[3],
+        )
         for month, vals in sorted(buckets.items())
     ][-months:]
 

@@ -308,7 +308,7 @@
         labels: slice.map(function (r) { return r.month; }),
         datasets: [
           {
-            label: 'Bevétel',
+            label: 'Bevétel (bank)',
             data: slice.map(function (r) { return r.income; }),
             borderColor: successColor,
             backgroundColor: successColor + '26',
@@ -318,11 +318,33 @@
             pointRadius: 2
           },
           {
-            label: 'Kiadás',
+            label: 'Kiadás (bank)',
             data: slice.map(function (r) { return r.expense; }),
             borderColor: dangerColor,
             backgroundColor: dangerColor + '26',
             fill: true,
+            tension: 0.4,
+            borderWidth: 2,
+            pointRadius: 2
+          },
+          {
+            label: 'Kimenő számlák',
+            data: slice.map(function (r) { return r.invoice_income || 0; }),
+            borderColor: successColor,
+            backgroundColor: 'transparent',
+            borderDash: [6, 4],
+            fill: false,
+            tension: 0.4,
+            borderWidth: 2,
+            pointRadius: 2
+          },
+          {
+            label: 'Bejövő számlák',
+            data: slice.map(function (r) { return r.invoice_expense || 0; }),
+            borderColor: dangerColor,
+            backgroundColor: 'transparent',
+            borderDash: [6, 4],
+            fill: false,
             tension: 0.4,
             borderWidth: 2,
             pointRadius: 2
