@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}Timesheet — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item">Controlling</li>
+    <li class="breadcrumb-item active">Timesheet</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-stopwatch me-2"></i>Munkaidő rögzítés</h1>
+  <span class="badge text-bg-warning">Mockup — hamarosan</span>
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newRecordModal">
+      <i class="bi bi-plus-lg me-1"></i>Új
+    </button>
+    <div class="dropdown">
+      <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="bi bi-download me-1"></i>Export
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-excel me-2"></i>Excel</a></li>
+        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-pdf me-2"></i>PDF</a></li>
+        <li><a class="dropdown-item" href="#"><i class="bi bi-printer me-2"></i>Nyomtatás</a></li>
+      </ul>
+    </div>
+    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#lockModal">
+      <i class="bi bi-lock me-1"></i>Zárolás
+    </button>
+  </div>
+</div>
+
+<p class="text-muted">Saját timesheet rekordok — a zárolt hetek rekordjai nem módosíthatók.</p>
+
+<div class="card">
+  <div class="card-body pt-3">
+    <table id="timesheet-table" class="table table-hover table-sm">
+      <thead>
+        <tr>
+          <th>Dátum</th>
+          <th>Nap</th>
+          <th>Ügyfél</th>
+          <th>Projekt</th>
+          <th>Projekt hét</th>
+          <th>Tevékenység típus</th>
+          <th>Tevékenység</th>
+          <th>Résztvevők</th>
+          <th class="text-end">Óra</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr title="Zárolt hét — nem módosítható">
+          <td>2026-07-06 <i class="bi bi-lock-fill text-muted"></i></td><td>hétfő</td><td>IFUA</td><td>IFUA - 001 - FVM</td><td>W7</td>
+          <td>Ügyfél megbeszélés</td><td>Heti szponzori státusz</td><td>Lebovits Gábor, Kozma Zoltán</td><td class="text-end">1</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" disabled><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl" disabled><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr title="Zárolt hét — nem módosítható">
+          <td>2026-07-07 <i class="bi bi-lock-fill text-muted"></i></td><td>kedd</td><td>IFUA</td><td>IFUA - 001 - FVM</td><td>W7</td>
+          <td>Szakértői munka</td><td>Adatplatform koncepció kidolgozása</td><td>Kozma Zoltán</td><td class="text-end">6</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" disabled><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl" disabled><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr title="Zárolt hét — nem módosítható">
+          <td>2026-07-08 <i class="bi bi-lock-fill text-muted"></i></td><td>szerda</td><td>Graphtrek</td><td>Graphtrek - 001 - Money Penny</td><td>W5</td>
+          <td>Belsős megbeszélés</td><td>Adatmodell egyeztetés</td><td>Tatai Imre, Kozma Zoltán</td><td class="text-end">1,5</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" disabled><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl" disabled><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td>2026-07-13</td><td>hétfő</td><td>IFUA</td><td>IFUA - 001 - FVM</td><td>W8</td>
+          <td>Ügyfél megbeszélés</td><td>Ügyviteli folyamatok workshop II.</td><td>Erős Péter, Götz-Szekeres Adri</td><td class="text-end">2</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newRecordModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td>2026-07-13</td><td>hétfő</td><td>IFUA</td><td>IFUA - 001 - FVM</td><td>W8</td>
+          <td>Belsős megbeszélés</td><td>IFUA team státusz</td><td>IFUA team</td><td class="text-end">0,5</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newRecordModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td>2026-07-13</td><td>hétfő</td><td>Graphtrek</td><td>Graphtrek - 001 - Money Penny</td><td>W6</td>
+          <td>Szakértői munka</td><td>Specifikáció írása</td><td>Tatai Imre</td><td class="text-end">3</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newRecordModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td>2026-07-14</td><td>kedd</td><td>IFUA</td><td>IFUA - 002 - MUIR</td><td>W3</td>
+          <td>Ügyfél megbeszélés</td><td>Scope egyeztetés</td><td>Tatai Imre + 2 fő MUIR</td><td class="text-end">1,5</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newRecordModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td>2026-07-14</td><td>kedd</td><td>IFUA</td><td>IFUA - 001 - FVM</td><td>W8</td>
+          <td>Szakértői munka</td><td>Migrációs forgatókönyvek kidolgozása</td><td>Kozma Zoltán</td><td class="text-end">4</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newRecordModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td>2026-07-14</td><td>kedd</td><td>Graphtrek</td><td>Graphtrek - 001 - Money Penny</td><td>W6</td>
+          <td>Belsős megbeszélés</td><td>Mockup review</td><td>Tatai Imre, Kozma Zoltán</td><td class="text-end">1</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newRecordModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="d-flex justify-content-between text-muted small mt-2">
+      <span>Összesítő (szűrt): <strong id="ts-sum">0</strong> óra</span>
+      <span><i class="bi bi-lock-fill"></i> = zárolt hét, nem módosítható</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable("#timesheet-table")) {
+      $("#timesheet-table").DataTable().destroy();
+    }
+    function hours(s) { return parseFloat(String(s).replace(",", ".")) || 0; }
+    new DataTable("#timesheet-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50],
+      order: [[0, "asc"]],
+      columnDefs: [
+        { targets: 8, className: "text-end" },
+        { targets: -1, searchable: false, orderable: false },
+      ],
+      drawCallback: function() {
+        var sum = this.api().column(8, { search: "applied" }).data().toArray()
+          .reduce(function(a, b) { return a + hours(b); }, 0);
+        var el = document.getElementById("ts-sum");
+        if (el) el.textContent = sum.toLocaleString("hu-HU");
+      },
+    });
+  })();
+</script>
+
+<!-- Új rekord modal (mock) -->
+<div class="modal fade" id="newRecordModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új timesheet rekord</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+      </div>
+      <div class="modal-body">
+        <form onsubmit="return false">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Dátum <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" value="2026-07-14" required>
+              <div class="form-text">A hét napja automatikusan származik: kedd</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Ügyfél <span class="text-danger">*</span></label>
+              <input class="form-control" list="ts-clients" placeholder="Kezdjen gépelni…" value="IFUA" required>
+              <datalist id="ts-clients"><option value="IFUA"><option value="Graphtrek"></datalist>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Projekt <span class="text-danger">*</span></label>
+              <input class="form-control" list="ts-projects" placeholder="Csak jogosult projektek" value="IFUA - 001 - FVM" required>
+              <datalist id="ts-projects">
+                <option value="IFUA - 001 - FVM">
+                <option value="IFUA - 002 - MUIR">
+                <option value="Graphtrek - 001 - Money Penny">
+              </datalist>
+              <div class="form-text">Csak az Ön számára engedélyezett projektek választhatók</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Project gazda</label>
+              <input class="form-control" value="Kozma Zoltán" disabled>
+              <div class="form-text">A projektből automatikusan adódik</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Projekt hét</label>
+              <input class="form-control" value="W8" disabled>
+              <div class="form-text">Automatikusan számolt (W1-től)</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tevékenység típus <span class="text-danger">*</span></label>
+              <select class="form-select" required>
+                <option>Ügyfél megbeszélés</option>
+                <option>Belsős megbeszélés</option>
+                <option>Szakértői munka</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Időráfordítás (óra) <span class="text-danger">*</span></label>
+              <select class="form-select" required>
+                <option>0,5</option><option>1</option><option>1,5</option><option selected>2</option>
+                <option>2,5</option><option>3</option><option>3,5</option><option>4</option>
+                <option>4,5</option><option>5</option><option>5,5</option><option>6</option>
+                <option>6,5</option><option>7</option><option>7,5</option><option>8</option>
+              </select>
+              <div class="form-text">0,5 órás lépésekben</div>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Résztvevők</label>
+              <input class="form-control" placeholder="pl. Kozma Zoltán, Erős Péter">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Tevékenység (szabad szöveges leírás)</label>
+              <textarea class="form-control" rows="2" placeholder="A konkrét rekord leírása…"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><i class="bi bi-save me-1"></i>Mentés</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Zárolás modal (mock) -->
+<div class="modal fade" id="lockModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-lock me-2"></i>Timesheet zárolás</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted">A kiválasztott hét zárolása után arra az időszakra rekord nem rögzíthető és nem módosítható. Csak projektgazda / admin művelet.</p>
+        <label class="form-label">Zárolandó hét</label>
+        <select class="form-select">
+          <option>2026. 28. naptári hét (júl 6 – júl 12)</option>
+          <option>2026. 27. naptári hét (jún 29 – júl 5) — zárolva</option>
+        </select>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><i class="bi bi-lock me-1"></i>Zárolás</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

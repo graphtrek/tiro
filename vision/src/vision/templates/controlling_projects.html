@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Projektek — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item">Controlling</li>
+    <li class="breadcrumb-item active">Projektek</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-kanban me-2"></i>Projektek</h1>
+  <span class="badge text-bg-warning">Mockup — hamarosan</span>
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+      <i class="bi bi-plus-lg me-1"></i>Új
+    </button>
+    <div class="dropdown">
+      <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="bi bi-download me-1"></i>Export
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-excel me-2"></i>Excel</a></li>
+        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-pdf me-2"></i>PDF</a></li>
+        <li><a class="dropdown-item" href="#"><i class="bi bi-printer me-2"></i>Nyomtatás</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<p class="text-muted">Projektek listája és kezelése — lezárt projektre nem rögzíthető új idő.</p>
+
+<div class="card">
+  <div class="card-body pt-3">
+    <table id="projects-table" class="table table-hover table-sm">
+      <thead>
+        <tr>
+          <th>Project kód</th>
+          <th>Ügyfél</th>
+          <th>Project gazda</th>
+          <th>Státusz</th>
+          <th class="text-end">Összesített ráfordítás (óra)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>IFUA - 001 - FVM</strong></td>
+          <td>IFUA</td><td>Kozma Zoltán</td><td><span class="badge bg-success">aktív</span></td><td class="text-end">60,5</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newProjectModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>IFUA - 002 - MUIR</strong></td>
+          <td>IFUA</td><td>Tatai Imre</td><td><span class="badge bg-success">aktív</span></td><td class="text-end">18</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newProjectModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td><strong>IFUA - 003 - ITKONSZ</strong></td>
+          <td>IFUA</td><td>Kozma Zoltán</td><td><span class="badge bg-success">aktív</span></td><td class="text-end">9</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newProjectModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr class="text-muted">
+          <td><strong>Graphtrek - 001 - Money Penny</strong></td>
+          <td>Graphtrek</td><td>Tatai Imre</td><td><span class="badge bg-secondary">lezárt</span></td><td class="text-end">12</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newProjectModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  (function() {
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable("#projects-table")) {
+      $("#projects-table").DataTable().destroy();
+    }
+    new DataTable("#projects-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50],
+      order: [[0, "asc"]],
+      columnDefs: [
+        { targets: 4, className: "text-end" },
+        { targets: -1, searchable: false, orderable: false },
+      ],
+    });
+  })();
+</script>
+
+<!-- Új projekt modal (mock) -->
+<div class="modal fade" id="newProjectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új projekt</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+      </div>
+      <div class="modal-body">
+        <form onsubmit="return false">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Ügyfél <span class="text-danger">*</span></label>
+              <input class="form-control" list="pr-clients" placeholder="Kezdjen gépelni…" value="IFUA" required>
+              <datalist id="pr-clients"><option value="IFUA"><option value="Graphtrek"></datalist>
+              <div class="form-text">Ez adja a projektkód előtagját (Ügyfelek törzsadat)</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Sorszám</label>
+              <input class="form-control" value="004" disabled>
+              <div class="form-text">Automatikusan javasolt, ügyfelenként növekvő</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Azonosító / rövid név <span class="text-danger">*</span></label>
+              <input class="form-control" placeholder="pl. FVM" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Project kód</label>
+              <input class="form-control" value="IFUA - 004 - …" disabled>
+              <div class="form-text">Automatikusan összeállítva: Ügyfél - sorszám - azonosító</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Project gazda <span class="text-danger">*</span></label>
+              <select class="form-select" required>
+                <option>Kozma Zoltán</option>
+                <option>Tatai Imre</option>
+              </select>
+              <div class="form-text">A jövőben a költséghely-felelős</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Státusz</label>
+              <select class="form-select"><option>aktív</option><option>lezárt</option></select>
+              <div class="form-text">Lezárt projektre nem rögzíthető új idő</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Rögzítésre jogosultak (permitted_users)</label>
+              <div class="d-flex flex-wrap gap-3">
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="pu1" checked><label class="form-check-label" for="pu1">Kozma Zoltán</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="pu2" checked><label class="form-check-label" for="pu2">Tatai Imre</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="pu3"><label class="form-check-label" for="pu3">Szász Judit</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="pu4"><label class="form-check-label" for="pu4">Fülöp Gergely</label></div>
+              </div>
+              <div class="form-text">Csak a kijelölt felhasználók adhatnak timesheet rekordot a projekthez</div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><i class="bi bi-save me-1"></i>Mentés</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

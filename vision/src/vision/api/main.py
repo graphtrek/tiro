@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from vision.config import configure_logging, get_settings
+from vision.ui.controlling_router import router as controlling_ui_router
 from vision.ui.invoice_router import router as invoice_ui_router
 from vision.ui.router import router as ui_router
 from vision.ui.uploader_router import router as uploader_ui_router
@@ -31,6 +32,7 @@ app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 app.include_router(ui_router)
 app.include_router(invoice_ui_router)
 app.include_router(uploader_ui_router)
+app.include_router(controlling_ui_router)
 
 
 @app.middleware("http")

@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Tevékenység típusok — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item">Controlling</li>
+    <li class="breadcrumb-item active">Tevékenység típusok</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center flex-wrap gap-2 mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-tags me-2"></i>Tevékenység típusok</h1>
+  <span class="badge text-bg-warning">Mockup — hamarosan</span>
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newTypeModal">
+      <i class="bi bi-plus-lg me-1"></i>Új
+    </button>
+    <div class="dropdown">
+      <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="bi bi-download me-1"></i>Export
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-excel me-2"></i>Excel</a></li>
+        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-pdf me-2"></i>PDF</a></li>
+        <li><a class="dropdown-item" href="#"><i class="bi bi-printer me-2"></i>Nyomtatás</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<p class="text-muted">A timesheet rögzítésnél választható típusok karbantartása — törlés helyett inaktiválás.</p>
+
+<div class="card">
+  <div class="card-body pt-3">
+    <table id="activity-types-table" class="table table-hover table-sm">
+      <thead>
+        <tr>
+          <th>Megnevezés</th>
+          <th>Státusz</th>
+          <th class="text-end">Használat (rekordok száma)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Ügyfél megbeszélés</td><td><span class="badge bg-success">aktív</span></td><td class="text-end">38</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newTypeModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td>Belsős megbeszélés</td><td><span class="badge bg-success">aktív</span></td><td class="text-end">24</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newTypeModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr>
+          <td>Szakértői munka</td><td><span class="badge bg-success">aktív</span></td><td class="text-end">41</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newTypeModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+        <tr class="text-muted">
+          <td>Utazás</td><td><span class="badge bg-secondary">inaktív</span></td><td class="text-end">3</td>
+          <td class="text-end text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newTypeModal"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  (function() {
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable("#activity-types-table")) {
+      $("#activity-types-table").DataTable().destroy();
+    }
+    new DataTable("#activity-types-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50],
+      order: [[0, "asc"]],
+      columnDefs: [
+        { targets: 2, className: "text-end" },
+        { targets: -1, searchable: false, orderable: false },
+      ],
+    });
+  })();
+</script>
+
+<!-- Új tevékenység típus modal (mock) -->
+<div class="modal fade" id="newTypeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új tevékenység típus</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+      </div>
+      <div class="modal-body">
+        <form onsubmit="return false">
+          <div class="mb-3">
+            <label class="form-label">Megnevezés <span class="text-danger">*</span></label>
+            <input class="form-control" placeholder="pl. Oktatás" required>
+            <div class="form-text">Egyedinek kell lennie</div>
+          </div>
+          <div>
+            <label class="form-label">Státusz</label>
+            <select class="form-select"><option>aktív</option><option>inaktív</option></select>
+            <div class="form-text">Inaktív típus új rekordhoz nem választható; a meglévő rekordok érintetlenek</div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><i class="bi bi-save me-1"></i>Mentés</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
