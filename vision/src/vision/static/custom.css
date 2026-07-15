@@ -20,6 +20,16 @@
     --sidebar-shadow: 18px 0 38px -28px rgb(1 41 112 / 0.36);
     --card-bg: #ffffff;
     --card-shadow: 0 8px 20px -14px rgb(1 41 112 / 0.18), 0 4px 10px -8px rgb(65 84 241 / 0.12);
+    --surface-color: #ffffff;
+    --background-color: #f5f7ff;
+    --border-color: #dbe3ff;
+    --border-color-light: #ebefff;
+    --border-color-dark: #c7d3ff;
+    --table-header-bg: #eff3ff;
+    --table-hover-bg: #e7eeff;
+    --table-stripe-bg: #f8faff;
+    --input-bg: #ffffff;
+    --input-focus-ring: rgb(65 84 241 / 0.25);
 }
 [data-bs-theme="light"] {
     --bs-body-bg: #f5f7ff;
@@ -40,6 +50,16 @@
     --sidebar-shadow: 22px 0 46px -28px rgba(2, 8, 28, 0.84);
     --card-bg: #102445;
     --card-shadow: 0 12px 28px -20px rgb(2 8 28 / 0.48), 0 6px 14px -10px rgb(7 17 45 / 0.4);
+    --surface-color: #0f203d;
+    --background-color: #081427;
+    --border-color: #274166;
+    --border-color-light: #203857;
+    --border-color-dark: #35547f;
+    --table-header-bg: #0d203f;
+    --table-hover-bg: #12305a;
+    --table-stripe-bg: #112a50;
+    --input-bg: #0d1f3e;
+    --input-focus-ring: rgb(79 142 252 / 0.3);
     --bs-body-bg: #081427;
     --bs-body-color: #bfd2ee;
     --bs-secondary-bg: #0f203d;
@@ -230,6 +250,133 @@ main {
 /* Compact table font */
 .table-sm td, .table-sm th {
     font-size: 0.875rem;
+}
+
+/* ==========================================================================
+   Tables + DataTables — NiceAdmin style
+   (NiceAdmin's simple-datatables overrides ported to DataTables 2 / BS5)
+   ========================================================================== */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--default-color);
+    --bs-table-border-color: var(--border-color-light);
+    --bs-table-striped-bg: var(--table-stripe-bg);
+    --bs-table-striped-color: var(--default-color);
+    --bs-table-hover-bg: var(--table-hover-bg);
+    --bs-table-hover-color: var(--default-color);
+}
+.table > thead > tr > th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted-color);
+    background-color: var(--table-header-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+.table > tbody > tr > td {
+    vertical-align: middle;
+}
+/* Neutralize Bootstrap thead variants so every table gets the NiceAdmin
+   header colors in both themes */
+.table > thead.table-light,
+.table > thead.table-dark {
+    --bs-table-bg: var(--table-header-bg);
+    --bs-table-color: var(--muted-color);
+    --bs-table-border-color: var(--border-color);
+    color-scheme: normal;
+}
+table.dataTable thead > tr > th {
+    white-space: nowrap;
+}
+
+/* Sortable header hover: tint instead of the default outline */
+table.dataTable thead > tr > th.dt-orderable-asc:hover,
+table.dataTable thead > tr > th.dt-orderable-desc:hover {
+    outline: none;
+    background-color: var(--table-hover-bg);
+}
+
+/* Active sort arrows in accent color */
+table.dataTable thead > tr > th.dt-ordering-asc span.dt-column-order::before,
+table.dataTable thead > tr > th.dt-ordering-desc span.dt-column-order::after {
+    opacity: 1;
+    color: var(--accent-color);
+}
+
+/* Search input + page-length select */
+div.dt-container div.dt-search input,
+div.dt-container div.dt-length select {
+    font-size: 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background-color: var(--input-bg);
+    color: var(--default-color);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+div.dt-container div.dt-search input:focus,
+div.dt-container div.dt-length select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+div.dt-container div.dt-search label,
+div.dt-container div.dt-length label {
+    font-size: 0.875rem;
+    color: var(--muted-color);
+}
+
+/* "Showing x to y of z" info */
+div.dt-container div.dt-info {
+    font-size: 0.8125rem;
+    color: var(--muted-color);
+}
+
+/* Pagination: detached square buttons, accent for the active page */
+div.dt-container div.dt-paging .pagination {
+    gap: 0.25rem;
+}
+div.dt-container div.dt-paging .pagination .page-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    margin: 0;
+    padding: 0 0.5rem;
+    font-size: 0.8125rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background-color: var(--surface-color);
+    color: var(--default-color);
+    transition: background-color 150ms ease, border-color 150ms ease,
+        color 150ms ease;
+}
+div.dt-container div.dt-paging .pagination .page-link:hover {
+    background-color: var(--background-color);
+    border-color: var(--border-color-dark);
+    color: var(--accent-color);
+}
+div.dt-container div.dt-paging .pagination .page-link:focus {
+    box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+div.dt-container div.dt-paging .pagination .page-item.active .page-link {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
+}
+div.dt-container div.dt-paging .pagination .page-item.disabled .page-link {
+    opacity: 0.5;
+    background-color: var(--surface-color);
+    border-color: var(--border-color);
+    color: var(--muted-color);
+}
+
+/* Empty table message */
+table.dataTable td.dt-empty {
+    padding: 2.75rem;
+    color: var(--muted-color);
+    text-align: center;
 }
 
 /* HTMX loading indicator */

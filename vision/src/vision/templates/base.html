@@ -31,12 +31,17 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/static/custom.css">
 
-  <!-- jQuery + DataTables loaded in <head> so inline table-init scripts
-       inside content blocks have them available on direct page loads too
-       (not only on htmx-boosted navigation). -->
+  <!-- Libraries loaded in <head> so inline scripts inside content blocks have
+       them available on direct page loads too, and — critically — so they are
+       NOT re-executed on every hx-boost body swap. Re-running Bootstrap loads a
+       second copy whose duplicate data-api handlers double-toggle collapses
+       (sidebar dropdown could not be closed after navigating to a submenu). -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.datatables.net/2.0.8/js/dataTables.min.js"></script>
   <script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
 </head>
 <body hx-boost="true">
 
@@ -49,13 +54,6 @@
       {% block content %}{% endblock %}
     </main>
   </div>
-
-  <!-- Bootstrap JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
 
   {% block scripts %}{% endblock %}
 
@@ -79,14 +77,21 @@
     (function () {
       var invModal = document.getElementById('invoiceDetailModal');
 
-      document.addEventListener('click', function (e) {
-        var el = e.target.closest('[data-invoice-modal]');
-        if (!el) return;
-        e.preventDefault();
-        invModal._invoiceId = el.getAttribute('data-invoice-modal');
-        invModal._invoiceNum = el.textContent.trim();
-        bootstrap.Modal.getOrCreateInstance(invModal).show();
-      });
+      // This script re-runs on every hx-boost body swap; the document-level
+      // listener must be registered only once and must resolve the current
+      // modal element at click time (the captured one gets detached on swap).
+      if (!window._invoiceModalClickBound) {
+        window._invoiceModalClickBound = true;
+        document.addEventListener('click', function (e) {
+          var el = e.target.closest('[data-invoice-modal]');
+          if (!el) return;
+          e.preventDefault();
+          var modal = document.getElementById('invoiceDetailModal');
+          modal._invoiceId = el.getAttribute('data-invoice-modal');
+          modal._invoiceNum = el.textContent.trim();
+          bootstrap.Modal.getOrCreateInstance(modal).show();
+        });
+      }
 
       invModal.addEventListener('shown.bs.modal', function () {
         var id = invModal._invoiceId;

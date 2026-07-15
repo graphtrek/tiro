@@ -5881,3 +5881,143 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-07-15 11:24:34 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
 2026-07-15 11:24:34 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 1ms
 2026-07-15 11:24:58 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 211ms
+2026-07-15 11:26:29 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 50ms
+2026-07-15 11:30:15 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 192ms
+2026-07-15 11:30:15 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 11:30:16 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 11:30:53 INFO     main.py:309 3 changes detected
+2026-07-15 11:31:01 INFO     main.py:309 3 changes detected
+2026-07-15 11:31:21 INFO     vision/api/main.py:44 GET / → 200 in 32ms
+2026-07-15 11:31:21 INFO     main.py:309 3 changes detected
+2026-07-15 11:31:27 INFO     vision/api/main.py:44 GET /pitch → 200 in 1ms
+2026-07-15 11:31:30 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 139ms
+2026-07-15 11:31:30 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
+2026-07-15 11:32:05 WARNING  vision/clients/srcprofit.py:33 SrcProfit /api/summary unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 31, in get_summary
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-07-15 11:32:05 WARNING  vision/clients/srcprofit.py:46 SrcProfit /api/portfolio unavailable
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1116, in json
+    return complexjson.loads(self.text, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/Imre/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/src/vision/clients/srcprofit.py", line 44, in get_portfolio
+    return resp.json()
+           ^^^^^^^^^^^
+  File "/Users/Imre/PythonProjects/python-for-ai/vision/.venv/lib/python3.12/site-packages/requests/models.py", line 1120, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
+2026-07-15 11:32:05 INFO     vision/api/main.py:44 GET /dashboard → 200 in 724ms
+2026-07-15 11:32:16 INFO     vision/api/main.py:44 GET /ui/ → 200 in 156ms
+2026-07-15 11:32:24 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 135ms
+2026-07-15 11:32:25 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 238ms
+2026-07-15 11:32:30 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 221ms
+2026-07-15 11:32:30 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
+2026-07-15 11:32:30 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 11:32:44 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 131ms
+2026-07-15 11:32:45 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 67ms
+2026-07-15 11:32:47 INFO     vision/api/main.py:44 GET /ui/adok → 200 in 68ms
+2026-07-15 11:32:52 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 54ms
+2026-07-15 11:32:52 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 5ms
+2026-07-15 11:32:54 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 149ms
+2026-07-15 11:32:59 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 131ms
+2026-07-15 11:32:59 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 11:32:59 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 11:32:59 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 119ms
+2026-07-15 11:32:59 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 11:32:59 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 11:32:59 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 121ms
+2026-07-15 11:32:59 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 11:33:00 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 11:33:00 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 118ms
+2026-07-15 11:33:00 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 11:33:00 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 11:33:00 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 114ms
+2026-07-15 11:33:00 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 11:33:21 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 366ms
+2026-07-15 11:33:21 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 2ms
+2026-07-15 11:33:21 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 4ms
+2026-07-15 11:33:29 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 237ms
+2026-07-15 11:33:34 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 182ms
+2026-07-15 11:33:36 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 63ms
+2026-07-15 11:46:19 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 54ms
+2026-07-15 11:46:19 INFO     vision/api/main.py:44 GET /static/custom.css → 304 in 0ms
+2026-07-15 11:46:21 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 60ms
+2026-07-15 11:46:24 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 138ms
+2026-07-15 11:46:36 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 224ms
+2026-07-15 11:46:38 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 237ms
+2026-07-15 11:46:40 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 60ms
+2026-07-15 11:46:41 INFO     vision/api/main.py:44 GET /ui/adok → 200 in 82ms
+2026-07-15 11:46:43 INFO     vision/api/main.py:44 GET /ui/sync → 200 in 72ms
+2026-07-15 11:46:44 INFO     vision/api/main.py:44 GET /ui/upload → 200 in 47ms
+2026-07-15 11:46:44 INFO     vision/api/main.py:44 GET /ui/upload/files → 200 in 5ms
+2026-07-15 11:46:47 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 132ms
+2026-07-15 11:46:48 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 226ms
+2026-07-15 11:46:49 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 122ms
+2026-07-15 11:47:28 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 262ms
+2026-07-15 11:47:41 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 233ms
+2026-07-15 11:47:42 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 188ms
+2026-07-15 11:48:03 INFO     vision/api/main.py:44 GET /ui/dividend → 200 in 58ms
+2026-07-15 11:48:12 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 120ms
+2026-07-15 11:50:15 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 131ms
+2026-07-15 11:50:15 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 11:50:15 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 11:50:23 INFO     main.py:309 15 changes detected
+2026-07-15 11:50:33 INFO     main.py:309 3 changes detected
+2026-07-15 11:51:06 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 162ms
+2026-07-15 11:51:06 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 206ms
+2026-07-15 11:51:06 INFO     vision/api/main.py:44 GET /ui/transactions → 200 in 182ms
+2026-07-15 11:51:06 INFO     vision/api/main.py:44 GET /ui/suppliers → 200 in 129ms
+2026-07-15 11:51:06 INFO     vision/api/main.py:44 GET /ui/customers → 200 in 104ms
+2026-07-15 11:51:06 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
+2026-07-15 11:51:24 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 171ms
+2026-07-15 11:51:24 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 11:51:25 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 1ms
+2026-07-15 11:51:45 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 255ms
+2026-07-15 11:51:57 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 205ms
+2026-07-15 11:51:57 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 11:51:58 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 11:52:06 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 215ms
+2026-07-15 11:52:09 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 137ms
+2026-07-15 11:54:50 INFO     main.py:309 3 changes detected
+2026-07-15 11:55:02 INFO     main.py:309 3 changes detected
+2026-07-15 11:55:11 INFO     main.py:309 3 changes detected
+2026-07-15 11:55:21 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 137ms
+2026-07-15 11:56:41 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 126ms
+2026-07-15 11:56:41 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 0ms
+2026-07-15 11:56:42 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 0ms
+2026-07-15 11:56:44 INFO     vision/api/main.py:44 GET /ui/invoices → 200 in 141ms
+2026-07-15 11:56:48 INFO     vision/api/main.py:44 GET /ui/invoice-files → 200 in 217ms
