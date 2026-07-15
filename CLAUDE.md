@@ -203,8 +203,8 @@ uv run pytest tests/ -v
 ```
 
 ### Architecture
-- `src/vision/` — `api/main.py` (FastAPI), `ui/router.py` (vision-only pages: `/`, `/pitch`, `/dashboard`), `ui/invoice_router.py` (all `/ui/*` routes — mirrors invoice-core's former UI), `ui/utils.py` (`dict_to_ns()` — converts API JSON dicts to `SimpleNamespace` with datetime parsing), `clients/invoice_core.py` (full REST client for invoice-core), `clients/srcprofit.py` (IBKR aggregator), `services/dashboard_service.py`, `templates/` (Jinja2 — Bootstrap Yeti + HTMX + DataTables), `static/`.
-- **Web UI pages** (all `/ui/*`): Dashboard · Számlák · Szla Fájlok · Szállítók · Vevők · Bank · Osztalék · Adók · Sync. Plus vision-specific pages: `/dashboard` (Chart.js portfolio) · `/pitch`.
+- `src/vision/` — `api/main.py` (FastAPI), `ui/router.py` (vision-only home page `/` — the pitch page; `/pitch` redirects to `/`), `ui/invoice_router.py` (all `/ui/*` routes — mirrors invoice-core's former UI), `ui/utils.py` (`dict_to_ns()` — converts API JSON dicts to `SimpleNamespace` with datetime parsing), `clients/invoice_core.py` (full REST client for invoice-core), `clients/srcprofit.py` (IBKR aggregator), `templates/` (Jinja2 — Bootstrap Yeti + HTMX + DataTables), `static/`.
+- **Web UI pages** (all `/ui/*`): Dashboard · Számlák · Szla Fájlok · Szállítók · Vevők · Bank · Osztalék · Adók · Sync. Plus the vision-specific home page `/` (pitch).
 - PDF files are served by invoice-core at `/api/v1/invoice-files/{id}/pdf`; vision redirects to that URL.
 
 ### Environment

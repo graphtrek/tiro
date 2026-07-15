@@ -1,18 +1,10 @@
 <nav id="sidebar" class="d-flex flex-column py-3 px-2">
   <ul class="nav flex-column gap-1">
     <li class="nav-item">
-      <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/">
+      {# the home page (pitch.html) is standalone with its own <head> styles — a
+         boosted body swap would drop them, so force a full navigation #}
+      <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/" hx-boost="false">
         <i class="fas fa-home"></i> Kezdőlap
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if request.url.path == '/pitch' %}active{% endif %}" href="/pitch">
-        <i class="fas fa-bullhorn"></i> Pitch
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if request.url.path == '/dashboard' %}active{% endif %}" href="/dashboard">
-        <i class="fas fa-chart-line"></i> Portfólió
       </a>
     </li>
     <li class="nav-item mt-2">
