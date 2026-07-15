@@ -138,6 +138,8 @@ def dashboard(db: Session = Depends(get_db)):
         "recent_transactions": [dataclasses.asdict(r) for r in dashboard_service.get_recent_transactions(db)],
         "last_sync": dataclasses.asdict(last_sync) if last_sync else None,
         "top_suppliers": [dataclasses.asdict(r) for r in dashboard_service.get_top_suppliers(db)],
+        "top_customers": [dataclasses.asdict(r) for r in dashboard_service.get_top_customers(db)],
+        "monthly_finance": [dataclasses.asdict(r) for r in dashboard_service.get_monthly_finance(db)],
     }
 
 

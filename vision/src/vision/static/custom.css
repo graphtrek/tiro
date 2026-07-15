@@ -36,6 +36,8 @@
     --warning-color-light: #fff3d8;
     --danger-color: #e74c63;
     --danger-color-light: #ffe3e8;
+    --info-color: #2f80ed;
+    --info-color-light: #e4efff;
 }
 [data-bs-theme="light"] {
     --bs-body-bg: #f5f7ff;
@@ -77,6 +79,8 @@
     --warning-color-light: rgba(249, 178, 51, 0.2);
     --danger-color: #ff6b8f;
     --danger-color-light: rgba(255, 107, 143, 0.2);
+    --info-color: #67b7ff;
+    --info-color-light: rgba(103, 183, 255, 0.2);
 }
 
 /* Typography — NiceAdmin fonts (loaded in base.html) */
@@ -489,6 +493,231 @@ table.dataTable tbody td.text-wrap {
     font-weight: 700;
     color: var(--heading-color);
     line-height: 1.2;
+}
+
+/* ==========================================================================
+   Finance dashboard (NiceAdmin dashboard-finance widgets)
+   ========================================================================== */
+
+/* Stats grid */
+.dashboard-grid {
+    display: grid;
+    gap: 1.25rem;
+    margin-bottom: 1.875rem;
+}
+.dashboard-grid > .card {
+    margin-bottom: 0;
+    height: 100%;
+}
+.dashboard-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 991px) {
+    .dashboard-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 575px) {
+    .dashboard-grid-4 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Main dashboard row: wide chart column + two 300px partner rails */
+.dashboard-columns {
+    display: grid;
+    grid-template-columns: 1fr 300px 300px;
+    gap: 1.875rem;
+    align-items: stretch;
+}
+.dashboard-columns > div > .card {
+    margin-bottom: 0;
+    height: 100%;
+}
+@media (max-width: 1399px) {
+    .dashboard-columns {
+        grid-template-columns: 1fr 1fr;
+    }
+    .dashboard-columns > .dashboard-columns-main {
+        grid-column: 1 / -1;
+    }
+}
+@media (max-width: 767px) {
+    .dashboard-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Stat widget cards */
+.widget-stat {
+    padding: 1.25rem;
+}
+.widget-stat-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+.widget-stat-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+.widget-stat-icon.primary {
+    background: color-mix(in srgb, var(--accent-color), transparent 90%);
+    color: var(--accent-color);
+}
+.widget-stat-icon.success {
+    background: var(--success-color-light);
+    color: var(--success-color);
+}
+.widget-stat-icon.warning {
+    background: var(--warning-color-light);
+    color: var(--warning-color);
+}
+.widget-stat-icon.danger {
+    background: var(--danger-color-light);
+    color: var(--danger-color);
+}
+.widget-stat-icon.info {
+    background: var(--info-color-light);
+    color: var(--info-color);
+}
+.widget-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--heading-color);
+    line-height: 1.2;
+}
+.widget-stat-label {
+    font-size: 0.8125rem;
+    color: var(--muted-color);
+    margin-top: 2px;
+}
+.widget-stat-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-top: 0.5rem;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: var(--border-color-light);
+    color: var(--muted-color);
+}
+.widget-stat-change.positive {
+    background: var(--success-color-light);
+    color: var(--success-color);
+}
+.widget-stat-change.negative {
+    background: var(--danger-color-light);
+    color: var(--danger-color);
+}
+
+/* Card header (demo pattern: title left, actions right) — scoped to the
+   finance dashboard so other pages' card headers keep their layout */
+.page-dashboard-finance .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1.25rem;
+    background: transparent;
+    border-bottom: 1px solid var(--border-color);
+}
+.page-dashboard-finance .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--heading-color);
+    margin: 0;
+}
+.card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* Chart container — fixed height keeps the whole chart/top-partner row compact */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 230px;
+}
+
+/* Soft badges */
+.badge-soft-primary {
+    background-color: color-mix(in srgb, var(--accent-color), transparent 90%);
+    color: var(--accent-color);
+}
+.badge-soft-success {
+    background-color: var(--success-color-light);
+    color: var(--success-color);
+}
+.badge-soft-warning {
+    background-color: var(--warning-color-light);
+    color: var(--warning-color);
+}
+.badge-soft-danger {
+    background-color: var(--danger-color-light);
+    color: var(--danger-color);
+}
+.badge-soft-info {
+    background-color: var(--info-color-light);
+    color: var(--info-color);
+}
+.badge-soft-secondary {
+    background-color: var(--border-color-light);
+    color: var(--muted-color);
+}
+
+/* Progress groups (Budget overview pattern) */
+.progress-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+}
+.progress-group-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.progress-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.progress-group-header > div {
+    min-width: 0;
+}
+.progress-group-label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--default-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.progress-group-label a {
+    color: inherit;
+    text-decoration: none;
+}
+.progress-group-label a:hover {
+    color: var(--accent-color);
+}
+.progress-group-value {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--heading-color);
+}
+.progress-group .progress {
+    height: 8px;
+    background-color: var(--border-color-light);
 }
 
 /* Invoice status pills (NiceAdmin invoice-list "inv-status" pattern) */

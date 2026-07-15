@@ -14,6 +14,7 @@ from invoice_core.db import (
     InvoiceFile,
     Supplier,
     SyncLog,
+    _InvoiceDirection,
     _PaymentStatus,
     _enum_str,
     invoice_bank_transaction,
@@ -60,6 +61,20 @@ class TopSupplierRow:
     id: int
     name: str
     total: float
+
+
+@dataclass
+class TopCustomerRow:
+    id: int
+    name: str
+    total: float
+
+
+@dataclass
+class MonthlyFinanceRow:
+    month: str  # "YYYY-MM"
+    income: float  # OUTBOUND invoice totals
+    expense: float  # INBOUND invoice totals
 
 
 @dataclass
@@ -175,6 +190,35 @@ def get_recent_transactions(db: Session, limit: int = 5) -> list[RecentTransacti
     ]
 
 
+def get_monthly_finance(db: Session, months: int = 12) -> list[MonthlyFinanceRow]:
+    """Monthly invoice totals split by direction (OUTBOUND=income, INBOUND=expense).
+
+    Aggregated in Python so it works on both PostgreSQL and SQLite.
+    """
+    today = datetime.utcnow().date()
+    start = (today.replace(day=1) - timedelta(days=(months - 1) * 31)).replace(day=1)
+    rows = (
+        db.query(Invoice.invoice_date, Invoice.direction, Invoice.amount_total)
+        .filter(Invoice.invoice_date.isnot(None), Invoice.invoice_date >= start)
+        .all()
+    )
+    buckets: dict[str, list[float]] = {}
+    cursor = start
+    while cursor <= today:
+        buckets[cursor.strftime("%Y-%m")] = [0.0, 0.0]
+        cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+    for invoice_date, direction, amount_total in rows:
+        bucket = buckets.get(invoice_date.strftime("%Y-%m"))
+        if bucket is None:
+            continue
+        idx = 0 if _enum_str(direction) == _InvoiceDirection.OUTBOUND.value else 1
+        bucket[idx] += amount_total or 0.0
+    return [
+        MonthlyFinanceRow(month=month, income=vals[0], expense=vals[1])
+        for month, vals in sorted(buckets.items())
+    ][-months:]
+
+
 def get_last_sync(db: Session) -> Optional[SyncLogRow]:
     try:
         log = db.query(SyncLog).order_by(SyncLog.started_at.desc()).first()
@@ -206,6 +250,19 @@ def get_top_suppliers(db: Session, limit: int = 10) -> list[TopSupplierRow]:
         .all()
     )
     return [TopSupplierRow(id=r.id, name=r.name, total=float(r.total or 0)) for r in rows]
+
+
+def get_top_customers(db: Session, limit: int = 10) -> list[TopCustomerRow]:
+    rows = (
+        db.query(Customer.id, Customer.name, func.sum(Invoice.amount_total).label("total"))
+        .join(Invoice, Invoice.customer_id == Customer.id)
+        .filter(~Customer.name.ilike(OWN_COMPANY_NAME_FILTER))
+        .group_by(Customer.id, Customer.name)
+        .order_by(func.sum(Invoice.amount_total).desc())
+        .limit(limit)
+        .all()
+    )
+    return [TopCustomerRow(id=r.id, name=r.name, total=float(r.total or 0)) for r in rows]
 
 
 def _to_sync_log_row(log: SyncLog) -> SyncLogRow:

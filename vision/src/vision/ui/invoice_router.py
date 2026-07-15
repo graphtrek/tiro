@@ -46,6 +46,8 @@ def dashboard(request: Request):
         recent_transactions=dict_to_ns(data.get("recent_transactions", [])),
         last_sync=dict_to_ns(data.get("last_sync")) if data.get("last_sync") else None,
         top_suppliers=dict_to_ns(data.get("top_suppliers", [])),
+        top_customers=dict_to_ns(data.get("top_customers", [])),
+        monthly_finance=data.get("monthly_finance", []),
     )
 
 

@@ -2,82 +2,219 @@
 {% from "_macros.html" import payment_badge, amount_fmt %}
 {% block title %}Dashboard — Moneypenny{% endblock %}
 
+{% macro top_partner_card(title, rows, url_prefix) %}
+<div class="card">
+  <div class="card-header">
+    <h5 class="card-title">{{ title }}</h5>
+    <div class="card-actions">
+      <a href="{{ url_prefix }}" class="text-muted small">Mind</a>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="progress-group">
+      {% set bar_colors = ['', 'bg-success', 'bg-warning', 'bg-info', 'bg-danger'] %}
+      {% set max_total = rows[0].total if rows else 0 %}
+      {% for row in rows[:3] %}
+      {% set pct = ((row.total / max_total * 100) | round(0) | int) if max_total else 0 %}
+      <div class="progress-group-item">
+        <div class="progress-group-header">
+          <div>
+            <span class="progress-group-label"><a href="{{ url_prefix }}/{{ row.id }}">{{ row.name }}</a></span>
+            <small class="text-muted">{{ amount_fmt(row.total) }}</small>
+          </div>
+          <span class="progress-group-value">{{ pct }}%</span>
+        </div>
+        <div class="progress">
+          <div class="progress-bar {{ bar_colors[loop.index0 % 5] }}" style="width: {{ pct }}%"></div>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-center text-muted mb-0">Nincs adat</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="h3 mb-0"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
-  <a href="/ui/sync" class="btn btn-primary btn-sm">
-    <i class="bi bi-arrow-repeat me-1"></i>Sync indítása
-  </a>
-</div>
+<div class="page-dashboard-finance">
 
-<!-- KPI kártyák -->
-<div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3 mb-4">
-  <div class="col">
-    <div class="card kpi-card shadow-sm h-100">
-      <div class="card-body">
-        <div class="card-title">Összes számla</div>
-        <div class="kpi-value text-primary">{{ kpis.total_invoices }}</div>
-      </div>
-    </div>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+    <a href="/ui/sync" class="btn btn-primary btn-sm">
+      <i class="bi bi-arrow-repeat me-1"></i>Sync indítása
+    </a>
   </div>
-  <div class="col">
-    <div class="card kpi-card shadow-sm h-100 border-danger">
-      <div class="card-body">
-        <div class="card-title">Fizetetlen számlák</div>
-        <div class="kpi-value text-danger">{{ kpis.unpaid_invoices }}</div>
-        <div class="text-muted small">{{ "{:,.0f}".format(kpis.unpaid_amount) | replace(",", " ") }} HUF</div>
-      </div>
-    </div>
-  </div>
-  <div class="col">
-    <div class="card kpi-card shadow-sm h-100">
-      <div class="card-body">
-        <div class="card-title">Szállítók</div>
-        <div class="kpi-value">{{ kpis.supplier_count }}</div>
-      </div>
-    </div>
-  </div>
-  <div class="col">
-    <div class="card kpi-card shadow-sm h-100">
-      <div class="card-body">
-        <div class="card-title">Vevők</div>
-        <div class="kpi-value">{{ kpis.customer_count }}</div>
-      </div>
-    </div>
-  </div>
-</div>
 
-<!-- Legutóbbi sync -->
-{% if last_sync %}
-<div class="card shadow-sm mb-4">
-  <div class="card-header d-flex align-items-center">
-    <i class="bi bi-clock-history me-2"></i>
-    <strong>Legutóbbi szinkronizálás</strong>
-    <span class="ms-auto text-muted small">{{ last_sync.started_at.strftime('%Y-%m-%d %H:%M') }}</span>
-  </div>
-  <div class="card-body d-flex gap-4 flex-wrap">
-    <span><i class="bi bi-file-earmark-text me-1"></i>NAV: {{ last_sync.invoice_count }}</span>
-    <span><i class="bi bi-bank me-1"></i>Bank: {{ last_sync.bank_count }}</span>
-    {% if last_sync.error_count > 0 %}
-      <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>{{ last_sync.error_count }} hiba</span>
-    {% endif %}
-    {% if last_sync.mode %}<span class="badge bg-secondary">{{ last_sync.mode }}</span>{% endif %}
-  </div>
-</div>
-{% endif %}
-
-<div class="row g-4">
-  <!-- Legutóbbi 10 számla -->
-  <div class="col-12 col-xl-7">
-    <div class="card shadow-sm">
-      <div class="card-header d-flex align-items-center">
-        <i class="bi bi-file-earmark-text me-2"></i>
-        <strong>Legutóbbi számlák</strong>
-        <a href="/ui/invoices" class="ms-auto btn btn-link btn-sm p-0">Mind</a>
+  <!-- Stats Row -->
+  <div class="dashboard-grid dashboard-grid-4">
+    <!-- Összes számla -->
+    <div class="card widget-stat">
+      <div class="widget-stat-header">
+        <div>
+          <div class="widget-stat-value">{{ kpis.total_invoices }}</div>
+          <div class="widget-stat-label">Összes számla</div>
+        </div>
+        <div class="widget-stat-icon primary">
+          <i class="bi bi-receipt"></i>
+        </div>
       </div>
-      <div class="card-body p-0">
-        <table class="table table-sm table-hover mb-0">
-          <thead class="table-light">
+      <div class="widget-stat-change positive">
+        <i class="bi bi-file-earmark-check"></i> {{ kpis.linked_pdfs }} PDF kapcsolva
+      </div>
+    </div>
+
+    <!-- Fizetetlen számlák -->
+    <div class="card widget-stat">
+      <div class="widget-stat-header">
+        <div>
+          <div class="widget-stat-value">{{ kpis.unpaid_invoices }}</div>
+          <div class="widget-stat-label">Fizetetlen számla</div>
+        </div>
+        <div class="widget-stat-icon danger">
+          <i class="bi bi-wallet2"></i>
+        </div>
+      </div>
+      {% if kpis.unpaid_invoices > 0 %}
+      <div class="widget-stat-change negative">
+        <i class="bi bi-exclamation-circle"></i> {{ amount_fmt(kpis.unpaid_amount) }}
+      </div>
+      {% else %}
+      <div class="widget-stat-change positive">
+        <i class="bi bi-check-circle"></i> Nincs tartozás
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Bank tranzakciók -->
+    <div class="card widget-stat">
+      <div class="widget-stat-header">
+        <div>
+          <div class="widget-stat-value">{{ kpis.recent_bank_count }}</div>
+          <div class="widget-stat-label">Bank tranzakció</div>
+        </div>
+        <div class="widget-stat-icon info">
+          <i class="bi bi-arrow-left-right"></i>
+        </div>
+      </div>
+      <div class="widget-stat-change">
+        <i class="bi bi-calendar3"></i> elmúlt 30 nap
+      </div>
+    </div>
+
+    <!-- Partnerek -->
+    <div class="card widget-stat">
+      <div class="widget-stat-header">
+        <div>
+          <div class="widget-stat-value">{{ kpis.supplier_count + kpis.customer_count }}</div>
+          <div class="widget-stat-label">Partner</div>
+        </div>
+        <div class="widget-stat-icon success">
+          <i class="bi bi-people"></i>
+        </div>
+      </div>
+      <div class="widget-stat-change">
+        <i class="bi bi-truck"></i> {{ kpis.supplier_count }} szállító · {{ kpis.customer_count }} vevő
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Row: chart + top partners -->
+  <div class="dashboard-columns mb-4">
+    <div class="dashboard-columns-main">
+      <!-- Bevétel vs Kiadás chart -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title">Bevétel vs Kiadás</h5>
+          <div class="card-actions">
+            <select class="form-select form-select-sm" style="width: auto;" id="financePeriod">
+              <option value="3">Utolsó 3 hónap</option>
+              <option value="6">Utolsó 6 hónap</option>
+              <option value="12" selected>Utolsó 12 hónap</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="financeChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      {{ top_partner_card('Top szállítók', top_suppliers, '/ui/suppliers') }}
+    </div>
+
+    <div>
+      {{ top_partner_card('Top vevők', top_customers, '/ui/customers') }}
+    </div>
+  </div>
+
+  <!-- Legutóbbi tranzakciók (full width) -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="card-title">Legutóbbi tranzakciók</h5>
+      <div class="card-actions">
+        <a href="/ui/transactions" class="btn btn-sm btn-outline-primary">Mind</a>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Dátum</th>
+              <th>Partner</th>
+              <th>Típus</th>
+              <th class="text-end">Összeg</th>
+              <th>Számla</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in recent_transactions %}
+            <tr>
+              <td class="fw-medium">{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
+              <td>{{ row.partner_name or '—' }}</td>
+              <td>
+                {% if row.amount >= 0 %}
+                  <span class="badge badge-soft-success">Jóváírás</span>
+                {% else %}
+                  <span class="badge badge-soft-warning">Terhelés</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <span class="fw-medium {{ 'text-success' if row.amount >= 0 else 'text-danger' }}">
+                  {%- if row.amount >= 0 %}+{% endif %}{{ amount_fmt(row.amount, row.currency) }}
+                </span>
+              </td>
+              <td>
+                {% if row.invoice_id and row.invoice_number %}
+                  <a href="/ui/invoices/{{ row.invoice_id }}">{{ row.invoice_number }}</a>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-4">Nincs adat</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legutóbbi számlák (full width) -->
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title">Legutóbbi számlák</h5>
+      <div class="card-actions">
+        <a href="/ui/invoices" class="btn btn-sm btn-outline-primary">Mind</a>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
             <tr>
               <th>Számlaszám</th>
               <th>Dátum</th>
@@ -87,16 +224,16 @@
             </tr>
           </thead>
           <tbody>
-            {% for row in recent_invoices %}
+            {% for row in recent_invoices[:5] %}
             <tr>
-              <td><a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a></td>
+              <td class="fw-medium"><a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a></td>
               <td>{{ row.invoice_date or '—' }}</td>
               <td>{{ row.supplier_name }}</td>
-              <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>
+              <td class="text-end fw-medium">{{ amount_fmt(row.amount_total) }}</td>
               <td>{{ payment_badge(row.payment_status) }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="5" class="text-center text-muted">Nincs adat</td></tr>
+            <tr><td colspan="5" class="text-center text-muted py-4">Nincs adat</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -104,78 +241,100 @@
     </div>
   </div>
 
-  <!-- Legutóbbi 5 bank tranzakció -->
-  <div class="col-12 col-xl-5">
-    <div class="card shadow-sm">
-      <div class="card-header d-flex align-items-center">
-        <i class="bi bi-bank me-2"></i>
-        <strong>Legutóbbi bank tranzakciók</strong>
-        <a href="/ui/transactions" class="ms-auto btn btn-link btn-sm p-0">Mind</a>
-      </div>
-      <div class="card-body p-0">
-        <table class="table table-sm table-hover mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>Dátum</th>
-              <th class="text-end">Összeg</th>
-              <th>Partner</th>
-              <th>Számla</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in recent_transactions %}
-            <tr>
-              <td>{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
-              <td class="text-end">{{ amount_fmt(row.amount, row.currency) }}</td>
-              <td>{{ row.partner_name or '—' }}</td>
-              <td>
-                {% if row.invoice_id and row.invoice_number %}
-                  <a href="/ui/invoices/{{ row.invoice_id }}">{{ row.invoice_number }}</a>
-                {% else %}—{% endif %}
-              </td>
-            </tr>
-            {% else %}
-            <tr><td colspan="4" class="text-center text-muted">Nincs adat</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 </div>
 
-<!-- Top 10 szállító -->
-<div class="row g-4 mt-0">
-  <div class="col-12 col-xl-6">
-    <div class="card shadow-sm">
-      <div class="card-header d-flex align-items-center">
-        <i class="bi bi-bar-chart-line me-2"></i>
-        <strong>Top 10 szállító (számla összeg alapján)</strong>
-        <a href="/ui/suppliers" class="ms-auto btn btn-link btn-sm p-0">Mind</a>
-      </div>
-      <div class="card-body p-0">
-        <table class="table table-sm table-hover mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>#</th>
-              <th>Szállító</th>
-              <th class="text-end">Összeg</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in top_suppliers %}
-            <tr>
-              <td class="text-muted">{{ loop.index }}</td>
-              <td><a href="/ui/suppliers/{{ row.id }}">{{ row.name }}</a></td>
-              <td class="text-end">{{ amount_fmt(row.total) }}</td>
-            </tr>
-            {% else %}
-            <tr><td colspan="3" class="text-center text-muted">Nincs adat</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
+<script type="application/json" id="finance-data">{{ monthly_finance | tojson }}</script>
+<script>
+  (function () {
+    var canvas = document.getElementById('financeChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    var rows = JSON.parse(document.getElementById('finance-data').textContent) || [];
+    var css = getComputedStyle(document.documentElement);
+    var successColor = css.getPropertyValue('--success-color').trim();
+    var dangerColor = css.getPropertyValue('--danger-color').trim();
+    var mutedColor = css.getPropertyValue('--muted-color').trim();
+    var borderColor = css.getPropertyValue('--border-color-light').trim();
+
+    var huf = new Intl.NumberFormat('hu-HU', { maximumFractionDigits: 0 });
+    var hufCompact = new Intl.NumberFormat('hu-HU', { notation: 'compact', maximumFractionDigits: 1 });
+
+    // hx-boost re-runs this script on every body swap: drop the previous
+    // Chart instance bound to the (new) canvas id before re-creating it.
+    var existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+
+    var chart = new Chart(canvas, {
+      type: 'line',
+      data: buildData(rows),
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'top',
+            align: 'end',
+            labels: { color: mutedColor, usePointStyle: true, pointStyle: 'circle', boxHeight: 6 }
+          },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                return ctx.dataset.label + ': ' + huf.format(ctx.parsed.y) + ' HUF';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: mutedColor }
+          },
+          y: {
+            border: { display: false },
+            grid: { color: borderColor },
+            ticks: {
+              color: mutedColor,
+              callback: function (v) { return hufCompact.format(v); }
+            }
+          }
+        }
+      }
+    });
+
+    function buildData(slice) {
+      return {
+        labels: slice.map(function (r) { return r.month; }),
+        datasets: [
+          {
+            label: 'Bevétel',
+            data: slice.map(function (r) { return r.income; }),
+            borderColor: successColor,
+            backgroundColor: successColor + '26',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2,
+            pointRadius: 2
+          },
+          {
+            label: 'Kiadás',
+            data: slice.map(function (r) { return r.expense; }),
+            borderColor: dangerColor,
+            backgroundColor: dangerColor + '26',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2,
+            pointRadius: 2
+          }
+        ]
+      };
+    }
+
+    document.getElementById('financePeriod').addEventListener('change', function () {
+      var n = parseInt(this.value, 10);
+      chart.data = buildData(rows.slice(-n));
+      chart.update();
+    });
+  })();
+</script>
 {% endblock %}
