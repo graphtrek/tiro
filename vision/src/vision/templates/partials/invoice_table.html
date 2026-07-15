@@ -17,7 +17,7 @@
   </thead>
   <tbody>
     {% for row in rows %}
-    <tr{% if row.invoice_file_id %} data-pdf-url="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" data-preview="{{ row.invoice_file_preview_base64 or '' }}" style="cursor:pointer"{% endif %}>
+    <tr{% if row.invoice_file_id %} data-pdf-url="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" style="cursor:pointer"{% endif %}>
       <td>{{ payment_badge(row.payment_status) }}</td>
       <td>
         <a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a>
@@ -33,7 +33,8 @@
       <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>
       <td>
         {% if row.invoice_file_id and row.invoice_file_filename %}
-          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}">
+          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}"
+             data-preview="{{ row.invoice_file_preview_base64 or '' }}">
             <i class="bi bi-file-earmark-pdf text-danger"></i>
             <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
           </a>
@@ -103,13 +104,13 @@
 
     var $invPreview = $("#invoice-preview-popup");
     var $invPreviewImg = $invPreview.find("img");
-    $("#invoice-table tbody").on("mouseenter", "tr", function(e) {
+    $("#invoice-table tbody").on("mouseenter", "a[data-preview]", function(e) {
       var data = $(this).data("preview");
       if (!data) return;
       $invPreviewImg.attr("src", "data:image/png;base64," + data);
       $invPreview.show();
     });
-    $("#invoice-table tbody").on("mousemove", "tr", function(e) {
+    $("#invoice-table tbody").on("mousemove", "a[data-preview]", function(e) {
       if ($invPreview.is(":visible")) {
         var w = $invPreview.outerWidth();
         var h = $invPreview.outerHeight();
@@ -120,7 +121,7 @@
         $invPreview.css({ top: top, left: left });
       }
     });
-    $("#invoice-table tbody").on("mouseleave", "tr", function() {
+    $("#invoice-table tbody").on("mouseleave", "a[data-preview]", function() {
       $invPreview.hide();
     });
   })();

@@ -90,13 +90,13 @@
 
     var $preview = $("#file-preview-popup");
     var $previewImg = $preview.find("img");
-    $("#file-table tbody").on("mouseenter", "tr", function(e) {
-      var data = $(this).data("preview");
+    $("#file-table tbody").on("mouseenter", "td:last-child", function(e) {
+      var data = $(this).closest("tr").data("preview");
       if (!data) return;
       $previewImg.attr("src", "data:image/png;base64," + data);
       $preview.show();
     });
-    $("#file-table tbody").on("mousemove", "tr", function(e) {
+    $("#file-table tbody").on("mousemove", "td:last-child", function(e) {
       if ($preview.is(":visible")) {
         var w = $preview.outerWidth();
         var h = $preview.outerHeight();
@@ -107,7 +107,7 @@
         $preview.css({ top: top, left: left });
       }
     });
-    $("#file-table tbody").on("mouseleave", "tr", function() {
+    $("#file-table tbody").on("mouseleave", "td:last-child", function() {
       $preview.hide();
     });
   })();
