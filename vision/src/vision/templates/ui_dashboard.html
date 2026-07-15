@@ -13,9 +13,9 @@
   <div class="card-body">
     <div class="progress-group">
       {% set bar_colors = ['', 'bg-success', 'bg-warning', 'bg-info', 'bg-danger'] %}
-      {% set max_total = rows[0].total if rows else 0 %}
+      {% set sum_total = rows | sum(attribute='total') %}
       {% for row in rows[:3] %}
-      {% set pct = ((row.total / max_total * 100) | round(0) | int) if max_total else 0 %}
+      {% set pct = ((row.total / sum_total * 100) | round(0) | int) if sum_total else 0 %}
       <div class="progress-group-item">
         <div class="progress-group-header">
           <div>
@@ -176,16 +176,17 @@
             <tr>
               <td class="fw-medium">{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
               <td>{{ row.partner_name or '—' }}</td>
+              {% set is_credit = row.direction == 'CREDIT' %}
               <td>
-                {% if row.amount >= 0 %}
+                {% if is_credit %}
                   <span class="badge badge-soft-success">Jóváírás</span>
                 {% else %}
                   <span class="badge badge-soft-warning">Terhelés</span>
                 {% endif %}
               </td>
               <td class="text-end">
-                <span class="fw-medium {{ 'text-success' if row.amount >= 0 else 'text-danger' }}">
-                  {%- if row.amount >= 0 %}+{% endif %}{{ amount_fmt(row.amount, row.currency) }}
+                <span class="fw-medium {{ 'text-success' if is_credit else 'text-danger' }}">
+                  {{ '+' if is_credit else '−' }}{{ amount_fmt(row.amount | abs, row.currency) }}
                 </span>
               </td>
               <td>

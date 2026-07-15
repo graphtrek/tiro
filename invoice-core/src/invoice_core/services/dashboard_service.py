@@ -51,6 +51,7 @@ class RecentTransactionRow:
     transaction_date: datetime
     amount: float
     currency: str
+    direction: str
     partner_name: Optional[str]
     invoice_number: Optional[str]
     invoice_id: Optional[int]
@@ -182,6 +183,7 @@ def get_recent_transactions(db: Session, limit: int = 5) -> list[RecentTransacti
             transaction_date=t.transaction_date,
             amount=t.amount,
             currency=t.currency,
+            direction=t.direction,
             partner_name=t.counterparty_name,
             invoice_number=first_inv.get(t.id, (None, None))[1],
             invoice_id=first_inv.get(t.id, (None, None))[0],

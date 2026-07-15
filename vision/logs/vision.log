@@ -6653,3 +6653,6 @@ requests.exceptions.JSONDecodeError: Expecting value: line 2 column 1 (char 1)
 2026-07-15 15:24:36 INFO     vision/api/main.py:44 GET /static/custom.css → 304 in 1ms
 2026-07-15 15:30:27 INFO     vision/api/main.py:44 GET /ui/ → 200 in 149ms
 2026-07-15 15:30:28 INFO     vision/api/main.py:44 GET /static/custom.css → 304 in 1ms
+2026-07-15 15:33:50 INFO     vision/api/main.py:44 GET /ui/ → 200 in 181ms
+2026-07-15 15:33:50 INFO     vision/api/main.py:44 GET /static/custom.css → 200 in 1ms
+2026-07-15 15:33:50 INFO     vision/api/main.py:44 GET /favicon.ico → 404 in 2ms
