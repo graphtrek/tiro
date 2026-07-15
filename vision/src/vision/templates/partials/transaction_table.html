@@ -1,45 +1,41 @@
 {% from "_macros.html" import amount_fmt %}
 
-<div id="tx-summary" class="row g-2 mb-3">
-  <div class="col-auto">
-    <div class="card border-success">
-      <div class="card-body py-2 px-3">
-        <small class="d-block text-muted">CREDIT</small>
-        <span id="tx-sum-credit" class="fw-bold text-success">—</span>
-      </div>
+<section id="tx-summary" class="invl-metrics mb-3">
+  <article class="invl-metric-card">
+    <span class="invl-metric-icon success"><i class="bi bi-arrow-down-circle"></i></span>
+    <div>
+      <div class="invl-metric-label">Credit</div>
+      <div id="tx-sum-credit" class="invl-metric-value">—</div>
     </div>
-  </div>
-  <div class="col-auto">
-    <div class="card border-danger">
-      <div class="card-body py-2 px-3">
-        <small class="d-block text-muted">DEBIT</small>
-        <span id="tx-sum-debit" class="fw-bold text-danger">—</span>
-      </div>
+  </article>
+  <article class="invl-metric-card">
+    <span class="invl-metric-icon danger"><i class="bi bi-arrow-up-circle"></i></span>
+    <div>
+      <div class="invl-metric-label">Debit</div>
+      <div id="tx-sum-debit" class="invl-metric-value">—</div>
     </div>
-  </div>
-  <div class="col-auto">
-    <div class="card border-secondary">
-      <div class="card-body py-2 px-3">
-        <small class="d-block text-muted">Nettó</small>
-        <span id="tx-sum-net" class="fw-bold">—</span>
-      </div>
+  </article>
+  <article class="invl-metric-card">
+    <span class="invl-metric-icon warning"><i class="bi bi-plus-slash-minus"></i></span>
+    <div>
+      <div class="invl-metric-label">Nettó</div>
+      <div id="tx-sum-net" class="invl-metric-value">—</div>
     </div>
-  </div>
+  </article>
   {% if bank_balances %}
   {%- set total_balance = bank_balances | sum(attribute='balance') %}
   {%- set currency = bank_balances[0].currency %}
-  <div class="col-auto">
-    <div class="card border-info">
-      <div class="card-body py-2 px-3">
-        <small class="d-block text-muted">Bank egyenleg</small>
-        <span class="fw-bold {% if total_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
-          {{ amount_fmt(total_balance, currency) }}
-        </span>
+  <article class="invl-metric-card">
+    <span class="invl-metric-icon"><i class="bi bi-bank"></i></span>
+    <div>
+      <div class="invl-metric-label">Bank egyenleg</div>
+      <div class="invl-metric-value {% if total_balance < 0 %}text-danger{% endif %}">
+        {{ amount_fmt(total_balance, currency) }}
       </div>
     </div>
-  </div>
+  </article>
   {% endif %}
-</div>
+</section>
 
 <table id="transaction-table" class="table table-hover table-sm nowrap" style="width:100%">
   <thead>
@@ -164,9 +160,8 @@
         return (net >= 0 ? "+" : "") + fmt(net, c);
       });
       netEl.textContent = netParts.join(" / ") || "—";
-      netEl.className = "fw-bold " + (
-        currencies.every(c => byCurrency[c].credit >= byCurrency[c].debit) ? "text-success" :
-        currencies.every(c => byCurrency[c].credit <  byCurrency[c].debit) ? "text-danger"  : ""
+      netEl.className = "invl-metric-value " + (
+        currencies.every(c => byCurrency[c].credit <  byCurrency[c].debit) ? "text-danger" : ""
       );
     }
 
