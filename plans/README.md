@@ -12,7 +12,7 @@ your row when done.
 | 001  | Remove committed secrets from the working tree, close .gitignore gap | P1 | S | — | DONE |
 | 002  | Recompute invoice payment status when a tax-account link is cleared | P1 | S | — | DONE |
 | 003  | Add tests for bank CSV parsers, fix self-referential tax-guard test | P1 | S–M | — | DONE |
-| 004  | Add CI to run every sub-project's test suite | P1 | M | — | TODO |
+| 004  | Add CI to run every sub-project's test suite | P1 | M | — | DONE (note: full end-to-end verification requires a push to GitHub — not yet done; local dry-runs of invoice-core, attachment-downloader, and auth all passed) |
 | 005  | Pagination, N+1 fix, and date-column indexes in invoice-core | P2 | M | — | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
