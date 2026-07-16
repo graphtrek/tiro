@@ -1,0 +1,53 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: nav-invoice
+            python-version: "3.11"
+          - project: attachment-downloader
+            python-version: "3.9"
+            extra: gmail
+          - project: invoice-file-filter
+            python-version: "3.10"
+          - project: invoice-core
+            python-version: "3.10"
+          - project: wise
+            python-version: "3.10"
+          - project: bank
+            python-version: "3.11"
+          - project: vision
+            python-version: "3.11"
+          - project: auth
+            python-version: "3.11"
+          - project: uploader
+            python-version: "3.11"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.project }}
+        run: |
+          if [ -n "${{ matrix.extra }}" ]; then
+            uv sync --extra ${{ matrix.extra }}
+          else
+            uv sync
+          fi
+
+      - name: Run tests
+        working-directory: ${{ matrix.project }}
+        run: uv run pytest tests/ -v
