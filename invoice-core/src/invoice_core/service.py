@@ -9,7 +9,7 @@ import unicodedata
 from datetime import date, datetime, timedelta
 from typing import NamedTuple, Optional, Tuple
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from .bank_client import BankClient, BankClientError
@@ -880,8 +880,14 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
         BankTransaction.invoice_file_locked == False,
     )
     if tax_keys:
+        # `NOT IN` is SQL-NULL-unsafe: a row with counterparty_account IS NULL
+        # would otherwise be silently dropped (`NULL IN (...)` is UNKNOWN, and
+        # so is its negation), so the "or IS NULL" arm is required, not optional.
         unmatched_q = unmatched_q.filter(
-            ~BankTransaction.counterparty_account.in_(tax_keys)
+            or_(
+                BankTransaction.counterparty_account.is_(None),
+                ~BankTransaction.counterparty_account.in_(tax_keys),
+            )
         )
     unmatched = unmatched_q.all()
     file_feats = {
