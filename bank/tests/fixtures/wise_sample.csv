@@ -1,0 +1,4 @@
+﻿TransferWise ID,Date,Date Time,Amount,Currency,Description,Payment Reference,Running Balance,Payer Name,Payee Name,Payee Account Number,Merchant,Total fees,Transaction Type,Transaction Details Type,Exchange Rate,Exchange To,Card Last Four Digits,Note
+WISE-001,01-05-2026,01-05-2026 10:15:00.123456,100.50,EUR,Payment received,INV-100,1000.00,John Doe,,,,0,CREDIT,TRANSFER,,,,
+,02-05-2026,02-05-2026 11:00:00.000000,50.00,EUR,Card purchase,,950.00,,Some Shop,,Some Shop,0,DEBIT,CARD,,,1234,
+WISE-003,03-05-2026,03-05-2026 09:00:00.000000,abc,EUR,Broken amount test,,,,,,,,CREDIT,TRANSFER,,,,
