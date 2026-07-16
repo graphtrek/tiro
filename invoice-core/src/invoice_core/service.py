@@ -81,6 +81,9 @@ def _recompute_payment_status(db: Session, invoice: Invoice) -> None:
         return
     linked = invoice.bank_transactions
     if not linked:
+        if invoice.payment_status != _PaymentStatus.UNPAID:
+            invoice.payment_status = _PaymentStatus.UNPAID
+            invoice.updated_at = datetime.utcnow()
         return
     total = invoice.amount_total or 0.0
     currency = invoice.currency
@@ -548,11 +551,14 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
             tax_txn for tax_txn in tax_txns
             if (tax_txn.invoices or tax_txn.invoice_file_id) and not tax_txn.invoice_file_locked
         ]
+        affected_invoices = {inv for tax_txn in wrongly_linked for inv in tax_txn.invoices}
         for btxn in wrongly_linked:
             btxn.invoices.clear()
             btxn.invoice_file_id = None
             btxn.supplier_id = None
             btxn.customer_id = None
+        for inv in affected_invoices:
+            _recompute_payment_status(db, inv)
         if wrongly_linked:
             logger.info("Cleared links from %d tax-account transaction(s)", len(wrongly_linked))
 

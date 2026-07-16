@@ -490,3 +490,44 @@ def test_locked_txn_not_cleared_by_tax_guard(mdb):
         if (t.invoices or t.invoice_file_id) and not t.invoice_file_locked
     ]
     assert len(wrongly_linked) == 0  # locked txn must be excluded from clearing
+
+
+def test_tax_account_clearing_recomputes_payment_status(mdb, monkeypatch):
+    """sync_bank's tax-account clearing must recompute payment_status for invoices
+    that lose their only linked transaction, not leave them stuck as PAID."""
+    from invoice_core.bank_client import BankClient
+    from invoice_core.config import Settings
+    from invoice_core.service import sync_bank
+
+    tax_account = "10032000-00290080-00000000"
+    settings = Settings(
+        db_url="sqlite:///:memory:",
+        tax_accounts={tax_account: "NAV ÁFA"},
+    )
+
+    supplier = Supplier(name="Szállító", tax_id="11111111-1-11")
+    customer = Customer(name="Vevő", tax_id="22222222-2-22")
+    mdb.add_all([supplier, customer])
+    mdb.flush()
+    inv = Invoice(
+        invoice_number="2026-000099", supplier_id=supplier.id, customer_id=customer.id,
+        amount_total=5000, payment_status=_PaymentStatus.PAID,
+        direction=_InvoiceDirection.INBOUND,
+    )
+    mdb.add(inv)
+    mdb.flush()
+
+    txn = _txn(
+        transaction_id="TAX-1", amount=5000, counterparty_account=tax_account,
+    )
+    txn.invoices.append(inv)
+    mdb.add(txn)
+    mdb.commit()
+
+    monkeypatch.setattr(BankClient, "get_transactions", lambda self: [])
+
+    sync_bank("2026-06-01", "2026-06-30", mdb, settings)
+
+    mdb.refresh(inv)
+    assert inv.payment_status == _PaymentStatus.UNPAID
+    assert inv.bank_transactions == []
