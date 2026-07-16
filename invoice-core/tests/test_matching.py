@@ -454,8 +454,9 @@ def test_manual_m2m_survives_sync(mdb):
     assert len(rows) == 1  # manual row still present
 
 
-def test_locked_txn_not_cleared_by_tax_guard(mdb):
+def test_locked_txn_not_cleared_by_tax_guard(mdb, monkeypatch):
     """sync_bank's tax-account clearing must skip transactions with invoice_file_locked=True."""
+    from invoice_core.bank_client import BankClient
     from invoice_core.config import Settings
     from invoice_core.service import sync_bank
 
@@ -477,19 +478,14 @@ def test_locked_txn_not_cleared_by_tax_guard(mdb):
         invoice_file_locked=True,
     )
     mdb.add(txn)
-    mdb.flush()
+    mdb.commit()
 
-    # sync_bank calls BankClient which we can't mock here, so test the guard logic directly
-    # by replicating the clearing logic and verifying the lock is respected
-    tax_keys = list(settings.tax_accounts.keys())
-    tax_txns = mdb.query(BankTransaction).filter(
-        BankTransaction.counterparty_account.in_(tax_keys)
-    ).all()
-    wrongly_linked = [
-        t for t in tax_txns
-        if (t.invoices or t.invoice_file_id) and not t.invoice_file_locked
-    ]
-    assert len(wrongly_linked) == 0  # locked txn must be excluded from clearing
+    monkeypatch.setattr(BankClient, "get_transactions", lambda self: [])
+    sync_bank("2026-06-01", "2026-06-30", mdb, settings)
+
+    mdb.refresh(txn)
+    assert txn.invoice_file_id == f.id  # still linked — the lock protected it
+    assert txn.invoice_file_locked is True
 
 
 def test_tax_account_clearing_recomputes_payment_status(mdb, monkeypatch):
