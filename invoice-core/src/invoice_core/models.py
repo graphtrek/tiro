@@ -164,6 +164,38 @@ class ActivityTypeOut(BaseModel):
     updated_at: datetime
 
 
+class ProjectIn(BaseModel):
+    customer_id: int
+    short_name: str
+    owner_id: int
+    permitted_user_ids: List[int] = Field(default_factory=list)
+
+
+class ProjectUpdate(BaseModel):
+    customer_id: int
+    short_name: str
+    owner_id: int
+    is_active: bool
+    permitted_user_ids: List[int] = Field(default_factory=list)
+
+
+class ProjectOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    customer_id: int
+    customer_name: str
+    sequence_no: int
+    short_name: str
+    code: str
+    owner_id: int
+    owner_name: str
+    is_active: bool
+    permitted_user_ids: List[int]
+    created_at: datetime
+    updated_at: datetime
+
+
 class LinkFileRequest(BaseModel):
     invoice_file_id: int
 

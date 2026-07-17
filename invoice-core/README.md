@@ -73,6 +73,10 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/activity-types` | List activity types, ordered by name |
 | `PUT`  | `/api/v1/activity-types/{activity_type_id}` | Update `name` + `is_active`; `404` if not found, `409` on name conflict |
 | `DELETE` | `/api/v1/activity-types/{activity_type_id}` | Hard-delete an activity type; `404` if not found |
+| `POST` | `/api/v1/projects` | Create a project; `customer_id`/`owner_id` must reference existing rows; `sequence_no` and `code` are server-computed (`{customer_name} - {seq:03d} - {short_name}`); `409` on unknown customer/owner or code collision |
+| `GET`  | `/api/v1/projects` | List projects, ordered by `code`; includes `customer_name`, `owner_name`, `permitted_user_ids` |
+| `PUT`  | `/api/v1/projects/{project_id}` | Update project (customer, short name, owner, `is_active`, `permitted_user_ids`); recomputes `code`; reassigns `sequence_no` only if `customer_id` changed; `404` if not found, `409` on code conflict |
+| `DELETE` | `/api/v1/projects/{project_id}` | Hard-delete a project; `404` if not found |
 
 ### GET /health
 
@@ -230,6 +234,8 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
 | `user` | Login records pushed (best-effort) by the `auth` service on every login: `provider`, `sub`, `email`, `name`, `picture`, `last_login_at`; unique on `(provider, sub)` — this is the only table not populated by the sync pipeline |
 | `activity_type` | Admin master data for the future Timesheet feature: `name` (unique), `is_active` (soft-deactivate). Managed via the vision `/ui/admin/activity-types` page; not touched by the sync pipeline |
+| `project` | Controlling master data: `customer_id` (FK → customer), `sequence_no` (per-customer, auto-incrementing), `short_name`, `code` (unique, server-composed `{customer} - {seq:03d} - {short_name}`), `owner_id` (FK → user), `is_active`. Managed via the vision `/ui/controlling/projects` page; not touched by the sync pipeline |
+| `project_permitted_user` | Junction table — many-to-many link between `project` and `user`: which users may log time against a project (gates the future Timesheet feature) |
 
 ### Alembic migrations
 
@@ -249,6 +255,7 @@ uv run alembic revision --autogenerate -m "describe change"
 | `g6h7i8j9k0l1` | Manual link fields: `invoice_file_locked` on `invoice` and `bank_transaction`; `manual` on `invoice_bank_transaction` |
 | `k0l1m2n3o4p5` | `user` table — login records from the `auth` service |
 | `l1m2n3o4p5q6` | `activity_type` table — admin master data for the future Timesheet feature |
+| `m2n3o4p5q6r7` | `project` table + `project_permitted_user` junction table — Controlling master data |
 
 ## Code structure
 
@@ -264,7 +271,8 @@ src/invoice_core/
 │   ├── dividend_service.py  ← Annual dividend/tax calculation (KIVA, SZJA, SZOCHO)
 │   ├── tax_service.py       ← Tax payment report: filters bank transactions by NAV/HIPA/Iparkamara account numbers
 │   ├── user_service.py      ← Upsert/list login records pushed by the auth service
-│   └── activity_type_service.py ← Admin CRUD for Timesheet activity types (create/list/update/delete)
+│   ├── activity_type_service.py ← Admin CRUD for Timesheet activity types (create/list/update/delete)
+│   └── project_service.py   ← Controlling CRUD for projects (sequence numbering, code composition, permitted users)
 ├── db.py                    ← SQLAlchemy ORM models + session; exports _enum_str helper
 ├── service.py               ← Sync orchestration (sync_nav, sync_pdf, sync_bank, sync_match)
 ├── models.py                ← Pydantic request/response schemas

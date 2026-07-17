@@ -127,6 +127,31 @@ placeholder). Törlés (`DELETE`) csak a UI oldalán van feltételhez kötve (cs
 használati szám 0); a szervernek egyelőre nincs mit ellenőriznie, mert nincs
 felhasználást jelző tábla.
 
+### project (Controlling törzsadat — projektek)
+- id (PK)
+- customer_id (FK → customer)
+- sequence_no (int) — ügyfelenként növekvő, szerver számítja
+- short_name (str)
+- code (egyedi, szerver komponálja: `{ügyfél neve} - {sorszám:03d} - {short_name}`)
+- owner_id (FK → user) — project gazda
+- is_active (bool, default: true) — lezárt projektre nem rögzíthető új idő
+- created_at, updated_at
+
+### project_permitted_user (junction — projekt ↔ user)
+- project_id (FK → project)
+- user_id (FK → user)
+
+Ki jogosult timesheet rekordot rögzíteni az adott projekthez — még nincs
+`timesheet` tábla, ez a leendő funkció előkészítése. Admin CRUD a
+[[vision-spec.md|vision]] `/ui/controlling/projects` oldalán: ügyfél és project
+gazda kiválasztás legördülőből (valós `customer`/`user` adat), sorszám és
+project kód kliens-oldali előnézete van, de a szerver a végső forrás — mindkettő
+`create`/`update` híváskor újraszámolódik. A `sequence_no` csak akkor kap új
+értéket módosításnál, ha az `customer_id` megváltozik. Az "Összesített
+ráfordítás (óra)" oszlop a UI-n egyelőre `0` placeholder (nincs még
+felhasználást jelző `timesheet` tábla, ugyanaz a mintázat, mint az
+`activity_type` `usage_count`-jánál).
+
 ## Logika (Orchestration)
 1. **invoice-core iniciál** → sorban:
    - **nav-invoice** meghívása (GET /invoices?from=...&to=...&direction=...)
@@ -194,6 +219,10 @@ felhasználást jelző tábla.
 | `GET`  | `/api/v1/activity-types` | Tevékenység típusok listája (név szerint) |
 | `PUT`  | `/api/v1/activity-types/{id}` | Tevékenység típus módosítása (név + `is_active`); 404 ha nem létezik, 409 névütközésnél |
 | `DELETE` | `/api/v1/activity-types/{id}` | Tevékenység típus végleges törlése; 404 ha nem létezik |
+| `POST` | `/api/v1/projects` | Új projekt létrehozása — `customer_id`/`owner_id` léteznie kell, `sequence_no`/`code` szerver-számított; 409 ha ismeretlen ügyfél/gazda vagy kódütközés |
+| `GET`  | `/api/v1/projects` | Projektek listája (`code` szerint), `customer_name`/`owner_name`/`permitted_user_ids` kiegészítve |
+| `PUT`  | `/api/v1/projects/{id}` | Projekt módosítása (ügyfél, rövid név, gazda, `is_active`, `permitted_user_ids`); `code` újraszámolva, `sequence_no` csak ügyfélváltáskor; 404 ha nem létezik, 409 kódütközésnél |
+| `DELETE` | `/api/v1/projects/{id}` | Projekt végleges törlése; 404 ha nem létezik |
 
 ## Tech stack
 - Python 3.10+

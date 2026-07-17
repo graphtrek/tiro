@@ -57,6 +57,7 @@ src/vision/
 │   ├── router.py              ← Vision saját oldalak: /, /pitch, /dashboard
 │   ├── invoice_router.py      ← Invoice-core UI oldalak: összes /ui/* (15 route)
 │   ├── admin_router.py        ← Admin oldalak: /ui/admin/users, /ui/admin/activity-types (valós adat, invoice-core CRUD-ot hív)
+│   ├── controlling_router.py  ← Controlling oldalak: /ui/controlling/projects (valós adat, invoice-core CRUD-ot hív), timesheet + reports (statikus mockup)
 │   └── utils.py               ← dict_to_ns() — JSON dict → SimpleNamespace, ISO dátum auto-parse
 ├── api/
 │   └── main.py                ← FastAPI app, /health, HTTP logging middleware
@@ -82,6 +83,9 @@ src/vision/
 │   ├── sync.html              ← Sync vezérlőpult
 │   ├── admin_users.html       ← Admin: bejelentkezett felhasználók listája
 │   ├── admin_activity_types.html ← Admin: tevékenység típusok CRUD (HTMX form-okkal)
+│   ├── controlling_projects.html ← Controlling: projektek CRUD (HTMX form-okkal, kliens-oldali sorszám/kód előnézettel)
+│   ├── controlling_timesheet.html ← Controlling: timesheet — statikus mockup
+│   ├── controlling_reports.html  ← Controlling: riportok — statikus mockup
 │   └── partials/              ← HTMX részleges válaszok (nem terjesztik ki base.html-t)
 │       ├── invoice_table.html
 │       ├── supplier_table.html
@@ -137,6 +141,10 @@ def dict_to_ns(obj):
 | Tevékenység típus létrehozás | `POST /api/v1/activity-types` | — |
 | Tevékenység típus módosítás | `PUT /api/v1/activity-types/{id}` | — |
 | Tevékenység típus törlés | `DELETE /api/v1/activity-types/{id}` | — |
+| Projektek | `GET /api/v1/projects` | — |
+| Projekt létrehozás | `POST /api/v1/projects` | — |
+| Projekt módosítás | `PUT /api/v1/projects/{id}` | — |
+| Projekt törlés | `DELETE /api/v1/projects/{id}` | — |
 
 ### SrcProfit (külső)
 
@@ -179,6 +187,14 @@ Filter formok HTMX partial frissítéssel működnek (szűrt nézetek nem reload
 |---|---|---|
 | Felhasználók | `/ui/admin/users` | Bejelentkezett felhasználók listája (auth szerviz login rekordjai) |
 | Tevékenység típusok | `/ui/admin/activity-types` | CRUD törzsadat a leendő timesheet funkcióhoz — létrehozás/módosítás modal, törlés csak ha a használati szám 0 (jelenleg mindig 0, mert nincs még timesheet tábla), egyébként inaktiválás |
+
+### Controlling oldalak (`/ui/controlling/*`)
+
+| Oldal | URL | Leírás |
+|---|---|---|
+| Projektek | `/ui/controlling/projects` | Projektek CRUD — valós adat. Ügyfél (customer FK), ügyfelenként növekvő sorszám, automatikusan összeállított project kód (`{ügyfél} - {sorszám:03d} - {short_name}`), gazda, aktív/lezárt státusz, és rögzítésre jogosultak checkbox lista (kik adhatnak timesheet rekordot). Az "Összesített ráfordítás (óra)" oszlop egyelőre `0` placeholder — nincs még `timesheet` tábla |
+| Timesheet | `/ui/controlling/timesheet` | Statikus mockup — még nincs hozzá backend |
+| Riportok | `/ui/controlling/reports` | Statikus mockup — még nincs hozzá backend |
 
 ### Vision saját oldalak
 
@@ -240,6 +256,12 @@ GET  /ui/admin/activity-types    → admin_activity_types.html
 POST /ui/admin/activity-types    → létrehozás (HTMX, teljes oldal swap)
 POST /ui/admin/activity-types/{id} → módosítás (HTMX, teljes oldal swap)
 DELETE /ui/admin/activity-types/{id}/delete → törlés (HTMX, teljes oldal swap)
+GET  /ui/controlling/projects    → controlling_projects.html
+POST /ui/controlling/projects    → létrehozás (HTMX, teljes oldal swap)
+POST /ui/controlling/projects/{id} → módosítás (HTMX, teljes oldal swap)
+DELETE /ui/controlling/projects/{id} → törlés (HTMX, teljes oldal swap)
+GET  /ui/controlling/timesheet   → controlling_timesheet.html (statikus mockup)
+GET  /ui/controlling/reports     → controlling_reports.html (statikus mockup)
 ```
 
 **Nincs CLI** — a Vision csak böngészőből használt UI szerviz.

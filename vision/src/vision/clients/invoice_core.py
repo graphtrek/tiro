@@ -252,21 +252,78 @@ class InvoiceCoreClient:
         return self._get("/api/v1/activity-types")
 
     def create_activity_type(self, name: str) -> dict:
-        return self._write_activity_type("POST", "/api/v1/activity-types", {"name": name})
+        return self._write_json(
+            "POST", "/api/v1/activity-types", {"name": name}, "Nem sikerült menteni a tevékenység típust"
+        )
 
     def update_activity_type(self, activity_type_id: int, name: str, is_active: bool) -> dict:
-        return self._write_activity_type(
-            "PUT", f"/api/v1/activity-types/{activity_type_id}", {"name": name, "is_active": is_active}
+        return self._write_json(
+            "PUT",
+            f"/api/v1/activity-types/{activity_type_id}",
+            {"name": name, "is_active": is_active},
+            "Nem sikerült menteni a tevékenység típust",
         )
 
     def delete_activity_type(self, activity_type_id: int) -> dict:
-        return self._write_activity_type("DELETE", f"/api/v1/activity-types/{activity_type_id}", {})
+        return self._write_json(
+            "DELETE",
+            f"/api/v1/activity-types/{activity_type_id}",
+            {},
+            "Nem sikerült menteni a tevékenység típust",
+        )
 
-    def _write_activity_type(self, method: str, path: str, json: dict) -> dict:
-        """POST/PUT that surfaces a friendly `error` key instead of swallowing failures.
+    # ── Projects ───────────────────────────────────────────────────────────────
+
+    def get_projects(self) -> list[dict]:
+        return self._get("/api/v1/projects")
+
+    def create_project(
+        self, customer_id: int, short_name: str, owner_id: int, permitted_user_ids: list[int]
+    ) -> dict:
+        return self._write_json(
+            "POST",
+            "/api/v1/projects",
+            {
+                "customer_id": customer_id,
+                "short_name": short_name,
+                "owner_id": owner_id,
+                "permitted_user_ids": permitted_user_ids,
+            },
+            "Nem sikerült menteni a projektet",
+        )
+
+    def update_project(
+        self,
+        project_id: int,
+        customer_id: int,
+        short_name: str,
+        owner_id: int,
+        is_active: bool,
+        permitted_user_ids: list[int],
+    ) -> dict:
+        return self._write_json(
+            "PUT",
+            f"/api/v1/projects/{project_id}",
+            {
+                "customer_id": customer_id,
+                "short_name": short_name,
+                "owner_id": owner_id,
+                "is_active": is_active,
+                "permitted_user_ids": permitted_user_ids,
+            },
+            "Nem sikerült menteni a projektet",
+        )
+
+    def delete_project(self, project_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/projects/{project_id}", {}, "Nem sikerült törölni a projektet"
+        )
+
+    def _write_json(self, method: str, path: str, json: dict, error_message: str) -> dict:
+        """POST/PUT/DELETE that surfaces a friendly `error` key instead of swallowing failures.
 
         Unlike the other client methods, callers need to tell the user *why* a save
-        failed (e.g. duplicate name -> 409), not just that it failed.
+        failed (e.g. duplicate name/code -> 409), not just that it failed.
         """
         try:
             resp = self.session.request(method, f"{self.base_url}{path}", json=json, timeout=self.timeout)
@@ -280,7 +337,7 @@ class InvoiceCoreClient:
                 except ValueError:
                     pass
             logger.warning("invoice-core %s %s failed: %s", method, path, exc)
-            return {"error": detail or "Nem sikerült menteni a tevékenység típust"}
+            return {"error": detail or error_message}
         except requests.RequestException as exc:
             logger.warning("invoice-core %s %s failed: %s", method, path, exc)
             return {"error": "A szolgáltatás jelenleg nem érhető el"}

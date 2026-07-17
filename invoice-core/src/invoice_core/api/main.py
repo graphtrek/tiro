@@ -39,6 +39,9 @@ from invoice_core.models import (
     InvoiceOut,
     LinkFileRequest,
     PatchInvoiceRequest,
+    ProjectIn,
+    ProjectOut,
+    ProjectUpdate,
     SupplierOut,
     SyncMode,
     SyncRequest,
@@ -54,6 +57,7 @@ from invoice_core.services import (
     invoice_file_service,
     invoice_service,
     partner_service,
+    project_service,
     tax_service,
     transaction_service,
     user_service,
@@ -357,6 +361,39 @@ def update_activity_type(
 def delete_activity_type(activity_type_id: int, db: Session = Depends(get_db)):
     if not activity_type_service.delete_activity_type(db, activity_type_id):
         raise HTTPException(status_code=404, detail="Activity type not found")
+    return {"status": "deleted"}
+
+
+# ── Project endpoints ──────────────────────────────────────────────────────────
+
+@app.post("/api/v1/projects", response_model=ProjectOut)
+def create_project(payload: ProjectIn, db: Session = Depends(get_db)):
+    try:
+        return project_service.create_project(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.get("/api/v1/projects", response_model=List[ProjectOut])
+def list_projects(db: Session = Depends(get_db)):
+    return project_service.list_projects(db)
+
+
+@app.put("/api/v1/projects/{project_id}", response_model=ProjectOut)
+def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db)):
+    try:
+        record = project_service.update_project(db, project_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if record is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return record
+
+
+@app.delete("/api/v1/projects/{project_id}")
+def delete_project(project_id: int, db: Session = Depends(get_db)):
+    if not project_service.delete_project(db, project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
     return {"status": "deleted"}
 
 

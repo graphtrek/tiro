@@ -256,6 +256,47 @@ class ActivityType(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
+project_permitted_user = Table(
+    "project_permitted_user",
+    Base.metadata,
+    Column("project_id", Integer, ForeignKey("project.id"), primary_key=True),
+    Column("user_id", Integer, ForeignKey("user.id"), primary_key=True),
+)
+
+
+class Project(Base):
+    __tablename__ = "project"
+    __table_args__ = (
+        UniqueConstraint("customer_id", "sequence_no", name="uq_project_customer_seq"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customer.id"), nullable=False, index=True)
+    sequence_no = Column(Integer, nullable=False)
+    short_name = Column(String, nullable=False)
+    code = Column(String, nullable=False, unique=True, index=True)
+    owner_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    customer = relationship("Customer")
+    owner = relationship("User", foreign_keys=[owner_id])
+    permitted_users = relationship("User", secondary=project_permitted_user)
+
+    @property
+    def customer_name(self) -> str:
+        return self.customer.name if self.customer else ""
+
+    @property
+    def owner_name(self) -> str:
+        return (self.owner.name or self.owner.email) if self.owner else ""
+
+    @property
+    def permitted_user_ids(self) -> list[int]:
+        return [u.id for u in self.permitted_users]
+
+
 class SyncLog(Base):
     __tablename__ = "sync_log"
 

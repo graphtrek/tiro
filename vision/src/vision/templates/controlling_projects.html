@@ -14,23 +14,18 @@
 {% block content %}
 <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
   <h1 class="h3 mb-0"><i class="bi bi-kanban me-2"></i>Projektek</h1>
-  <span class="badge text-bg-warning">Mockup — hamarosan</span>
   <div class="ms-auto d-flex gap-2">
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newProjectModal">
       <i class="bi bi-plus-lg me-1"></i>Új
     </button>
-    <div class="dropdown">
-      <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-        <i class="bi bi-download me-1"></i>Export
-      </button>
-      <ul class="dropdown-menu dropdown-menu-end">
-        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-excel me-2"></i>Excel</a></li>
-        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-pdf me-2"></i>PDF</a></li>
-        <li><a class="dropdown-item" href="#"><i class="bi bi-printer me-2"></i>Nyomtatás</a></li>
-      </ul>
-    </div>
   </div>
 </div>
+
+{% if error %}
+<div class="alert alert-danger py-2" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+</div>
+{% endif %}
 
 <p class="text-muted">Projektek listája és kezelése — lezárt projektre nem rögzíthető új idő.</p>
 
@@ -48,38 +43,34 @@
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td><strong>IFUA - 001 - FVM</strong></td>
-          <td>IFUA</td><td>Kozma Zoltán</td><td><span class="badge bg-success">aktív</span></td><td class="text-end">60,5</td>
+        {% for row in rows %}
+        {% set usage_hours = 0 %}<!-- hardcoded until Timesheet exists -->
+        <tr class="{% if not row.is_active %}text-muted{% endif %}">
+          <td><strong>{{ row.code }}</strong></td>
+          <td>{{ row.customer_name }}</td>
+          <td>{{ row.owner_name }}</td>
+          <td>
+            {% if row.is_active %}
+            <span class="badge bg-success">aktív</span>
+            {% else %}
+            <span class="badge bg-secondary">lezárt</span>
+            {% endif %}
+          </td>
+          <td class="text-end">{{ usage_hours }}</td>
           <td class="text-end text-nowrap">
-            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newProjectModal"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
+                    data-bs-target="#editProjectModal{{ row.id }}">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"
+                    hx-delete="/ui/controlling/projects/{{ row.id }}"
+                    hx-target="body" hx-push-url="true"
+                    hx-confirm="Biztosan törli? '{{ row.code }}'">
+              <i class="bi bi-trash"></i>
+            </button>
           </td>
         </tr>
-        <tr>
-          <td><strong>IFUA - 002 - MUIR</strong></td>
-          <td>IFUA</td><td>Tatai Imre</td><td><span class="badge bg-success">aktív</span></td><td class="text-end">18</td>
-          <td class="text-end text-nowrap">
-            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newProjectModal"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
-          </td>
-        </tr>
-        <tr>
-          <td><strong>IFUA - 003 - ITKONSZ</strong></td>
-          <td>IFUA</td><td>Kozma Zoltán</td><td><span class="badge bg-success">aktív</span></td><td class="text-end">9</td>
-          <td class="text-end text-nowrap">
-            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newProjectModal"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
-          </td>
-        </tr>
-        <tr class="text-muted">
-          <td><strong>Graphtrek - 001 - Money Penny</strong></td>
-          <td>Graphtrek</td><td>Tatai Imre</td><td><span class="badge bg-secondary">lezárt</span></td><td class="text-end">12</td>
-          <td class="text-end text-nowrap">
-            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal" data-bs-target="#newProjectModal"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-outline-danger" title="Töröl"><i class="bi bi-trash"></i></button>
-          </td>
-        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
@@ -103,68 +94,193 @@
   })();
 </script>
 
-<!-- Új projekt modal (mock) -->
+<!-- Új projekt modal -->
 <div class="modal fade" id="newProjectModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header py-2">
-        <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új projekt</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
-      </div>
-      <div class="modal-body">
-        <form onsubmit="return false">
+      <form class="project-form" hx-post="/ui/controlling/projects" hx-target="body" hx-push-url="true">
+        <div class="modal-header py-2">
+          <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új projekt</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Ügyfél <span class="text-danger">*</span></label>
-              <input class="form-control" list="pr-clients" placeholder="Kezdjen gépelni…" value="IFUA" required>
-              <datalist id="pr-clients"><option value="IFUA"><option value="Graphtrek"></datalist>
+              <input class="form-control pr-client-input" list="pr-clients-new" placeholder="Kezdjen gépelni…" autocomplete="off" required>
+              <input type="hidden" name="customer_id" class="pr-client-id" required>
+              <datalist id="pr-clients-new">
+                {% for c in customers %}<option value="{{ c.name }}" data-id="{{ c.id }}">{% endfor %}
+              </datalist>
               <div class="form-text">Ez adja a projektkód előtagját (Ügyfelek törzsadat)</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Sorszám</label>
-              <input class="form-control" value="004" disabled>
+              <input class="form-control pr-seq" disabled>
               <div class="form-text">Automatikusan javasolt, ügyfelenként növekvő</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Azonosító / rövid név <span class="text-danger">*</span></label>
-              <input class="form-control" placeholder="pl. FVM" required>
+              <input name="short_name" class="form-control pr-short-name" placeholder="pl. FVM" required>
             </div>
             <div class="col-md-6">
               <label class="form-label">Project kód</label>
-              <input class="form-control" value="IFUA - 004 - …" disabled>
+              <input class="form-control pr-code" disabled>
               <div class="form-text">Automatikusan összeállítva: Ügyfél - sorszám - azonosító</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Project gazda <span class="text-danger">*</span></label>
-              <select class="form-select" required>
-                <option>Kozma Zoltán</option>
-                <option>Tatai Imre</option>
+              <select name="owner_id" class="form-select" required>
+                <option value="" disabled selected>Válasszon…</option>
+                {% for u in users %}<option value="{{ u.id }}">{{ u.name or u.email }}</option>{% endfor %}
               </select>
               <div class="form-text">A jövőben a költséghely-felelős</div>
             </div>
+            <div class="col-12">
+              <label class="form-label">Rögzítésre jogosultak (permitted_users)</label>
+              <div class="d-flex flex-wrap gap-3">
+                {% for u in users %}
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="permitted_user_ids" value="{{ u.id }}" id="npu{{ u.id }}">
+                  <label class="form-check-label" for="npu{{ u.id }}">{{ u.name or u.email }}</label>
+                </div>
+                {% endfor %}
+              </div>
+              <div class="form-text">Csak a kijelölt felhasználók adhatnak timesheet rekordot a projekthez</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Projekt módosítása modalok -->
+{% for row in rows %}
+<div class="modal fade" id="editProjectModal{{ row.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form class="project-form" hx-post="/ui/controlling/projects/{{ row.id }}" hx-target="body" hx-push-url="true">
+        <div class="modal-header py-2">
+          <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Projekt módosítása</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Ügyfél <span class="text-danger">*</span></label>
+              <input class="form-control pr-client-input" list="pr-clients-edit{{ row.id }}" value="{{ row.customer_name }}" autocomplete="off" required>
+              <input type="hidden" name="customer_id" class="pr-client-id" value="{{ row.customer_id }}"
+                     data-initial-customer-id="{{ row.customer_id }}" required>
+              <datalist id="pr-clients-edit{{ row.id }}">
+                {% for c in customers %}<option value="{{ c.name }}" data-id="{{ c.id }}">{% endfor %}
+              </datalist>
+              <div class="form-text">Ez adja a projektkód előtagját (Ügyfelek törzsadat)</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Sorszám</label>
+              <input class="form-control pr-seq" value="{{ '%03d' % row.sequence_no }}" data-initial-seq="{{ row.sequence_no }}" disabled>
+              <div class="form-text">Ügyfélváltáskor újra kiosztásra kerül</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Azonosító / rövid név <span class="text-danger">*</span></label>
+              <input name="short_name" class="form-control pr-short-name" value="{{ row.short_name }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Project kód</label>
+              <input class="form-control pr-code" value="{{ row.code }}" disabled>
+              <div class="form-text">Automatikusan összeállítva: Ügyfél - sorszám - azonosító</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Project gazda <span class="text-danger">*</span></label>
+              <select name="owner_id" class="form-select" required>
+                {% for u in users %}
+                <option value="{{ u.id }}" {% if u.id == row.owner_id %}selected{% endif %}>{{ u.name or u.email }}</option>
+                {% endfor %}
+              </select>
+            </div>
             <div class="col-md-6">
               <label class="form-label">Státusz</label>
-              <select class="form-select"><option>aktív</option><option>lezárt</option></select>
+              <select name="is_active" class="form-select">
+                <option value="true" {% if row.is_active %}selected{% endif %}>aktív</option>
+                <option value="false" {% if not row.is_active %}selected{% endif %}>lezárt</option>
+              </select>
               <div class="form-text">Lezárt projektre nem rögzíthető új idő</div>
             </div>
             <div class="col-12">
               <label class="form-label">Rögzítésre jogosultak (permitted_users)</label>
               <div class="d-flex flex-wrap gap-3">
-                <div class="form-check"><input class="form-check-input" type="checkbox" id="pu1" checked><label class="form-check-label" for="pu1">Kozma Zoltán</label></div>
-                <div class="form-check"><input class="form-check-input" type="checkbox" id="pu2" checked><label class="form-check-label" for="pu2">Tatai Imre</label></div>
-                <div class="form-check"><input class="form-check-input" type="checkbox" id="pu3"><label class="form-check-label" for="pu3">Szász Judit</label></div>
-                <div class="form-check"><input class="form-check-input" type="checkbox" id="pu4"><label class="form-check-label" for="pu4">Fülöp Gergely</label></div>
+                {% for u in users %}
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="permitted_user_ids" value="{{ u.id }}"
+                         id="epu{{ row.id }}-{{ u.id }}" {% if u.id in row.permitted_user_ids %}checked{% endif %}>
+                  <label class="form-check-label" for="epu{{ row.id }}-{{ u.id }}">{{ u.name or u.email }}</label>
+                </div>
+                {% endfor %}
               </div>
               <div class="form-text">Csak a kijelölt felhasználók adhatnak timesheet rekordot a projekthez</div>
             </div>
           </div>
-        </form>
-      </div>
-      <div class="modal-footer py-2">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal"><i class="bi bi-save me-1"></i>Mentés</button>
-      </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
+{% endfor %}
+
+<script>
+  (function() {
+    const customers = {{ customers | tojson }};
+    const projects = {{ rows | tojson }};
+
+    function nextSeq(customerId) {
+      const existing = projects.filter(function(p) { return p.customer_id === customerId; });
+      const maxSeq = existing.reduce(function(max, p) { return Math.max(max, p.sequence_no); }, 0);
+      return maxSeq + 1;
+    }
+
+    function composeCode(customerName, seq, shortName) {
+      const seqStr = String(seq).padStart(3, "0");
+      return (customerName || "…") + " - " + seqStr + " - " + (shortName || "…");
+    }
+
+    document.querySelectorAll(".project-form").forEach(function(form) {
+      const clientInput = form.querySelector(".pr-client-input");
+      const clientIdInput = form.querySelector(".pr-client-id");
+      const shortNameInput = form.querySelector(".pr-short-name");
+      const seqPreview = form.querySelector(".pr-seq");
+      const codePreview = form.querySelector(".pr-code");
+
+      const initialCustomerId = clientIdInput.dataset.initialCustomerId
+        ? parseInt(clientIdInput.dataset.initialCustomerId, 10) : null;
+      const initialSeq = seqPreview.dataset.initialSeq ? parseInt(seqPreview.dataset.initialSeq, 10) : null;
+
+      function refreshPreview() {
+        const customerId = clientIdInput.value ? parseInt(clientIdInput.value, 10) : null;
+        const customer = customers.find(function(c) { return c.id === customerId; });
+        let seq = null;
+        if (customerId !== null) {
+          seq = (customerId === initialCustomerId && initialSeq !== null) ? initialSeq : nextSeq(customerId);
+        }
+        seqPreview.value = seq !== null ? String(seq).padStart(3, "0") : "";
+        codePreview.value = composeCode(customer ? customer.name : clientInput.value, seq !== null ? seq : "…", shortNameInput.value);
+      }
+
+      clientInput.addEventListener("input", function() {
+        const match = customers.find(function(c) { return c.name === clientInput.value; });
+        clientIdInput.value = match ? match.id : "";
+        refreshPreview();
+      });
+      shortNameInput.addEventListener("input", refreshPreview);
+    });
+  })();
+</script>
 {% endblock %}
