@@ -32,6 +32,9 @@ from invoice_core.db import (
     invoice_bank_transaction,
 )
 from invoice_core.models import (
+    ActivityTypeIn,
+    ActivityTypeOut,
+    ActivityTypeUpdate,
     CustomerOut,
     InvoiceOut,
     LinkFileRequest,
@@ -45,6 +48,7 @@ from invoice_core.models import (
 )
 from invoice_core.service import _recompute_payment_status, sync_all
 from invoice_core.services import (
+    activity_type_service,
     dashboard_service,
     dividend_service,
     invoice_file_service,
@@ -319,6 +323,41 @@ def upsert_user(payload: UserIn, db: Session = Depends(get_db)):
 @app.get("/api/v1/users", response_model=List[UserOut])
 def list_users(db: Session = Depends(get_db)):
     return user_service.list_users(db)
+
+
+# ── Activity type endpoints ───────────────────────────────────────────────────
+
+@app.post("/api/v1/activity-types", response_model=ActivityTypeOut)
+def create_activity_type(payload: ActivityTypeIn, db: Session = Depends(get_db)):
+    try:
+        return activity_type_service.create_activity_type(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.get("/api/v1/activity-types", response_model=List[ActivityTypeOut])
+def list_activity_types(db: Session = Depends(get_db)):
+    return activity_type_service.list_activity_types(db)
+
+
+@app.put("/api/v1/activity-types/{activity_type_id}", response_model=ActivityTypeOut)
+def update_activity_type(
+    activity_type_id: int, payload: ActivityTypeUpdate, db: Session = Depends(get_db)
+):
+    try:
+        record = activity_type_service.update_activity_type(db, activity_type_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if record is None:
+        raise HTTPException(status_code=404, detail="Activity type not found")
+    return record
+
+
+@app.delete("/api/v1/activity-types/{activity_type_id}")
+def delete_activity_type(activity_type_id: int, db: Session = Depends(get_db)):
+    if not activity_type_service.delete_activity_type(db, activity_type_id):
+        raise HTTPException(status_code=404, detail="Activity type not found")
+    return {"status": "deleted"}
 
 
 # ── Transaction endpoints ─────────────────────────────────────────────────────

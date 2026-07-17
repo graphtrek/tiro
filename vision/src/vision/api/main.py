@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from vision.auth import current_token, extract_token, verify_jwt
 from vision.config import configure_logging, get_settings
+from vision.ui.admin_router import router as admin_ui_router
 from vision.ui.controlling_router import router as controlling_ui_router
 from vision.ui.invoice_router import router as invoice_ui_router
 from vision.ui.router import router as ui_router
@@ -36,6 +37,7 @@ app.include_router(ui_router)
 app.include_router(invoice_ui_router)
 app.include_router(uploader_ui_router)
 app.include_router(controlling_ui_router)
+app.include_router(admin_ui_router)
 
 
 # Token nélkül elérhető végpontok — minden más érvényes JWT-t igényel.

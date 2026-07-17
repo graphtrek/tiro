@@ -20,7 +20,6 @@ _PAGES = {
     "timesheet": "controlling_timesheet.html",
     "reports": "controlling_reports.html",
     "projects": "controlling_projects.html",
-    "activity-types": "controlling_activity_types.html",
 }
 
 

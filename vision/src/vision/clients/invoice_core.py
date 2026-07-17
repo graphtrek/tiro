@@ -241,6 +241,50 @@ class InvoiceCoreClient:
             "sync_mode": sync_mode,
         }) or {}
 
+    # ── Users ──────────────────────────────────────────────────────────────────
+
+    def get_users(self) -> list[dict]:
+        return self._get("/api/v1/users")
+
+    # ── Activity types ─────────────────────────────────────────────────────────
+
+    def get_activity_types(self) -> list[dict]:
+        return self._get("/api/v1/activity-types")
+
+    def create_activity_type(self, name: str) -> dict:
+        return self._write_activity_type("POST", "/api/v1/activity-types", {"name": name})
+
+    def update_activity_type(self, activity_type_id: int, name: str, is_active: bool) -> dict:
+        return self._write_activity_type(
+            "PUT", f"/api/v1/activity-types/{activity_type_id}", {"name": name, "is_active": is_active}
+        )
+
+    def delete_activity_type(self, activity_type_id: int) -> dict:
+        return self._write_activity_type("DELETE", f"/api/v1/activity-types/{activity_type_id}", {})
+
+    def _write_activity_type(self, method: str, path: str, json: dict) -> dict:
+        """POST/PUT that surfaces a friendly `error` key instead of swallowing failures.
+
+        Unlike the other client methods, callers need to tell the user *why* a save
+        failed (e.g. duplicate name -> 409), not just that it failed.
+        """
+        try:
+            resp = self.session.request(method, f"{self.base_url}{path}", json=json, timeout=self.timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.HTTPError as exc:
+            detail = None
+            if exc.response is not None:
+                try:
+                    detail = exc.response.json().get("detail")
+                except ValueError:
+                    pass
+            logger.warning("invoice-core %s %s failed: %s", method, path, exc)
+            return {"error": detail or "Nem sikerült menteni a tevékenység típust"}
+        except requests.RequestException as exc:
+            logger.warning("invoice-core %s %s failed: %s", method, path, exc)
+            return {"error": "A szolgáltatás jelenleg nem érhető el"}
+
     # ── Reports ────────────────────────────────────────────────────────────────
 
     def get_dividend_report(self, year: int | None = None, kiva_rate: float = 0.10, hipa_rate: float = 0.02) -> dict:

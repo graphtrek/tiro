@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Felhasználók — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item">Admin</li>
+    <li class="breadcrumb-item active">Felhasználók</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4"><i class="bi bi-people me-2"></i>Felhasználók</h1>
+
+<div class="card">
+  <div class="card-body pt-3">
+    <table id="user-table" class="table table-hover table-sm">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Név</th>
+          <th>Email</th>
+          <th>Provider</th>
+          <th>Utolsó belépés</th>
+          <th>Regisztrálva</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            {% if row.picture %}
+              <img src="{{ row.picture }}" alt="" width="28" height="28" class="rounded-circle">
+            {% else %}
+              <i class="bi bi-person-circle text-muted fs-5"></i>
+            {% endif %}
+          </td>
+          <td>{{ row.name or '—' }}</td>
+          <td>{{ row.email }}</td>
+          <td><span class="badge bg-secondary">{{ row.provider }}</span></td>
+          <td>{{ row.last_login_at.strftime('%Y-%m-%d %H:%M') if row.last_login_at else '—' }}</td>
+          <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    new DataTable("#user-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50, 100],
+      order: [[4, "desc"]],
+      columnDefs: [{ targets: 0, searchable: false, orderable: false }],
+    });
+  });
+</script>
+{% endblock %}

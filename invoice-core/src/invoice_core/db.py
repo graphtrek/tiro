@@ -246,6 +246,16 @@ class User(Base):
     last_login_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 
+class ActivityType(Base):
+    __tablename__ = "activity_type"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class SyncLog(Base):
     __tablename__ = "sync_log"
 

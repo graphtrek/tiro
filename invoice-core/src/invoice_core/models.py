@@ -145,6 +145,25 @@ class UserOut(BaseModel):
     last_login_at: datetime
 
 
+class ActivityTypeIn(BaseModel):
+    name: str
+
+
+class ActivityTypeUpdate(BaseModel):
+    name: str
+    is_active: bool
+
+
+class ActivityTypeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
 class LinkFileRequest(BaseModel):
     invoice_file_id: int
 
