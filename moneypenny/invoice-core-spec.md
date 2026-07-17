@@ -115,6 +115,18 @@ best-effort POST-olja a felhasználó profilját és a login providert ide (`POS
 /api/v1/users`), a frissen kiállított access tokennel. Ez az egyetlen tábla,
 amit nem a sync pipeline tölt fel, hanem egy másik szerviz push-olja.
 
+### activity_type (admin törzsadat — leendő timesheet funkcióhoz)
+- id (PK)
+- name (egyedi)
+- is_active (bool, default: true) — inaktív típus új rekordhoz nem választható, meglévő rekordok érintetlenek
+- created_at, updated_at
+
+Admin CRUD törzsadat a [[vision-spec.md|vision]] `/ui/admin/activity-types` oldalához (nincs
+még hozzá kapcsolódó `timesheet` tábla — a `usage_count` a UI-n egyelőre `0`
+placeholder). Törlés (`DELETE`) csak a UI oldalán van feltételhez kötve (csak ha a
+használati szám 0); a szervernek egyelőre nincs mit ellenőriznie, mert nincs
+felhasználást jelző tábla.
+
 ## Logika (Orchestration)
 1. **invoice-core iniciál** → sorban:
    - **nav-invoice** meghívása (GET /invoices?from=...&to=...&direction=...)
@@ -178,6 +190,10 @@ amit nem a sync pipeline tölt fel, hanem egy másik szerviz push-olja.
 | `GET`  | `/api/v1/reports/tax` | Adófizetési kimutatás hónap és típus szerint (`year` param) |
 | `POST` | `/api/v1/users` | Login rekord upsert (provider+sub alapján) — az auth szerviz hívja minden sikeres bejelentkezéskor |
 | `GET`  | `/api/v1/users` | Bejelentkezett felhasználók listája (utolsó belépés szerint csökkenő) |
+| `POST` | `/api/v1/activity-types` | Új tevékenység típus létrehozása (409, ha a név már foglalt — kis-nagybetűtől függetlenül) |
+| `GET`  | `/api/v1/activity-types` | Tevékenység típusok listája (név szerint) |
+| `PUT`  | `/api/v1/activity-types/{id}` | Tevékenység típus módosítása (név + `is_active`); 404 ha nem létezik, 409 névütközésnél |
+| `DELETE` | `/api/v1/activity-types/{id}` | Tevékenység típus végleges törlése; 404 ha nem létezik |
 
 ## Tech stack
 - Python 3.10+

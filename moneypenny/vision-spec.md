@@ -5,7 +5,7 @@ type: "service-spec"
 status: "megvalósítva"
 port: 8009
 language: "HU"
-last_updated: "2026-06-22"
+last_updated: "2026-07-17"
 depends_on: [invoice-core-spec.md, srcprofit]
 related: [INDEX.md, vision-prompt.md, invoice-core-spec.md]
 tags: [vision, frontend, fastapi, jinja2, htmx, bootstrap, datatables]
@@ -56,6 +56,7 @@ src/vision/
 ├── ui/
 │   ├── router.py              ← Vision saját oldalak: /, /pitch, /dashboard
 │   ├── invoice_router.py      ← Invoice-core UI oldalak: összes /ui/* (15 route)
+│   ├── admin_router.py        ← Admin oldalak: /ui/admin/users, /ui/admin/activity-types (valós adat, invoice-core CRUD-ot hív)
 │   └── utils.py               ← dict_to_ns() — JSON dict → SimpleNamespace, ISO dátum auto-parse
 ├── api/
 │   └── main.py                ← FastAPI app, /health, HTTP logging middleware
@@ -79,6 +80,8 @@ src/vision/
 │   ├── dividend.html          ← Osztalék/adó kalkuláció
 │   ├── adok.html              ← Adófizetési pivot
 │   ├── sync.html              ← Sync vezérlőpult
+│   ├── admin_users.html       ← Admin: bejelentkezett felhasználók listája
+│   ├── admin_activity_types.html ← Admin: tevékenység típusok CRUD (HTMX form-okkal)
 │   └── partials/              ← HTMX részleges válaszok (nem terjesztik ki base.html-t)
 │       ├── invoice_table.html
 │       ├── supplier_table.html
@@ -129,6 +132,11 @@ def dict_to_ns(obj):
 | Szinkron indítás | `POST /api/v1/sync` | `start_date`, `end_date`, `sync_mode` |
 | Osztalék kimutatás | `GET /api/v1/reports/dividend` | `year`, `kiva_rate` |
 | Adó kimutatás | `GET /api/v1/reports/tax` | `year` |
+| Felhasználók | `GET /api/v1/users` | — |
+| Tevékenység típusok | `GET /api/v1/activity-types` | — |
+| Tevékenység típus létrehozás | `POST /api/v1/activity-types` | — |
+| Tevékenység típus módosítás | `PUT /api/v1/activity-types/{id}` | — |
+| Tevékenység típus törlés | `DELETE /api/v1/activity-types/{id}` | — |
 
 ### SrcProfit (külső)
 
@@ -164,6 +172,13 @@ def dict_to_ns(obj):
 **UI tech**: Jinja2 SSR, HTMX 2.x (boost + partial swap + OOB), Bootstrap 5.3 (Bootswatch Yeti), DataTables 2.x — nincs build lépés.
 
 Filter formok HTMX partial frissítéssel működnek (szűrt nézetek nem reloadolják az egész oldalt).
+
+### Admin oldalak (`/ui/admin/*` — valós adat, nem mockup)
+
+| Oldal | URL | Leírás |
+|---|---|---|
+| Felhasználók | `/ui/admin/users` | Bejelentkezett felhasználók listája (auth szerviz login rekordjai) |
+| Tevékenység típusok | `/ui/admin/activity-types` | CRUD törzsadat a leendő timesheet funkcióhoz — létrehozás/módosítás modal, törlés csak ha a használati szám 0 (jelenleg mindig 0, mert nincs még timesheet tábla), egyébként inaktiválás |
 
 ### Vision saját oldalak
 
@@ -220,6 +235,11 @@ GET  /ui/dividend        → dividend.html
 GET  /ui/adok            → adok.html
 GET  /ui/sync            → sync.html
 POST /ui/sync/trigger    → sync_result.html (HTMX partial + OOB badge frissítés)
+GET  /ui/admin/users             → admin_users.html
+GET  /ui/admin/activity-types    → admin_activity_types.html
+POST /ui/admin/activity-types    → létrehozás (HTMX, teljes oldal swap)
+POST /ui/admin/activity-types/{id} → módosítás (HTMX, teljes oldal swap)
+DELETE /ui/admin/activity-types/{id}/delete → törlés (HTMX, teljes oldal swap)
 ```
 
 **Nincs CLI** — a Vision csak böngészőből használt UI szerviz.

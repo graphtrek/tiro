@@ -69,6 +69,10 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `DELETE` | `/api/v1/invoices/{invoice_id}/transactions/{txn_id}` | Remove a bank transaction from an invoice's payment set |
 | `POST` | `/api/v1/users` | Upsert a login record by `(provider, sub)` — called by the `auth` service on every successful login |
 | `GET`  | `/api/v1/users` | List saved users, most recent login first |
+| `POST` | `/api/v1/activity-types` | Create an activity type; `409` if `name` is already taken (case-insensitive) |
+| `GET`  | `/api/v1/activity-types` | List activity types, ordered by name |
+| `PUT`  | `/api/v1/activity-types/{activity_type_id}` | Update `name` + `is_active`; `404` if not found, `409` on name conflict |
+| `DELETE` | `/api/v1/activity-types/{activity_type_id}` | Hard-delete an activity type; `404` if not found |
 
 ### GET /health
 
@@ -225,6 +229,7 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
 | `user` | Login records pushed (best-effort) by the `auth` service on every login: `provider`, `sub`, `email`, `name`, `picture`, `last_login_at`; unique on `(provider, sub)` — this is the only table not populated by the sync pipeline |
+| `activity_type` | Admin master data for the future Timesheet feature: `name` (unique), `is_active` (soft-deactivate). Managed via the vision `/ui/admin/activity-types` page; not touched by the sync pipeline |
 
 ### Alembic migrations
 
@@ -243,6 +248,7 @@ uv run alembic revision --autogenerate -m "describe change"
 | `f5g6h7i8j9k0` | invoice↔bank_transaction M2M junction table |
 | `g6h7i8j9k0l1` | Manual link fields: `invoice_file_locked` on `invoice` and `bank_transaction`; `manual` on `invoice_bank_transaction` |
 | `k0l1m2n3o4p5` | `user` table — login records from the `auth` service |
+| `l1m2n3o4p5q6` | `activity_type` table — admin master data for the future Timesheet feature |
 
 ## Code structure
 
@@ -257,7 +263,8 @@ src/invoice_core/
 │   ├── invoice_file_service.py ← PDF file list
 │   ├── dividend_service.py  ← Annual dividend/tax calculation (KIVA, SZJA, SZOCHO)
 │   ├── tax_service.py       ← Tax payment report: filters bank transactions by NAV/HIPA/Iparkamara account numbers
-│   └── user_service.py      ← Upsert/list login records pushed by the auth service
+│   ├── user_service.py      ← Upsert/list login records pushed by the auth service
+│   └── activity_type_service.py ← Admin CRUD for Timesheet activity types (create/list/update/delete)
 ├── db.py                    ← SQLAlchemy ORM models + session; exports _enum_str helper
 ├── service.py               ← Sync orchestration (sync_nav, sync_pdf, sync_bank, sync_match)
 ├── models.py                ← Pydantic request/response schemas

@@ -46,6 +46,13 @@ uv run pytest tests/ -v
 
 Filter forms use HTMX partial updates so filtered views stay responsive without full page reloads.
 
+### Admin pages (`/ui/admin/*` — real data, not mockups)
+
+| Page | URL | Description |
+|------|-----|-------------|
+| Felhasználók (Users) | `/ui/admin/users` | List of logged-in users (login records from the auth service) |
+| Tevékenység típusok (Activity types) | `/ui/admin/activity-types` | CRUD master data for the future Timesheet feature — create/edit modal; delete is only offered when the usage count is 0 (currently always 0 — no Timesheet table exists yet), otherwise the row is deactivated instead |
+
 ### Vision-specific pages
 
 | Page | URL | Description |
@@ -77,6 +84,7 @@ src/vision/
 ├── ui/
 │   ├── router.py              # Vision-specific routes: /dashboard, /pitch, /
 │   ├── invoice_router.py      # Invoice-core UI routes: all /ui/* (15 routes)
+│   ├── admin_router.py        # Admin pages: /ui/admin/users, /ui/admin/activity-types (real data, calls invoice-core CRUD)
 │   └── utils.py               # dict_to_ns() — converts API JSON dicts to SimpleNamespace for dot-access
 ├── api/
 │   └── main.py                # FastAPI app, /health, HTTP logging middleware
@@ -100,6 +108,8 @@ src/vision/
 │   ├── dividend.html          # Dividend/tax calculation report
 │   ├── adok.html              # Tax payments pivot
 │   ├── sync.html              # Sync control panel
+│   ├── admin_users.html       # Admin: logged-in users list
+│   ├── admin_activity_types.html # Admin: activity types CRUD (HTMX forms)
 │   └── partials/              # HTMX partial responses (no base.html extension)
 │       ├── invoice_table.html
 │       ├── supplier_table.html
