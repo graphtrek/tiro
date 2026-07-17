@@ -196,6 +196,45 @@ class ProjectOut(BaseModel):
     updated_at: datetime
 
 
+class TimesheetEntryIn(BaseModel):
+    user_id: int
+    project_id: int
+    activity_type_id: int
+    entry_date: date
+    hours: float
+    participants: Optional[str] = None
+    description: Optional[str] = None
+
+
+class TimesheetEntryUpdate(BaseModel):
+    project_id: int
+    activity_type_id: int
+    entry_date: date
+    hours: float
+    participants: Optional[str] = None
+    description: Optional[str] = None
+
+
+class TimesheetEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    user_name: str
+    project_id: int
+    project_code: str
+    customer_name: str
+    activity_type_id: int
+    activity_type_name: str
+    entry_date: date
+    project_week: int
+    hours: float
+    participants: Optional[str] = None
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class LinkFileRequest(BaseModel):
     invoice_file_id: int
 

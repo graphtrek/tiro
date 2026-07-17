@@ -297,6 +297,48 @@ class Project(Base):
         return [u.id for u in self.permitted_users]
 
 
+class TimesheetEntry(Base):
+    __tablename__ = "timesheet_entry"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey("project.id"), nullable=False, index=True)
+    activity_type_id = Column(Integer, ForeignKey("activity_type.id"), nullable=False, index=True)
+    entry_date = Column(Date, nullable=False, index=True)
+    hours = Column(Float, nullable=False)
+    participants = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user = relationship("User", foreign_keys=[user_id])
+    project = relationship("Project")
+    activity_type = relationship("ActivityType")
+
+    @property
+    def user_name(self) -> str:
+        return (self.user.name or self.user.email) if self.user else ""
+
+    @property
+    def project_code(self) -> str:
+        return self.project.code if self.project else ""
+
+    @property
+    def customer_name(self) -> str:
+        return self.project.customer_name if self.project else ""
+
+    @property
+    def activity_type_name(self) -> str:
+        return self.activity_type.name if self.activity_type else ""
+
+    @property
+    def project_week(self) -> int:
+        if not self.project or not self.project.created_at:
+            return 1
+        delta_days = (self.entry_date - self.project.created_at.date()).days
+        return max(delta_days, 0) // 7 + 1
+
+
 class SyncLog(Base):
     __tablename__ = "sync_log"
 

@@ -46,6 +46,9 @@ from invoice_core.models import (
     SyncMode,
     SyncRequest,
     SyncResponse,
+    TimesheetEntryIn,
+    TimesheetEntryOut,
+    TimesheetEntryUpdate,
     UserIn,
     UserOut,
 )
@@ -59,6 +62,7 @@ from invoice_core.services import (
     partner_service,
     project_service,
     tax_service,
+    timesheet_service,
     transaction_service,
     user_service,
 )
@@ -394,6 +398,44 @@ def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depend
 def delete_project(project_id: int, db: Session = Depends(get_db)):
     if not project_service.delete_project(db, project_id):
         raise HTTPException(status_code=404, detail="Project not found")
+    return {"status": "deleted"}
+
+
+# ── Timesheet endpoints ────────────────────────────────────────────────────────
+
+@app.post("/api/v1/timesheet-entries", response_model=TimesheetEntryOut)
+def create_timesheet_entry(payload: TimesheetEntryIn, db: Session = Depends(get_db)):
+    try:
+        return timesheet_service.create_timesheet_entry(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.get("/api/v1/timesheet-entries", response_model=List[TimesheetEntryOut])
+def list_timesheet_entries(user_id: int = Query(...), db: Session = Depends(get_db)):
+    return timesheet_service.list_timesheet_entries(db, user_id)
+
+
+@app.put("/api/v1/timesheet-entries/{entry_id}", response_model=TimesheetEntryOut)
+def update_timesheet_entry(
+    entry_id: int,
+    payload: TimesheetEntryUpdate,
+    user_id: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        record = timesheet_service.update_timesheet_entry(db, entry_id, user_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if record is None:
+        raise HTTPException(status_code=404, detail="Timesheet rekord nem található")
+    return record
+
+
+@app.delete("/api/v1/timesheet-entries/{entry_id}")
+def delete_timesheet_entry(entry_id: int, user_id: int = Query(...), db: Session = Depends(get_db)):
+    if not timesheet_service.delete_timesheet_entry(db, entry_id, user_id):
+        raise HTTPException(status_code=404, detail="Timesheet rekord nem található")
     return {"status": "deleted"}
 
 

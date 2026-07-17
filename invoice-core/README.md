@@ -77,6 +77,10 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/projects` | List projects, ordered by `code`; includes `customer_name`, `owner_name`, `permitted_user_ids` |
 | `PUT`  | `/api/v1/projects/{project_id}` | Update project (customer, short name, owner, `is_active`, `permitted_user_ids`); recomputes `code`; reassigns `sequence_no` only if `customer_id` changed; `404` if not found, `409` on code conflict |
 | `DELETE` | `/api/v1/projects/{project_id}` | Hard-delete a project; `404` if not found |
+| `POST` | `/api/v1/timesheet-entries` | Create a timesheet entry for `user_id`; `409` if project/user/activity_type unknown, project inactive or user not permitted on it, activity_type inactive, or `hours` isn't a positive multiple of 0.5 |
+| `GET`  | `/api/v1/timesheet-entries` | List entries for one user (required query: `user_id`), ordered by `entry_date` then `id`; each row includes `project_code`, `customer_name`, `activity_type_name`, `user_name`, and server-computed `project_week` |
+| `PUT`  | `/api/v1/timesheet-entries/{entry_id}` | Update an entry (required query: `user_id`, scopes the lookup — another user's entry 404s like a missing one); same validation as create; `404` if not found/not owned, `409` on business-rule violation |
+| `DELETE` | `/api/v1/timesheet-entries/{entry_id}` | Delete an entry (required query: `user_id`); `404` if not found/not owned |
 
 ### GET /health
 
@@ -233,9 +237,10 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
 | `user` | Login records pushed (best-effort) by the `auth` service on every login: `provider`, `sub`, `email`, `name`, `picture`, `last_login_at`; unique on `(provider, sub)` — this is the only table not populated by the sync pipeline |
-| `activity_type` | Admin master data for the future Timesheet feature: `name` (unique), `is_active` (soft-deactivate). Managed via the vision `/ui/admin/activity-types` page; not touched by the sync pipeline |
+| `activity_type` | Admin master data for the Timesheet feature: `name` (unique), `is_active` (soft-deactivate). Managed via the vision `/ui/admin/activity-types` page; not touched by the sync pipeline. Delete is still unconditional (the vision page's usage-count check is hardcoded to `0` — not yet wired to `timesheet_entry`) |
 | `project` | Controlling master data: `customer_id` (FK → customer), `sequence_no` (per-customer, auto-incrementing), `short_name`, `code` (unique, server-composed `{customer} - {seq:03d} - {short_name}`), `owner_id` (FK → user), `is_active`. Managed via the vision `/ui/controlling/projects` page; not touched by the sync pipeline |
-| `project_permitted_user` | Junction table — many-to-many link between `project` and `user`: which users may log time against a project (gates the future Timesheet feature) |
+| `project_permitted_user` | Junction table — many-to-many link between `project` and `user`: which users may log time against a project (enforced by `timesheet_service` on create/update) |
+| `timesheet_entry` | Controlling data: `user_id` (FK → user, who logged it), `project_id` (FK → project), `activity_type_id` (FK → activity_type), `entry_date`, `hours` (float, must be a positive multiple of 0.5), `participants` (free text — may include people outside the `user` table), `description`. `project_week` is not stored — computed as `floor((entry_date - project.created_at.date()).days / 7) + 1`. Managed via the vision `/ui/controlling/timesheet` page (own-records only); not touched by the sync pipeline |
 
 ### Alembic migrations
 
@@ -254,8 +259,9 @@ uv run alembic revision --autogenerate -m "describe change"
 | `f5g6h7i8j9k0` | invoice↔bank_transaction M2M junction table |
 | `g6h7i8j9k0l1` | Manual link fields: `invoice_file_locked` on `invoice` and `bank_transaction`; `manual` on `invoice_bank_transaction` |
 | `k0l1m2n3o4p5` | `user` table — login records from the `auth` service |
-| `l1m2n3o4p5q6` | `activity_type` table — admin master data for the future Timesheet feature |
+| `l1m2n3o4p5q6` | `activity_type` table — admin master data for the Timesheet feature |
 | `m2n3o4p5q6r7` | `project` table + `project_permitted_user` junction table — Controlling master data |
+| `n3o4p5q6r7s8` | `timesheet_entry` table — Timesheet feature |
 
 ## Code structure
 
@@ -272,7 +278,8 @@ src/invoice_core/
 │   ├── tax_service.py       ← Tax payment report: filters bank transactions by NAV/HIPA/Iparkamara account numbers
 │   ├── user_service.py      ← Upsert/list login records pushed by the auth service
 │   ├── activity_type_service.py ← Admin CRUD for Timesheet activity types (create/list/update/delete)
-│   └── project_service.py   ← Controlling CRUD for projects (sequence numbering, code composition, permitted users)
+│   ├── project_service.py   ← Controlling CRUD for projects (sequence numbering, code composition, permitted users)
+│   └── timesheet_service.py ← Controlling CRUD for timesheet entries (own-records scoping, project-permission + hours-step validation)
 ├── db.py                    ← SQLAlchemy ORM models + session; exports _enum_str helper
 ├── service.py               ← Sync orchestration (sync_nav, sync_pdf, sync_bank, sync_match)
 ├── models.py                ← Pydantic request/response schemas

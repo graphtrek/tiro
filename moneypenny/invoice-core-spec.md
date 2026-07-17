@@ -115,17 +115,17 @@ best-effort POST-olja a felhasználó profilját és a login providert ide (`POS
 /api/v1/users`), a frissen kiállított access tokennel. Ez az egyetlen tábla,
 amit nem a sync pipeline tölt fel, hanem egy másik szerviz push-olja.
 
-### activity_type (admin törzsadat — leendő timesheet funkcióhoz)
+### activity_type (admin törzsadat — timesheet funkcióhoz)
 - id (PK)
 - name (egyedi)
 - is_active (bool, default: true) — inaktív típus új rekordhoz nem választható, meglévő rekordok érintetlenek
 - created_at, updated_at
 
-Admin CRUD törzsadat a [[vision-spec.md|vision]] `/ui/admin/activity-types` oldalához (nincs
-még hozzá kapcsolódó `timesheet` tábla — a `usage_count` a UI-n egyelőre `0`
-placeholder). Törlés (`DELETE`) csak a UI oldalán van feltételhez kötve (csak ha a
-használati szám 0); a szervernek egyelőre nincs mit ellenőriznie, mert nincs
-felhasználást jelző tábla.
+Admin CRUD törzsadat a [[vision-spec.md|vision]] `/ui/admin/activity-types` oldalához.
+Törlés (`DELETE`) csak a UI oldalán van feltételhez kötve (csak ha a használati szám
+0) — de ez a `usage_count` a UI-n egyelőre `0` placeholder, nincs még
+`timesheet_entry`-hez kötve. A szerver oldali `create_timesheet_entry` viszont
+már megköveteli, hogy a hivatkozott `activity_type` létezzen és `is_active` legyen.
 
 ### project (Controlling törzsadat — projektek)
 - id (PK)
@@ -141,16 +141,42 @@ felhasználást jelző tábla.
 - project_id (FK → project)
 - user_id (FK → user)
 
-Ki jogosult timesheet rekordot rögzíteni az adott projekthez — még nincs
-`timesheet` tábla, ez a leendő funkció előkészítése. Admin CRUD a
+Ki jogosult timesheet rekordot rögzíteni az adott projekthez — a
+`timesheet_service` ténylegesen ellenőrzi ezt `create`/`update` híváskor (a
+`project.owner_id` vagy a `permitted_user_ids` tagja lehet csak). Admin CRUD a
 [[vision-spec.md|vision]] `/ui/controlling/projects` oldalán: ügyfél és project
 gazda kiválasztás legördülőből (valós `customer`/`user` adat), sorszám és
 project kód kliens-oldali előnézete van, de a szerver a végső forrás — mindkettő
 `create`/`update` híváskor újraszámolódik. A `sequence_no` csak akkor kap új
 értéket módosításnál, ha az `customer_id` megváltozik. Az "Összesített
-ráfordítás (óra)" oszlop a UI-n egyelőre `0` placeholder (nincs még
-felhasználást jelző `timesheet` tábla, ugyanaz a mintázat, mint az
-`activity_type` `usage_count`-jánál).
+ráfordítás (óra)" oszlop a UI-n egyelőre `0` placeholder — nincs még kötve a
+`timesheet_entry` adatokhoz.
+
+### timesheet_entry (Controlling — munkaidő rögzítés)
+- id (PK)
+- user_id (FK → user) — ki rögzítette a bejegyzést
+- project_id (FK → project)
+- activity_type_id (FK → activity_type)
+- entry_date (dátum)
+- hours (float) — pozitív, 0,5 órás lépésekben (`_validate_hours` ellenőrzi)
+- participants (str, opcionális, szabad szöveg) — szándékosan nem `user` FK/M2M,
+  mert az ügyfél-oldali résztvevők nem feltétlenül szerepelnek a `user` táblában
+- description (str, opcionális, szabad szöveges leírás)
+- created_at, updated_at
+
+`project_week` nincs tárolva — szerver-számított property:
+`floor((entry_date - project.created_at.date()).days / 7) + 1` (a `project.created_at`
+az implicit "W1" horgony, nincs külön `project.start_date` mező). Létrehozás/módosítás
+előtt a `timesheet_service` ellenőrzi: a projekt létezik és aktív, a `user_id`
+jogosult rá (gazda vagy `permitted_user_ids` tagja), a `activity_type` létezik és
+aktív, és az órák pozitív 0,5-lépésű értékek — mindegyik szabálysértés `409`-et ad.
+Listázás/módosítás/törlés mindig `user_id` szerint szűrt (saját rekordok — más
+felhasználó rekordja "nem található"-ként `404`-et ad, nem `403`-at, hogy ne
+szivárogtasson létezési infót). Admin CRUD a [[vision-spec.md|vision]]
+`/ui/controlling/timesheet` oldalán. A mockupban szereplő "Zárolás" (heti
+zárolás) funkció **egyelőre nincs implementálva** — nincs admin/role fogalom a
+`user` táblán, ezért ez a UI-n látható, de letiltott gomb marad, amíg a
+szerepkör-modell meg nem érkezik.
 
 ## Logika (Orchestration)
 1. **invoice-core iniciál** → sorban:
@@ -223,6 +249,10 @@ felhasználást jelző `timesheet` tábla, ugyanaz a mintázat, mint az
 | `GET`  | `/api/v1/projects` | Projektek listája (`code` szerint), `customer_name`/`owner_name`/`permitted_user_ids` kiegészítve |
 | `PUT`  | `/api/v1/projects/{id}` | Projekt módosítása (ügyfél, rövid név, gazda, `is_active`, `permitted_user_ids`); `code` újraszámolva, `sequence_no` csak ügyfélváltáskor; 404 ha nem létezik, 409 kódütközésnél |
 | `DELETE` | `/api/v1/projects/{id}` | Projekt végleges törlése; 404 ha nem létezik |
+| `POST` | `/api/v1/timesheet-entries` | Timesheet rekord létrehozása `user_id`-hez; 409 ha ismeretlen projekt/felhasználó/tevékenység típus, lezárt vagy nem jogosult projekt, inaktív tevékenység típus, vagy az órák nem pozitív 0,5-lépésűek |
+| `GET`  | `/api/v1/timesheet-entries` | Egy felhasználó rekordjai (kötelező `user_id` query), `entry_date` majd `id` szerint; minden sor tartalmazza a `project_code`/`customer_name`/`activity_type_name`/`user_name` mezőket és a szerver-számított `project_week`-et |
+| `PUT`  | `/api/v1/timesheet-entries/{id}` | Rekord módosítása (kötelező `user_id` query — más felhasználó rekordja 404, nem 403); ugyanaz a validáció mint létrehozásnál |
+| `DELETE` | `/api/v1/timesheet-entries/{id}` | Rekord törlése (kötelező `user_id` query); 404 ha nem létezik/nem a sajátja |
 
 ## Tech stack
 - Python 3.10+

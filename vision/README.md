@@ -51,14 +51,14 @@ Filter forms use HTMX partial updates so filtered views stay responsive without 
 | Page | URL | Description |
 |------|-----|-------------|
 | Felhasználók (Users) | `/ui/admin/users` | List of logged-in users (login records from the auth service) |
-| Tevékenység típusok (Activity types) | `/ui/admin/activity-types` | CRUD master data for the future Timesheet feature — create/edit modal; delete is only offered when the usage count is 0 (currently always 0 — no Timesheet table exists yet), otherwise the row is deactivated instead |
+| Tevékenység típusok (Activity types) | `/ui/admin/activity-types` | CRUD master data for the Timesheet feature — create/edit modal; delete is only offered when the usage count is 0 (currently always 0 — the check isn't wired to `timesheet_entry` yet), otherwise the row is deactivated instead |
 
 ### Controlling pages (`/ui/controlling/*`)
 
 | Page | URL | Description |
 |------|-----|-------------|
-| Projektek (Projects) | `/ui/controlling/projects` | CRUD for projects — real data. Client (customer FK), auto-incrementing per-customer sequence number, auto-composed project code (`{customer} - {seq:03d} - {short_name}`), owner, active/closed status, and permitted-users checkboxes (who may log time). Hours-worked column is hardcoded `0` — no Timesheet table exists yet |
-| Timesheet | `/ui/controlling/timesheet` | Static mockup — no backend yet |
+| Projektek (Projects) | `/ui/controlling/projects` | CRUD for projects — real data. Client (customer FK), auto-incrementing per-customer sequence number, auto-composed project code (`{customer} - {seq:03d} - {short_name}`), owner, active/closed status, and permitted-users checkboxes (who may log time on the project — enforced by the Timesheet page). Hours-worked column is still hardcoded `0` — not yet wired to `timesheet_entry` |
+| Timesheet | `/ui/controlling/timesheet` | CRUD for the logged-in user's own timesheet entries — real data. Date, Projekt (datalist restricted to active projects the user owns or is permitted on), Ügyfél/Project gazda/Projekt hét shown as read-only previews derived from the selected project (`project_week` is server-computed, not stored), Tevékenység típus (from active activity types), 0.5-hour-step óra select, free-text Résztvevők and Tevékenység description. "Zárolás" (week lock) button is present but disabled — no admin/role concept exists yet to gate it |
 | Riportok (Reports) | `/ui/controlling/reports` | Static mockup — no backend yet |
 
 ### Vision-specific pages
@@ -93,7 +93,7 @@ src/vision/
 │   ├── router.py              # Vision-specific routes: /dashboard, /pitch, /
 │   ├── invoice_router.py      # Invoice-core UI routes: all /ui/* (15 routes)
 │   ├── admin_router.py        # Admin pages: /ui/admin/users, /ui/admin/activity-types (real data, calls invoice-core CRUD)
-│   ├── controlling_router.py  # Controlling pages: /ui/controlling/projects (real data, calls invoice-core CRUD), timesheet + reports (static mockups)
+│   ├── controlling_router.py  # Controlling pages: /ui/controlling/projects + /timesheet (real data, calls invoice-core CRUD), reports (static mockup)
 │   └── utils.py               # dict_to_ns() — converts API JSON dicts to SimpleNamespace for dot-access
 ├── api/
 │   └── main.py                # FastAPI app, /health, HTTP logging middleware
@@ -120,7 +120,7 @@ src/vision/
 │   ├── admin_users.html       # Admin: logged-in users list
 │   ├── admin_activity_types.html # Admin: activity types CRUD (HTMX forms)
 │   ├── controlling_projects.html # Controlling: projects CRUD (HTMX forms, client-side code/sequence preview)
-│   ├── controlling_timesheet.html # Controlling: timesheet — static mockup
+│   ├── controlling_timesheet.html # Controlling: own timesheet entries CRUD (HTMX forms, client-side project-week preview)
 │   ├── controlling_reports.html  # Controlling: reports — static mockup
 │   └── partials/              # HTMX partial responses (no base.html extension)
 │       ├── invoice_table.html

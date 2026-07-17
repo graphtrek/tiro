@@ -319,6 +319,69 @@ class InvoiceCoreClient:
             "DELETE", f"/api/v1/projects/{project_id}", {}, "Nem sikerült törölni a projektet"
         )
 
+    # ── Timesheet entries ─────────────────────────────────────────────────────
+
+    def get_timesheet_entries(self, user_id: int) -> list[dict]:
+        return self._get("/api/v1/timesheet-entries", {"user_id": user_id})
+
+    def create_timesheet_entry(
+        self,
+        user_id: int,
+        project_id: int,
+        activity_type_id: int,
+        entry_date: str,
+        hours: float,
+        participants: str | None,
+        description: str | None,
+    ) -> dict:
+        return self._write_json(
+            "POST",
+            "/api/v1/timesheet-entries",
+            {
+                "user_id": user_id,
+                "project_id": project_id,
+                "activity_type_id": activity_type_id,
+                "entry_date": entry_date,
+                "hours": hours,
+                "participants": participants,
+                "description": description,
+            },
+            "Nem sikerült menteni a timesheet rekordot",
+        )
+
+    def update_timesheet_entry(
+        self,
+        entry_id: int,
+        user_id: int,
+        project_id: int,
+        activity_type_id: int,
+        entry_date: str,
+        hours: float,
+        participants: str | None,
+        description: str | None,
+    ) -> dict:
+        return self._write_json(
+            "PUT",
+            f"/api/v1/timesheet-entries/{entry_id}?user_id={user_id}",
+            {
+                "project_id": project_id,
+                "activity_type_id": activity_type_id,
+                "entry_date": entry_date,
+                "hours": hours,
+                "participants": participants,
+                "description": description,
+            },
+            "Nem sikerült menteni a timesheet rekordot",
+        )
+
+    def delete_timesheet_entry(self, entry_id: int, user_id: int) -> dict:
+        return self._write_json(
+            "DELETE",
+            f"/api/v1/timesheet-entries/{entry_id}?user_id={user_id}",
+            {},
+            "Nem sikerült törölni a timesheet rekordot",
+        )
+
     def _write_json(self, method: str, path: str, json: dict, error_message: str) -> dict:
         """POST/PUT/DELETE that surfaces a friendly `error` key instead of swallowing failures.
 
