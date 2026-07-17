@@ -123,6 +123,28 @@ class InvoiceOut(BaseModel):
     updated_at: datetime
 
 
+class UserIn(BaseModel):
+    provider: str
+    sub: str
+    email: str
+    name: Optional[str] = None
+    picture: Optional[str] = None
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    provider: str
+    sub: str
+    email: str
+    name: Optional[str] = None
+    picture: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    last_login_at: datetime
+
+
 class LinkFileRequest(BaseModel):
     invoice_file_id: int
 

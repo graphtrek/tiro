@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from auth_service.api import main as api_main
 from auth_service.models import UserInfo
 from auth_service.service import AuthService
-from tests.conftest import FakeProvider
+from tests.conftest import FakeInvoiceCoreClient, FakeProvider
 
 
 @pytest.fixture
@@ -21,7 +21,10 @@ def provider() -> FakeProvider:
 @pytest.fixture
 def client(settings, jwt_service, provider):
     service = AuthService(
-        settings=settings, jwt_service=jwt_service, providers={"google": provider}
+        settings=settings,
+        jwt_service=jwt_service,
+        providers={"google": provider},
+        invoice_core_client=FakeInvoiceCoreClient(),
     )
     api_main.app.dependency_overrides[api_main.get_service] = lambda: service
     with TestClient(api_main.app, follow_redirects=False) as test_client:

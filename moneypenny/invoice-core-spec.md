@@ -2,7 +2,7 @@
 title: "Specifikáció: Számla Adatbázis Mikroszerviz"
 description: "Számlákat és partnereket kezelő adatbázis mikroszerviz (MASTER orchestrator)"
 language: "HU"
-last_updated: "2026-06-22"
+last_updated: "2026-07-17"
 related: [INDEX.md, nav-invoice-spec.md, bank-spec.md]
 ---
 
@@ -100,6 +100,21 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - invoice_file_id (FK → invoice_file, nullable)
 - created_at, updated_at
 
+### user (login rekordok az auth szervizből)
+- id (PK)
+- provider (str: "google")
+- sub (provider-beli user id)
+- email
+- name (nullable)
+- picture (avatar URL, nullable)
+- created_at, updated_at, last_login_at
+- egyedi kulcs: (provider, sub)
+
+Az `auth` szerviznek (:8007) nincs saját adatbázisa — minden sikeres bejelentkezéskor
+best-effort POST-olja a felhasználó profilját és a login providert ide (`POST
+/api/v1/users`), a frissen kiállított access tokennel. Ez az egyetlen tábla,
+amit nem a sync pipeline tölt fel, hanem egy másik szerviz push-olja.
+
 ## Logika (Orchestration)
 1. **invoice-core iniciál** → sorban:
    - **nav-invoice** meghívása (GET /invoices?from=...&to=...&direction=...)
@@ -161,6 +176,8 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 | `GET`  | `/api/v1/transactions/{transaction_id:int}` | Tranzakció részletei |
 | `GET`  | `/api/v1/reports/dividend` | Éves osztalék/adó kalkuláció (`year`, `kiva_rate` paraméterek) |
 | `GET`  | `/api/v1/reports/tax` | Adófizetési kimutatás hónap és típus szerint (`year` param) |
+| `POST` | `/api/v1/users` | Login rekord upsert (provider+sub alapján) — az auth szerviz hívja minden sikeres bejelentkezéskor |
+| `GET`  | `/api/v1/users` | Bejelentkezett felhasználók listája (utolsó belépés szerint csökkenő) |
 
 ## Tech stack
 - Python 3.10+
@@ -193,8 +210,9 @@ flowchart TD
 
 ### Wiki linkek
 - **Prompt**: [[invoice-core-prompt.md|Invoice-Core Prompt]]
-- **MASTER Orchestrator**: Ez a szerviz (tiszta REST backend — UI nincs)
+- **MASTER Orchestrator**: Ez a szerviz (tiszta REST backend — UI nincs); az egyetlen szerviz a workspace-ben, aminek saját PostgreSQL adatbázisa van
 - **UI**: [[vision-spec.md|Vision Frontend Spec]] — az összes `/ui/*` oldal a vision (8009) szervizben él
+- **Hívja (bejövő)**: [[auth-service-spec.md|Auth Spec]] — `POST /api/v1/users` minden sikeres bejelentkezéskor (best-effort, login rekord mentése — auth-nak nincs saját DB-je)
 - **Meghívja**: [[nav-invoice-spec.md|NAV Invoice Spec]]
   - NAV lekérdezés: `GET /invoices`, `GET /invoices/{szamlaszam}`
   - 30 nap default paraméterrel

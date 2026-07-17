@@ -40,6 +40,8 @@ from invoice_core.models import (
     SyncMode,
     SyncRequest,
     SyncResponse,
+    UserIn,
+    UserOut,
 )
 from invoice_core.service import _recompute_payment_status, sync_all
 from invoice_core.services import (
@@ -50,6 +52,7 @@ from invoice_core.services import (
     partner_service,
     tax_service,
     transaction_service,
+    user_service,
 )
 
 _settings = get_settings()
@@ -303,6 +306,19 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)):
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return dataclasses.asdict(customer)
+
+
+# ── User endpoints ────────────────────────────────────────────────────────────
+# Called by the auth service on every successful login to persist a login record.
+
+@app.post("/api/v1/users", response_model=UserOut)
+def upsert_user(payload: UserIn, db: Session = Depends(get_db)):
+    return user_service.upsert_user(db, payload)
+
+
+@app.get("/api/v1/users", response_model=List[UserOut])
+def list_users(db: Session = Depends(get_db)):
+    return user_service.list_users(db)
 
 
 # ── Transaction endpoints ─────────────────────────────────────────────────────

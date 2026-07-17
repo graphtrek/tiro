@@ -5,7 +5,7 @@ type: "service-spec"
 status: "tervezett"
 port: 8007
 language: "HU"
-last_updated: "2026-07-15"
+last_updated: "2026-07-17"
 related: [INDEX.md, auth-service-prompt.md, vision-spec.md, invoice-core-spec.md, bank-spec.md]
 tags: [auth, google, oauth2, openid-connect, jwt, jwks, fastapi, security]
 ---
@@ -61,6 +61,7 @@ sequenceDiagram
     participant V as vision :8009
     participant A as auth :8007
     participant G as Google
+    participant IC as invoice-core :8004
 
     B->>V: GET /ui/dashboard (nincs token)
     V-->>B: 302 → /login
@@ -73,6 +74,7 @@ sequenceDiagram
     B->>A: GET /auth/google/callback
     A->>G: code → token csere, ID token ellenőrzés
     A->>A: email whitelist ellenőrzés
+    A->>IC: POST /api/v1/users (best-effort, Bearer access token)
     A-->>B: Set-Cookie: access + refresh (HttpOnly) · 302 → next
     B->>V: GET /ui/dashboard (cookie-val)
     V->>V: JWT validálás (JWKS, lokálisan)
@@ -97,6 +99,23 @@ Kulcspontok:
 - Aláírás: **RS256** — a privát kulcs csak az auth szerviznél van, a publikus kulcsot a `/.well-known/jwks.json` adja ki (`kid`-del, kulcsrotáció támogatott).
 - A védett szervizek a JWKS-t indításkor letöltik és cache-elik (TTL, pl. 1 óra); ismeretlen `kid` esetén újratöltés.
 - Refresh flow: `POST /auth/refresh` a refresh tokennel → új access token. Logout: `POST /auth/logout` → cookie törlés + refresh token `jti` visszavonás (in-memory/fájl denylist — nincs DB).
+
+---
+
+## Felhasználók mentése (invoice-core)
+
+Az `auth` szerviznek nincs saját adatbázisa. Minden sikeres bejelentkezéskor
+(`complete_login`, a token kiállítás után) a `UserInfo`-t **best-effort**
+POST-olja az `invoice-core` (:8004) `/api/v1/users` végpontjára, a frissen
+kiállított access tokennel (`Authorization: Bearer`):
+
+- Upsert `(provider, sub)` alapján — a `user` táblát az `invoice-core` birtokolja
+  (lásd [[invoice-core-spec.md|Invoice-Core Spec]] → `user` tábla).
+- Ha az `invoice-core` nem érhető el, a hívás hibáját csak logolja (`logger.warning`)
+  — **a bejelentkezés emiatt sosem hiúsul meg**, az auth szerviz felelőssége csak
+  az authentikáció, a login-rekord tárolása másodlagos mellékhatás.
+- Kliens: `auth_service/invoice_core_client.py` (`InvoiceCoreClient.save_user`), a
+  bázis URL `INVOICE_CORE_URL` env változóból.
 
 ---
 
@@ -221,6 +240,7 @@ auth/
 │   ├── providers/
 │   │   ├── base.py        # AuthProvider Protocol
 │   │   └── google.py      # Google OAuth 2.0 / OIDC (authorization code + PKCE)
+│   ├── invoice_core_client.py  # login rekord POST-olása invoice-core-ba (best-effort)
 │   ├── service.py         # login flow, whitelist, refresh, revoke
 │   ├── api/
 │   │   └── main.py        # FastAPI app
@@ -242,7 +262,7 @@ auth/
 - Pydantic v2 + pydantic-settings (`.env`)
 - **Authlib** (OAuth 2.0 / OIDC kliens) vagy httpx + google-auth
 - **PyJWT + cryptography** (RS256, JWKS)
-- Nincs adatbázis — leaf szerviz (a revoke-denylist fájl alapú)
+- Nincs saját adatbázis — leaf szerviz (a revoke-denylist fájl alapú). Sikeres belépéskor a felhasználó profilját és a login providert best-effort elmenti az `invoice-core` `/api/v1/users` végpontján (a friss access tokennel) — az `invoice-core` az egyetlen szerviz a workspace-ben, aminek saját PostgreSQL adatbázisa van.
 
 ---
 
@@ -289,6 +309,7 @@ flowchart TD
 
     V -->|JWKS validálás| A
     IC[invoice-core :8004] -->|JWKS validálás| A
+    A -->|POST /api/v1/users best-effort| IC
     NAV[nav-invoice :8002] -->|JWKS validálás| A
     IFF[invoice-file-filter :8001] -->|JWKS validálás| A
     AD[attachment-downloader :8000] -->|JWKS validálás| A
@@ -305,5 +326,6 @@ flowchart TD
 - **Prompt**: [[auth-service-prompt.md|Auth Service Prompt]]
 - **Login oldal helye**: [[vision-spec.md|Vision Spec]] → `templates/login.html` (NiceAdmin minta)
 - **Védett szervizek**: [[invoice-core-spec.md|Invoice-Core]] · [[nav-invoice-spec.md|NAV Invoice]] · [[invoice-file-filter-spec.md|Invoice-File-Filter]] · [[attachment-downloader-spec.md|Attachment Downloader]] · [[bank-spec.md|Bank]] · [[uploader-spec.md|Uploader]]
+- **Login rekord tárolása**: [[invoice-core-spec.md|Invoice-Core]] `POST /api/v1/users` — lásd [[#Felhasználók mentése (invoice-core)]]
 - **Minta projekt**: [[bank-spec.md|Bank Spec]] (projektstruktúra alapja)
 - **Projekt Index**: [[INDEX.md|Moneypenny Index]]

@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
     create_engine,
     exists,
     func,
@@ -228,6 +229,21 @@ class BankTransaction(Base):
         lazy="select",
     )
     invoice_file = relationship("InvoiceFile", back_populates="bank_transactions")
+
+
+class User(Base):
+    __tablename__ = "user"
+    __table_args__ = (UniqueConstraint("provider", "sub", name="uq_user_provider_sub"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String, nullable=False)  # "google"
+    sub = Column(String, nullable=False)  # provider-beli user id
+    email = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=True)
+    picture = Column(String, nullable=True)  # avatar URL
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    last_login_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 
 class SyncLog(Base):

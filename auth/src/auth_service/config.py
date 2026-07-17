@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     api_port: int = 8007
     log_level: str = "INFO"
 
+    # invoice-core — login rekord mentése (best-effort, POST /api/v1/users)
+    invoice_core_url: str = "http://localhost:8004"
+
     @property
     def allowed_emails_list(self) -> list[str]:
         return [e.strip().lower() for e in self.allowed_emails.split(",") if e.strip()]

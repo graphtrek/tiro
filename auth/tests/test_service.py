@@ -8,7 +8,7 @@ import pytest
 
 from auth_service.models import AuthError, NotAllowedError, UserInfo
 from auth_service.service import AuthService, Denylist
-from tests.conftest import FakeProvider
+from tests.conftest import FakeInvoiceCoreClient, FakeProvider
 
 
 @pytest.fixture
@@ -17,8 +17,18 @@ def provider() -> FakeProvider:
 
 
 @pytest.fixture
-def service(settings, jwt_service, provider) -> AuthService:
-    return AuthService(settings=settings, jwt_service=jwt_service, providers={"google": provider})
+def invoice_core() -> FakeInvoiceCoreClient:
+    return FakeInvoiceCoreClient()
+
+
+@pytest.fixture
+def service(settings, jwt_service, provider, invoice_core) -> AuthService:
+    return AuthService(
+        settings=settings,
+        jwt_service=jwt_service,
+        providers={"google": provider},
+        invoice_core_client=invoice_core,
+    )
 
 
 def _state_from(authorize_url: str) -> str:
@@ -56,6 +66,35 @@ def test_complete_login_happy_path(service: AuthService, provider: FakeProvider)
 
     claims = service.verify_access_token(tokens.access_token)
     assert claims.sub == "google-user-1"
+
+
+def test_complete_login_saves_user_in_invoice_core(
+    service: AuthService, provider: FakeProvider, invoice_core: FakeInvoiceCoreClient
+):
+    state = _state_from(service.start_login("google"))
+    tokens, user, _next_url = service.complete_login("google", code="code-1", state=state)
+
+    assert len(invoice_core.save_calls) == 1
+    call = invoice_core.save_calls[0]
+    assert call["user"] == user
+    assert call["access_token"] == tokens.access_token
+
+
+def test_complete_login_succeeds_even_if_invoice_core_is_down(
+    settings, jwt_service, provider: FakeProvider
+):
+    failing_client = FakeInvoiceCoreClient(error="connection refused")
+    service = AuthService(
+        settings=settings,
+        jwt_service=jwt_service,
+        providers={"google": provider},
+        invoice_core_client=failing_client,
+    )
+    state = _state_from(service.start_login("google"))
+    tokens, user, _next_url = service.complete_login("google", code="code-1", state=state)
+
+    assert user.email == "imre.tatai@graphtrek.co"
+    assert failing_client.save_calls  # a hívás megtörtént, de a hiba nem buktatta a belépést
 
 
 def test_state_is_single_use(service: AuthService):

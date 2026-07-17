@@ -5,6 +5,12 @@ belépés után saját kiállítású **RS256 JWT**-t ad (access + refresh); a t
 mikroszerviz soha nem hívja a Google-t, kizárólag a JWT-t validálja lokálisan a
 `/.well-known/jwks.json` publikus kulcsaival.
 
+Nincs saját adatbázisa — minden sikeres bejelentkezéskor best-effort elmenti a
+felhasználó profilját és a login providert az `invoice-core` (:8004)
+`POST /api/v1/users` végpontján (a frissen kiállított access tokennel). Ha az
+invoice-core nem érhető el, a hiba csak logolva van, a bejelentkezés nem hiúsul
+meg. Bázis URL: `INVOICE_CORE_URL` (`.env`).
+
 Specifikáció: `../moneypenny/auth-service-spec.md`
 
 > **Jelenlegi állapot**: minden védett szerviz `.env`-jében `AUTH_ENABLED=false`

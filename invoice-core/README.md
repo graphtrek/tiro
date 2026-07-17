@@ -67,6 +67,8 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `DELETE` | `/api/v1/transactions/{txn_id}/invoice-file` | Remove manual PDF link from a bank transaction — clears `invoice_file_locked` |
 | `PUT`  | `/api/v1/invoices/{invoice_id}/transactions/{txn_id}` | Add a bank transaction to an invoice's payment set (M2M, `manual=True`) |
 | `DELETE` | `/api/v1/invoices/{invoice_id}/transactions/{txn_id}` | Remove a bank transaction from an invoice's payment set |
+| `POST` | `/api/v1/users` | Upsert a login record by `(provider, sub)` — called by the `auth` service on every successful login |
+| `GET`  | `/api/v1/users` | List saved users, most recent login first |
 
 ### GET /health
 
@@ -222,6 +224,7 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `invoice_bank_transaction` | Junction table — many-to-many link between `invoice` and `bank_transaction`; `manual` (bool) — `True` for rows created via the manual link API |
 | `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
+| `user` | Login records pushed (best-effort) by the `auth` service on every login: `provider`, `sub`, `email`, `name`, `picture`, `last_login_at`; unique on `(provider, sub)` — this is the only table not populated by the sync pipeline |
 
 ### Alembic migrations
 
@@ -239,6 +242,7 @@ uv run alembic revision --autogenerate -m "describe change"
 |----------|-------------|
 | `f5g6h7i8j9k0` | invoice↔bank_transaction M2M junction table |
 | `g6h7i8j9k0l1` | Manual link fields: `invoice_file_locked` on `invoice` and `bank_transaction`; `manual` on `invoice_bank_transaction` |
+| `k0l1m2n3o4p5` | `user` table — login records from the `auth` service |
 
 ## Code structure
 
@@ -252,7 +256,8 @@ src/invoice_core/
 │   ├── transaction_service.py ← Bank transaction list with filters
 │   ├── invoice_file_service.py ← PDF file list
 │   ├── dividend_service.py  ← Annual dividend/tax calculation (KIVA, SZJA, SZOCHO)
-│   └── tax_service.py       ← Tax payment report: filters bank transactions by NAV/HIPA/Iparkamara account numbers
+│   ├── tax_service.py       ← Tax payment report: filters bank transactions by NAV/HIPA/Iparkamara account numbers
+│   └── user_service.py      ← Upsert/list login records pushed by the auth service
 ├── db.py                    ← SQLAlchemy ORM models + session; exports _enum_str helper
 ├── service.py               ← Sync orchestration (sync_nav, sync_pdf, sync_bank, sync_match)
 ├── models.py                ← Pydantic request/response schemas

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from auth_service.config import Settings
+from auth_service.invoice_core_client import InvoiceCoreClientError
 from auth_service.jwt_service import JWTService, generate_keypair
 from auth_service.models import ProviderError, UserInfo
 
@@ -40,6 +41,19 @@ class FakeProvider:
         if self.error:
             raise ProviderError(self.error)
         return self.user
+
+
+class FakeInvoiceCoreClient:
+    """invoice-core kliens helyettesítője — nem hív hálózatot."""
+
+    def __init__(self, error: str | None = None):
+        self.error = error
+        self.save_calls: list[dict] = []
+
+    def save_user(self, user: UserInfo, access_token: str) -> None:
+        self.save_calls.append({"user": user, "access_token": access_token})
+        if self.error:
+            raise InvoiceCoreClientError(self.error)
 
 
 @pytest.fixture(scope="session")

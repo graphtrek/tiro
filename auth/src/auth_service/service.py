@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from auth_service.config import Settings, get_settings
+from auth_service.invoice_core_client import InvoiceCoreClient, InvoiceCoreClientError
 from auth_service.jwt_service import JWTService, make_pkce_pair, make_state
 from auth_service.models import (
     AuthError,
@@ -67,11 +68,13 @@ class AuthService:
         settings: Settings | None = None,
         jwt_service: JWTService | None = None,
         providers: dict[str, AuthProvider] | None = None,
+        invoice_core_client: InvoiceCoreClient | None = None,
     ):
         self.settings = settings or get_settings()
         self.jwt = jwt_service or JWTService(self.settings)
         self.providers = providers if providers is not None else build_providers(self.settings)
         self.denylist = Denylist(self.settings.denylist_path)
+        self._invoice_core = invoice_core_client or InvoiceCoreClient(self.settings)
         self._pending: dict[str, PendingLogin] = {}
 
     # -- providerek --------------------------------------------------------
@@ -132,8 +135,16 @@ class AuthService:
         self.check_whitelist(user.email)
 
         tokens = self.issue_tokens(user)
+        self._save_user(user, tokens.access_token)
         logger.info("Sikeres belépés: %s (%s)", user.email, provider_key)
         return tokens, user, self._safe_next_url(pending.next_url)
+
+    def _save_user(self, user: UserInfo, access_token: str) -> None:
+        """Login rekord mentése invoice-core-ban — best-effort, sosem buktatja a belépést."""
+        try:
+            self._invoice_core.save_user(user, access_token)
+        except InvoiceCoreClientError as exc:
+            logger.warning("Nem sikerült a felhasználót elmenteni invoice-core-ban: %s (%s)", user.email, exc)
 
     def check_whitelist(self, email: str) -> None:
         """Csak whitelistelt e-mail / domain léphet be."""

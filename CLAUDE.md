@@ -174,7 +174,7 @@ uv run pytest tests/ -v
 ### Architecture
 - `src/invoice_core/` — `api/main.py` (FastAPI REST, CORS for vision), `services/` (dashboard, invoice, partner, transaction, invoice_file, dividend, tax), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`.
 - DB: PostgreSQL in production, SQLite in-memory for tests. Migrations via Alembic.
-- **REST API endpoints**: `/api/v1/dashboard` · `/api/v1/invoices` (with `has_pdf`, `supplier_name` filters) · `/api/v1/invoice-files` + PDF serve · supplier/customer detail · transaction detail + balances · `/api/v1/sync/logs` · `/api/v1/reports/tax` + dividend.
+- **REST API endpoints**: `/api/v1/dashboard` · `/api/v1/invoices` (with `has_pdf`, `supplier_name` filters) · `/api/v1/invoice-files` + PDF serve · supplier/customer detail · transaction detail + balances · `/api/v1/sync/logs` · `/api/v1/reports/tax` + dividend · `/api/v1/users` (POST upsert + GET list — login records from `auth`, keyed by provider+sub).
 
 ### Sync pipeline and linking logic
 1. **sync_nav** — upserts NAV invoices, suppliers, customers.
@@ -213,7 +213,7 @@ uv run pytest tests/ -v
 
 ## auth — central authentication microservice
 
-Google OAuth 2.0 / OpenID Connect login (authorization code + PKCE + state, email/domain whitelist); issues its own **RS256 JWT** pair (access 15 min, refresh 30 days). Only this service talks to Google — every other service validates JWTs **locally** against `/.well-known/jwks.json` (PyJWKClient cache, no per-request network call). Leaf service, no DB (refresh-token revocation is a file-based jti denylist). Spec: `moneypenny/auth-service-spec.md`. `requires-python >=3.11`.
+Google OAuth 2.0 / OpenID Connect login (authorization code + PKCE + state, email/domain whitelist); issues its own **RS256 JWT** pair (access 15 min, refresh 30 days). Only this service talks to Google — every other service validates JWTs **locally** against `/.well-known/jwks.json` (PyJWKClient cache, no per-request network call). Leaf service, no DB of its own (refresh-token revocation is a file-based jti denylist) — on every successful login it best-effort POSTs the user's profile + provider to `invoice-core`'s `/api/v1/users` (using the freshly-issued access token), which is the only service in the workspace holding a database. Spec: `moneypenny/auth-service-spec.md`. `requires-python >=3.11`.
 
 ### Running
 
@@ -234,7 +234,7 @@ uv run pytest tests/ -v
 ```
 
 ### Architecture
-- `src/auth_service/` — `config.py`, `models.py` (UserInfo, TokenPair, ProviderInfo, JWTClaims), `jwt_service.py` (RS256 issue/verify + JWKS + keygen), `providers/` (`base.py` AuthProvider Protocol, `google.py`; registry in `__init__.py`, enable via `ENABLED_PROVIDERS`), `service.py` (login flow, whitelist, refresh, revoke), `api/main.py`, `cli/main.py`.
+- `src/auth_service/` — `config.py`, `models.py` (UserInfo, TokenPair, ProviderInfo, JWTClaims), `jwt_service.py` (RS256 issue/verify + JWKS + keygen), `providers/` (`base.py` AuthProvider Protocol, `google.py`; registry in `__init__.py`, enable via `ENABLED_PROVIDERS`), `invoice_core_client.py` (posts login records to invoice-core's `/api/v1/users`, best-effort), `service.py` (login flow, whitelist, refresh, revoke), `api/main.py`, `cli/main.py`.
 - **Endpoints**: public — `/health`, `/.well-known/jwks.json`, `/auth/providers`, `/auth/{provider}/login?next=`, `/auth/{provider}/callback`, `POST /auth/refresh`, `POST /auth/verify`; JWT-protected — `/auth/me`, `POST /auth/logout`, `/settings`.
 - Browser gets HttpOnly `mp_access_token` + `mp_refresh_token` cookies (SameSite=Lax; `COOKIE_SECURE=true` behind HTTPS); services also accept `Authorization: Bearer`.
 
