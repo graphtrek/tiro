@@ -19,9 +19,7 @@
         or '/ui/invoice-files' in request.url.path
         or '/ui/transactions' in request.url.path
         or '/ui/dividend' in request.url.path
-        or '/ui/adok' in request.url.path
-        or '/ui/sync' in request.url.path
-        or '/ui/upload' in request.url.path %}
+        or '/ui/adok' in request.url.path %}
     <li class="nav-item">
       <a class="nav-link {% if not szamlak_open %}collapsed{% endif %}" href="#szamlak-nav"
          data-bs-toggle="collapse" role="button"
@@ -54,16 +52,6 @@
         <li>
           <a class="nav-link {% if '/ui/adok' in request.url.path %}active{% endif %}" href="/ui/adok">
             <i class="fas fa-percent"></i> Adók
-          </a>
-        </li>
-        <li>
-          <a class="nav-link {% if '/ui/sync' in request.url.path %}active{% endif %}" href="/ui/sync">
-            <i class="fas fa-sync-alt"></i> Sync
-          </a>
-        </li>
-        <li>
-          <a class="nav-link {% if '/ui/upload' in request.url.path %}active{% endif %}" href="/ui/upload">
-            <i class="fas fa-upload"></i> Feltöltés
           </a>
         </li>
       </ul>
@@ -117,7 +105,9 @@
         </li>
       </ul>
     </li>
-    {% set admin_open = '/ui/admin' in request.url.path %}
+    {% set admin_open = '/ui/admin' in request.url.path
+        or '/ui/sync' in request.url.path
+        or '/ui/upload' in request.url.path %}
     <li class="nav-item">
       <a class="nav-link {% if not admin_open %}collapsed{% endif %}" href="#admin-nav"
          data-bs-toggle="collapse" role="button"
@@ -134,6 +124,16 @@
         <li>
           <a class="nav-link {% if '/ui/admin/activity-types' in request.url.path %}active{% endif %}" href="/ui/admin/activity-types">
             <i class="fas fa-tags"></i> Tevékenység típusok
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/sync' in request.url.path %}active{% endif %}" href="/ui/sync">
+            <i class="fas fa-sync-alt"></i> Sync
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/upload' in request.url.path %}active{% endif %}" href="/ui/upload">
+            <i class="fas fa-upload"></i> Feltöltés
           </a>
         </li>
       </ul>
