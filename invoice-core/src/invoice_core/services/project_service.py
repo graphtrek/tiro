@@ -7,8 +7,8 @@ from invoice_core.db import Customer, Project, User
 from invoice_core.models import ProjectIn, ProjectUpdate
 
 
-def _compose_code(customer_name: str, sequence_no: int, short_name: str) -> str:
-    return f"{customer_name} - {sequence_no:03d} - {short_name}"
+def _compose_code(sequence_no: int, short_name: str) -> str:
+    return f"{short_name}-{sequence_no:03d}"
 
 
 def _next_sequence_no(db: Session, customer_id: int) -> int:
@@ -56,7 +56,7 @@ def create_project(db: Session, payload: ProjectIn) -> Project:
         raise ValueError("Project gazda nem található")
 
     sequence_no = _next_sequence_no(db, payload.customer_id)
-    code = _compose_code(customer.name, sequence_no, payload.short_name)
+    code = _compose_code(sequence_no, payload.short_name)
     if _code_taken(db, code):
         raise ValueError(f"Project kód '{code}' már létezik")
 
@@ -94,7 +94,7 @@ def update_project(db: Session, project_id: int, payload: ProjectUpdate) -> Proj
         if payload.customer_id != record.customer_id
         else record.sequence_no
     )
-    code = _compose_code(customer.name, sequence_no, payload.short_name)
+    code = _compose_code(sequence_no, payload.short_name)
     if _code_taken(db, code, exclude_id=record.id):
         raise ValueError(f"Project kód '{code}' már létezik")
 

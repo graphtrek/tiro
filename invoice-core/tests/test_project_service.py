@@ -62,7 +62,7 @@ def test_create_project(db, customer, owner):
 
     assert record.id is not None
     assert record.sequence_no == 1
-    assert record.code == "IFUA - 001 - FVM"
+    assert record.code == "FVM-001"
     assert record.is_active is True
 
 
@@ -82,9 +82,9 @@ def test_create_project_increments_sequence_per_customer(db, customer, other_cus
 
     assert first.sequence_no == 1
     assert second.sequence_no == 2
-    assert second.code == "IFUA - 002 - MUIR"
+    assert second.code == "MUIR-002"
     assert other.sequence_no == 1
-    assert other.code == "Graphtrek - 001 - Money Penny"
+    assert other.code == "Money Penny-001"
 
 
 def test_create_project_sets_permitted_users(db, customer, owner, other_user):
@@ -127,7 +127,7 @@ def test_list_projects_orders_by_code(db, customer, other_customer, owner):
     )
 
     rows = project_service.list_projects(db)
-    assert [r.code for r in rows] == ["Graphtrek - 001 - Money Penny", "IFUA - 001 - MUIR"]
+    assert [r.code for r in rows] == ["MUIR-001", "Money Penny-001"]
 
 
 def test_update_project_renames_and_keeps_sequence(db, customer, owner):
@@ -148,7 +148,7 @@ def test_update_project_renames_and_keeps_sequence(db, customer, owner):
     )
 
     assert updated.sequence_no == 1
-    assert updated.code == "IFUA - 001 - FVM2"
+    assert updated.code == "FVM2-001"
 
 
 def test_update_project_changing_customer_reassigns_sequence(db, customer, other_customer, owner):
@@ -172,7 +172,7 @@ def test_update_project_changing_customer_reassigns_sequence(db, customer, other
     )
 
     assert updated.sequence_no == 2
-    assert updated.code == "Graphtrek - 002 - FVM"
+    assert updated.code == "FVM-002"
 
 
 def test_update_project_replaces_permitted_users(db, customer, owner, other_user):
@@ -199,11 +199,11 @@ def test_update_project_replaces_permitted_users(db, customer, owner, other_user
 
 
 def test_update_project_rejects_code_collision(db, owner):
-    # Two differently-IDed customers sharing a display name can land on the same
-    # composed code — each gets its own independent per-customer sequence, so
-    # nothing prevents both producing e.g. "Same Co - 001 - FVM".
-    customer_a = Customer(name="Same Co")
-    customer_b = Customer(name="Same Co")
+    # The code is short_name-sequence_no with no customer component, and each
+    # customer gets its own independent per-customer sequence, so two different
+    # customers can land on the same composed code, e.g. both producing "FVM-001".
+    customer_a = Customer(name="Alpha")
+    customer_b = Customer(name="Beta")
     db.add_all([customer_a, customer_b])
     db.commit()
 

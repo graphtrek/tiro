@@ -112,7 +112,7 @@
               <datalist id="pr-clients-new">
                 {% for c in customers %}<option value="{{ c.name }}" data-id="{{ c.id }}">{% endfor %}
               </datalist>
-              <div class="form-text">Ez adja a projektkód előtagját (Ügyfelek törzsadat)</div>
+              <div class="form-text">Ügyfelenként külön sorszámozás (Ügyfelek törzsadat)</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Sorszám</label>
@@ -126,7 +126,7 @@
             <div class="col-md-6">
               <label class="form-label">Project kód</label>
               <input class="form-control pr-code" disabled>
-              <div class="form-text">Automatikusan összeállítva: Ügyfél - sorszám - azonosító</div>
+              <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Project gazda <span class="text-danger">*</span></label>
@@ -179,7 +179,7 @@
               <datalist id="pr-clients-edit{{ row.id }}">
                 {% for c in customers %}<option value="{{ c.name }}" data-id="{{ c.id }}">{% endfor %}
               </datalist>
-              <div class="form-text">Ez adja a projektkód előtagját (Ügyfelek törzsadat)</div>
+              <div class="form-text">Ügyfelenként külön sorszámozás (Ügyfelek törzsadat)</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Sorszám</label>
@@ -193,7 +193,7 @@
             <div class="col-md-6">
               <label class="form-label">Project kód</label>
               <input class="form-control pr-code" value="{{ row.code }}" disabled>
-              <div class="form-text">Automatikusan összeállítva: Ügyfél - sorszám - azonosító</div>
+              <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Project gazda <span class="text-danger">*</span></label>
@@ -247,9 +247,9 @@
       return maxSeq + 1;
     }
 
-    function composeCode(customerName, seq, shortName) {
+    function composeCode(seq, shortName) {
       const seqStr = String(seq).padStart(3, "0");
-      return (customerName || "…") + " - " + seqStr + " - " + (shortName || "…");
+      return (shortName || "…") + "-" + seqStr;
     }
 
     document.querySelectorAll(".project-form").forEach(function(form) {
@@ -265,13 +265,12 @@
 
       function refreshPreview() {
         const customerId = clientIdInput.value ? parseInt(clientIdInput.value, 10) : null;
-        const customer = customers.find(function(c) { return c.id === customerId; });
         let seq = null;
         if (customerId !== null) {
           seq = (customerId === initialCustomerId && initialSeq !== null) ? initialSeq : nextSeq(customerId);
         }
         seqPreview.value = seq !== null ? String(seq).padStart(3, "0") : "";
-        codePreview.value = composeCode(customer ? customer.name : clientInput.value, seq !== null ? seq : "…", shortNameInput.value);
+        codePreview.value = composeCode(seq !== null ? seq : "…", shortNameInput.value);
       }
 
       clientInput.addEventListener("input", function() {
