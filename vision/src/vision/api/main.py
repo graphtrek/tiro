@@ -57,14 +57,24 @@ async def require_auth(request: Request, call_next):
     token = extract_token(request)
     claims = verify_jwt(token, settings) if token else None
     if claims is None:
+        next_url = request.url.path
+        if request.url.query:
+            next_url = f"{next_url}?{request.url.query}"
+        login_url = f"/login?next={quote(next_url, safe='')}"
+
+        # htmx (incl. hx-boost) requests never send an "Accept: text/html" header — they
+        # rely on HX-Request instead — so without this check every boosted nav click while
+        # unauthenticated silently 401s and htmx (which doesn't swap non-2xx responses)
+        # renders nothing, with no error and no redirect visible to the user.
+        if request.headers.get("HX-Request") == "true":
+            return JSONResponse(
+                {"detail": "Érvénytelen vagy hiányzó access token"},
+                status_code=401,
+                headers={"HX-Redirect": login_url},
+            )
         # böngészős oldal → login oldal; API hívás → 401 JSON
         if "text/html" in request.headers.get("accept", ""):
-            next_url = request.url.path
-            if request.url.query:
-                next_url = f"{next_url}?{request.url.query}"
-            return RedirectResponse(
-                f"/login?next={quote(next_url, safe='')}", status_code=302
-            )
+            return RedirectResponse(login_url, status_code=302)
         return JSONResponse(
             {"detail": "Érvénytelen vagy hiányzó access token"}, status_code=401
         )
