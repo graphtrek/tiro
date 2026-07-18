@@ -298,7 +298,7 @@ src/invoice_core/
 │   ├── activity_type_service.py ← Admin CRUD for Timesheet activity types (create/list/update/delete)
 │   ├── project_service.py   ← Controlling CRUD for projects (sequence numbering, code composition, permitted users)
 │   ├── timesheet_service.py ← Controlling CRUD for timesheet entries (own-records scoping, project-permission + hours-step validation)
-│   └── report_service.py    ← Controlling Reports: project (weekly + cumulative, per-activity-type pivot) and group (person/customer/activity_type) reports over all users' timesheet_entry rows, grouped in Python for SQLite portability
+│   └── report_service.py    ← Controlling Reports: project (weekly + cumulative, per-activity-type pivot) and group (person/customer/activity_type) reports over all users' timesheet_entry rows, grouped in Python for SQLite portability — group reports also return an `entries` list (one row per timesheet_entry, for the detail listing) alongside the grouped totals
 ├── db.py                    ← SQLAlchemy ORM models + session; exports _enum_str helper
 ├── service.py               ← Sync orchestration (sync_nav, sync_pdf, sync_bank, sync_match)
 ├── models.py                ← Pydantic request/response schemas

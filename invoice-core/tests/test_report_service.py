@@ -114,13 +114,14 @@ def other_activity_type(db):
     return record
 
 
-def _entry(project_id, activity_type_id, user_id, entry_date, hours):
+def _entry(project_id, activity_type_id, user_id, entry_date, hours, participants=None):
     return TimesheetEntryIn(
         user_id=user_id,
         project_id=project_id,
         activity_type_id=activity_type_id,
         entry_date=entry_date,
         hours=hours,
+        participants=participants,
     )
 
 
@@ -298,4 +299,52 @@ def test_get_group_report_empty_when_no_entries(db):
     report = report_service.get_group_report(db, "person")
 
     assert report.rows == []
+    assert report.entries == []
     assert report.total_hours == 0.0
+
+
+def test_get_group_report_entries_list_detail_rows(
+    db, project, owner, other_user, activity_type, other_activity_type
+):
+    project.permitted_users = [other_user]
+    db.commit()
+
+    timesheet_service.create_timesheet_entry(
+        db,
+        _entry(project.id, activity_type.id, owner.id, date(2026, 1, 5), 2.0, participants="Kovács Béla"),
+    )
+    timesheet_service.create_timesheet_entry(
+        db, _entry(project.id, other_activity_type.id, other_user.id, date(2026, 1, 6), 1.5)
+    )
+
+    report = report_service.get_group_report(db, "person")
+
+    assert len(report.entries) == 2
+    row = next(r for r in report.entries if r.user_name == "Kozma Zoltán")
+    assert row.entry_date == "2026-01-05"
+    assert row.weekday == "hétfő"
+    assert row.project_week == 1
+    assert row.project_code == "IFUA - 001 - FVM"
+    assert row.customer_name == "IFUA"
+    assert row.activity_type_name == "Szakértői munka"
+    assert row.participants == "Kovács Béla"
+    assert row.hours == 2.0
+
+    other_row = next(r for r in report.entries if r.user_name == "Tatai Imre")
+    assert other_row.entry_date == "2026-01-06"
+    assert other_row.weekday == "kedd"
+    assert other_row.participants == ""
+
+
+def test_get_group_report_entries_respect_filters(db, project, other_project, owner, customer, activity_type):
+    timesheet_service.create_timesheet_entry(
+        db, _entry(project.id, activity_type.id, owner.id, date(2026, 1, 5), 2.0)
+    )
+    timesheet_service.create_timesheet_entry(
+        db, _entry(other_project.id, activity_type.id, owner.id, date(2026, 1, 5), 5.0)
+    )
+
+    report = report_service.get_group_report(db, "person", customer_id=customer.id)
+
+    assert len(report.entries) == 1
+    assert report.entries[0].customer_name == "IFUA"

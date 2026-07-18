@@ -96,11 +96,7 @@
           </select>
         </div>
       </div>
-      <div class="d-flex align-items-center justify-content-between mt-3">
-        <div class="form-text mb-0">
-          <i class="bi bi-save me-1"></i>Gyakran használt szűrőkombináció elmenthető:
-          <a href="#" class="disabled" tabindex="-1" aria-disabled="true">Mentés sablonként</a>
-        </div>
+      <div class="d-flex align-items-center justify-content-end mt-3">
         <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-play-fill me-1"></i>Riport futtatása</button>
       </div>
     </form>
@@ -112,12 +108,20 @@
   <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
 </div>
 {% else %}
+{% set show_person_col = report_type != "project" and not user_id %}
+{% set show_activity_type_col = report_type != "project" and not activity_type_id %}
+{% set base_cols = 4 + (1 if show_person_col else 0) + (1 if show_activity_type_col else 0) %}
+{% set summary_label = "Személy" if report_type == "person" else ("Ügyfél" if report_type == "customer" else "Tevékenység típus") %}
 <div class="card">
   <div class="card-header">
-    <strong>
-      Eredmény — {{ report_type_labels[report_type] }}{% if report_type == "project" and selected_project %} : {{ selected_project.code }}{% endif %}
-      ({{ date_range_labels[date_range] }})
-    </strong>
+    <div><strong>Eredmény — {{ report_type_labels[report_type] }}</strong></div>
+    <div class="d-flex flex-wrap gap-3 text-muted small mt-1">
+      <span><i class="bi bi-kanban me-1"></i>Projekt: {{ header_project_label }}</span>
+      <span><i class="bi bi-building me-1"></i>Ügyfél: {{ header_customer_label }}</span>
+      <span><i class="bi bi-person me-1"></i>Személy: {{ header_person_label }}</span>
+      <span><i class="bi bi-tags me-1"></i>Tevékenység típus: {{ header_activity_type_label }}</span>
+      <span><i class="bi bi-calendar-range me-1"></i>Időszak: {{ header_period_label }}</span>
+    </div>
   </div>
   <div class="card-body pt-3">
     <table id="report-table" class="table table-hover table-sm">
@@ -125,19 +129,18 @@
         <tr>
         {% if report_type == "project" %}
           <th>Projekt hét</th>
-          <th class="text-end">Heti összesítő (óra)</th>
+          <th class="text-end report-hours-col">Heti összesítő (óra)</th>
           <th class="text-end">Kumulált (óra)</th>
           {% for name in report.activity_type_names %}<th class="text-end">{{ name }}</th>{% endfor %}
           <th></th>
-        {% elif report_type in ("person", "customer") %}
-          <th>{% if report_type == "person" %}Személy{% else %}Ügyfél{% endif %}</th>
-          <th class="text-end">Összesen (óra)</th>
-          <th class="text-end">Bejegyzések száma</th>
-          {% for name in report.activity_type_names %}<th class="text-end">{{ name }}</th>{% endfor %}
         {% else %}
-          <th>Tevékenység típus</th>
-          <th class="text-end">Összesen (óra)</th>
-          <th class="text-end">Bejegyzések száma</th>
+          <th>Dátum</th>
+          <th>Nap</th>
+          <th>Hét</th>
+          {% if show_person_col %}<th>Személy</th>{% endif %}
+          {% if show_activity_type_col %}<th>Tevékenység típus</th>{% endif %}
+          <th>Résztvevők</th>
+          <th class="text-end report-hours-col">Óra</th>
         {% endif %}
         </tr>
       </thead>
@@ -153,6 +156,52 @@
         </tr>
         {% endfor %}
         {% else %}
+        {% for e in report.entries %}
+        <tr>
+          <td>{{ e.entry_date }}</td>
+          <td>{{ e.weekday }}</td>
+          <td>W{{ e.project_week }}</td>
+          {% if show_person_col %}<td>{{ e.user_name }}</td>{% endif %}
+          {% if show_activity_type_col %}<td>{{ e.activity_type_name }}</td>{% endif %}
+          <td>{{ e.participants }}</td>
+          <td class="text-end">{{ e.hours }}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+      </tbody>
+      {% if report_type != "project" %}
+      <tfoot>
+        <tr class="table-light fw-semibold">
+          <td colspan="{{ base_cols }}">Összesen</td>
+          <td class="text-end">{{ report.total_hours }}</td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+    <div class="d-flex justify-content-between text-muted small mt-2">
+      <span>Órák a szűrt sorokban: <strong id="report-sum">0</strong> óra</span>
+      {% if report_type == "project" %}<span>Heti sor → Timesheet az adott projektre szűrve</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if report_type != "project" %}
+<div class="card mt-4">
+  <div class="card-header">
+    <strong>Összesítés</strong>
+    <span class="text-muted small">({{ summary_label }} szerint)</span>
+  </div>
+  <div class="card-body pt-3">
+    <table id="report-summary-table" class="table table-sm mb-0">
+      <thead>
+        <tr>
+          <th>{{ summary_label }}</th>
+          <th class="text-end">Összesen (óra)</th>
+          <th class="text-end">Bejegyzések száma</th>
+          {% if report_type != "activity_type" %}{% for name in report.activity_type_names %}<th class="text-end">{{ name }}</th>{% endfor %}{% endif %}
+        </tr>
+      </thead>
+      <tbody>
         {% for row in report.rows %}
         <tr>
           <td>{{ row.key_label }}</td>
@@ -163,15 +212,19 @@
           {% endif %}
         </tr>
         {% endfor %}
-        {% endif %}
       </tbody>
+      <tfoot>
+        <tr class="fw-semibold">
+          <td>Mindösszesen</td>
+          <td class="text-end">{{ report.total_hours }}</td>
+          <td></td>
+          {% if report_type != "activity_type" %}{% for name in report.activity_type_names %}<td></td>{% endfor %}{% endif %}
+        </tr>
+      </tfoot>
     </table>
-    <div class="d-flex justify-content-between text-muted small mt-2">
-      <span>Órák a szűrt sorokban: <strong id="report-sum">0</strong> óra</span>
-      {% if report_type == "project" %}<span>Heti sor → Timesheet az adott projektre szűrve</span>{% endif %}
-    </div>
   </div>
 </div>
+{% endif %}
 
 <script>
   (function() {
@@ -179,24 +232,116 @@
       $("#report-table").DataTable().destroy();
     }
     function hours(s) { return parseFloat(String(s).replace(",", ".")) || 0; }
+    var hoursColIdx = document.querySelector("#report-table thead th.report-hours-col").cellIndex;
+    var reportTitle = {{ report_type_labels[report_type] | tojson }};
+    var reportMeta = "Projekt: " + {{ header_project_label | tojson }}
+      + "  |  Ügyfél: " + {{ header_customer_label | tojson }}
+      + "  |  Személy: " + {{ header_person_label | tojson }}
+      + "  |  Tevékenység típus: " + {{ header_activity_type_label | tojson }}
+      + "  |  Időszak: " + {{ header_period_label | tojson }};
+
+    // Read the on-screen Összesítés (summary) table so exports carry it too — single
+    // source of truth is the rendered DOM, not a duplicate Jinja-side data structure.
+    function readSummaryRows() {
+      var table = document.getElementById("report-summary-table");
+      if (!table) return [];
+      var cellText = function(el) { return el.textContent.replace(/\s+/g, " ").trim(); };
+      var rows = [Array.prototype.map.call(table.querySelectorAll("thead th"), cellText)];
+      Array.prototype.forEach.call(table.querySelectorAll("tbody tr"), function(tr) {
+        rows.push(Array.prototype.map.call(tr.querySelectorAll("td"), cellText));
+      });
+      var footRow = Array.prototype.map.call(table.querySelectorAll("tfoot td"), cellText);
+      if (footRow.length) rows.push(footRow);
+      return rows;
+    }
+    function withSummary(data) {
+      var headerLen = data.header.length;
+      function pad(row) {
+        var out = row.slice(0, headerLen);
+        while (out.length < headerLen) out.push("");
+        return out;
+      }
+      data.body.push(pad([""]));
+      data.body.push(pad(["Összesítés"]));
+      readSummaryRows().forEach(function(row) { data.body.push(pad(row)); });
+    }
+    var summaryExportOptions = {% if report_type != "project" %}{ customizeData: withSummary }{% else %}undefined{% endif %};
+
+    var BRAND = "#008cba";
+    function stylePdf(doc) {
+      // Styling must never be able to block the export itself — if some doc
+      // shape we didn't anticipate slips through, fall back to plain output
+      // instead of leaving the user with no PDF at all.
+      try {
+        doc.pageMargins = [24, 56, 24, 40];
+        doc.defaultStyle = doc.defaultStyle || {};
+        doc.defaultStyle.fontSize = 8;
+        doc.styles = doc.styles || {};
+        doc.styles.title = { fontSize: 16, bold: true, color: BRAND, margin: [0, 0, 0, 2] };
+        doc.styles.message = { fontSize: 9, italics: true, color: "#6c757d", margin: [0, 0, 0, 10] };
+        doc.styles.tableHeader = { bold: true, fontSize: 8, color: "white" };
+
+        // Locate the table block by shape rather than position — the index of the
+        // table within doc.content shifts depending on which of title/messageTop/
+        // messageBottom the library actually included.
+        var tableBlock = (doc.content || []).filter(function (item) { return item && item.table; })[0];
+        if (!tableBlock) return;
+
+        (tableBlock.table.body || []).forEach(function (row) {
+          var first = row[0];
+          var label = typeof first === "string" ? first : (first && first.text);
+          if (label === "Összesítés" || label === "Mindösszesen" || label === "Összesen") {
+            row.forEach(function (cell, idx) {
+              var text = typeof cell === "string" ? cell : ((cell && cell.text) || "");
+              row[idx] = { text: text, bold: true, color: BRAND };
+            });
+          }
+        });
+
+        tableBlock.layout = {
+          hLineWidth: function (i, node) { return (i === 0 || i === node.table.body.length) ? 1 : 0.5; },
+          vLineWidth: function () { return 0; },
+          hLineColor: function () { return "#c7ccd6"; },
+          paddingLeft: function () { return 6; },
+          paddingRight: function () { return 6; },
+          paddingTop: function () { return 4; },
+          paddingBottom: function () { return 4; },
+          fillColor: function (rowIndex) {
+            if (rowIndex === 0) return BRAND;
+            return rowIndex % 2 === 0 ? "#eef6f9" : null;
+          },
+        };
+        doc.footer = function (currentPage, pageCount) {
+          return {
+            margin: [24, 12, 24, 0],
+            columns: [
+              { text: "Moneypenny — Controlling riport", fontSize: 7, color: "#9aa2b1" },
+              { text: currentPage + " / " + pageCount, fontSize: 7, color: "#9aa2b1", alignment: "right" },
+            ],
+          };
+        };
+      } catch (err) {
+        console.error("PDF styling failed, exporting unstyled instead:", err);
+      }
+    }
+
     new DataTable("#report-table", {
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50],
       order: [[0, "asc"]],
       columnDefs: [
-        { targets: 1, className: "text-end" },
         {% if report_type == "project" %}
         { targets: -1, searchable: false, orderable: false },
         {% endif %}
       ],
       buttons: [
-        { extend: "excelHtml5", title: "Riport" },
-        { extend: "pdfHtml5", title: "Riport", orientation: "landscape" },
-        { extend: "print", title: "Riport" },
+        { extend: "excelHtml5", title: reportTitle, messageTop: reportMeta, exportOptions: summaryExportOptions },
+        { extend: "pdfHtml5", title: reportTitle, messageTop: reportMeta, orientation: "landscape", exportOptions: summaryExportOptions, customize: stylePdf },
+        { extend: "print", title: reportTitle, messageTop: reportMeta, exportOptions: summaryExportOptions },
       ],
       drawCallback: function() {
-        var sum = this.api().column(1, { search: "applied" }).data().toArray()
+        var sum = this.api().column(hoursColIdx, { search: "applied" }).data().toArray()
           .reduce(function(a, b) { return a + hours(b); }, 0);
         var el = document.getElementById("report-sum");
         if (el) el.textContent = sum.toLocaleString("hu-HU");

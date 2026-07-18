@@ -44,7 +44,6 @@
       </thead>
       <tbody>
         {% for row in rows %}
-        {% set usage_hours = 0 %}<!-- hardcoded until Timesheet exists -->
         <tr class="{% if not row.is_active %}text-muted{% endif %}">
           <td><strong>{{ row.code }}</strong></td>
           <td>{{ row.customer_name }}</td>
@@ -56,7 +55,7 @@
             <span class="badge bg-secondary">lezárt</span>
             {% endif %}
           </td>
-          <td class="text-end">{{ usage_hours }}</td>
+          <td class="text-end">{{ ("%g" % row.usage_hours)|replace(".", ",") }}</td>
           <td class="text-end text-nowrap">
             <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
                     data-bs-target="#editProjectModal{{ row.id }}">

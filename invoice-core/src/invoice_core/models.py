@@ -224,6 +224,7 @@ class ProjectOut(BaseModel):
     owner_name: str
     is_active: bool
     permitted_user_ids: List[int]
+    usage_hours: float
     created_at: datetime
     updated_at: datetime
 

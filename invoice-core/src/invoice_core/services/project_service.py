@@ -39,7 +39,10 @@ def _permitted_users(db: Session, user_ids: list[int]) -> list[User]:
 
 def _with_joins(db: Session):
     return db.query(Project).options(
-        joinedload(Project.customer), joinedload(Project.owner), joinedload(Project.permitted_users)
+        joinedload(Project.customer),
+        joinedload(Project.owner),
+        joinedload(Project.permitted_users),
+        joinedload(Project.timesheet_entries),
     )
 
 
@@ -114,8 +117,8 @@ def update_project(db: Session, project_id: int, payload: ProjectUpdate) -> Proj
 def delete_project(db: Session, project_id: int) -> bool:
     """Hard-delete — mirrors activity_type_service.delete_activity_type.
 
-    No usage tracking exists yet (no Timesheet table), so there is nothing to
-    gate on server-side; revisit once Timesheet lands.
+    No usage gating here: a project with existing TimesheetEntry rows will fail
+    on the FK constraint (IntegrityError) rather than being blocked up front.
     """
     record = db.query(Project).filter(Project.id == project_id).one_or_none()
     if record is None:

@@ -275,6 +275,15 @@ lekérdezheti bárki óráit. A csoportosítás/pivot Python oldalon történik 
 SQL `GROUP BY`), hogy SQLite alatt (tesztek) és PostgreSQL alatt (production)
 egyaránt ugyanúgy működjön — ugyanaz a minta, mint a `tax_service`-nél.
 
+`report_type=person|customer|activity_type` esetén a `GroupReport` a
+csoportosított totálok (`rows`: `key_label`, `total_hours`, `entry_count`,
+tevékenység-típusonkénti pivot) mellett egy `entries` listát is visszaad —
+egy sor minden egyes `timesheet_entry`-re (dátum, magyar hét napja,
+`project_week`, projekt kód, ügyfél név, felhasználó név, tevékenység típus
+név, résztvevők, órák), a csoport címke majd dátum szerint rendezve. A
+[[vision-spec.md|vision]] riportoldal ezt használja a részletes soronkénti
+listázáshoz, a `rows`-t pedig az alatta megjelenő Összesítés szekcióhoz.
+
 ## Logika (Orchestration)
 1. **invoice-core iniciál** → sorban:
    - **nav-invoice** meghívása (GET /invoices?from=...&to=...&direction=...)

@@ -243,6 +243,11 @@ def _resolve_date_range(
     return first, next_first - timedelta(days=1)
 
 
+def _parse_id(v: str | None) -> int | None:
+    """Parse an optional numeric query param, treating "" (the "mind" option) as unset."""
+    return int(v) if v else None
+
+
 def _fmt_hours(v: float) -> str:
     return ("%g" % v).replace(".", ",")
 
@@ -258,7 +263,18 @@ def _format_report_hours(report: dict) -> None:
         for row in report["rows"]:
             row["total_hours"] = _fmt_hours(row["total_hours"])
             row["by_activity_type"] = {k: _fmt_hours(v) for k, v in row["by_activity_type"].items()}
+        for entry in report.get("entries", []):
+            entry["hours"] = _fmt_hours(entry["hours"])
         report["total_hours"] = _fmt_hours(report["total_hours"])
+
+
+def _format_period_label(date_range: str, resolved_from: date | None, resolved_to: date | None) -> str:
+    label = _DATE_RANGE_LABELS.get(date_range, date_range)
+    if resolved_from and resolved_to:
+        return f"{label} ({resolved_from.isoformat()} – {resolved_to.isoformat()})"
+    if resolved_from:
+        return f"{label} ({resolved_from.isoformat()}–)"
+    return label
 
 
 def _reports_page(
@@ -267,11 +283,16 @@ def _reports_page(
     date_range: str = "current_month",
     date_from: str | None = None,
     date_to: str | None = None,
-    customer_id: int | None = None,
-    project_id: int | None = None,
-    user_id: int | None = None,
-    activity_type_id: int | None = None,
+    customer_id: str | None = None,
+    project_id: str | None = None,
+    user_id: str | None = None,
+    activity_type_id: str | None = None,
 ):
+    customer_id = _parse_id(customer_id)
+    project_id = _parse_id(project_id)
+    user_id = _parse_id(user_id)
+    activity_type_id = _parse_id(activity_type_id)
+
     client = _client()
     customers = client.get_customers()
     projects = client.get_projects()
@@ -287,6 +308,23 @@ def _reports_page(
         project_id = projects[0]["id"]
 
     selected_project = next((p for p in projects if p["id"] == project_id), None)
+    selected_customer = next((c for c in customers if c["id"] == customer_id), None)
+    selected_user = next((u for u in users if u["id"] == user_id), None)
+    selected_activity_type = next((a for a in activity_types if a["id"] == activity_type_id), None)
+
+    header_project_label = selected_project["code"] if selected_project else "Összes projekt"
+    if selected_customer is not None:
+        header_customer_label = selected_customer["name"]
+    elif selected_project is not None:
+        header_customer_label = selected_project["customer_name"]
+    else:
+        header_customer_label = "Összes ügyfél"
+    header_person_label = (
+        (selected_user["name"] or selected_user["email"]) if selected_user else "Összes személy"
+    )
+    header_activity_type_label = (
+        selected_activity_type["name"] if selected_activity_type else "Összes tevékenység típus"
+    )
 
     ctx = {
         "report_type": report_type,
@@ -306,6 +344,10 @@ def _reports_page(
         "date_ranges": _DATE_RANGES,
         "date_range_labels": _DATE_RANGE_LABELS,
         "selected_project": selected_project,
+        "header_project_label": header_project_label,
+        "header_customer_label": header_customer_label,
+        "header_person_label": header_person_label,
+        "header_activity_type_label": header_activity_type_label,
         "report": None,
         "error": None,
     }
@@ -317,6 +359,7 @@ def _reports_page(
     resolved_from, resolved_to = _resolve_date_range(
         date_range, date_from, date_to, selected_project, date.today()
     )
+    ctx["header_period_label"] = _format_period_label(date_range, resolved_from, resolved_to)
     report = client.get_timesheet_report(
         report_type,
         date_from=resolved_from.isoformat() if resolved_from else None,
@@ -330,6 +373,7 @@ def _reports_page(
         report.setdefault("weeks", [])
     else:
         report.setdefault("rows", [])
+        report.setdefault("entries", [])
     report.setdefault("activity_type_names", [])
     report.setdefault("total_hours", 0.0)
 
@@ -345,10 +389,10 @@ def reports_page(
     date_range: str = "current_month",
     date_from: str | None = None,
     date_to: str | None = None,
-    customer_id: int | None = None,
-    project_id: int | None = None,
-    user_id: int | None = None,
-    activity_type_id: int | None = None,
+    customer_id: str | None = None,
+    project_id: str | None = None,
+    user_id: str | None = None,
+    activity_type_id: str | None = None,
 ):
     return _reports_page(
         request,

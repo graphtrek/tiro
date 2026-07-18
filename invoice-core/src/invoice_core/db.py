@@ -358,6 +358,7 @@ class Project(Base):
     customer = relationship("Customer")
     owner = relationship("User", foreign_keys=[owner_id])
     permitted_users = relationship("User", secondary=project_permitted_user)
+    timesheet_entries = relationship("TimesheetEntry", back_populates="project")
 
     @property
     def customer_name(self) -> str:
@@ -370,6 +371,10 @@ class Project(Base):
     @property
     def permitted_user_ids(self) -> list[int]:
         return [u.id for u in self.permitted_users]
+
+    @property
+    def usage_hours(self) -> float:
+        return sum(e.hours for e in self.timesheet_entries)
 
 
 class TimesheetEntry(Base):
@@ -387,7 +392,7 @@ class TimesheetEntry(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     user = relationship("User", foreign_keys=[user_id])
-    project = relationship("Project")
+    project = relationship("Project", back_populates="timesheet_entries")
     activity_type = relationship("ActivityType")
 
     @property

@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from invoice_core.db import Project, TimesheetEntry
 from invoice_core.services.timesheet_service import with_joins
 
+_HU_WEEKDAYS = ["hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap"]
+
 
 def _filtered_entries(
     db: Session,
@@ -116,10 +118,24 @@ class GroupTotalRow:
 
 
 @dataclass
+class DetailRow:
+    entry_date: str
+    weekday: str
+    project_week: int
+    project_code: str
+    customer_name: str
+    user_name: str
+    activity_type_name: str
+    participants: str
+    hours: float
+
+
+@dataclass
 class GroupReport:
     group_by: str
     activity_type_names: list[str]
     rows: list[GroupTotalRow]
+    entries: list[DetailRow]
     total_hours: float
 
 
@@ -179,9 +195,26 @@ def get_group_report(
     ]
     rows.sort(key=lambda r: r.key_label)
 
+    entries_sorted = sorted(entries, key=lambda e: (key_and_label(e)[1], e.entry_date, e.id))
+    detail_rows = [
+        DetailRow(
+            entry_date=entry.entry_date.isoformat(),
+            weekday=_HU_WEEKDAYS[entry.entry_date.weekday()],
+            project_week=entry.project_week,
+            project_code=entry.project_code,
+            customer_name=entry.customer_name,
+            user_name=entry.user_name,
+            activity_type_name=entry.activity_type_name,
+            participants=entry.participants or "",
+            hours=entry.hours,
+        )
+        for entry in entries_sorted
+    ]
+
     return GroupReport(
         group_by=group_by,
         activity_type_names=activity_type_names,
         rows=rows,
+        entries=detail_rows,
         total_hours=sum(r.total_hours for r in rows),
     )

@@ -1,10 +1,12 @@
 """Tests for project_service — Controlling / Projektek CRUD."""
 
+from datetime import date
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from invoice_core.db import Base, Customer, User
+from invoice_core.db import ActivityType, Base, Customer, TimesheetEntry, User
 from invoice_core.models import ProjectIn, ProjectUpdate
 from invoice_core.services import project_service
 
@@ -250,3 +252,44 @@ def test_delete_project_removes_row(db, customer, owner):
 
 def test_delete_project_returns_false_when_not_found(db):
     assert project_service.delete_project(db, 999) is False
+
+
+def test_list_projects_sums_usage_hours_from_timesheet_entries(db, customer, owner):
+    created = project_service.create_project(
+        db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+    )
+    activity_type = ActivityType(name="Szakértői munka", is_active=True)
+    db.add(activity_type)
+    db.commit()
+    db.refresh(activity_type)
+
+    db.add_all(
+        [
+            TimesheetEntry(
+                user_id=owner.id,
+                project_id=created.id,
+                activity_type_id=activity_type.id,
+                entry_date=date(2026, 1, 12),
+                hours=2.5,
+            ),
+            TimesheetEntry(
+                user_id=owner.id,
+                project_id=created.id,
+                activity_type_id=activity_type.id,
+                entry_date=date(2026, 1, 13),
+                hours=1.0,
+            ),
+        ]
+    )
+    db.commit()
+
+    rows = project_service.list_projects(db)
+    assert rows[0].usage_hours == 3.5
+
+
+def test_create_project_has_zero_usage_hours(db, customer, owner):
+    record = project_service.create_project(
+        db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+    )
+
+    assert record.usage_hours == 0
