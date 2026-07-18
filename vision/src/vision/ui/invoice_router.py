@@ -480,6 +480,101 @@ def transaction_unlink_file(request: Request, txn_id: int):
     return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
 
 
+# ── Manual link / unlink (BankTransaction ↔ Supplier / Customer) ─────────────
+
+@router.post("/transactions/{txn_id}/supplier/link")
+def transaction_link_supplier(request: Request, txn_id: int, supplier_id: int = Form(...)):
+    client = _client()
+    client.link_transaction_supplier(txn_id, supplier_id)
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+
+
+@router.post("/transactions/{txn_id}/supplier/unlink")
+def transaction_unlink_supplier(request: Request, txn_id: int):
+    client = _client()
+    client.unlink_transaction_supplier(txn_id)
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+
+
+@router.post("/transactions/{txn_id}/customer/link")
+def transaction_link_customer(request: Request, txn_id: int, customer_id: int = Form(...)):
+    client = _client()
+    client.link_transaction_customer(txn_id, customer_id)
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+
+
+@router.post("/transactions/{txn_id}/customer/unlink")
+def transaction_unlink_customer(request: Request, txn_id: int):
+    client = _client()
+    client.unlink_transaction_customer(txn_id)
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+
+
+@router.post("/transactions/{txn_id}/supplier/create-and-link")
+def transaction_create_and_link_supplier(
+    request: Request,
+    txn_id: int,
+    name: str = Form(...),
+    tax_id: str = Form(""),
+    address: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    iban: str = Form(""),
+    bban: str = Form(""),
+):
+    client = _client()
+    result = client.create_supplier(
+        name=name, tax_id=tax_id or None, address=address or None,
+        email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
+    )
+    if not result.get("error"):
+        client.link_transaction_supplier(txn_id, result["id"])
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+
+
+@router.post("/transactions/{txn_id}/customer/create-and-link")
+def transaction_create_and_link_customer(
+    request: Request,
+    txn_id: int,
+    name: str = Form(...),
+    tax_id: str = Form(""),
+    address: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    payment_terms: str = Form(""),
+    iban: str = Form(""),
+    bban: str = Form(""),
+):
+    client = _client()
+    result = client.create_customer(
+        name=name, tax_id=tax_id or None, address=address or None,
+        email=email or None, phone=phone or None,
+        payment_terms=int(payment_terms) if payment_terms else None,
+        iban=iban or None, bban=bban or None,
+    )
+    if not result.get("error"):
+        client.link_transaction_customer(txn_id, result["id"])
+    data = client.get_transaction(txn_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Tranzakció nem található")
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+
+
 # ── Manual link / unlink (Invoice ↔ BankTransaction M2M) ─────────────────────
 
 @router.post("/invoices/{invoice_id}/transactions/{txn_id}/link")
@@ -610,23 +705,43 @@ def picker_invoices(
 def picker_partners(
     request: Request,
     kind: str,
+    source_type: Optional[str] = None,
+    source_id: Optional[int] = None,
     invoice_id: Optional[int] = None,
 ):
     if kind not in ("supplier", "customer"):
         raise HTTPException(status_code=422, detail="kind must be 'supplier' or 'customer'")
+    if invoice_id and not source_type:
+        source_type, source_id = "invoice", invoice_id
     client = _client()
     rows = dict_to_ns(client.get_suppliers() if kind == "supplier" else client.get_customers())
     invoice = None
-    if invoice_id:
-        inv_data = client.get_invoice(invoice_id)
-        if inv_data:
-            invoice = dict_to_ns(inv_data)
+    tx = None
+    if source_type == "transaction":
+        link_url_prefix = f"/ui/transactions/{source_id}/{kind}/link"
+        create_link_url_prefix = f"/ui/transactions/{source_id}/{kind}/create-and-link"
+        hx_target = "#tx-offcanvas-body"
+        if source_id:
+            txn_data = client.get_transaction(source_id)
+            if txn_data:
+                tx = dict_to_ns(txn_data)
+    else:
+        link_url_prefix = f"/ui/invoices/{source_id}/{kind}/link"
+        create_link_url_prefix = f"/ui/invoices/{source_id}/{kind}/create-and-link"
+        hx_target = "body"
+        if source_id:
+            inv_data = client.get_invoice(source_id)
+            if inv_data:
+                invoice = dict_to_ns(inv_data)
     return _resp(
         request, "partials/picker_partners.html", client,
         rows=rows,
         kind=kind,
-        invoice_id=invoice_id,
+        link_url_prefix=link_url_prefix,
+        create_link_url_prefix=create_link_url_prefix,
+        hx_target=hx_target,
         invoice=invoice,
+        tx=tx,
     )
 
 

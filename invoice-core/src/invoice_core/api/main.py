@@ -650,6 +650,50 @@ def unlink_transaction_from_file(txn_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 
+@app.put("/api/v1/transactions/{txn_id}/supplier")
+def link_transaction_to_supplier(txn_id: int, req: LinkSupplierRequest, db: Session = Depends(get_db)):
+    txn = db.get(BankTransaction, txn_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if not db.get(Supplier, req.supplier_id):
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    txn.supplier_id = req.supplier_id
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/v1/transactions/{txn_id}/supplier")
+def unlink_transaction_from_supplier(txn_id: int, db: Session = Depends(get_db)):
+    txn = db.get(BankTransaction, txn_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    txn.supplier_id = None
+    db.commit()
+    return {"ok": True}
+
+
+@app.put("/api/v1/transactions/{txn_id}/customer")
+def link_transaction_to_customer(txn_id: int, req: LinkCustomerRequest, db: Session = Depends(get_db)):
+    txn = db.get(BankTransaction, txn_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if not db.get(Customer, req.customer_id):
+        raise HTTPException(status_code=404, detail="Customer not found")
+    txn.customer_id = req.customer_id
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/v1/transactions/{txn_id}/customer")
+def unlink_transaction_from_customer(txn_id: int, db: Session = Depends(get_db)):
+    txn = db.get(BankTransaction, txn_id)
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    txn.customer_id = None
+    db.commit()
+    return {"ok": True}
+
+
 @app.put("/api/v1/invoices/{invoice_id}/transactions/{txn_id}")
 def link_invoice_to_transaction(invoice_id: int, txn_id: int, db: Session = Depends(get_db)):
     if not db.get(Invoice, invoice_id):

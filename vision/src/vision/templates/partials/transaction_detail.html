@@ -159,7 +159,24 @@
   <dt class="col-5 text-muted">Szállító</dt>
   <dd class="col-7">
     {% if tx.supplier_id and tx.supplier_name %}
-      <a href="/ui/suppliers/{{ tx.supplier_id }}">{{ tx.supplier_name }}</a>
+      <div class="d-flex align-items-center gap-1">
+        <a href="/ui/suppliers/{{ tx.supplier_id }}">{{ tx.supplier_name }}</a>
+        <form hx-post="/ui/transactions/{{ tx.id }}/supplier/unlink"
+              hx-target="#tx-offcanvas-body" hx-swap="innerHTML" class="d-inline m-0">
+          <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 lh-1"
+                  title="Szállító leválasztása" style="font-size:0.7rem">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </form>
+      </div>
+    {% elif tx.direction == 'DEBIT' %}
+      <span class="text-muted">—</span>
+      <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-1"
+              data-bs-toggle="modal" data-bs-target="#pickerModal"
+              data-picker-url="/ui/picker/partners?kind=supplier&source_type=transaction&source_id={{ tx.id }}"
+              title="Szállító kapcsolása">
+        <i class="bi bi-link-45deg"></i> Szállító kapcsolása
+      </button>
     {% else %}
       <span class="text-muted">—</span>
     {% endif %}
@@ -168,7 +185,24 @@
   <dt class="col-5 text-muted">Vevő</dt>
   <dd class="col-7">
     {% if tx.customer_id and tx.customer_name %}
-      <a href="/ui/customers/{{ tx.customer_id }}">{{ tx.customer_name }}</a>
+      <div class="d-flex align-items-center gap-1">
+        <a href="/ui/customers/{{ tx.customer_id }}">{{ tx.customer_name }}</a>
+        <form hx-post="/ui/transactions/{{ tx.id }}/customer/unlink"
+              hx-target="#tx-offcanvas-body" hx-swap="innerHTML" class="d-inline m-0">
+          <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 lh-1"
+                  title="Vevő leválasztása" style="font-size:0.7rem">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </form>
+      </div>
+    {% elif tx.direction == 'CREDIT' %}
+      <span class="text-muted">—</span>
+      <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-1"
+              data-bs-toggle="modal" data-bs-target="#pickerModal"
+              data-picker-url="/ui/picker/partners?kind=customer&source_type=transaction&source_id={{ tx.id }}"
+              title="Vevő kapcsolása">
+        <i class="bi bi-link-45deg"></i> Vevő kapcsolása
+      </button>
     {% else %}
       <span class="text-muted">—</span>
     {% endif %}
