@@ -159,7 +159,10 @@
 
 {% block scripts %}
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
+  // Runs as a plain IIFE, not on DOMContentLoaded: this block re-executes on every hx-boost
+  // revisit of this page, and DOMContentLoaded only ever fires once per document — a listener
+  // bound to it here would silently never run again after the first visit.
+  (function () {
     new DataTable("#sup-inv-table", {
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
       pageLength: 15, lengthMenu: [10, 15, 25, 50, 100], order: [[1, "desc"]],
@@ -174,12 +177,6 @@
         swap: "innerHTML"
       });
     });
-  });
-
-  document.body.addEventListener("htmx:afterSwap", function(evt) {
-    if (evt.detail.target.id === "tx-offcanvas-body") {
-      bootstrap.Offcanvas.getOrCreateInstance(document.getElementById("txOffcanvas")).show();
-    }
-  });
+  })();
 </script>
 {% endblock %}

@@ -32,13 +32,3 @@
   </div>
 </div>
 {% endblock %}
-
-{% block scripts %}
-<script>
-  document.body.addEventListener("htmx:afterSwap", function(evt) {
-    if (evt.detail.target.id === "tx-offcanvas-body") {
-      bootstrap.Offcanvas.getOrCreateInstance(document.getElementById("txOffcanvas")).show();
-    }
-  });
-</script>
-{% endblock %}

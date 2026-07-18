@@ -121,6 +121,23 @@
         document.getElementById('invoice-detail-modal-body').innerHTML =
           '<div class="modal-body"><p class="text-muted">Betöltés…</p></div>';
       });
+
+      // Several pages (invoices/transactions/customer_detail/supplier_detail) define their
+      // own #txOffcanvas + #tx-offcanvas-body and want it shown once a transaction loads into
+      // it. This listener is centralized here (guarded, like the click binding above) because
+      // document.body survives hx-boost swaps — a per-page copy of this listener re-registered
+      // on every revisit, and the resulting pile-up called bootstrap.Offcanvas.show() multiple
+      // times per click, corrupting its backdrop and blocking clicks page-wide until a refresh.
+      if (!window._txOffcanvasSwapBound) {
+        window._txOffcanvasSwapBound = true;
+        document.body.addEventListener('htmx:afterSwap', function (evt) {
+          if (evt.detail.target.id !== 'tx-offcanvas-body') return;
+          var el = document.getElementById('txOffcanvas');
+          if (el && !el.classList.contains('show')) {
+            bootstrap.Offcanvas.getOrCreateInstance(el).show();
+          }
+        });
+      }
     })();
   </script>
 
