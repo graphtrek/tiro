@@ -188,6 +188,78 @@ class Invoice(Base):
         back_populates="invoices",
         lazy="select",
     )
+    detail = relationship("InvoiceDetail", back_populates="invoice", uselist=False)
+    lines = relationship("InvoiceLine", back_populates="invoice", order_by="InvoiceLine.id")
+    vat_summaries = relationship("InvoiceVatSummary", back_populates="invoice", order_by="InvoiceVatSummary.id")
+
+
+class InvoiceDetail(Base):
+    """Full NAV queryInvoiceData detail captured during sync — 1:1 with Invoice."""
+
+    __tablename__ = "invoice_detail"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoice.id"), nullable=False, unique=True, index=True)
+    raw_xml = Column(Text, nullable=True)
+    # Snapshot of the NAV-reported supplier/customer, independent of whether a
+    # local Supplier/Customer could be matched — lets the Sync/Invoice page
+    # show who still needs to be created/linked for an unmatched invoice.
+    supplier_name = Column(String, nullable=True)
+    supplier_tax_number = Column(String, nullable=True)
+    supplier_address = Column(String, nullable=True)
+    supplier_bank_account = Column(String, nullable=True)
+    customer_name = Column(String, nullable=True)
+    customer_tax_number = Column(String, nullable=True)
+    customer_address = Column(String, nullable=True)
+    customer_bank_account = Column(String, nullable=True)
+    invoice_category = Column(String, nullable=True)
+    delivery_date = Column(Date, nullable=True)
+    currency_code = Column(String, nullable=True)
+    exchange_rate = Column(Float, nullable=True)
+    invoice_appearance = Column(String, nullable=True)
+    invoice_net_amount = Column(Float, nullable=True)
+    invoice_vat_amount = Column(Float, nullable=True)
+    invoice_gross_amount = Column(Float, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    invoice = relationship("Invoice", back_populates="detail")
+
+
+class InvoiceLine(Base):
+    """A single NAV invoice line item captured during sync."""
+
+    __tablename__ = "invoice_line"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoice.id"), nullable=False, index=True)
+    line_number = Column(String, nullable=True)
+    line_description = Column(Text, nullable=True)
+    quantity = Column(Float, nullable=True)
+    unit_of_measure = Column(String, nullable=True)
+    unit_price = Column(Float, nullable=True)
+    line_net_amount = Column(Float, nullable=True)
+    line_vat_rate = Column(Float, nullable=True)
+    line_vat_amount = Column(Float, nullable=True)
+    line_gross_amount = Column(Float, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    invoice = relationship("Invoice", back_populates="lines")
+
+
+class InvoiceVatSummary(Base):
+    """A per-VAT-rate summary row captured during sync."""
+
+    __tablename__ = "invoice_vat_summary"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoice.id"), nullable=False, index=True)
+    vat_rate = Column(Float, nullable=True)
+    vat_rate_net_amount = Column(Float, nullable=True)
+    vat_rate_vat_amount = Column(Float, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    invoice = relationship("Invoice", back_populates="vat_summaries")
 
 
 class BankTransaction(Base):

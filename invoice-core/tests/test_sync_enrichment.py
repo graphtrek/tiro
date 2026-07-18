@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 
 from invoice_core.bank_client import BankClient
 from invoice_core.config import Settings
-from invoice_core.db import Base, BankTransaction, Customer, Invoice, Supplier
+from invoice_core.db import Base, BankTransaction, Customer, Invoice, InvoiceDetail, InvoiceLine, InvoiceVatSummary, Supplier
 from invoice_core.nav_client import NavClient
 from invoice_core.service import classify_bank_account, get_pending_sync_counts, sync_bank, sync_nav
 
@@ -81,6 +81,31 @@ def test_sync_nav_persists_enriched_fields(sdb, settings, monkeypatch):
         "customer_bank_account": "11773016-11111018-00000000",
         "payment_method": "TRANSFER",
         "payment_due_date": "2026-05-26",
+        "invoice_xml": "<InvoiceData>...</InvoiceData>",
+        "invoice_category": "NORMAL",
+        "delivery_date": "2026-05-12",
+        "currency_code": "HUF",
+        "exchange_rate": 1.0,
+        "invoice_appearance": "ELECTRONIC",
+        "invoice_net_amount": 1000.0,
+        "invoice_vat_amount": 270.0,
+        "invoice_gross_amount": 1270.0,
+        "lines": [
+            {
+                "line_number": "1",
+                "line_description": "Consulting",
+                "quantity": 2.0,
+                "unit_of_measure": "",
+                "unit_price": 500.0,
+                "line_net_amount": 1000.0,
+                "line_vat_rate": 0.27,
+                "line_vat_amount": 270.0,
+                "line_gross_amount": 1270.0,
+            },
+        ],
+        "vat_summary": [
+            {"vat_rate": 0.27, "vat_rate_net_amount": 1000.0, "vat_rate_vat_amount": 270.0},
+        ],
     }
 
     monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [digest])
@@ -108,17 +133,52 @@ def test_sync_nav_persists_enriched_fields(sdb, settings, monkeypatch):
     assert customer.bban == "11773016-11111018-00000000"
     assert customer.iban is None
 
+    detail_row = sdb.query(InvoiceDetail).filter_by(invoice_id=inv.id).first()
+    assert detail_row is not None
+    assert detail_row.supplier_name == "Supplier Kft."
+    assert detail_row.supplier_tax_number == "11111111-1-11"
+    assert detail_row.supplier_address == "1011 Budapest, Fő utca 1"
+    assert detail_row.supplier_bank_account == "HU42117730161111101800000000"
+    assert detail_row.customer_name == "Customer Kft."
+    assert detail_row.customer_tax_number == "22222222-2-22"
+    assert detail_row.customer_address == "1052 Budapest, Váci utca 10"
+    assert detail_row.customer_bank_account == "11773016-11111018-00000000"
+    assert detail_row.raw_xml == "<InvoiceData>...</InvoiceData>"
+    assert detail_row.invoice_category == "NORMAL"
+    assert detail_row.delivery_date == date(2026, 5, 12)
+    assert detail_row.currency_code == "HUF"
+    assert detail_row.exchange_rate == 1.0
+    assert detail_row.invoice_appearance == "ELECTRONIC"
+    assert detail_row.invoice_net_amount == 1000.0
+    assert detail_row.invoice_vat_amount == 270.0
+    assert detail_row.invoice_gross_amount == 1270.0
+
+    line_rows = sdb.query(InvoiceLine).filter_by(invoice_id=inv.id).all()
+    assert len(line_rows) == 1
+    assert line_rows[0].line_description == "Consulting"
+    assert line_rows[0].quantity == 2.0
+    assert line_rows[0].line_net_amount == 1000.0
+
+    vat_rows = sdb.query(InvoiceVatSummary).filter_by(invoice_id=inv.id).all()
+    assert len(vat_rows) == 1
+    assert vat_rows[0].vat_rate == 0.27
+    assert vat_rows[0].vat_rate_net_amount == 1000.0
+    assert vat_rows[0].vat_rate_vat_amount == 270.0
+
 
 def test_sync_nav_skips_detail_fetch_when_already_enriched(sdb, settings, monkeypatch):
-    """Re-syncing an invoice that already has payment_method must not call get_invoice_detail again."""
+    """Re-syncing an invoice with payment_method AND a detail row must not call get_invoice_detail again."""
     sup = Supplier(name="Supplier Kft.", tax_id="11111111-1-11")
     cust = Customer(name="Customer Kft.", tax_id="22222222-2-22")
     sdb.add_all([sup, cust])
     sdb.flush()
-    sdb.add(Invoice(
+    inv = Invoice(
         invoice_number="INV-100", supplier_id=sup.id, customer_id=cust.id,
         payment_method="TRANSFER", direction="OUTBOUND",
-    ))
+    )
+    sdb.add(inv)
+    sdb.flush()
+    sdb.add(InvoiceDetail(invoice_id=inv.id, invoice_category="NORMAL"))
     sdb.commit()
 
     digest = {
@@ -139,6 +199,119 @@ def test_sync_nav_skips_detail_fetch_when_already_enriched(sdb, settings, monkey
 
     sync_nav("2026-05-01", "2026-05-31", sdb, settings)
     assert calls == []
+
+
+def test_sync_nav_backfills_detail_for_previously_enriched_invoice_missing_detail_row(sdb, settings, monkeypatch):
+    """An invoice synced before this feature existed (payment_method set, no
+    InvoiceDetail row) must still trigger a detail fetch so it gets backfilled."""
+    sup = Supplier(name="Supplier Kft.", tax_id="11111111-1-11")
+    cust = Customer(name="Customer Kft.", tax_id="22222222-2-22")
+    sdb.add_all([sup, cust])
+    sdb.flush()
+    sdb.add(Invoice(
+        invoice_number="INV-100", supplier_id=sup.id, customer_id=cust.id,
+        payment_method="TRANSFER", direction="OUTBOUND",
+    ))
+    sdb.commit()
+
+    digest = {
+        "invoice_number": "INV-100",
+        "invoice_issue_date": "2026-05-12",
+        "supplier_tax_number": "11111111-1-11",
+        "supplier_name": "Supplier Kft.",
+        "customer_tax_number": "22222222-2-22",
+        "customer_name": "Customer Kft.",
+        "direction": "OUTBOUND",
+    }
+    detail = {"invoice_number": "INV-100", "invoice_category": "NORMAL"}
+    calls = []
+    monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [digest])
+    monkeypatch.setattr(
+        NavClient, "get_invoice_detail",
+        lambda self, *a, **kw: calls.append(1) or detail,
+    )
+
+    sync_nav("2026-05-01", "2026-05-31", sdb, settings)
+    assert calls == [1]
+
+    inv = sdb.query(Invoice).filter_by(invoice_number="INV-100").first()
+    detail_row = sdb.query(InvoiceDetail).filter_by(invoice_id=inv.id).first()
+    assert detail_row is not None
+    assert detail_row.invoice_category == "NORMAL"
+
+
+def test_sync_nav_replaces_lines_and_vat_summary_on_resync(sdb, settings, monkeypatch):
+    """InvoiceLine/InvoiceVatSummary rows are replaced (delete-then-reinsert),
+    not accumulated, across successive enrichment fetches for the same invoice."""
+    sup = Supplier(name="Supplier Kft.", tax_id="11111111-1-11")
+    cust = Customer(name="Customer Kft.", tax_id="22222222-2-22")
+    sdb.add_all([sup, cust])
+    sdb.commit()
+
+    digest = {
+        "invoice_number": "INV-100",
+        "invoice_issue_date": "2026-05-12",
+        "supplier_tax_number": "11111111-1-11",
+        "supplier_name": "Supplier Kft.",
+        "customer_tax_number": "22222222-2-22",
+        "customer_name": "Customer Kft.",
+        "direction": "OUTBOUND",
+    }
+    detail_v1 = {
+        "invoice_number": "INV-100",
+        "lines": [{"line_number": "1", "line_description": "Old line"}],
+        "vat_summary": [{"vat_rate": 0.27, "vat_rate_net_amount": 100.0, "vat_rate_vat_amount": 27.0}],
+    }
+    monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [digest])
+    monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: detail_v1)
+    sync_nav("2026-05-01", "2026-05-31", sdb, settings)
+
+    inv = sdb.query(Invoice).filter_by(invoice_number="INV-100").first()
+    assert [ln.line_description for ln in sdb.query(InvoiceLine).filter_by(invoice_id=inv.id).all()] == ["Old line"]
+
+    # Invoice still lacks a payment_method, so the next sync fetches detail again.
+    detail_v2 = {
+        "invoice_number": "INV-100",
+        "lines": [
+            {"line_number": "1", "line_description": "New line A"},
+            {"line_number": "2", "line_description": "New line B"},
+        ],
+        "vat_summary": [{"vat_rate": 0.05, "vat_rate_net_amount": 200.0, "vat_rate_vat_amount": 10.0}],
+    }
+    monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: detail_v2)
+    sync_nav("2026-05-01", "2026-05-31", sdb, settings)
+
+    lines = sdb.query(InvoiceLine).filter_by(invoice_id=inv.id).order_by(InvoiceLine.id).all()
+    assert [ln.line_description for ln in lines] == ["New line A", "New line B"]
+
+    vat_rows = sdb.query(InvoiceVatSummary).filter_by(invoice_id=inv.id).all()
+    assert len(vat_rows) == 1
+    assert vat_rows[0].vat_rate == 0.05
+
+
+def test_sync_nav_stores_partner_snapshot_even_when_unmatched(sdb, settings, monkeypatch):
+    """An invoice whose supplier/customer can't be matched locally must still
+    get an invoice_detail row carrying the NAV-reported name/tax number, so
+    the user knows exactly who to create — even if the full detail call
+    (address/bank account) also fails."""
+    monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()])
+    monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: {})
+
+    sync_nav("2026-05-01", "2026-05-31", sdb, settings)
+
+    inv = sdb.query(Invoice).filter_by(invoice_number="INV-200").first()
+    assert inv.supplier_id is None
+    assert inv.customer_id is None
+
+    detail_row = sdb.query(InvoiceDetail).filter_by(invoice_id=inv.id).first()
+    assert detail_row is not None
+    assert detail_row.supplier_name == "Unknown Supplier Kft."
+    assert detail_row.supplier_tax_number == "33333333-1-11"
+    assert detail_row.customer_name == "Unknown Customer Kft."
+    assert detail_row.customer_tax_number == "44444444-2-22"
+    # No successful detail-call this run, so address/bank account stay unset.
+    assert detail_row.supplier_address is None
+    assert detail_row.supplier_bank_account is None
 
 
 def test_sync_bank_persists_new_fields_and_updates_existing(sdb, settings, monkeypatch):

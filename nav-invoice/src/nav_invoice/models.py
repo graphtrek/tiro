@@ -180,12 +180,34 @@ class DigestQueryParams(BaseModel):
         return self
 
 
-class InvoiceDetailData(BaseModel):
-    """Kiegészítő mezők a teljes queryInvoiceData XML-ből.
+class InvoiceLineData(BaseModel):
+    """Egy tételsor a queryInvoiceData válasz invoiceLines/line eleméből."""
 
-    Nem az InvoiceData XSD teljes tükrözése — csak azok a mezők, amiket
-    invoice-core a digestből nem kap meg (cím, bankszámla, fizetési mód/határidő).
-    Tételsorok és ÁFA-kulcsonkénti összesítők szándékosan kimaradnak.
+    line_number: str = ""
+    line_description: str = ""
+    quantity: Optional[float] = None
+    unit_of_measure: str = ""
+    unit_price: Optional[float] = None
+    line_net_amount: Optional[float] = None
+    line_vat_rate: Optional[float] = None  # vatPercentage tizedes törtként, pl. 0.27
+    line_vat_amount: Optional[float] = None
+    line_gross_amount: Optional[float] = None
+
+
+class InvoiceVatSummaryData(BaseModel):
+    """ÁFA-kulcsonkénti összesítő az invoiceSummary/summaryNormal/summaryByVatRate elemekből."""
+
+    vat_rate: Optional[float] = None
+    vat_rate_net_amount: Optional[float] = None
+    vat_rate_vat_amount: Optional[float] = None
+
+
+class InvoiceDetailData(BaseModel):
+    """A teljes queryInvoiceData XML-ből kinyert mezők.
+
+    A digestből nem elérhető adatok: cím, bankszámla, fizetési mód/határidő,
+    fejléc-kiegészítők (kategória, teljesítés dátuma, pénznem, árfolyam,
+    megjelenés), tételsorok és ÁFA-kulcsonkénti összesítők.
     """
 
     invoice_number: str = ""
@@ -195,6 +217,16 @@ class InvoiceDetailData(BaseModel):
     customer_bank_account: str = ""
     payment_method: str = ""
     payment_due_date: str = ""
+    invoice_category: str = ""  # invoiceDetail blokkból — más forrás, mint InvoiceDigest.invoice_category
+    delivery_date: str = ""  # invoiceDeliveryDate
+    currency_code: str = ""  # currencyCode
+    exchange_rate: Optional[float] = None
+    invoice_appearance: str = ""
+    invoice_net_amount: Optional[float] = None
+    invoice_vat_amount: Optional[float] = None
+    invoice_gross_amount: Optional[float] = None
+    lines: list[InvoiceLineData] = []
+    vat_summary: list[InvoiceVatSummaryData] = []
 
 
 class TokenExchangeResult(BaseModel):

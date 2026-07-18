@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from .bank_client import BankClient, BankClientError
 from .config import Settings, get_settings
-from .db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, SyncLog, _InvoiceDirection, _PaymentStatus, invoice_bank_transaction
+from .db import BankTransaction, Customer, Invoice, InvoiceDetail, InvoiceFile, InvoiceLine, InvoiceVatSummary, Supplier, SyncLog, _InvoiceDirection, _PaymentStatus, invoice_bank_transaction
 from .models import SyncMode, SyncRequest, SyncResponse
 from .nav_client import NavClient, NavClientError
 from .pdf_client import PdfClient, PdfClientError
@@ -303,6 +303,96 @@ def _find_customer(
     return existing
 
 
+def _persist_invoice_detail(
+    db: Session,
+    invoice_id: int,
+    detail: dict,
+    supplier_name: str = "",
+    supplier_tax_number: str = "",
+    customer_name: str = "",
+    customer_tax_number: str = "",
+) -> None:
+    """Upsert InvoiceDetail's partner snapshot (always) and full NAV detail (when fetched).
+
+    supplier/customer name+tax_number come from the digest and are always
+    available, so they're refreshed on every sync regardless of whether the
+    (bounded) enrichment call ran this time — an unmatched invoice must still
+    tell the user exactly who needs to be created, even if the fuller detail
+    call hasn't happened yet or failed. address/bank_account/lines/VAT
+    summary/etc. only come from the detail call, so those are only touched
+    when *detail* is non-empty — leaving them untouched (rather than
+    overwriting with blanks) on runs where the detail call was skipped.
+    NAV data for a given invoice_number is immutable once issued (modifications
+    arrive as a distinct new invoice_number, see sync_nav's docstring) so
+    delete-then-reinsert per invoice on each enrichment fetch is safe and
+    simpler than diffing line-by-line.
+    """
+    partner_fields = dict(
+        supplier_name=supplier_name or None,
+        supplier_tax_number=supplier_tax_number or None,
+        customer_name=customer_name or None,
+        customer_tax_number=customer_tax_number or None,
+    )
+    existing_row = db.query(InvoiceDetail).filter_by(invoice_id=invoice_id).first()
+    if existing_row:
+        for key, value in partner_fields.items():
+            setattr(existing_row, key, value)
+    else:
+        existing_row = InvoiceDetail(invoice_id=invoice_id, **partner_fields)
+        db.add(existing_row)
+
+    if detail:
+        delivery_date_str = detail.get("delivery_date") or ""
+        try:
+            delivery_date = date.fromisoformat(delivery_date_str) if delivery_date_str else None
+        except ValueError:
+            delivery_date = None
+
+        detail_only_fields = dict(
+            raw_xml=detail.get("invoice_xml"),
+            supplier_address=detail.get("supplier_address") or None,
+            supplier_bank_account=detail.get("supplier_bank_account") or None,
+            customer_address=detail.get("customer_address") or None,
+            customer_bank_account=detail.get("customer_bank_account") or None,
+            invoice_category=detail.get("invoice_category") or None,
+            delivery_date=delivery_date,
+            currency_code=detail.get("currency_code") or None,
+            exchange_rate=detail.get("exchange_rate"),
+            invoice_appearance=detail.get("invoice_appearance") or None,
+            invoice_net_amount=detail.get("invoice_net_amount"),
+            invoice_vat_amount=detail.get("invoice_vat_amount"),
+            invoice_gross_amount=detail.get("invoice_gross_amount"),
+        )
+        for key, value in detail_only_fields.items():
+            setattr(existing_row, key, value)
+
+        db.query(InvoiceLine).filter_by(invoice_id=invoice_id).delete()
+        for line in detail.get("lines") or []:
+            db.add(InvoiceLine(
+                invoice_id=invoice_id,
+                line_number=line.get("line_number") or None,
+                line_description=line.get("line_description") or None,
+                quantity=line.get("quantity"),
+                unit_of_measure=line.get("unit_of_measure") or None,
+                unit_price=line.get("unit_price"),
+                line_net_amount=line.get("line_net_amount"),
+                line_vat_rate=line.get("line_vat_rate"),
+                line_vat_amount=line.get("line_vat_amount"),
+                line_gross_amount=line.get("line_gross_amount"),
+            ))
+
+        db.query(InvoiceVatSummary).filter_by(invoice_id=invoice_id).delete()
+        for row in detail.get("vat_summary") or []:
+            db.add(InvoiceVatSummary(
+                invoice_id=invoice_id,
+                vat_rate=row.get("vat_rate"),
+                vat_rate_net_amount=row.get("vat_rate_net_amount"),
+                vat_rate_vat_amount=row.get("vat_rate_vat_amount"),
+            ))
+
+    existing_row.updated_at = datetime.utcnow()
+
+
 def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> Tuple[int, list[str]]:
     """Fetch NAV invoices and link/insert invoices. Returns (new_invoice_count, warnings).
 
@@ -329,12 +419,16 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
         direction = _InvoiceDirection[direction_str] if direction_str in _InvoiceDirection.__members__ else _InvoiceDirection.OUTBOUND
 
         existing = db.query(Invoice).filter_by(invoice_number=invoice_number).first()
+        existing_detail = (
+            db.query(InvoiceDetail).filter_by(invoice_id=existing.id).first() if existing else None
+        )
 
-        # Fetch enriched per-invoice data (address/bank account/payment terms)
-        # only for invoices that need it — new ones, or ones synced before this
-        # enrichment existed — to bound the extra NAV round-trips per sync run.
+        # Fetch enriched per-invoice data (address/bank account/payment terms,
+        # full detail/lines/VAT summary) only for invoices that need it — new
+        # ones, or ones synced before this enrichment existed — to bound the
+        # extra NAV round-trips per sync run.
         detail: dict = {}
-        if not existing or not existing.payment_method:
+        if not existing or not existing.payment_method or not existing_detail:
             detail = nav_client.get_invoice_detail(
                 invoice_number, direction_str, supplier_tax_number=supplier_tax
             ) or {}
@@ -388,6 +482,7 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
             payment_due_date = None
 
         if existing:
+            inv_obj = existing
             existing.invoice_date = issue_date
             existing.amount_net = amount_net
             existing.amount_vat = amount_vat
@@ -409,7 +504,7 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
                 existing.customer_id = customer.id
             existing.updated_at = datetime.utcnow()
         else:
-            db.add(Invoice(
+            inv_obj = Invoice(
                 invoice_number=invoice_number,
                 invoice_date=issue_date,
                 supplier_id=supplier.id if supplier else None,
@@ -425,8 +520,19 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
                 nav_ins_date=digest.get("ins_date"),
                 payment_method=payment_method,
                 payment_due_date=payment_due_date,
-            ))
+            )
+            db.add(inv_obj)
+            db.flush()  # populate inv_obj.id for use as a FK below
             count += 1
+
+        # Always refresh the partner-name/tax-number snapshot (from the
+        # digest); detail-derived fields inside are only touched when a
+        # detail fetch happened this run (see _persist_invoice_detail).
+        _persist_invoice_detail(
+            db, inv_obj.id, detail,
+            supplier_name=supplier_name, supplier_tax_number=supplier_tax,
+            customer_name=customer_name, customer_tax_number=customer_tax,
+        )
 
     db.commit()
     logger.info(

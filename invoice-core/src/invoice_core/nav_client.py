@@ -25,9 +25,13 @@ class NavClient:
         invoice_number, invoice_issue_date, supplier_tax_number, supplier_name,
         customer_tax_number, customer_name, invoice_net_amount, invoice_vat_amount,
         currency, invoice_operation, invoice_category, ins_date
-    Fields consumed by service.py from get_invoice_detail() (InvoiceDetailData):
+    Fields consumed by service.py from get_invoice_detail() (InvoiceDetailData
+    plus the invoice_xml sibling key nav-invoice's API adds):
         supplier_address, supplier_bank_account, customer_address,
-        customer_bank_account, payment_method, payment_due_date
+        customer_bank_account, payment_method, payment_due_date,
+        invoice_category, delivery_date, currency_code, exchange_rate,
+        invoice_appearance, invoice_net_amount, invoice_vat_amount,
+        invoice_gross_amount, lines, vat_summary, invoice_xml
     """
 
     def __init__(self, settings: Optional[Settings] = None):

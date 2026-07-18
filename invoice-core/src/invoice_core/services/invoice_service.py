@@ -8,7 +8,7 @@ from fastapi import Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, _PaymentStatus, _enum_str, invoice_bank_transaction, invoice_has_bank_txn
+from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceDetail as InvoiceDetailRow, InvoiceFile, InvoiceLine, InvoiceVatSummary, Supplier, _PaymentStatus, _enum_str, invoice_bank_transaction, invoice_has_bank_txn
 
 
 @dataclass
@@ -99,6 +99,11 @@ class InvoiceDetail:
     payment_method: Optional[str] = None
     payment_due_date: Optional[date] = None
     bank_transactions: list[BankTxnRow] = field(default_factory=list)
+    # Full NAV detail-call data (excludes raw_xml — large, not needed here;
+    # see a dedicated xml endpoint if that's ever required).
+    detail: Optional[dict] = None
+    lines: list[dict] = field(default_factory=list)
+    vat_summary: list[dict] = field(default_factory=list)
 
 
 def _derive_payment_status(inv: Invoice, bank_txns: list) -> str:
@@ -270,6 +275,34 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         .all()
     )
 
+    detail_row = db.query(InvoiceDetailRow).filter_by(invoice_id=invoice_id).first()
+    detail_dict = None
+    if detail_row:
+        detail_dict = {
+            "supplier_name": detail_row.supplier_name,
+            "supplier_tax_number": detail_row.supplier_tax_number,
+            "supplier_address": detail_row.supplier_address,
+            "supplier_bank_account": detail_row.supplier_bank_account,
+            "customer_name": detail_row.customer_name,
+            "customer_tax_number": detail_row.customer_tax_number,
+            "customer_address": detail_row.customer_address,
+            "customer_bank_account": detail_row.customer_bank_account,
+            "invoice_category": detail_row.invoice_category,
+            "delivery_date": detail_row.delivery_date,
+            "currency_code": detail_row.currency_code,
+            "exchange_rate": detail_row.exchange_rate,
+            "invoice_appearance": detail_row.invoice_appearance,
+            "invoice_net_amount": detail_row.invoice_net_amount,
+            "invoice_vat_amount": detail_row.invoice_vat_amount,
+            "invoice_gross_amount": detail_row.invoice_gross_amount,
+        }
+    line_rows = (
+        db.query(InvoiceLine).filter_by(invoice_id=invoice_id).order_by(InvoiceLine.id).all()
+    )
+    vat_summary_rows = (
+        db.query(InvoiceVatSummary).filter_by(invoice_id=invoice_id).order_by(InvoiceVatSummary.id).all()
+    )
+
     return InvoiceDetail(
         id=inv.id,
         invoice_number=inv.invoice_number,
@@ -298,6 +331,29 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         updated_at=inv.updated_at,
         payment_method=inv.payment_method,
         payment_due_date=inv.payment_due_date,
+        detail=detail_dict,
+        lines=[
+            {
+                "line_number": ln.line_number,
+                "line_description": ln.line_description,
+                "quantity": ln.quantity,
+                "unit_of_measure": ln.unit_of_measure,
+                "unit_price": ln.unit_price,
+                "line_net_amount": ln.line_net_amount,
+                "line_vat_rate": ln.line_vat_rate,
+                "line_vat_amount": ln.line_vat_amount,
+                "line_gross_amount": ln.line_gross_amount,
+            }
+            for ln in line_rows
+        ],
+        vat_summary=[
+            {
+                "vat_rate": row.vat_rate,
+                "vat_rate_net_amount": row.vat_rate_net_amount,
+                "vat_rate_vat_amount": row.vat_rate_vat_amount,
+            }
+            for row in vat_summary_rows
+        ],
         bank_transactions=[
             BankTxnRow(
                 id=t.id,
