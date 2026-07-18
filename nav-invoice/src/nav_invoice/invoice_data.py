@@ -31,6 +31,7 @@ def _format_address(address_el: Optional["etree._Element"]) -> str:
             child_text(detail, "streetName"),
             child_text(detail, "publicPlaceCategory"),
             child_text(detail, "houseNumber"),
+            child_text(detail, "additionalAddressDetail"),
         ) if part
     )
     parts = [child_text(detail, "postalCode"), child_text(detail, "city"), street]

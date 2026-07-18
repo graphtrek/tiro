@@ -167,7 +167,9 @@ def test_sync_nav_persists_enriched_fields(sdb, settings, monkeypatch):
 
 
 def test_sync_nav_skips_detail_fetch_when_already_enriched(sdb, settings, monkeypatch):
-    """Re-syncing an invoice with payment_method AND a detail row must not call get_invoice_detail again."""
+    """Re-syncing an invoice with payment_method AND a fully-populated detail row
+    (raw_xml set — the marker _persist_invoice_detail always writes alongside the
+    rest of the detail-only fields) must not call get_invoice_detail again."""
     sup = Supplier(name="Supplier Kft.", tax_id="11111111-1-11")
     cust = Customer(name="Customer Kft.", tax_id="22222222-2-22")
     sdb.add_all([sup, cust])
@@ -178,7 +180,7 @@ def test_sync_nav_skips_detail_fetch_when_already_enriched(sdb, settings, monkey
     )
     sdb.add(inv)
     sdb.flush()
-    sdb.add(InvoiceDetail(invoice_id=inv.id, invoice_category="NORMAL"))
+    sdb.add(InvoiceDetail(invoice_id=inv.id, invoice_category="NORMAL", raw_xml="<xml/>"))
     sdb.commit()
 
     digest = {
@@ -238,6 +240,51 @@ def test_sync_nav_backfills_detail_for_previously_enriched_invoice_missing_detai
     detail_row = sdb.query(InvoiceDetail).filter_by(invoice_id=inv.id).first()
     assert detail_row is not None
     assert detail_row.invoice_category == "NORMAL"
+
+
+def test_sync_nav_backfills_detail_for_row_with_failed_enrichment(sdb, settings, monkeypatch):
+    """An InvoiceDetail row can exist with only the partner-snapshot fields set
+    (raw_xml still NULL) when a previous sync's enrichment call failed or
+    returned empty — see _persist_invoice_detail's docstring. That must not be
+    mistaken for "already enriched"; it must retry on the next sync."""
+    sup = Supplier(name="Supplier Kft.", tax_id="11111111-1-11")
+    cust = Customer(name="Customer Kft.", tax_id="22222222-2-22")
+    sdb.add_all([sup, cust])
+    sdb.flush()
+    inv = Invoice(
+        invoice_number="INV-100", supplier_id=sup.id, customer_id=cust.id,
+        payment_method="TRANSFER", direction="OUTBOUND",
+    )
+    sdb.add(inv)
+    sdb.flush()
+    sdb.add(InvoiceDetail(
+        invoice_id=inv.id, supplier_name="Supplier Kft.", supplier_tax_number="11111111-1-11",
+    ))
+    sdb.commit()
+
+    digest = {
+        "invoice_number": "INV-100",
+        "invoice_issue_date": "2026-05-12",
+        "supplier_tax_number": "11111111-1-11",
+        "supplier_name": "Supplier Kft.",
+        "customer_tax_number": "22222222-2-22",
+        "customer_name": "Customer Kft.",
+        "direction": "OUTBOUND",
+    }
+    detail = {"invoice_number": "INV-100", "invoice_xml": "<xml/>", "supplier_address": "1011, Budapest"}
+    calls = []
+    monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [digest])
+    monkeypatch.setattr(
+        NavClient, "get_invoice_detail",
+        lambda self, *a, **kw: calls.append(1) or detail,
+    )
+
+    sync_nav("2026-05-01", "2026-05-31", sdb, settings)
+    assert calls == [1]
+
+    detail_row = sdb.query(InvoiceDetail).filter_by(invoice_id=inv.id).first()
+    assert detail_row.raw_xml == "<xml/>"
+    assert detail_row.supplier_address == "1011, Budapest"
 
 
 def test_sync_nav_replaces_lines_and_vat_summary_on_resync(sdb, settings, monkeypatch):

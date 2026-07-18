@@ -425,10 +425,19 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
 
         # Fetch enriched per-invoice data (address/bank account/payment terms,
         # full detail/lines/VAT summary) only for invoices that need it — new
-        # ones, or ones synced before this enrichment existed — to bound the
-        # extra NAV round-trips per sync run.
+        # ones, ones synced before this enrichment existed, or ones whose
+        # detail row exists but was never actually populated (raw_xml is only
+        # ever set inside _persist_invoice_detail's `if detail:` branch, so
+        # its absence means the enrichment call was skipped or came back
+        # empty last time) — to bound the extra NAV round-trips per sync run
+        # while still self-healing incomplete rows on the next sync.
         detail: dict = {}
-        if not existing or not existing.payment_method or not existing_detail:
+        if (
+            not existing
+            or not existing.payment_method
+            or not existing_detail
+            or not existing_detail.raw_xml
+        ):
             detail = nav_client.get_invoice_detail(
                 invoice_number, direction_str, supplier_tax_number=supplier_tax
             ) or {}

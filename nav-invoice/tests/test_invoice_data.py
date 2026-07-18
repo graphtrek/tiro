@@ -205,6 +205,36 @@ def test_parse_invoice_data_extracts_vat_summary():
     assert row2.vat_rate_vat_amount == 12.5
 
 
+def test_parse_invoice_data_extracts_simple_address():
+    """simpleAddress (used e.g. for domestic parties without a structured
+    street breakdown) keeps its street-level line in additionalAddressDetail —
+    make sure that isn't silently dropped."""
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<InvoiceData xmlns="http://schemas.nav.gov.hu/OSA/3.0/data" xmlns:ns2="http://schemas.nav.gov.hu/OSA/3.0/base">
+  <invoiceMain>
+    <invoice>
+      <invoiceHead>
+        <customerInfo>
+          <customerName>Customer Kft.</customerName>
+          <customerAddress>
+            <ns2:simpleAddress>
+              <ns2:countryCode>HU</ns2:countryCode>
+              <ns2:postalCode>1082</ns2:postalCode>
+              <ns2:city>Budapest</ns2:city>
+              <ns2:additionalAddressDetail>Kisfaludy utca 23-25. fszt 1. ajtó</ns2:additionalAddressDetail>
+            </ns2:simpleAddress>
+          </customerAddress>
+        </customerInfo>
+      </invoiceHead>
+    </invoice>
+  </invoiceMain>
+</InvoiceData>
+"""
+    detail = parse_invoice_data(xml, invoice_number="TEST-2026-3")
+
+    assert detail.customer_address == "1082, Budapest, Kisfaludy utca 23-25. fszt 1. ajtó"
+
+
 def test_parse_invoice_data_missing_sections_returns_empty_strings():
     minimal_xml = """<?xml version="1.0" encoding="UTF-8"?>
 <InvoiceData xmlns="http://schemas.nav.gov.hu/OSA/3.0/data">
