@@ -48,8 +48,12 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/sync/pending` | Durable count of invoices/bank transactions still missing a supplier or customer match: `{"unmatched_invoices": n, "unmatched_transactions": n}` |
 | `GET`  | `/api/v1/invoices/count` | Total invoice count `{"count": n}` |
 | `GET`  | `/api/v1/invoices` | Invoice list (filter: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`) |
-| `GET`  | `/api/v1/invoices/{invoice_id:int}` | Invoice detail by integer PK (includes linked bank transactions) |
+| `GET`  | `/api/v1/invoices/{invoice_id:int}` | Invoice detail by integer PK — includes linked bank transactions plus the full NAV enrichment: `detail` (partner snapshot + category/delivery date/currency/exchange rate/amounts, excludes `raw_xml`), `lines`, `vat_summary` |
 | `GET`  | `/api/v1/invoices/{invoice_number}` | Invoice by invoice number string |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/supplier` | Link an invoice to an existing supplier; body: `{"supplier_id": int}`; `404` if invoice or supplier not found |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/supplier` | Unlink an invoice's supplier (`supplier_id` → `NULL`) |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/customer` | Link an invoice to an existing customer; body: `{"customer_id": int}`; `404` if invoice or customer not found |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/customer` | Unlink an invoice's customer (`customer_id` → `NULL`) |
 | `GET`  | `/api/v1/invoice-files` | Invoice file list (filter: `linked` = `yes`/`no`; `filename` = substring search) |
 | `GET`  | `/api/v1/invoice-files/{file_id:int}/pdf` | Serve PDF file inline |
 | `GET`  | `/api/v1/partners/suppliers` | Supplier list |
@@ -241,6 +245,9 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `customer` | Customers — sourced from NAV invoice data, or created manually via the REST API / vision UI |
 | `invoice_file` | PDF files from invoice-file-filter: filename, filesystem path, and extracted word text |
 | `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier and customer (both nullable — see "Partner matching" below) and optionally invoice_file; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
+| `invoice_detail` | 1:1 with `invoice`. `raw_xml` (full NAV `queryInvoiceData` response) plus decoded fields: `invoice_category`, `delivery_date`, `currency_code`, `exchange_rate`, `invoice_appearance`, `invoice_net_amount`/`invoice_vat_amount`/`invoice_gross_amount`. Also carries a **partner snapshot** (`supplier_name`/`supplier_tax_number`/`supplier_address`/`supplier_bank_account`, `customer_*` equivalents) taken straight from the NAV digest — refreshed on every sync regardless of whether the detail-fetch ran, so an invoice with an unmatched `supplier_id`/`customer_id` still shows who needs to be created, independent of local FK matching |
+| `invoice_line` | Line items for an invoice's NAV detail (`line_number`, `line_description`, `quantity`, `unit_of_measure`, `unit_price`, `line_net_amount`, `line_vat_rate`, `line_vat_amount`, `line_gross_amount`); replaced (delete-then-reinsert) on each enrichment fetch |
+| `invoice_vat_summary` | Per-VAT-rate summary rows for an invoice (`vat_rate`, `vat_rate_net_amount`, `vat_rate_vat_amount`); replaced on each enrichment fetch |
 | `invoice_bank_transaction` | Junction table — many-to-many link between `invoice` and `bank_transaction`; `manual` (bool) — `True` for rows created via the manual link API |
 | `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
@@ -271,6 +278,8 @@ uv run alembic revision --autogenerate -m "describe change"
 | `m2n3o4p5q6r7` | `project` table + `project_permitted_user` junction table — Controlling master data |
 | `n3o4p5q6r7s8` | `timesheet_entry` table — Timesheet feature |
 | `o4p5q6r7s8t9` | `invoice.supplier_id` / `invoice.customer_id` made nullable — sync no longer auto-creates a partner for an unmatched NAV digest; the invoice imports with that side left unlinked instead |
+| `p5q6r7s8t9u0` | `invoice_detail` / `invoice_line` / `invoice_vat_summary` tables — full NAV `queryInvoiceData` enrichment (category, delivery date, currency/exchange rate, amounts, line items, VAT breakdown) |
+| `q6r7s8t9u0v1` | `invoice_detail` partner snapshot columns (`supplier_name`/`supplier_tax_number`/`supplier_address`/`supplier_bank_account`, `customer_*`) — sourced from the NAV digest independent of local supplier/customer matching |
 
 ## Code structure
 
@@ -335,11 +344,19 @@ For each unlinked `invoice` the service tries to match it against every `invoice
 
 Use the vision UI (lock badge + "PDF kapcsolása" button on the invoice detail page) or `PUT /api/v1/invoices/{id}/invoice-file` to create a permanent manual link that survives future syncs.
 
+### Invoice ↔ Supplier / Customer
+
+Sync (`sync_nav`) only ever fills `invoice.supplier_id`/`customer_id` when it's currently `NULL` — it never overwrites an existing value — so there's no separate lock flag for this link (unlike the PDF/transaction links above): once set, manually or automatically, a value is never replaced by a later sync run.
+
+Manual set/clear goes through `PUT`/`DELETE /api/v1/invoices/{id}/supplier` and `/customer` (body `{"supplier_id": int}` / `{"customer_id": int}`). The vision invoice detail page drives this via a picker modal (`GET /ui/picker/partners?kind=supplier|customer&invoice_id=`) listing existing suppliers/customers to attach, plus an inline "create new and link" form pre-filled from the invoice's NAV partner snapshot (`invoice_detail.supplier_name`/`supplier_tax_number`/`supplier_address`/`supplier_bank_account`, `customer_*`) for the common case where the invoice references a partner that doesn't exist locally yet.
+
 ### Bank transaction → Invoice / Supplier / Customer
 
 1. **Invoice** — exact match on `payment_reference` vs `invoice_number`, then separator-normalised fallback.
 2. **Supplier / Customer from invoice** — reuses the linked invoice's `supplier_id` and `customer_id`.
 3. **Counterparty name fallback** — case-insensitive match against `supplier.name` / `customer.name`.
+
+`GET /api/v1/transactions` resolves the displayed partner by transaction direction rather than returning both FKs blindly: `DEBIT` (money out) shows the linked `supplier`, `CREDIT` (money in) shows the linked `customer` — the vision transaction table links to whichever one applies and flags rows with neither as "nincs partner" instead of silently falling back to raw counterparty text.
 
 ### Bank transaction → invoice file
 

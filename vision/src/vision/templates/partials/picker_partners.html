@@ -15,6 +15,13 @@
         <div class="text-muted" style="font-size:.7rem">Irány</div>
         <div class="small">{{ direction_badge(invoice.direction) }}</div>
       </div>
+      {% set partner_name = (invoice.detail.supplier_name if kind == 'supplier' else invoice.detail.customer_name) if invoice.detail else None %}
+      {% if partner_name %}
+      <div>
+        <div class="text-muted" style="font-size:.7rem">{{ 'Szállító' if kind == 'supplier' else 'Vevő' }} (számla szerint)</div>
+        <div class="small fw-bold">{{ partner_name }}</div>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -57,4 +64,59 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
+
+<hr>
+<button class="btn btn-link btn-sm p-0" type="button" data-bs-toggle="collapse" data-bs-target="#createPartnerForm">
+  <i class="bi bi-plus-lg me-1"></i>Új {{ 'szállító' if kind == 'supplier' else 'vevő' }} létrehozása és kapcsolása
+</button>
+<div class="collapse mt-2" id="createPartnerForm">
+  <form hx-post="/ui/invoices/{{ invoice_id }}/{{ kind }}/create-and-link" hx-target="body" hx-push-url="true">
+    <div class="mb-2">
+      <label class="form-label small mb-0">Név <span class="text-danger">*</span></label>
+      <input name="name" class="form-control form-control-sm" required
+             value="{{ (invoice.detail.supplier_name if kind == 'supplier' else invoice.detail.customer_name) if invoice and invoice.detail else '' }}">
+    </div>
+    <div class="mb-2">
+      <label class="form-label small mb-0">Adószám</label>
+      <input name="tax_id" class="form-control form-control-sm"
+             value="{{ (invoice.detail.supplier_tax_number if kind == 'supplier' else invoice.detail.customer_tax_number) if invoice and invoice.detail else '' }}">
+    </div>
+    <div class="mb-2">
+      <label class="form-label small mb-0">Cím</label>
+      <input name="address" class="form-control form-control-sm"
+             value="{{ (invoice.detail.supplier_address if kind == 'supplier' else invoice.detail.customer_address) if invoice and invoice.detail else '' }}">
+    </div>
+    <div class="row">
+      <div class="col-6 mb-2">
+        <label class="form-label small mb-0">Email</label>
+        <input name="email" type="email" class="form-control form-control-sm">
+      </div>
+      <div class="col-6 mb-2">
+        <label class="form-label small mb-0">Telefon</label>
+        <input name="phone" class="form-control form-control-sm">
+      </div>
+    </div>
+    {% if kind == 'customer' %}
+    <div class="mb-2">
+      <label class="form-label small mb-0">Fizetési határidő (nap)</label>
+      <input name="payment_terms" type="number" min="0" class="form-control form-control-sm">
+    </div>
+    {% endif %}
+    <div class="row">
+      <div class="col-6 mb-2">
+        <label class="form-label small mb-0">IBAN</label>
+        <input name="iban" class="form-control form-control-sm">
+      </div>
+      <div class="col-6 mb-2">
+        <label class="form-label small mb-0">Bankszámlaszám</label>
+        <input name="bban" class="form-control form-control-sm"
+               value="{{ (invoice.detail.supplier_bank_account if kind == 'supplier' else invoice.detail.customer_bank_account) if invoice and invoice.detail else '' }}">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm mt-1"
+            onclick="bootstrap.Modal.getInstance(document.getElementById('pickerModal'))?.hide()">
+      <i class="bi bi-save me-1"></i>Mentés és kapcsolás
+    </button>
+  </form>
 </div>

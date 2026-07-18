@@ -405,6 +405,59 @@ def invoice_unlink_customer(request: Request, invoice_id: int):
     return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
 
 
+@router.post("/invoices/{invoice_id}/supplier/create-and-link")
+def invoice_create_and_link_supplier(
+    request: Request,
+    invoice_id: int,
+    name: str = Form(...),
+    tax_id: str = Form(""),
+    address: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    iban: str = Form(""),
+    bban: str = Form(""),
+):
+    client = _client()
+    result = client.create_supplier(
+        name=name, tax_id=tax_id or None, address=address or None,
+        email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
+    )
+    if not result.get("error"):
+        client.link_invoice_supplier(invoice_id, result["id"])
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+
+
+@router.post("/invoices/{invoice_id}/customer/create-and-link")
+def invoice_create_and_link_customer(
+    request: Request,
+    invoice_id: int,
+    name: str = Form(...),
+    tax_id: str = Form(""),
+    address: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    payment_terms: str = Form(""),
+    iban: str = Form(""),
+    bban: str = Form(""),
+):
+    client = _client()
+    result = client.create_customer(
+        name=name, tax_id=tax_id or None, address=address or None,
+        email=email or None, phone=phone or None,
+        payment_terms=int(payment_terms) if payment_terms else None,
+        iban=iban or None, bban=bban or None,
+    )
+    if not result.get("error"):
+        client.link_invoice_customer(invoice_id, result["id"])
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+
+
 # ── Manual link / unlink (BankTransaction ↔ InvoiceFile) ─────────────────────
 
 @router.post("/transactions/{txn_id}/invoice-file/link")

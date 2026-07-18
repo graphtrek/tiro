@@ -17,6 +17,12 @@
   <i class="bi bi-file-earmark-text me-2"></i>{{ invoice.invoice_number }}
 </h1>
 
+{% if error %}
+<div class="alert alert-danger py-2" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+</div>
+{% endif %}
+
 <div class="row g-4 mb-4">
   <!-- Bal: számla adatok -->
   <div class="col-12 col-lg-7">

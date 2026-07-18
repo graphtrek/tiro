@@ -45,6 +45,34 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - invoice_file_id (FK → invoice_file, nullable: ha nincs PDF egyezés)
 - created_at, updated_at
 
+### invoice_detail / invoice_line / invoice_vat_summary (NAV teljes számla-részlet)
+
+A `sync_nav` a `queryInvoiceDigest` mellett (bounded, csak új/hiányos soroknál — lásd
+`invoice-core/README.md` "Alembic migrations" / sync logika) lekéri a NAV
+`queryInvoiceData` teljes választ is, és három táblába menti:
+
+- **`invoice_detail`** (1:1 az `invoice`-val): `raw_xml` (teljes NAV válasz),
+  `invoice_category`, `delivery_date`, `currency_code`, `exchange_rate`,
+  `invoice_appearance`, `invoice_net_amount`/`invoice_vat_amount`/`invoice_gross_amount`.
+  Emellett egy **partner snapshotot** is tárol a NAV digest alapján
+  (`supplier_name`/`supplier_tax_number`/`supplier_address`/`supplier_bank_account`,
+  `customer_*` megfelelők), **függetlenül** attól, hogy sikerült-e helyi
+  `supplier`/`customer` sorral párosítani — ez minden sync futáskor frissül,
+  még akkor is, ha a teljes detail-lekérés ki lett hagyva. Így egy párosítatlan
+  számlánál is pontosan látszik, kit kell létrehozni/kapcsolni (lásd lentebb és
+  "Partner párosítás").
+- **`invoice_line`**: soronkénti tételek (`line_number`, `line_description`,
+  `quantity`, `unit_of_measure`, `unit_price`, `line_net_amount`, `line_vat_rate`,
+  `line_vat_amount`, `line_gross_amount`) — minden enrichment lekéréskor
+  törölve és újra beszúrva (a NAV adat számlaszámonként megváltoztathatatlan,
+  lásd a "Logika" szakaszt).
+- **`invoice_vat_summary`**: ÁFA-kulcsonkénti összesítő sorok (`vat_rate`,
+  `vat_rate_net_amount`, `vat_rate_vat_amount`) — ugyanúgy cserélve.
+
+`GET /api/v1/invoices/{id:int}` a `detail` (raw_xml nélkül), `lines` és
+`vat_summary` mezőkben adja vissza — ezt a [[vision-spec.md|vision]] számla
+részlet oldala (`/ui/invoices/{id}`) jeleníti meg.
+
 ### invoice_file (invoice-file-filter visszaadott adatok)
 - id (PK)
 - filename
@@ -117,6 +145,17 @@ adószámát), ez **duplikátumot** eredményezett volna.
   vár még párosításra — ez független az utolsó futás átmeneti
   figyelmeztetéseitől, és ezt olvassa a [[vision-spec.md|vision]] Sync
   oldalának állandó "függőben lévő párosítás" kártyája.
+- **Kézi kapcsolás/leválasztás a Számla részlet oldalon**: `PUT`/`DELETE
+  /api/v1/invoices/{id}/supplier` és `/customer` (a sync soha nem írja felül
+  a már beállított `supplier_id`/`customer_id`-t, csak `NULL` esetén tölti ki
+  — nincs itt külön lock flag, mint a PDF/tranzakció linkeknél). A
+  [[vision-spec.md|vision]] számla részlet oldala ezt egy picker modallal
+  (`GET /ui/picker/partners?kind=supplier|customer&invoice_id=`) és egy
+  beágyazott "új partner létrehozása és kapcsolása" mini-formmal érvényesíti,
+  amely az `invoice_detail` partner snapshotjából (fenti) előtölti a
+  név/adószám/cím/bankszámla mezőket — ez a leggyakoribb eset egyenes
+  megoldása, amikor a számla olyan partnerre hivatkozik, ami helyben még nem
+  létezik.
 
 ### bank_transaction (banki tranzakciók — Erste + Wise)
 - id (PK)
@@ -140,6 +179,13 @@ adószámát), ez **duplikátumot** eredményezett volna.
 - invoice_id (FK → invoice, nullable)
 - invoice_file_id (FK → invoice_file, nullable)
 - created_at, updated_at
+
+`GET /api/v1/transactions` az irány szerint dönti el, melyik partnert adja
+vissza megjelenítésre: `DEBIT` (kimenő) esetén a kapcsolt `supplier`-t,
+`CREDIT` (bejövő) esetén a kapcsolt `customer`-t — a [[vision-spec.md|vision]]
+tranzakció táblája ez alapján linkel a megfelelő szállító/vevő oldalra, és
+"nincs partner" jelzést ad, ha egyik sincs kapcsolva (a nyers
+`counterparty_name`-re már nem esik vissza).
 
 ### user (login rekordok az auth szervizből)
 - id (PK)

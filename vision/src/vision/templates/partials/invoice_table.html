@@ -17,7 +17,7 @@
   </thead>
   <tbody>
     {% for row in rows %}
-    <tr{% if row.invoice_file_id %} data-pdf-url="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" style="cursor:pointer"{% endif %}>
+    <tr>
       <td>{{ payment_badge(row.payment_status) }}</td>
       <td>
         <a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a>
@@ -98,12 +98,6 @@
         { targets: [8, 9], orderable: false },
       ],
     });
-    $("#invoice-table tbody").on("click", "tr", function(e) {
-      if ($(e.target).closest("a").length) return;
-      var url = $(this).data("pdf-url");
-      if (url) window.open(url, "_blank");
-    });
-
     document.getElementById("invoice-table").addEventListener("click", function(e) {
       const lnk = e.target.closest("a[data-tx-db-id]");
       if (!lnk) return;

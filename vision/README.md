@@ -31,13 +31,13 @@ uv run pytest tests/ -v
 |------|-----|-------------|
 | Dashboard | `/ui/` | KPI cards, recent invoices, recent bank transactions, last sync status |
 | Számlák | `/ui/invoices` | Invoice list — filterable by date, status, PDF, supplier; DataTable |
-| Számla részlet | `/ui/invoices/{id}` | Invoice detail with supplier/customer cards, linked PDF, bank transactions |
+| Számla részlet | `/ui/invoices/{id}` | Invoice detail with supplier/customer cards, linked PDF, bank transactions, full NAV enrichment (line items, VAT summary, category/delivery date/currency); manual supplier/customer link (picker modal) + unlink, plus an inline "create new partner and link" form pre-filled from the invoice's NAV partner snapshot for partners that don't exist locally yet |
 | PDF Fájlok | `/ui/invoice-files` | Invoice file list with linked invoice and supplier |
 | Szállítók | `/ui/suppliers` | Supplier list with invoice stats; "Új szállító" create modal |
 | Szállító részlet | `/ui/suppliers/{id}` | Supplier detail with invoice and bank DataTables; edit modal + delete (blocked if linked to invoices/transactions) |
 | Vevők | `/ui/customers` | Customer list with invoice stats; "Új vevő" create modal |
 | Vevő részlet | `/ui/customers/{id}` | Customer detail with invoice and bank DataTables; edit modal + delete (blocked if linked to invoices/transactions) |
-| Bank tranzakciók | `/ui/transactions` | Transaction list — filterable by date, linked status, partner, amount |
+| Bank tranzakciók | `/ui/transactions` | Transaction list — filterable by date, linked status, partner, amount; partner column links to the supplier (DEBIT) or customer (CREDIT) matching the transaction's direction, or flags "nincs partner" when neither is linked |
 | Osztalék | `/ui/dividend` | Annual dividend/tax calculation: revenue, expenses, KIVA, SZJA, SZOCHO — monthly breakdown |
 | Adók | `/ui/adok` | Tax payments view: pivot by month and tax type (NAV ÁFA, SZJA, TAO, Szochó, TB, Bírság, HIPA, Iparkamara) |
 | Sync | `/ui/sync` | Trigger sync with mode selection; sync log accordion; durable "pending partner match" card (count of invoices/transactions still missing a supplier or customer, independent of the last run) |
@@ -91,7 +91,7 @@ src/vision/
 │   └── dashboard_service.py   # Aggregation for /dashboard: KPIs, cash-flow, supplier join, IBKR total
 ├── ui/
 │   ├── router.py              # Vision-specific routes: /dashboard, /pitch, /
-│   ├── invoice_router.py      # Invoice-core UI routes: all /ui/* (36 routes)
+│   ├── invoice_router.py      # Invoice-core UI routes: all /ui/* (43 routes)
 │   ├── admin_router.py        # Admin pages: /ui/admin/users, /ui/admin/activity-types (real data, calls invoice-core CRUD)
 │   ├── controlling_router.py  # Controlling pages: /ui/controlling/projects + /timesheet (real data, calls invoice-core CRUD) + /reports (real data, calls invoice-core GET /api/v1/reports/timesheet)
 │   └── utils.py               # dict_to_ns() — converts API JSON dicts to SimpleNamespace for dot-access
@@ -124,10 +124,12 @@ src/vision/
 │   ├── controlling_reports.html  # Controlling: reports — real filters + 4 report types, DataTables Buttons export
 │   └── partials/              # HTMX partial responses (no base.html extension)
 │       ├── invoice_table.html
+│       ├── invoice_detail_modal.html # edit-invoice modal (note, payment-status lock, …)
 │       ├── supplier_table.html
 │       ├── transaction_table.html
 │       ├── transaction_detail.html
 │       ├── invoice_file_table.html
+│       ├── picker_partners.html      # supplier/customer picker + inline create-and-link form, used from invoice_detail.html
 │       ├── sync_result.html
 │       └── pending_sync_card.html    # durable pending-partner-match count, included on sync.html and OOB-refreshed after each sync run
 └── static/

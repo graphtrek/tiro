@@ -55,7 +55,7 @@ src/vision/
 │   └── dashboard_service.py   ← /dashboard aggregáció: KPI-k, cash-flow, top szállítók, IBKR total
 ├── ui/
 │   ├── router.py              ← Vision saját oldalak: /, /pitch, /dashboard
-│   ├── invoice_router.py      ← Invoice-core UI oldalak: összes /ui/* (36 route)
+│   ├── invoice_router.py      ← Invoice-core UI oldalak: összes /ui/* (43 route)
 │   ├── admin_router.py        ← Admin oldalak: /ui/admin/users, /ui/admin/activity-types (valós adat, invoice-core CRUD-ot hív)
 │   ├── controlling_router.py  ← Controlling oldalak: /ui/controlling/projects + /timesheet (valós adat, invoice-core CRUD-ot hív) + /reports (valós adat, invoice-core GET /api/v1/reports/timesheet-t hív)
 │   └── utils.py               ← dict_to_ns() — JSON dict → SimpleNamespace, ISO dátum auto-parse
@@ -88,10 +88,12 @@ src/vision/
 │   ├── controlling_reports.html  ← Controlling: riportok — valós szűrők + 4 riporttípus (projekt heti+kumulált, személy, ügyfél, tevékenység típus), DataTables Buttons export (Excel/PDF/Print)
 │   └── partials/              ← HTMX részleges válaszok (nem terjesztik ki base.html-t)
 │       ├── invoice_table.html
+│       ├── invoice_detail_modal.html ← számla szerkesztés modal (megjegyzés, fizetési státusz zárolás, …)
 │       ├── supplier_table.html
 │       ├── transaction_table.html
 │       ├── transaction_detail.html
 │       ├── invoice_file_table.html
+│       ├── picker_partners.html      ← szállító/vevő picker + beágyazott "új partner létrehozása és kapcsolása" mini-form, invoice_detail.html-ből hívva
 │       ├── sync_result.html
 │       └── pending_sync_card.html    ← állandó "függőben lévő párosítás" számláló, sync.html-ba include-olva + OOB frissítve minden sync futás után
 └── static/
@@ -122,7 +124,9 @@ def dict_to_ns(obj):
 | Dashboard összesítő | `GET /api/v1/dashboard` | — |
 | Számlák száma | `GET /api/v1/invoices/count` | — |
 | Számlalista | `GET /api/v1/invoices` | `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name` |
-| Számla részlet (PK) | `GET /api/v1/invoices/{id:int}` | — |
+| Számla részlet (PK) | `GET /api/v1/invoices/{id:int}` | — (tartalmazza a `detail`/`lines`/`vat_summary` NAV enrichment mezőket is) |
+| Számla-szállító kapcsolás | `PUT/DELETE /api/v1/invoices/{id}/supplier` | — |
+| Számla-vevő kapcsolás | `PUT/DELETE /api/v1/invoices/{id}/customer` | — |
 | PDF fájl lista | `GET /api/v1/invoice-files` | `linked=yes/no` |
 | PDF fájl kiszolgálás | `GET /api/v1/invoice-files/{id:int}/pdf` | — |
 | Szállítólista | `GET /api/v1/partners/suppliers` | — |
@@ -172,19 +176,19 @@ def dict_to_ns(obj):
 
 ## Oldalak
 
-### Invoice-Core UI oldalak (`/ui/*` — 36 route)
+### Invoice-Core UI oldalak (`/ui/*` — 43 route)
 
 | Oldal | URL | Leírás |
 |---|---|---|
 | Dashboard | `/ui/` | KPI kártyák, legutóbbi számlák, tranzakciók, szinkron státusz |
 | Számlák | `/ui/invoices` | Számlalista — szűrhető dátum, státusz, PDF, szállító szerint; DataTable |
-| Számla részlet | `/ui/invoices/{id}` | Számla részletei szállítói/vevői kártyákkal, PDF link, bank tranzakciók |
+| Számla részlet | `/ui/invoices/{id}` | Számla részletei szállítói/vevői kártyákkal, PDF link, bank tranzakciók, teljes NAV enrichment (tételsorok, ÁFA összesítő, kategória/teljesítés dátuma/pénznem); kézi szállító/vevő kapcsolás (picker modal) + leválasztás, valamint beágyazott "új partner létrehozása és kapcsolása" form, ami a számla NAV partner snapshotjából előtöltve kínálja fel a még helyben nem létező partner felvitelét |
 | PDF Fájlok | `/ui/invoice-files` | PDF fájl lista linkelt számlával és szállítóval |
 | Szállítók | `/ui/suppliers` | Szállítólista számla statisztikákkal; "Új szállító" létrehozás modal |
 | Szállító részlet | `/ui/suppliers/{id}` | Szállító részletei számla és bank DataTable-ekkel; módosítás modal + törlés (letiltva, ha van kapcsolt számla/tranzakció) |
 | Vevők | `/ui/customers` | Vevőlista számla statisztikákkal; "Új vevő" létrehozás modal |
 | Vevő részlet | `/ui/customers/{id}` | Vevő részletei számla és bank DataTable-ekkel; módosítás modal + törlés (letiltva, ha van kapcsolt számla/tranzakció) |
-| Bank tranzakciók | `/ui/transactions` | Tranzakció lista — szűrhető dátum, linked státusz, partner, összeg szerint |
+| Bank tranzakciók | `/ui/transactions` | Tranzakció lista — szűrhető dátum, linked státusz, partner, összeg szerint; a partner oszlop a tranzakció iránya szerint a kapcsolt szállítóra (DEBIT) vagy vevőre (CREDIT) linkel, illetve "nincs partner" jelzést ad, ha egyik sincs kapcsolva |
 | Osztalék | `/ui/dividend` | Éves osztalék/adó kalkuláció: bevétel, kiadás, KIVA, SZJA, SZOCHO — havi bontás |
 | Adók | `/ui/adok` | Adófizetési pivot hónap és típus szerint (NAV ÁFA, SZJA, TAO, Szochó, TB, Bírság, HIPA, Iparkamara) |
 | Sync | `/ui/sync` | Szinkron indítás mód-választással; szinkron napló accordion; állandó "függőben lévő partner-párosítás" kártya (hány számla/tranzakció vár még szállítóra/vevőre, az utolsó futástól függetlenül) |
@@ -253,6 +257,13 @@ GET  /pitch              → pitch.html (standalone)
 GET  /ui/                → ui_dashboard.html (invoice-core stílusú dashboard)
 GET  /ui/invoices        → invoices.html
 GET  /ui/invoices/{id}   → invoice_detail.html
+GET  /ui/picker/partners → partials/picker_partners.html (query: kind=supplier|customer, invoice_id)
+POST /ui/invoices/{id}/supplier/link              → szállító kapcsolása (HTMX, teljes oldal swap)
+POST /ui/invoices/{id}/supplier/unlink            → szállító leválasztása
+POST /ui/invoices/{id}/supplier/create-and-link   → új szállító létrehozása + kapcsolása
+POST /ui/invoices/{id}/customer/link              → vevő kapcsolása (HTMX, teljes oldal swap)
+POST /ui/invoices/{id}/customer/unlink            → vevő leválasztása
+POST /ui/invoices/{id}/customer/create-and-link   → új vevő létrehozása + kapcsolása
 GET  /ui/invoice-files   → invoice_files.html
 GET  /ui/invoice-files/{id}/pdf → RedirectResponse → invoice-core PDF
 GET  /ui/suppliers       → suppliers.html
