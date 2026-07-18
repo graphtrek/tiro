@@ -8,6 +8,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from invoice_core.db import BankTransaction, Customer, Invoice, Supplier, _PaymentStatus, _enum_str
+from invoice_core.models import CustomerIn, CustomerUpdate, SupplierIn, SupplierUpdate
 from invoice_core.services._helpers import OWN_COMPANY_NAME_FILTER
 
 
@@ -353,3 +354,107 @@ def get_customer(db: Session, customer_id: int) -> Optional[CustomerDetail]:
             for t in bank_txns
         ],
     )
+
+
+# ── Manual create/edit/delete ────────────────────────────────────────────────
+
+
+def _name_taken(model, db: Session, name: str, exclude_id: Optional[int] = None) -> bool:
+    query = db.query(model).filter(func.lower(model.name) == name.lower())
+    if exclude_id is not None:
+        query = query.filter(model.id != exclude_id)
+    return query.first() is not None
+
+
+def _tax_id_taken(model, db: Session, tax_id: Optional[str], exclude_id: Optional[int] = None) -> bool:
+    if not tax_id:
+        return False
+    query = db.query(model).filter(model.tax_id == tax_id)
+    if exclude_id is not None:
+        query = query.filter(model.id != exclude_id)
+    return query.first() is not None
+
+
+def _has_linked_records(model, db: Session, partner_id: int) -> bool:
+    field_name = "supplier_id" if model is Supplier else "customer_id"
+    if db.query(Invoice).filter(getattr(Invoice, field_name) == partner_id).first() is not None:
+        return True
+    return db.query(BankTransaction).filter(getattr(BankTransaction, field_name) == partner_id).first() is not None
+
+
+def create_supplier(db: Session, payload: SupplierIn) -> Supplier:
+    if _name_taken(Supplier, db, payload.name):
+        raise ValueError(f"Supplier '{payload.name}' already exists")
+    if _tax_id_taken(Supplier, db, payload.tax_id):
+        raise ValueError(f"Supplier with tax_id '{payload.tax_id}' already exists")
+    record = Supplier(**payload.model_dump())
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def update_supplier(db: Session, supplier_id: int, payload: SupplierUpdate) -> Optional[Supplier]:
+    record = db.query(Supplier).filter(Supplier.id == supplier_id).one_or_none()
+    if record is None:
+        return None
+    if _name_taken(Supplier, db, payload.name, exclude_id=supplier_id):
+        raise ValueError(f"Supplier '{payload.name}' already exists")
+    if _tax_id_taken(Supplier, db, payload.tax_id, exclude_id=supplier_id):
+        raise ValueError(f"Supplier with tax_id '{payload.tax_id}' already exists")
+    for key, value in payload.model_dump().items():
+        setattr(record, key, value)
+    record.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def delete_supplier(db: Session, supplier_id: int) -> bool:
+    record = db.query(Supplier).filter(Supplier.id == supplier_id).one_or_none()
+    if record is None:
+        return False
+    if _has_linked_records(Supplier, db, supplier_id):
+        raise ValueError("Cannot delete a supplier with linked invoices or bank transactions")
+    db.delete(record)
+    db.commit()
+    return True
+
+
+def create_customer(db: Session, payload: CustomerIn) -> Customer:
+    if _name_taken(Customer, db, payload.name):
+        raise ValueError(f"Customer '{payload.name}' already exists")
+    if _tax_id_taken(Customer, db, payload.tax_id):
+        raise ValueError(f"Customer with tax_id '{payload.tax_id}' already exists")
+    record = Customer(**payload.model_dump())
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def update_customer(db: Session, customer_id: int, payload: CustomerUpdate) -> Optional[Customer]:
+    record = db.query(Customer).filter(Customer.id == customer_id).one_or_none()
+    if record is None:
+        return None
+    if _name_taken(Customer, db, payload.name, exclude_id=customer_id):
+        raise ValueError(f"Customer '{payload.name}' already exists")
+    if _tax_id_taken(Customer, db, payload.tax_id, exclude_id=customer_id):
+        raise ValueError(f"Customer with tax_id '{payload.tax_id}' already exists")
+    for key, value in payload.model_dump().items():
+        setattr(record, key, value)
+    record.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def delete_customer(db: Session, customer_id: int) -> bool:
+    record = db.query(Customer).filter(Customer.id == customer_id).one_or_none()
+    if record is None:
+        return False
+    if _has_linked_records(Customer, db, customer_id):
+        raise ValueError("Cannot delete a customer with linked invoices or bank transactions")
+    db.delete(record)
+    db.commit()
+    return True

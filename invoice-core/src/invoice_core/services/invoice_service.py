@@ -16,10 +16,10 @@ class InvoiceRow:
     id: int
     invoice_number: str
     invoice_date: Optional[date]
-    supplier_id: int
-    supplier_name: str
-    customer_id: int
-    customer_name: str
+    supplier_id: Optional[int]
+    supplier_name: Optional[str]
+    customer_id: Optional[int]
+    customer_name: Optional[str]
     amount_net: Optional[float]
     amount_vat: Optional[float]
     amount_total: Optional[float]
@@ -74,11 +74,11 @@ class InvoiceDetail:
     id: int
     invoice_number: str
     invoice_date: Optional[date]
-    supplier_id: int
-    supplier_name: str
+    supplier_id: Optional[int]
+    supplier_name: Optional[str]
     supplier_tax_id: Optional[str]
-    customer_id: int
-    customer_name: str
+    customer_id: Optional[int]
+    customer_name: Optional[str]
     customer_tax_id: Optional[str]
     amount_net: Optional[float]
     amount_vat: Optional[float]
@@ -153,8 +153,11 @@ def list_invoices(
     )
     q = (
         db.query(Invoice, Supplier.name, Customer.name, func.coalesce(bank_sub.c.cnt, 0), InvoiceFile.filename, InvoiceFile.preview_base64)
-        .join(Supplier, Invoice.supplier_id == Supplier.id)
-        .join(Customer, Invoice.customer_id == Customer.id)
+        # outerjoin: an invoice can now have no matched supplier/customer yet
+        # (sync no longer auto-creates one — see service.py's _find_supplier)
+        # and must still show up here rather than being silently dropped.
+        .outerjoin(Supplier, Invoice.supplier_id == Supplier.id)
+        .outerjoin(Customer, Invoice.customer_id == Customer.id)
         .outerjoin(bank_sub, Invoice.id == bank_sub.c.invoice_id)
         .outerjoin(InvoiceFile, Invoice.invoice_file_id == InvoiceFile.id)
     )
@@ -244,8 +247,9 @@ def list_invoices(
 def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
     row = (
         db.query(Invoice, Supplier, Customer)
-        .join(Supplier, Invoice.supplier_id == Supplier.id)
-        .join(Customer, Invoice.customer_id == Customer.id)
+        # outerjoin: see list_invoices — an invoice's partner may be unmatched.
+        .outerjoin(Supplier, Invoice.supplier_id == Supplier.id)
+        .outerjoin(Customer, Invoice.customer_id == Customer.id)
         .filter(Invoice.id == invoice_id)
         .first()
     )
@@ -270,12 +274,12 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         id=inv.id,
         invoice_number=inv.invoice_number,
         invoice_date=inv.invoice_date,
-        supplier_id=sup.id,
-        supplier_name=sup.name,
-        supplier_tax_id=sup.tax_id,
-        customer_id=cust.id,
-        customer_name=cust.name,
-        customer_tax_id=cust.tax_id,
+        supplier_id=sup.id if sup else None,
+        supplier_name=sup.name if sup else None,
+        supplier_tax_id=sup.tax_id if sup else None,
+        customer_id=cust.id if cust else None,
+        customer_name=cust.name if cust else None,
+        customer_tax_id=cust.tax_id if cust else None,
         amount_net=inv.amount_net,
         amount_vat=inv.amount_vat,
         amount_total=inv.amount_total,

@@ -18,7 +18,7 @@ def _assert_project_permitted(project: Project, user_id: int) -> None:
         raise ValueError("Nincs jogosultsága ehhez a projekthez időt rögzíteni")
 
 
-def _with_joins(db: Session):
+def with_joins(db: Session):
     return db.query(TimesheetEntry).options(
         joinedload(TimesheetEntry.user),
         joinedload(TimesheetEntry.project).joinedload(Project.customer),
@@ -28,7 +28,7 @@ def _with_joins(db: Session):
 
 def list_timesheet_entries(db: Session, user_id: int) -> list[TimesheetEntry]:
     return (
-        _with_joins(db)
+        with_joins(db)
         .filter(TimesheetEntry.user_id == user_id)
         .order_by(TimesheetEntry.entry_date, TimesheetEntry.id)
         .all()

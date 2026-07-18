@@ -1,14 +1,12 @@
-"""Controlling UI routes — Projects + Timesheet (real DB-backed CRUD) +
-remaining static mockup pages (reports). Remove a mockup entry from `_PAGES`
-once its own real backend lands, same as `projects` and `timesheet` did.
-"""
+"""Controlling UI routes — Projects + Timesheet + Reports (all real DB-backed,
+calling invoice-core)."""
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Form, Request
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.invoice_core import InvoiceCoreClient
@@ -18,11 +16,22 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(prefix="/ui/controlling", tags=["controlling-ui"])
 
-_PAGES = {
-    "reports": "controlling_reports.html",
-}
-
 _HU_WEEKDAYS = ["hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap"]
+
+_REPORT_TYPES = ["project", "person", "customer", "activity_type"]
+_REPORT_TYPE_LABELS = {
+    "project": "Projekt riport (heti + kumulált)",
+    "person": "Személy riport",
+    "customer": "Ügyfél riport",
+    "activity_type": "Tevékenység típus riport",
+}
+_DATE_RANGES = ["project_start", "current_month", "current_week", "custom"]
+_DATE_RANGE_LABELS = {
+    "project_start": "Projekt kezdete óta",
+    "current_month": "Aktuális hónap",
+    "current_week": "Aktuális hét",
+    "custom": "Egyéni dátumtartomány",
+}
 
 
 def _client() -> InvoiceCoreClient:
@@ -209,8 +218,146 @@ def delete_timesheet_entry(request: Request, entry_id: int):
     return _timesheet_page(request, error=result.get("error"))
 
 
-@router.get("/{slug}")
-def controlling_page(request: Request, slug: str):
-    if slug not in _PAGES:
-        raise HTTPException(status_code=404, detail="Ismeretlen controlling oldal")
-    return templates.TemplateResponse(request, _PAGES[slug], {})
+def _resolve_date_range(
+    date_range: str,
+    date_from: str | None,
+    date_to: str | None,
+    project: dict | None,
+    today: date,
+) -> tuple[date | None, date | None]:
+    if date_range == "custom":
+        return (
+            date.fromisoformat(date_from) if date_from else None,
+            date.fromisoformat(date_to) if date_to else None,
+        )
+    if date_range == "project_start":
+        if project is None:
+            return None, None
+        return date.fromisoformat(project["created_at"][:10]), None
+    if date_range == "current_week":
+        monday = today - timedelta(days=today.weekday())
+        return monday, monday + timedelta(days=6)
+    # current_month (also the fallback for an unrecognized value)
+    first = today.replace(day=1)
+    next_first = first.replace(year=first.year + 1, month=1) if first.month == 12 else first.replace(month=first.month + 1)
+    return first, next_first - timedelta(days=1)
+
+
+def _fmt_hours(v: float) -> str:
+    return ("%g" % v).replace(".", ",")
+
+
+def _format_report_hours(report: dict) -> None:
+    if "weeks" in report:
+        for row in report["weeks"]:
+            row["week_hours"] = _fmt_hours(row["week_hours"])
+            row["cumulative_hours"] = _fmt_hours(row["cumulative_hours"])
+            row["by_activity_type"] = {k: _fmt_hours(v) for k, v in row["by_activity_type"].items()}
+        report["total_hours"] = _fmt_hours(report["total_hours"])
+    elif "rows" in report:
+        for row in report["rows"]:
+            row["total_hours"] = _fmt_hours(row["total_hours"])
+            row["by_activity_type"] = {k: _fmt_hours(v) for k, v in row["by_activity_type"].items()}
+        report["total_hours"] = _fmt_hours(report["total_hours"])
+
+
+def _reports_page(
+    request: Request,
+    report_type: str = "project",
+    date_range: str = "current_month",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    customer_id: int | None = None,
+    project_id: int | None = None,
+    user_id: int | None = None,
+    activity_type_id: int | None = None,
+):
+    client = _client()
+    customers = client.get_customers()
+    projects = client.get_projects()
+    users = client.get_users()
+    activity_types = [a for a in client.get_activity_types() if a["is_active"]]
+
+    if report_type not in _REPORT_TYPES:
+        report_type = "project"
+    if date_range not in _DATE_RANGES:
+        date_range = "current_month"
+
+    if report_type == "project" and project_id is None and projects:
+        project_id = projects[0]["id"]
+
+    selected_project = next((p for p in projects if p["id"] == project_id), None)
+
+    ctx = {
+        "report_type": report_type,
+        "date_range": date_range,
+        "date_from": date_from,
+        "date_to": date_to,
+        "customer_id": customer_id,
+        "project_id": project_id,
+        "user_id": user_id,
+        "activity_type_id": activity_type_id,
+        "customers": customers,
+        "projects": projects,
+        "users": users,
+        "activity_types": activity_types,
+        "report_types": _REPORT_TYPES,
+        "report_type_labels": _REPORT_TYPE_LABELS,
+        "date_ranges": _DATE_RANGES,
+        "date_range_labels": _DATE_RANGE_LABELS,
+        "selected_project": selected_project,
+        "report": None,
+        "error": None,
+    }
+
+    if report_type == "project" and selected_project is None:
+        ctx["error"] = "Válasszon projektet a projekt riporthoz"
+        return templates.TemplateResponse(request, "controlling_reports.html", ctx)
+
+    resolved_from, resolved_to = _resolve_date_range(
+        date_range, date_from, date_to, selected_project, date.today()
+    )
+    report = client.get_timesheet_report(
+        report_type,
+        date_from=resolved_from.isoformat() if resolved_from else None,
+        date_to=resolved_to.isoformat() if resolved_to else None,
+        customer_id=customer_id,
+        project_id=project_id,
+        user_id=user_id,
+        activity_type_id=activity_type_id,
+    )
+    if report_type == "project":
+        report.setdefault("weeks", [])
+    else:
+        report.setdefault("rows", [])
+    report.setdefault("activity_type_names", [])
+    report.setdefault("total_hours", 0.0)
+
+    _format_report_hours(report)
+    ctx["report"] = report
+    return templates.TemplateResponse(request, "controlling_reports.html", ctx)
+
+
+@router.get("/reports")
+def reports_page(
+    request: Request,
+    report_type: str = "project",
+    date_range: str = "current_month",
+    date_from: str | None = None,
+    date_to: str | None = None,
+    customer_id: int | None = None,
+    project_id: int | None = None,
+    user_id: int | None = None,
+    activity_type_id: int | None = None,
+):
+    return _reports_page(
+        request,
+        report_type,
+        date_range,
+        date_from,
+        date_to,
+        customer_id,
+        project_id,
+        user_id,
+        activity_type_id,
+    )

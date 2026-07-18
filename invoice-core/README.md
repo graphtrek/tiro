@@ -45,6 +45,7 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `POST` | `/api/v1/sync/bank` | Sync bank transactions only |
 | `POST` | `/api/v1/sync/match` | Match existing bank transactions to invoice files (no fetching) |
 | `GET`  | `/api/v1/sync/logs` | Recent sync log entries (query: `limit`) |
+| `GET`  | `/api/v1/sync/pending` | Durable count of invoices/bank transactions still missing a supplier or customer match: `{"unmatched_invoices": n, "unmatched_transactions": n}` |
 | `GET`  | `/api/v1/invoices/count` | Total invoice count `{"count": n}` |
 | `GET`  | `/api/v1/invoices` | Invoice list (filter: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`) |
 | `GET`  | `/api/v1/invoices/{invoice_id:int}` | Invoice detail by integer PK (includes linked bank transactions) |
@@ -54,13 +55,20 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/partners/suppliers` | Supplier list |
 | `GET`  | `/api/v1/partners/suppliers/summary` | Aggregate supplier stats |
 | `GET`  | `/api/v1/partners/suppliers/{supplier_id:int}` | Supplier detail with invoices and transactions |
+| `POST` | `/api/v1/partners/suppliers` | Create a supplier manually (e.g. before any invoice/bank data exists); `409` if `name` or `tax_id` is already taken |
+| `PUT`  | `/api/v1/partners/suppliers/{supplier_id:int}` | Update a supplier; `404` if not found, `409` on name/tax_id conflict |
+| `DELETE` | `/api/v1/partners/suppliers/{supplier_id:int}` | Delete a supplier; `404` if not found, `409` if it has any linked invoices or bank transactions |
 | `GET`  | `/api/v1/partners/customers` | Customer list |
 | `GET`  | `/api/v1/partners/customers/{customer_id:int}` | Customer detail with invoices and transactions |
+| `POST` | `/api/v1/partners/customers` | Create a customer manually; `409` if `name` or `tax_id` is already taken |
+| `PUT`  | `/api/v1/partners/customers/{customer_id:int}` | Update a customer; `404` if not found, `409` on name/tax_id conflict |
+| `DELETE` | `/api/v1/partners/customers/{customer_id:int}` | Delete a customer; `404` if not found, `409` if it has any linked invoices or bank transactions |
 | `GET`  | `/api/v1/transactions` | Bank transaction list (filter: `date_from`, `date_to`, `linked`, `partner_name`, `amount_min`, `amount_max`); each row includes `invoice_ids: list[int]` and `invoice_numbers: list[str]` |
 | `GET`  | `/api/v1/transactions/balances` | Latest balance per bank |
 | `GET`  | `/api/v1/transactions/{transaction_id:int}` | Transaction detail; includes `invoice_ids: list[int]` and `invoice_numbers: list[str]` (may contain multiple entries for split-payment transactions) |
 | `GET`  | `/api/v1/reports/dividend` | Annual dividend/tax calculation (query: `year`, `kiva_rate`) |
 | `GET`  | `/api/v1/reports/tax` | Tax payment report by month and type (query: `year`) |
+| `GET`  | `/api/v1/reports/timesheet` | Timesheet report over `timesheet_entry` (query: `report_type` — `project` \| `person` \| `customer` \| `activity_type`, required; `date_from`, `date_to`, `customer_id`, `project_id`, `user_id`, `activity_type_id`, all optional); `project_id` is required when `report_type=project`; `400` if missing or `report_type` unknown |
 | `PUT`  | `/api/v1/invoices/{invoice_id}/invoice-file` | Manually link an invoice to a PDF file — sets `invoice_file_locked=True`; body: `{"invoice_file_id": int}` |
 | `DELETE` | `/api/v1/invoices/{invoice_id}/invoice-file` | Remove manual PDF link from an invoice — clears `invoice_file_locked` so auto-sync may re-link |
 | `PUT`  | `/api/v1/transactions/{txn_id}/invoice-file` | Manually link a bank transaction to a PDF file — sets `invoice_file_locked=True`; body: `{"invoice_file_id": int}` |
@@ -229,10 +237,10 @@ PostgreSQL in production, SQLite in-memory for tests.
 
 | Table | Description |
 |-------|-------------|
-| `supplier` | Suppliers sourced from NAV invoice data |
-| `customer` | Customers sourced from NAV invoice data |
+| `supplier` | Suppliers — sourced from NAV invoice data, or created manually via the REST API / vision UI (e.g. to plan ahead before any invoice exists) |
+| `customer` | Customers — sourced from NAV invoice data, or created manually via the REST API / vision UI |
 | `invoice_file` | PDF files from invoice-file-filter: filename, filesystem path, and extracted word text |
-| `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier, customer, and optionally invoice_file; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
+| `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier and customer (both nullable — see "Partner matching" below) and optionally invoice_file; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
 | `invoice_bank_transaction` | Junction table — many-to-many link between `invoice` and `bank_transaction`; `manual` (bool) — `True` for rows created via the manual link API |
 | `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
@@ -240,7 +248,7 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `activity_type` | Admin master data for the Timesheet feature: `name` (unique), `is_active` (soft-deactivate). Managed via the vision `/ui/admin/activity-types` page; not touched by the sync pipeline. Delete is still unconditional (the vision page's usage-count check is hardcoded to `0` — not yet wired to `timesheet_entry`) |
 | `project` | Controlling master data: `customer_id` (FK → customer), `sequence_no` (per-customer, auto-incrementing), `short_name`, `code` (unique, server-composed `{customer} - {seq:03d} - {short_name}`), `owner_id` (FK → user), `is_active`. Managed via the vision `/ui/controlling/projects` page; not touched by the sync pipeline |
 | `project_permitted_user` | Junction table — many-to-many link between `project` and `user`: which users may log time against a project (enforced by `timesheet_service` on create/update) |
-| `timesheet_entry` | Controlling data: `user_id` (FK → user, who logged it), `project_id` (FK → project), `activity_type_id` (FK → activity_type), `entry_date`, `hours` (float, must be a positive multiple of 0.5), `participants` (free text — may include people outside the `user` table), `description`. `project_week` is not stored — computed as `floor((entry_date - project.created_at.date()).days / 7) + 1`. Managed via the vision `/ui/controlling/timesheet` page (own-records only); not touched by the sync pipeline |
+| `timesheet_entry` | Controlling data: `user_id` (FK → user, who logged it), `project_id` (FK → project), `activity_type_id` (FK → activity_type), `entry_date`, `hours` (float, must be a positive multiple of 0.5), `participants` (free text — may include people outside the `user` table), `description`. `project_week` is not stored — computed as `floor((entry_date - project.created_at.date()).days / 7) + 1`. Written via the vision `/ui/controlling/timesheet` page (own-records only); read cross-user (no ownership scoping, no role check) by the vision `/ui/controlling/reports` page via `report_service`; not touched by the sync pipeline |
 
 ### Alembic migrations
 
@@ -262,6 +270,7 @@ uv run alembic revision --autogenerate -m "describe change"
 | `l1m2n3o4p5q6` | `activity_type` table — admin master data for the Timesheet feature |
 | `m2n3o4p5q6r7` | `project` table + `project_permitted_user` junction table — Controlling master data |
 | `n3o4p5q6r7s8` | `timesheet_entry` table — Timesheet feature |
+| `o4p5q6r7s8t9` | `invoice.supplier_id` / `invoice.customer_id` made nullable — sync no longer auto-creates a partner for an unmatched NAV digest; the invoice imports with that side left unlinked instead |
 
 ## Code structure
 
@@ -271,7 +280,7 @@ src/invoice_core/
 ├── services/                ← Service layer called by REST endpoints
 │   ├── dashboard_service.py ← KPI aggregations, recent data, sync log
 │   ├── invoice_service.py   ← Invoice list/detail with joined supplier/customer/bank data
-│   ├── partner_service.py   ← Supplier and customer list + detail
+│   ├── partner_service.py   ← Supplier and customer list + detail + manual create/update/delete
 │   ├── transaction_service.py ← Bank transaction list with filters
 │   ├── invoice_file_service.py ← PDF file list
 │   ├── dividend_service.py  ← Annual dividend/tax calculation (KIVA, SZJA, SZOCHO)
@@ -279,7 +288,8 @@ src/invoice_core/
 │   ├── user_service.py      ← Upsert/list login records pushed by the auth service
 │   ├── activity_type_service.py ← Admin CRUD for Timesheet activity types (create/list/update/delete)
 │   ├── project_service.py   ← Controlling CRUD for projects (sequence numbering, code composition, permitted users)
-│   └── timesheet_service.py ← Controlling CRUD for timesheet entries (own-records scoping, project-permission + hours-step validation)
+│   ├── timesheet_service.py ← Controlling CRUD for timesheet entries (own-records scoping, project-permission + hours-step validation)
+│   └── report_service.py    ← Controlling Reports: project (weekly + cumulative, per-activity-type pivot) and group (person/customer/activity_type) reports over all users' timesheet_entry rows, grouped in Python for SQLite portability
 ├── db.py                    ← SQLAlchemy ORM models + session; exports _enum_str helper
 ├── service.py               ← Sync orchestration (sync_nav, sync_pdf, sync_bank, sync_match)
 ├── models.py                ← Pydantic request/response schemas
@@ -302,6 +312,17 @@ invoice-core (this)
   │         upsert bank_transaction; link to invoice/supplier/customer
   └── match bank_transaction → invoice_file               (local DB pass, no HTTP)
 ```
+
+## Partner matching (no auto-create)
+
+Sync only ever **links** an invoice or bank transaction to an existing `supplier`/`customer` row — it never creates a new one. A new partner is created exactly one way: manually, via `POST /api/v1/partners/suppliers`/`customers` (or the vision UI's "Új szállító"/"Új vevő" modal).
+
+- **NAV sync (`sync_nav`)**: matches by `tax_id` first; if that misses, falls back to a case-insensitive name match against any existing row with `tax_id IS NULL` (a manually-created placeholder) and backfills its `tax_id`. If neither matches, the invoice is still imported with that side (`supplier_id`/`customer_id`) left `NULL`, and a warning is added to the sync run's `errors` (e.g. *"Számla INV-100: ismeretlen szállító 'ACME Kft' (adószám: 12345678-1-42) — hozza létre a Szállítók oldalon"*).
+- **Bank sync (`sync_bank`)**: already link-only — it looks up a supplier/customer by counterparty name but has never created one. An unmatched counterparty likewise produces a warning instead of a silent gap.
+- **Self-healing**: once the missing partner is created (manually, or backfilled by a later NAV digest), the next sync run picks up the link for any previously-pending invoice or transaction automatically — no manual re-linking needed.
+- **Visibility**: `GET /api/v1/sync/pending` reports how many invoices/transactions are still unmatched, independent of the last sync run's transient warnings — this is what the vision Sync page's pending-count card reads.
+
+This exists specifically to avoid duplicate partner rows: before this, `sync_nav` would create a brand-new `supplier`/`customer` for any unmatched digest, which would double up a partner the user had already entered by hand before its `tax_id` was known.
 
 ## Linking strategies
 

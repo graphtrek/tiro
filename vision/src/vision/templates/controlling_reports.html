@@ -14,17 +14,15 @@
 {% block content %}
 <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
   <h1 class="h3 mb-0"><i class="bi bi-bar-chart-line me-2"></i>Riportok</h1>
-  <span class="badge text-bg-warning">Mockup — hamarosan</span>
   <div class="ms-auto d-flex gap-2">
-    <button class="btn btn-primary btn-sm"><i class="bi bi-play-fill me-1"></i>Riport futtatása</button>
     <div class="dropdown">
       <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
         <i class="bi bi-download me-1"></i>Export
       </button>
       <ul class="dropdown-menu dropdown-menu-end">
-        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-excel me-2"></i>Excel</a></li>
-        <li><a class="dropdown-item" href="#"><i class="bi bi-file-earmark-pdf me-2"></i>PDF</a></li>
-        <li><a class="dropdown-item" href="#"><i class="bi bi-printer me-2"></i>Nyomtatás</a></li>
+        <li><a class="dropdown-item" href="#" id="export-excel"><i class="bi bi-file-earmark-excel me-2"></i>Excel</a></li>
+        <li><a class="dropdown-item" href="#" id="export-pdf"><i class="bi bi-file-earmark-pdf me-2"></i>PDF</a></li>
+        <li><a class="dropdown-item" href="#" id="export-print"><i class="bi bi-printer me-2"></i>Nyomtatás</a></li>
       </ul>
     </div>
   </div>
@@ -35,87 +33,142 @@
 <div class="card mb-4">
   <div class="card-header"><strong>Riportválasztó és szűrők</strong></div>
   <div class="card-body">
-    <div class="row g-3">
-      <div class="col-md-4">
-        <label class="form-label">Riport típus</label>
-        <select class="form-select">
-          <option selected>Projekt riport (heti + kumulált)</option>
-          <option>Személy riport</option>
-          <option>Ügyfél riport</option>
-          <option>Tevékenység típus riport</option>
-          <option>Heti export (Excel heti blokk szerkezet)</option>
-        </select>
+    <form method="get" action="/ui/controlling/reports">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Riport típus</label>
+          <select class="form-select" name="report_type">
+            {% for rt in report_types %}
+            <option value="{{ rt }}" {% if report_type == rt %}selected{% endif %}>{{ report_type_labels[rt] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Dátumtartomány</label>
+          <select class="form-select" name="date_range">
+            {% for dr in date_ranges %}
+            <option value="{{ dr }}" {% if date_range == dr %}selected{% endif %}>{{ date_range_labels[dr] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Egyéni dátumtól</label>
+          <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Egyéni dátumig</label>
+          <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Ügyfél</label>
+          <select class="form-select" name="customer_id">
+            <option value="" {% if not customer_id %}selected{% endif %}>mind</option>
+            {% for c in customers %}
+            <option value="{{ c.id }}" {% if customer_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Projekt</label>
+          <select class="form-select" name="project_id">
+            <option value="" {% if not project_id %}selected{% endif %}>mind</option>
+            {% for p in projects %}
+            <option value="{{ p.id }}" {% if project_id == p.id %}selected{% endif %}>{{ p.code }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Személy</label>
+          <select class="form-select" name="user_id">
+            <option value="" {% if not user_id %}selected{% endif %}>mind</option>
+            {% for u in users %}
+            <option value="{{ u.id }}" {% if user_id == u.id %}selected{% endif %}>{{ u.name or u.email }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Tevékenység típus</label>
+          <select class="form-select" name="activity_type_id">
+            <option value="" {% if not activity_type_id %}selected{% endif %}>mind</option>
+            {% for a in activity_types %}
+            <option value="{{ a.id }}" {% if activity_type_id == a.id %}selected{% endif %}>{{ a.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
-      <div class="col-md-4">
-        <label class="form-label">Dátumtartomány</label>
-        <select class="form-select">
-          <option>Projekt kezdete óta</option>
-          <option selected>2026. május – július</option>
-          <option>Aktuális hónap</option>
-          <option>Aktuális hét</option>
-        </select>
+      <div class="d-flex align-items-center justify-content-between mt-3">
+        <div class="form-text mb-0">
+          <i class="bi bi-save me-1"></i>Gyakran használt szűrőkombináció elmenthető:
+          <a href="#" class="disabled" tabindex="-1" aria-disabled="true">Mentés sablonként</a>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-play-fill me-1"></i>Riport futtatása</button>
       </div>
-      <div class="col-md-4">
-        <label class="form-label">Ügyfél</label>
-        <select class="form-select"><option>mind</option><option selected>IFUA</option><option>Graphtrek</option></select>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Projekt</label>
-        <select class="form-select">
-          <option>mind</option>
-          <option selected>IFUA - 001 - FVM</option>
-          <option>IFUA - 002 - MUIR</option>
-          <option>Graphtrek - 001 - Money Penny</option>
-        </select>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Személy</label>
-        <select class="form-select"><option selected>mind</option><option>Kozma Zoltán</option><option>Tatai Imre</option><option>Szász Judit</option></select>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Tevékenység típus</label>
-        <select class="form-select"><option selected>mind</option><option>Ügyfél megbeszélés</option><option>Belsős megbeszélés</option><option>Szakértői munka</option></select>
-      </div>
-    </div>
-    <div class="form-text mt-3">
-      <i class="bi bi-save me-1"></i>Gyakran használt szűrőkombináció elmenthető: <a href="#">Mentés sablonként</a>
-    </div>
+    </form>
   </div>
 </div>
 
+{% if error %}
+<div class="alert alert-danger py-2" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+</div>
+{% else %}
 <div class="card">
-  <div class="card-header"><strong>Eredmény — Projekt riport: IFUA - 001 - FVM (2026. május – július)</strong></div>
+  <div class="card-header">
+    <strong>
+      Eredmény — {{ report_type_labels[report_type] }}{% if report_type == "project" and selected_project %} : {{ selected_project.code }}{% endif %}
+      ({{ date_range_labels[date_range] }})
+    </strong>
+  </div>
   <div class="card-body pt-3">
     <table id="report-table" class="table table-hover table-sm">
       <thead>
         <tr>
+        {% if report_type == "project" %}
           <th>Projekt hét</th>
           <th class="text-end">Heti összesítő (óra)</th>
           <th class="text-end">Kumulált (óra)</th>
-          <th class="text-end">Ügyfél megbeszélés</th>
-          <th class="text-end">Belsős megbeszélés</th>
-          <th class="text-end">Szakértői munka</th>
+          {% for name in report.activity_type_names %}<th class="text-end">{{ name }}</th>{% endfor %}
           <th></th>
+        {% elif report_type in ("person", "customer") %}
+          <th>{% if report_type == "person" %}Személy{% else %}Ügyfél{% endif %}</th>
+          <th class="text-end">Összesen (óra)</th>
+          <th class="text-end">Bejegyzések száma</th>
+          {% for name in report.activity_type_names %}<th class="text-end">{{ name }}</th>{% endfor %}
+        {% else %}
+          <th>Tevékenység típus</th>
+          <th class="text-end">Összesen (óra)</th>
+          <th class="text-end">Bejegyzések száma</th>
+        {% endif %}
         </tr>
       </thead>
       <tbody>
-        <tr><td>W1</td><td class="text-end">12,5</td><td class="text-end">12,5</td><td class="text-end">3</td><td class="text-end">2,5</td><td class="text-end">7</td>
-          <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/ui/controlling/timesheet" title="Timesheet az adott hétre"><i class="bi bi-box-arrow-up-right"></i></a></td></tr>
-        <tr><td>W2</td><td class="text-end">13</td><td class="text-end">25,5</td><td class="text-end">6</td><td class="text-end">2</td><td class="text-end">5</td>
-          <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/ui/controlling/timesheet" title="Timesheet az adott hétre"><i class="bi bi-box-arrow-up-right"></i></a></td></tr>
-        <tr><td>W3</td><td class="text-end">12,5</td><td class="text-end">38</td><td class="text-end">4</td><td class="text-end">2,5</td><td class="text-end">6</td>
-          <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/ui/controlling/timesheet" title="Timesheet az adott hétre"><i class="bi bi-box-arrow-up-right"></i></a></td></tr>
-        <tr><td>W4</td><td class="text-end">9</td><td class="text-end">47</td><td class="text-end">1</td><td class="text-end">2</td><td class="text-end">6</td>
-          <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/ui/controlling/timesheet" title="Timesheet az adott hétre"><i class="bi bi-box-arrow-up-right"></i></a></td></tr>
-        <tr><td>W7</td><td class="text-end">7</td><td class="text-end">54</td><td class="text-end">1</td><td class="text-end">0</td><td class="text-end">6</td>
-          <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/ui/controlling/timesheet" title="Timesheet az adott hétre"><i class="bi bi-box-arrow-up-right"></i></a></td></tr>
-        <tr><td>W8</td><td class="text-end">6,5</td><td class="text-end">60,5</td><td class="text-end">2,5</td><td class="text-end">0</td><td class="text-end">4</td>
-          <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/ui/controlling/timesheet" title="Timesheet az adott hétre"><i class="bi bi-box-arrow-up-right"></i></a></td></tr>
+        {% if report_type == "project" %}
+        {% for w in report.weeks %}
+        <tr>
+          <td>W{{ w.project_week }}</td>
+          <td class="text-end">{{ w.week_hours }}</td>
+          <td class="text-end">{{ w.cumulative_hours }}</td>
+          {% for name in report.activity_type_names %}<td class="text-end">{{ w.by_activity_type.get(name, "0") }}</td>{% endfor %}
+          <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/ui/controlling/timesheet" title="Timesheet"><i class="bi bi-box-arrow-up-right"></i></a></td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        {% for row in report.rows %}
+        <tr>
+          <td>{{ row.key_label }}</td>
+          <td class="text-end">{{ row.total_hours }}</td>
+          <td class="text-end">{{ row.entry_count }}</td>
+          {% if report_type != "activity_type" %}
+          {% for name in report.activity_type_names %}<td class="text-end">{{ row.by_activity_type.get(name, "0") }}</td>{% endfor %}
+          {% endif %}
+        </tr>
+        {% endfor %}
+        {% endif %}
       </tbody>
     </table>
     <div class="d-flex justify-content-between text-muted small mt-2">
       <span>Órák a szűrt sorokban: <strong id="report-sum">0</strong> óra</span>
-      <span>Heti sor → Timesheet az adott hétre szűrve</span>
+      {% if report_type == "project" %}<span>Heti sor → Timesheet az adott projektre szűrve</span>{% endif %}
     </div>
   </div>
 </div>
@@ -132,8 +185,15 @@
       lengthMenu: [10, 15, 25, 50],
       order: [[0, "asc"]],
       columnDefs: [
-        { targets: [1, 2, 3, 4, 5], className: "text-end" },
+        { targets: 1, className: "text-end" },
+        {% if report_type == "project" %}
         { targets: -1, searchable: false, orderable: false },
+        {% endif %}
+      ],
+      buttons: [
+        { extend: "excelHtml5", title: "Riport" },
+        { extend: "pdfHtml5", title: "Riport", orientation: "landscape" },
+        { extend: "print", title: "Riport" },
       ],
       drawCallback: function() {
         var sum = this.api().column(1, { search: "applied" }).data().toArray()
@@ -142,6 +202,11 @@
         if (el) el.textContent = sum.toLocaleString("hu-HU");
       },
     });
+
+    document.getElementById("export-excel").onclick = function(e) { e.preventDefault(); $("#report-table").DataTable().button(0).trigger(); };
+    document.getElementById("export-pdf").onclick = function(e) { e.preventDefault(); $("#report-table").DataTable().button(1).trigger(); };
+    document.getElementById("export-print").onclick = function(e) { e.preventDefault(); $("#report-table").DataTable().button(2).trigger(); };
   })();
 </script>
+{% endif %}
 {% endblock %}

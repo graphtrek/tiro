@@ -5,6 +5,7 @@ from invoice_core.services import (  # noqa: F401
     invoice_file_service,
     invoice_service,
     partner_service,
+    report_service,
     tax_service,
     transaction_service,
 )

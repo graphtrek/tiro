@@ -26,8 +26,20 @@
         {% endif %}
       </td>
       <td>{{ row.invoice_date or '—' }}</td>
-      <td><a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.supplier_name }}</a></td>
-      <td><a href="/ui/customers/{{ row.customer_id }}">{{ row.customer_name }}</a></td>
+      <td>
+        {% if row.supplier_id %}
+          <a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.supplier_name }}</a>
+        {% else %}
+          <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if row.customer_id %}
+          <a href="/ui/customers/{{ row.customer_id }}">{{ row.customer_name }}</a>
+        {% else %}
+          <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+        {% endif %}
+      </td>
       <td class="text-end">{{ amount_fmt(row.amount_net) }}</td>
       <td class="text-end">{{ amount_fmt(row.amount_vat) }}</td>
       <td class="text-end">{{ amount_fmt(row.amount_total) }}</td>

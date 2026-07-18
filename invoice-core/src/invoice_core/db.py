@@ -147,8 +147,11 @@ class Invoice(Base):
     id = Column(Integer, primary_key=True, index=True)
     invoice_number = Column(String, nullable=False, unique=True, index=True)
     invoice_date = Column(Date, nullable=True)
-    supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=False)
-    customer_id = Column(Integer, ForeignKey("customer.id"), nullable=False)
+    # Nullable: sync no longer auto-creates a partner for an unmatched NAV
+    # digest — the invoice still imports, left unlinked until a matching
+    # supplier/customer is created manually (see service.py's _find_supplier).
+    supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=True)
+    customer_id = Column(Integer, ForeignKey("customer.id"), nullable=True)
     amount_net = Column(Float, nullable=True)
     amount_vat = Column(Float, nullable=True)
     amount_total = Column(Float, nullable=True)

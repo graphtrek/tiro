@@ -40,7 +40,7 @@ class RecentInvoiceRow:
     id: int
     invoice_number: str
     invoice_date: Optional[object]
-    supplier_name: str
+    supplier_name: Optional[str]
     amount_total: Optional[float]
     payment_status: str
 
@@ -138,7 +138,7 @@ def get_kpis(db: Session) -> DashboardKpis:
 def get_recent_invoices(db: Session, limit: int = 10) -> list[RecentInvoiceRow]:
     rows = (
         db.query(Invoice, Supplier.name)
-        .join(Supplier, Invoice.supplier_id == Supplier.id)
+        .outerjoin(Supplier, Invoice.supplier_id == Supplier.id)
         .order_by(Invoice.invoice_date.desc().nullslast(), Invoice.id.desc())
         .limit(limit)
         .all()

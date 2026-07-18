@@ -35,14 +35,18 @@ from invoice_core.models import (
     ActivityTypeIn,
     ActivityTypeOut,
     ActivityTypeUpdate,
+    CustomerIn,
     CustomerOut,
+    CustomerUpdate,
     InvoiceOut,
     LinkFileRequest,
     PatchInvoiceRequest,
     ProjectIn,
     ProjectOut,
     ProjectUpdate,
+    SupplierIn,
     SupplierOut,
+    SupplierUpdate,
     SyncMode,
     SyncRequest,
     SyncResponse,
@@ -52,7 +56,7 @@ from invoice_core.models import (
     UserIn,
     UserOut,
 )
-from invoice_core.service import _recompute_payment_status, sync_all
+from invoice_core.service import _recompute_payment_status, get_pending_sync_counts, sync_all
 from invoice_core.services import (
     activity_type_service,
     dashboard_service,
@@ -61,6 +65,7 @@ from invoice_core.services import (
     invoice_service,
     partner_service,
     project_service,
+    report_service,
     tax_service,
     timesheet_service,
     transaction_service,
@@ -132,6 +137,12 @@ def bank_sync(request: SyncRequest, db: Session = Depends(get_db)):
 def match_sync(request: SyncRequest, db: Session = Depends(get_db)):
     request.sync_mode = SyncMode.match_only
     return sync_all(request, db)
+
+
+@app.get("/api/v1/sync/pending")
+def sync_pending(db: Session = Depends(get_db)):
+    unmatched_invoices, unmatched_transactions = get_pending_sync_counts(db)
+    return {"unmatched_invoices": unmatched_invoices, "unmatched_transactions": unmatched_transactions}
 
 
 @app.get("/api/v1/sync/logs")
@@ -318,6 +329,66 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)):
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return dataclasses.asdict(customer)
+
+
+@app.post("/api/v1/partners/suppliers", response_model=SupplierOut)
+def create_supplier(payload: SupplierIn, db: Session = Depends(get_db)):
+    try:
+        return partner_service.create_supplier(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.put("/api/v1/partners/suppliers/{supplier_id:int}", response_model=SupplierOut)
+def update_supplier(supplier_id: int, payload: SupplierUpdate, db: Session = Depends(get_db)):
+    try:
+        record = partner_service.update_supplier(db, supplier_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if record is None:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    return record
+
+
+@app.delete("/api/v1/partners/suppliers/{supplier_id:int}")
+def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
+    try:
+        deleted = partner_service.delete_supplier(db, supplier_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    return {"status": "deleted"}
+
+
+@app.post("/api/v1/partners/customers", response_model=CustomerOut)
+def create_customer(payload: CustomerIn, db: Session = Depends(get_db)):
+    try:
+        return partner_service.create_customer(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.put("/api/v1/partners/customers/{customer_id:int}", response_model=CustomerOut)
+def update_customer(customer_id: int, payload: CustomerUpdate, db: Session = Depends(get_db)):
+    try:
+        record = partner_service.update_customer(db, customer_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if record is None:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return record
+
+
+@app.delete("/api/v1/partners/customers/{customer_id:int}")
+def delete_customer(customer_id: int, db: Session = Depends(get_db)):
+    try:
+        deleted = partner_service.delete_customer(db, customer_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return {"status": "deleted"}
 
 
 # ── User endpoints ────────────────────────────────────────────────────────────
@@ -597,6 +668,46 @@ def tax_report(
     """Summarize *year*'s payments to tax-authority accounts, defaulting to the current year."""
     effective_year = year or _date.today().year
     report = tax_service.get_tax_report(db, effective_year)
+    return dataclasses.asdict(report)
+
+
+@app.get("/api/v1/reports/timesheet")
+def timesheet_report(
+    report_type: str = Query(..., description="project | person | customer | activity_type"),
+    date_from: Optional[_date] = Query(None, description="YYYY-MM-DD"),
+    date_to: Optional[_date] = Query(None, description="YYYY-MM-DD"),
+    customer_id: Optional[int] = Query(None),
+    project_id: Optional[int] = Query(None),
+    user_id: Optional[int] = Query(None),
+    activity_type_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    if report_type == "project":
+        if project_id is None:
+            raise HTTPException(
+                status_code=400, detail="A projekt riporthoz projekt kiválasztása kötelező"
+            )
+        report = report_service.get_project_report(
+            db,
+            project_id,
+            date_from=date_from,
+            date_to=date_to,
+            user_id=user_id,
+            activity_type_id=activity_type_id,
+        )
+    elif report_type in ("person", "customer", "activity_type"):
+        report = report_service.get_group_report(
+            db,
+            report_type,
+            date_from=date_from,
+            date_to=date_to,
+            customer_id=customer_id,
+            project_id=project_id,
+            user_id=user_id,
+            activity_type_id=activity_type_id,
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Ismeretlen riport típus")
     return dataclasses.asdict(report)
 
 

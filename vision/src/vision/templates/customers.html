@@ -12,7 +12,20 @@
 
 {% from "_macros.html" import amount_fmt %}
 {% block content %}
-<h1 class="h3 mb-4"><i class="bi bi-people me-2"></i>Vevők</h1>
+<div class="d-flex align-items-center flex-wrap gap-2 mb-4">
+  <h1 class="h3 mb-0"><i class="bi bi-people me-2"></i>Vevők</h1>
+  <div class="ms-auto d-flex gap-2">
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newCustomerModal">
+      <i class="bi bi-plus-lg me-1"></i>Új vevő
+    </button>
+  </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger py-2" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+</div>
+{% endif %}
 
 <div class="card">
   <div class="card-body pt-3">
@@ -52,6 +65,65 @@
     {% endfor %}
   </tbody>
 </table>
+  </div>
+</div>
+
+<!-- Új vevő modal -->
+<div class="modal fade" id="newCustomerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form hx-post="/ui/customers" hx-target="body" hx-push-url="true">
+        <div class="modal-header py-2">
+          <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új vevő</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Név <span class="text-danger">*</span></label>
+            <input name="name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Adószám</label>
+            <input name="tax_id" class="form-control">
+            <div class="form-text">Ha ismert, add meg — enélkül a NAV-szinkron nem tudja majd automatikusan összekapcsolni ezt a partnert</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Cím</label>
+            <input name="address" class="form-control">
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Email</label>
+              <input name="email" type="email" class="form-control">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Telefon</label>
+              <input name="phone" class="form-control">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Fizetési határidő (nap)</label>
+              <input name="payment_terms" type="number" min="0" class="form-control">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">IBAN</label>
+              <input name="iban" class="form-control">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Bankszámlaszám</label>
+              <input name="bban" class="form-control">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

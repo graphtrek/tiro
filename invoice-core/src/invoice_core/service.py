@@ -9,7 +9,7 @@ import unicodedata
 from datetime import date, datetime, timedelta
 from typing import NamedTuple, Optional, Tuple
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from .bank_client import BankClient, BankClientError
@@ -247,11 +247,26 @@ def _default_dates(start: Optional[str], end: Optional[str]) -> tuple[str, str]:
     return start_obj.isoformat(), end_obj.isoformat()
 
 
-def _upsert_supplier(
+def _find_supplier(
     db: Session, tax_id: str, name: str,
     address: Optional[str] = None, iban: Optional[str] = None, bban: Optional[str] = None,
-) -> Supplier:
-    existing = db.query(Supplier).filter_by(tax_id=tax_id).first()
+) -> Optional[Supplier]:
+    """Look up (never create) the supplier a NAV digest refers to.
+
+    Manual creation is now the only way a new Supplier row comes into being
+    (see partner_service.create_supplier) — sync only links to what already
+    exists, so it can never spawn a duplicate for a partner the user already
+    entered by hand. A row with `tax_id IS NULL` is treated as a manually
+    created placeholder and adopted (with its tax_id backfilled) once NAV
+    reports the same name with a real tax_id.
+    """
+    existing = db.query(Supplier).filter_by(tax_id=tax_id).first() if tax_id else None
+    if not existing:
+        existing = db.query(Supplier).filter(
+            Supplier.tax_id.is_(None), func.lower(Supplier.name) == name.lower()
+        ).first()
+        if existing and tax_id:
+            existing.tax_id = tax_id
     if existing:
         existing.name = name
         if address:
@@ -261,18 +276,21 @@ def _upsert_supplier(
         if bban:
             existing.bban = bban
         existing.updated_at = datetime.utcnow()
-        return existing
-    supplier = Supplier(name=name, tax_id=tax_id, address=address, iban=iban, bban=bban)
-    db.add(supplier)
-    db.flush()
-    return supplier
+    return existing
 
 
-def _upsert_customer(
+def _find_customer(
     db: Session, tax_id: str, name: str,
     address: Optional[str] = None, iban: Optional[str] = None, bban: Optional[str] = None,
-) -> Customer:
-    existing = db.query(Customer).filter_by(tax_id=tax_id).first()
+) -> Optional[Customer]:
+    """Look up (never create) the customer a NAV digest refers to — see _find_supplier."""
+    existing = db.query(Customer).filter_by(tax_id=tax_id).first() if tax_id else None
+    if not existing:
+        existing = db.query(Customer).filter(
+            Customer.tax_id.is_(None), func.lower(Customer.name) == name.lower()
+        ).first()
+        if existing and tax_id:
+            existing.tax_id = tax_id
     if existing:
         existing.name = name
         if address:
@@ -282,19 +300,22 @@ def _upsert_customer(
         if bban:
             existing.bban = bban
         existing.updated_at = datetime.utcnow()
-        return existing
-    customer = Customer(name=name, tax_id=tax_id, address=address, iban=iban, bban=bban)
-    db.add(customer)
-    db.flush()
-    return customer
+    return existing
 
 
-def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
-    """Fetch NAV invoices and upsert suppliers, customers, and invoices."""
+def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> Tuple[int, list[str]]:
+    """Fetch NAV invoices and link/insert invoices. Returns (new_invoice_count, warnings).
+
+    Suppliers/customers are only ever linked, never created here (see
+    _find_supplier/_find_customer) — if a digest references a partner that
+    doesn't exist yet, the invoice is still imported (with that side left
+    unlinked) and a warning is returned for the Sync page to surface.
+    """
     settings = settings or get_settings()
     nav_client = NavClient(settings)
     digests = nav_client.get_invoices(start, end)
     count = 0
+    warnings: list[str] = []
     for digest in digests:
         supplier_tax = digest.get("supplier_tax_number", "")
         supplier_name = digest.get("supplier_name", "")
@@ -321,16 +342,26 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
         supplier_iban, supplier_bban = classify_bank_account(detail.get("supplier_bank_account"))
         customer_iban, customer_bban = classify_bank_account(detail.get("customer_bank_account"))
 
-        supplier = _upsert_supplier(
-            db, tax_id=supplier_tax or invoice_number, name=supplier_name,
+        supplier = _find_supplier(
+            db, tax_id=supplier_tax, name=supplier_name,
             address=detail.get("supplier_address") or None,
             iban=supplier_iban, bban=supplier_bban,
         )
-        customer = _upsert_customer(
-            db, tax_id=customer_tax or invoice_number, name=customer_name,
+        customer = _find_customer(
+            db, tax_id=customer_tax, name=customer_name,
             address=detail.get("customer_address") or None,
             iban=customer_iban, bban=customer_bban,
         )
+        if not supplier:
+            warnings.append(
+                f"Számla {invoice_number}: ismeretlen szállító '{supplier_name}' "
+                f"(adószám: {supplier_tax or '—'}) — hozza létre a Szállítók oldalon"
+            )
+        if not customer:
+            warnings.append(
+                f"Számla {invoice_number}: ismeretlen vevő '{customer_name}' "
+                f"(adószám: {customer_tax or '—'}) — hozza létre a Vevők oldalon"
+            )
 
         issue_date_str = digest.get("invoice_issue_date", "")
         try:
@@ -369,13 +400,20 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
                 existing.payment_method = payment_method
             if payment_due_date:
                 existing.payment_due_date = payment_due_date
+            # Self-heal: a previously-pending invoice (no partner match at the
+            # time) picks up the link once the user manually creates the
+            # missing supplier/customer and this invoice syncs again.
+            if existing.supplier_id is None and supplier is not None:
+                existing.supplier_id = supplier.id
+            if existing.customer_id is None and customer is not None:
+                existing.customer_id = customer.id
             existing.updated_at = datetime.utcnow()
         else:
             db.add(Invoice(
                 invoice_number=invoice_number,
                 invoice_date=issue_date,
-                supplier_id=supplier.id,
-                customer_id=customer.id,
+                supplier_id=supplier.id if supplier else None,
+                customer_id=customer.id if customer else None,
                 amount_net=amount_net,
                 amount_vat=amount_vat,
                 amount_total=amount_total,
@@ -391,8 +429,11 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
             count += 1
 
     db.commit()
-    logger.info("sync_nav: %d new invoice(s) from %d digest(s)", count, len(digests))
-    return count
+    logger.info(
+        "sync_nav: %d new invoice(s) from %d digest(s), %d warning(s)",
+        count, len(digests), len(warnings),
+    )
+    return count, warnings
 
 
 def _is_deleted(db: Session, filename: str) -> bool:
@@ -519,7 +560,7 @@ def _get_or_create_bank_supplier(db: Session, bank_code: str, settings: Settings
     return supplier
 
 
-def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
+def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> Tuple[int, list[str]]:
     """Fetch bank transactions, insert new ones, and link to invoice/supplier/customer.
 
     Runs through several phases in order, each handling transactions the
@@ -532,6 +573,10 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
        c. the counterparty name, as a fallback partner lookup,
        d. bank-fee/interest detection, linking the transaction to the bank itself.
     4. Recompute PAID/PARTIAL/UNPAID for every invoice that gained a new link.
+
+    Never creates a new Supplier/Customer for an unmatched counterparty (only
+    looks one up by name) — an unmatched transaction is left unlinked and
+    reported in the returned warnings list instead.
     """
     settings = settings or get_settings()
 
@@ -564,6 +609,7 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
 
     transactions = BankClient(settings).get_transactions()
     count = 0
+    warnings: list[str] = []
     for txn_dict in transactions:
         txn_id = txn_dict.get("transaction_id", "")
         if not txn_id:
@@ -674,6 +720,13 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
             bank_supplier = _get_or_create_bank_supplier(db, btxn.bank, settings)
             btxn.supplier_id = bank_supplier.id
 
+        # ── Warn if still unmatched after every attempt above ─────────────────
+        if not btxn.supplier_id and not btxn.customer_id:
+            warnings.append(
+                f"Bank tranzakció {txn_id}: nem sikerült partnerhez rendelni "
+                f"('{counterparty or txn_dict.get('description') or '—'}')"
+            )
+
     # Recompute payment status for all invoices with linked transactions.
     db.flush()
     linked_ids_q = select(invoice_bank_transaction.c.invoice_id).distinct()
@@ -687,8 +740,11 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
         _recompute_payment_status(db, inv)
 
     db.commit()
-    logger.info("sync_bank: %d new transaction(s) from %d fetched", count, len(transactions))
-    return count
+    logger.info(
+        "sync_bank: %d new transaction(s) from %d fetched, %d warning(s)",
+        count, len(transactions), len(warnings),
+    )
+    return count, warnings
 
 
 # ── BankTransaction ↔ invoice_file matching ────────────────────────────────────
@@ -1055,6 +1111,33 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     return count
 
 
+def get_pending_sync_counts(db: Session, settings: Optional[Settings] = None) -> Tuple[int, int]:
+    """Durable counts of invoices/bank transactions still missing a partner match.
+
+    Unlike the per-run `errors`/warnings (transient — only shown right after a
+    sync), this reflects current DB state regardless of when sync last ran,
+    so the Sync page can show it's still pending even days later.
+    """
+    settings = settings or get_settings()
+    unmatched_invoices = (
+        db.query(Invoice)
+        .filter(or_(Invoice.supplier_id.is_(None), Invoice.customer_id.is_(None)))
+        .count()
+    )
+    tax_keys = list(settings.tax_accounts.keys())
+    unmatched_txn_q = db.query(BankTransaction).filter(
+        BankTransaction.supplier_id.is_(None), BankTransaction.customer_id.is_(None)
+    )
+    if tax_keys:
+        unmatched_txn_q = unmatched_txn_q.filter(
+            or_(
+                BankTransaction.counterparty_account.is_(None),
+                BankTransaction.counterparty_account.notin_(tax_keys),
+            )
+        )
+    return unmatched_invoices, unmatched_txn_q.count()
+
+
 def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = None) -> SyncResponse:
     """Run the full or partial sync pipeline."""
     settings = settings or get_settings()
@@ -1075,7 +1158,8 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
 
     if mode in (SyncMode.full, SyncMode.nav_only):
         try:
-            nav_count = sync_nav(start, end, db, settings)
+            nav_count, nav_warnings = sync_nav(start, end, db, settings)
+            errors.extend(nav_warnings)
         except NavClientError as exc:
             logger.error("NAV sync failed: %s", exc)
             errors.append(f"NAV: {exc}")
@@ -1089,7 +1173,8 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
 
     if mode in (SyncMode.full, SyncMode.bank_only):
         try:
-            bank_count = sync_bank(start, end, db, settings)
+            bank_count, bank_warnings = sync_bank(start, end, db, settings)
+            errors.extend(bank_warnings)
         except BankClientError as exc:
             logger.error("Bank sync failed: %s", exc)
             errors.append(f"Bank: {exc}")

@@ -5,7 +5,7 @@ type: "service-spec"
 status: "megvalósítva"
 port: 8009
 language: "HU"
-last_updated: "2026-07-17"
+last_updated: "2026-07-18"
 depends_on: [invoice-core-spec.md, srcprofit]
 related: [INDEX.md, vision-prompt.md, invoice-core-spec.md]
 tags: [vision, frontend, fastapi, jinja2, htmx, bootstrap, datatables]
@@ -49,15 +49,15 @@ src/vision/
 ├── config.py                  ← pydantic-settings (.env)
 ├── models.py                  ← dataclasses: InvoiceKPI, CashFlowMonth, SupplierBar, DashboardData
 ├── clients/
-│   ├── invoice_core.py        ← InvoiceCoreClient — invoice-core összes /api/v1/* végpontja
+│   ├── invoice_core.py        ← InvoiceCoreClient — invoice-core összes /api/v1/* végpontja (incl. szállító/vevő CRUD, sync/pending)
 │   └── srcprofit.py           ← SrcProfitClient — /api/summary, /api/portfolio (Basic auth)
 ├── services/
 │   └── dashboard_service.py   ← /dashboard aggregáció: KPI-k, cash-flow, top szállítók, IBKR total
 ├── ui/
 │   ├── router.py              ← Vision saját oldalak: /, /pitch, /dashboard
-│   ├── invoice_router.py      ← Invoice-core UI oldalak: összes /ui/* (15 route)
+│   ├── invoice_router.py      ← Invoice-core UI oldalak: összes /ui/* (36 route)
 │   ├── admin_router.py        ← Admin oldalak: /ui/admin/users, /ui/admin/activity-types (valós adat, invoice-core CRUD-ot hív)
-│   ├── controlling_router.py  ← Controlling oldalak: /ui/controlling/projects + /timesheet (valós adat, invoice-core CRUD-ot hív), reports (statikus mockup)
+│   ├── controlling_router.py  ← Controlling oldalak: /ui/controlling/projects + /timesheet (valós adat, invoice-core CRUD-ot hív) + /reports (valós adat, invoice-core GET /api/v1/reports/timesheet-t hív)
 │   └── utils.py               ← dict_to_ns() — JSON dict → SimpleNamespace, ISO dátum auto-parse
 ├── api/
 │   └── main.py                ← FastAPI app, /health, HTTP logging middleware
@@ -85,14 +85,15 @@ src/vision/
 │   ├── admin_activity_types.html ← Admin: tevékenység típusok CRUD (HTMX form-okkal)
 │   ├── controlling_projects.html ← Controlling: projektek CRUD (HTMX form-okkal, kliens-oldali sorszám/kód előnézettel)
 │   ├── controlling_timesheet.html ← Controlling: saját timesheet rekordok CRUD (HTMX form-okkal, kliens-oldali projekt hét előnézettel)
-│   ├── controlling_reports.html  ← Controlling: riportok — statikus mockup
+│   ├── controlling_reports.html  ← Controlling: riportok — valós szűrők + 4 riporttípus (projekt heti+kumulált, személy, ügyfél, tevékenység típus), DataTables Buttons export (Excel/PDF/Print)
 │   └── partials/              ← HTMX részleges válaszok (nem terjesztik ki base.html-t)
 │       ├── invoice_table.html
 │       ├── supplier_table.html
 │       ├── transaction_table.html
 │       ├── transaction_detail.html
 │       ├── invoice_file_table.html
-│       └── sync_result.html
+│       ├── sync_result.html
+│       └── pending_sync_card.html    ← állandó "függőben lévő párosítás" számláló, sync.html-ba include-olva + OOB frissítve minden sync futás után
 └── static/
     └── custom.css             ← HTMX indicator + sidebar + KPI + DataTables stílusok
 ```
@@ -127,13 +128,20 @@ def dict_to_ns(obj):
 | Szállítólista | `GET /api/v1/partners/suppliers` | — |
 | Szállítói statisztikák | `GET /api/v1/partners/suppliers/summary` | — |
 | Szállító részlet | `GET /api/v1/partners/suppliers/{id:int}` | — |
+| Szállító létrehozás | `POST /api/v1/partners/suppliers` | — |
+| Szállító módosítás | `PUT /api/v1/partners/suppliers/{id:int}` | — |
+| Szállító törlés | `DELETE /api/v1/partners/suppliers/{id:int}` | — |
 | Vevőlista | `GET /api/v1/partners/customers` | — |
 | Vevő részlet | `GET /api/v1/partners/customers/{id:int}` | — |
+| Vevő létrehozás | `POST /api/v1/partners/customers` | — |
+| Vevő módosítás | `PUT /api/v1/partners/customers/{id:int}` | — |
+| Vevő törlés | `DELETE /api/v1/partners/customers/{id:int}` | — |
 | Bank tranzakció lista | `GET /api/v1/transactions` | `date_from`, `date_to`, `linked`, `partner_name`, `amount_min`, `amount_max` |
 | Egyenlegek | `GET /api/v1/transactions/balances` | — |
 | Tranzakció részlet | `GET /api/v1/transactions/{id:int}` | — |
 | Szinkron naplók | `GET /api/v1/sync/logs` | `limit` |
 | Szinkron indítás | `POST /api/v1/sync` | `start_date`, `end_date`, `sync_mode` |
+| Függőben lévő párosítások | `GET /api/v1/sync/pending` | — (állandó számláló, nem az utolsó futástól függ) |
 | Osztalék kimutatás | `GET /api/v1/reports/dividend` | `year`, `kiva_rate` |
 | Adó kimutatás | `GET /api/v1/reports/tax` | `year` |
 | Felhasználók | `GET /api/v1/users` | — |
@@ -149,6 +157,7 @@ def dict_to_ns(obj):
 | Timesheet rekord létrehozás | `POST /api/v1/timesheet-entries` | — |
 | Timesheet rekord módosítás | `PUT /api/v1/timesheet-entries/{id}` | `user_id` (kötelező) |
 | Timesheet rekord törlés | `DELETE /api/v1/timesheet-entries/{id}` | `user_id` (kötelező) |
+| Timesheet riport | `GET /api/v1/reports/timesheet` | `report_type` (`project`\|`person`\|`customer`\|`activity_type`, kötelező), `date_from`, `date_to`, `customer_id`, `project_id`, `user_id`, `activity_type_id` — `project_id` kötelező, ha `report_type=project` |
 
 ### SrcProfit (külső)
 
@@ -163,7 +172,7 @@ def dict_to_ns(obj):
 
 ## Oldalak
 
-### Invoice-Core UI oldalak (`/ui/*` — 15 route)
+### Invoice-Core UI oldalak (`/ui/*` — 36 route)
 
 | Oldal | URL | Leírás |
 |---|---|---|
@@ -171,14 +180,14 @@ def dict_to_ns(obj):
 | Számlák | `/ui/invoices` | Számlalista — szűrhető dátum, státusz, PDF, szállító szerint; DataTable |
 | Számla részlet | `/ui/invoices/{id}` | Számla részletei szállítói/vevői kártyákkal, PDF link, bank tranzakciók |
 | PDF Fájlok | `/ui/invoice-files` | PDF fájl lista linkelt számlával és szállítóval |
-| Szállítók | `/ui/suppliers` | Szállítólista számla statisztikákkal |
-| Szállító részlet | `/ui/suppliers/{id}` | Szállító részletei számla és bank DataTable-ekkel |
-| Vevők | `/ui/customers` | Vevőlista számla statisztikákkal |
-| Vevő részlet | `/ui/customers/{id}` | Vevő részletei számla és bank DataTable-ekkel |
+| Szállítók | `/ui/suppliers` | Szállítólista számla statisztikákkal; "Új szállító" létrehozás modal |
+| Szállító részlet | `/ui/suppliers/{id}` | Szállító részletei számla és bank DataTable-ekkel; módosítás modal + törlés (letiltva, ha van kapcsolt számla/tranzakció) |
+| Vevők | `/ui/customers` | Vevőlista számla statisztikákkal; "Új vevő" létrehozás modal |
+| Vevő részlet | `/ui/customers/{id}` | Vevő részletei számla és bank DataTable-ekkel; módosítás modal + törlés (letiltva, ha van kapcsolt számla/tranzakció) |
 | Bank tranzakciók | `/ui/transactions` | Tranzakció lista — szűrhető dátum, linked státusz, partner, összeg szerint |
 | Osztalék | `/ui/dividend` | Éves osztalék/adó kalkuláció: bevétel, kiadás, KIVA, SZJA, SZOCHO — havi bontás |
 | Adók | `/ui/adok` | Adófizetési pivot hónap és típus szerint (NAV ÁFA, SZJA, TAO, Szochó, TB, Bírság, HIPA, Iparkamara) |
-| Sync | `/ui/sync` | Szinkron indítás mód-választással; szinkron napló accordion |
+| Sync | `/ui/sync` | Szinkron indítás mód-választással; szinkron napló accordion; állandó "függőben lévő partner-párosítás" kártya (hány számla/tranzakció vár még szállítóra/vevőre, az utolsó futástól függetlenül) |
 | PDF letöltés | `/ui/invoice-files/{id}/pdf` | `RedirectResponse` → invoice-core `/api/v1/invoice-files/{id}/pdf` |
 
 **UI tech**: Jinja2 SSR, HTMX 2.x (boost + partial swap + OOB), Bootstrap 5.3 (Bootswatch Yeti), DataTables 2.x — nincs build lépés.
@@ -198,7 +207,7 @@ Filter formok HTMX partial frissítéssel működnek (szűrt nézetek nem reload
 |---|---|---|
 | Projektek | `/ui/controlling/projects` | Projektek CRUD — valós adat. Ügyfél (customer FK), ügyfelenként növekvő sorszám, automatikusan összeállított project kód (`{ügyfél} - {sorszám:03d} - {short_name}`), gazda, aktív/lezárt státusz, és rögzítésre jogosultak checkbox lista (kik adhatnak timesheet rekordot — a Timesheet oldal ezt ténylegesen ellenőrzi). Az "Összesített ráfordítás (óra)" oszlop egyelőre `0` placeholder — még nincs kötve a `timesheet_entry` adatokhoz |
 | Timesheet | `/ui/controlling/timesheet` | Saját timesheet rekordok CRUD — valós adat. Dátum, Projekt (datalist, csak aktív és a bejelentkezett felhasználó számára jogosult projektek), Ügyfél/Project gazda/Projekt hét mezők a kiválasztott projektből származó, csak-olvasható előnézetek (a `project_week` szerver-számított, nincs tárolva), Tevékenység típus (aktív típusokból), 0,5 órás lépésű Óra select, szabad szöveges Résztvevők és Tevékenység leírás. A bejelentkezett felhasználó azonosítása JWT `email` claim alapján történik, a `client.get_users()` listában keresve egyezést (nincs dedikált "ki vagyok" végpont). A mockupban szereplő "Zárolás" gomb látható, de letiltott — nincs még admin/role fogalom, ami gátolná |
-| Riportok | `/ui/controlling/reports` | Statikus mockup — még nincs hozzá backend |
+| Riportok | `/ui/controlling/reports` | Valós adat — 4 riporttípus a `timesheet_entry` felett: Projekt riport (heti + kumulált, tevékenység típusonkénti bontással, futó összeggel), Személy riport, Ügyfél riport, Tevékenység típus riport (a személy/ügyfél riport ugyanazt a csoportosító+pivot logikát használja; a tevékenység típus riportnak nincs pivot oszlopa). Szűrők: dátumtartomány (projekt kezdete óta / aktuális hónap / aktuális hét / egyéni), ügyfél, projekt, személy, tevékenység típus. Projekt riportnál projekt hiányában automatikusan az első projekt kerül kiválasztásra. Export (Excel/PDF/Nyomtatás) kliens-oldali DataTables Buttons-szal — a ténylegesen szűrt/rendezett táblát exportálja. A "Mentés sablonként" és a mockupban szereplő külön "Heti export" (Excel heti blokk szerkezet) riporttípus továbbra sincs megvalósítva |
 
 ### Vision saját oldalak
 
@@ -247,9 +256,15 @@ GET  /ui/invoices/{id}   → invoice_detail.html
 GET  /ui/invoice-files   → invoice_files.html
 GET  /ui/invoice-files/{id}/pdf → RedirectResponse → invoice-core PDF
 GET  /ui/suppliers       → suppliers.html
+POST /ui/suppliers       → létrehozás (HTMX, teljes oldal swap)
 GET  /ui/suppliers/{id}  → supplier_detail.html
+POST /ui/suppliers/{id}  → módosítás (HTMX, teljes oldal swap)
+DELETE /ui/suppliers/{id}/delete → törlés (HTMX, HX-Redirect → /ui/suppliers sikeres törlésnél)
 GET  /ui/customers       → customers.html
+POST /ui/customers       → létrehozás (HTMX, teljes oldal swap)
 GET  /ui/customers/{id}  → customer_detail.html
+POST /ui/customers/{id}  → módosítás (HTMX, teljes oldal swap)
+DELETE /ui/customers/{id}/delete → törlés (HTMX, HX-Redirect → /ui/customers sikeres törlésnél)
 GET  /ui/transactions    → transactions.html
 GET  /ui/dividend        → dividend.html
 GET  /ui/adok            → adok.html
@@ -268,7 +283,7 @@ GET  /ui/controlling/timesheet   → controlling_timesheet.html
 POST /ui/controlling/timesheet   → létrehozás (HTMX, teljes oldal swap)
 POST /ui/controlling/timesheet/{id} → módosítás (HTMX, teljes oldal swap)
 DELETE /ui/controlling/timesheet/{id} → törlés (HTMX, teljes oldal swap)
-GET  /ui/controlling/reports     → controlling_reports.html (statikus mockup)
+GET  /ui/controlling/reports     → controlling_reports.html (valós adat; query: report_type, date_range, date_from, date_to, customer_id, project_id, user_id, activity_type_id)
 ```
 
 **Nincs CLI** — a Vision csak böngészőből használt UI szerviz.

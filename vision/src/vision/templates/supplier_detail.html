@@ -15,10 +15,30 @@
 {% block content %}
 <h1 class="h3 mb-4"><i class="bi bi-building me-2"></i>{{ supplier.name }}</h1>
 
+{% if error %}
+<div class="alert alert-danger py-2" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+</div>
+{% endif %}
+
 <div class="row g-4 mb-4">
   <div class="col-12 col-md-4">
     <div class="card shadow-sm">
-      <div class="card-header"><strong>Adatok</strong></div>
+      <div class="card-header d-flex align-items-center">
+        <strong>Adatok</strong>
+        <div class="ms-auto d-flex gap-1">
+          <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
+                  data-bs-target="#editSupplierModal">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger" title="Töröl"
+                  hx-delete="/ui/suppliers/{{ supplier.id }}/delete"
+                  hx-target="body" hx-push-url="true"
+                  hx-confirm="Biztosan törli? '{{ supplier.name }}'">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
       <div class="card-body">
         <dl class="row mb-0">
           <dt class="col-5">Adószám</dt><dd class="col-7">{{ supplier.tax_id or '—' }}</dd>
@@ -29,6 +49,58 @@
           <dt class="col-5">Bankszámlaszám</dt><dd class="col-7">{{ supplier.bban or '—' }}</dd>
         </dl>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Szállító módosítása modal -->
+<div class="modal fade" id="editSupplierModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form hx-post="/ui/suppliers/{{ supplier.id }}" hx-target="body" hx-push-url="true">
+        <div class="modal-header py-2">
+          <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Szállító módosítása</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Név <span class="text-danger">*</span></label>
+            <input name="name" class="form-control" value="{{ supplier.name }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Adószám</label>
+            <input name="tax_id" class="form-control" value="{{ supplier.tax_id or '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Cím</label>
+            <input name="address" class="form-control" value="{{ supplier.address or '' }}">
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Email</label>
+              <input name="email" type="email" class="form-control" value="{{ supplier.email or '' }}">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Telefon</label>
+              <input name="phone" class="form-control" value="{{ supplier.phone or '' }}">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">IBAN</label>
+              <input name="iban" class="form-control" value="{{ supplier.iban or '' }}">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Bankszámlaszám</label>
+              <input name="bban" class="form-control" value="{{ supplier.bban or '' }}">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

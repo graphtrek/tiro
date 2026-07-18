@@ -33,16 +33,16 @@ uv run pytest tests/ -v
 | Számlák | `/ui/invoices` | Invoice list — filterable by date, status, PDF, supplier; DataTable |
 | Számla részlet | `/ui/invoices/{id}` | Invoice detail with supplier/customer cards, linked PDF, bank transactions |
 | PDF Fájlok | `/ui/invoice-files` | Invoice file list with linked invoice and supplier |
-| Szállítók | `/ui/suppliers` | Supplier list with invoice stats |
-| Szállító részlet | `/ui/suppliers/{id}` | Supplier detail with invoice and bank DataTables |
-| Vevők | `/ui/customers` | Customer list with invoice stats |
-| Vevő részlet | `/ui/customers/{id}` | Customer detail with invoice and bank DataTables |
+| Szállítók | `/ui/suppliers` | Supplier list with invoice stats; "Új szállító" create modal |
+| Szállító részlet | `/ui/suppliers/{id}` | Supplier detail with invoice and bank DataTables; edit modal + delete (blocked if linked to invoices/transactions) |
+| Vevők | `/ui/customers` | Customer list with invoice stats; "Új vevő" create modal |
+| Vevő részlet | `/ui/customers/{id}` | Customer detail with invoice and bank DataTables; edit modal + delete (blocked if linked to invoices/transactions) |
 | Bank tranzakciók | `/ui/transactions` | Transaction list — filterable by date, linked status, partner, amount |
 | Osztalék | `/ui/dividend` | Annual dividend/tax calculation: revenue, expenses, KIVA, SZJA, SZOCHO — monthly breakdown |
 | Adók | `/ui/adok` | Tax payments view: pivot by month and tax type (NAV ÁFA, SZJA, TAO, Szochó, TB, Bírság, HIPA, Iparkamara) |
-| Sync | `/ui/sync` | Trigger sync with mode selection; sync log accordion |
+| Sync | `/ui/sync` | Trigger sync with mode selection; sync log accordion; durable "pending partner match" card (count of invoices/transactions still missing a supplier or customer, independent of the last run) |
 
-**Tech stack for UI pages**: Jinja2 SSR, HTMX 2.x (boost + partial swap + OOB), Bootstrap 5.3 (Bootswatch Yeti), DataTables 2.x — no build step, all assets from CDN.
+**Tech stack for UI pages**: Jinja2 SSR, HTMX 2.x (boost + partial swap + OOB), Bootstrap 5.3 (Bootswatch Yeti), DataTables 2.x + Buttons 3.x (Excel/PDF/Print export) — no build step, all assets from CDN.
 
 Filter forms use HTMX partial updates so filtered views stay responsive without full page reloads.
 
@@ -59,7 +59,7 @@ Filter forms use HTMX partial updates so filtered views stay responsive without 
 |------|-----|-------------|
 | Projektek (Projects) | `/ui/controlling/projects` | CRUD for projects — real data. Client (customer FK), auto-incrementing per-customer sequence number, auto-composed project code (`{customer} - {seq:03d} - {short_name}`), owner, active/closed status, and permitted-users checkboxes (who may log time on the project — enforced by the Timesheet page). Hours-worked column is still hardcoded `0` — not yet wired to `timesheet_entry` |
 | Timesheet | `/ui/controlling/timesheet` | CRUD for the logged-in user's own timesheet entries — real data. Date, Projekt (datalist restricted to active projects the user owns or is permitted on), Ügyfél/Project gazda/Projekt hét shown as read-only previews derived from the selected project (`project_week` is server-computed, not stored), Tevékenység típus (from active activity types), 0.5-hour-step óra select, free-text Résztvevők and Tevékenység description. "Zárolás" (week lock) button is present but disabled — no admin/role concept exists yet to gate it |
-| Riportok (Reports) | `/ui/controlling/reports` | Static mockup — no backend yet |
+| Riportok (Reports) | `/ui/controlling/reports` | Real data — 4 report types over `timesheet_entry`: Projekt riport (heti + kumulált, per-activity-type pivot, running cumulative total), Személy riport, Ügyfél riport, Tevékenység típus riport (person/customer share the same group-and-pivot shape; activity-type has no pivot columns). Filters: dátumtartomány (projekt kezdete óta / aktuális hónap / aktuális hét / egyéni), ügyfél, projekt, személy, tevékenység típus. Project report defaults to the first project when none is selected. Export (Excel/PDF/Print) is client-side via DataTables Buttons — exports whatever's currently filtered/sorted. "Mentés sablonként" (save filter as template) and the mockup's separate "Heti export" Excel-block report type remain unimplemented |
 
 ### Vision-specific pages
 
@@ -85,15 +85,15 @@ src/vision/
 ├── config.py                  # Pydantic-settings (.env)
 ├── models.py                  # Dataclasses: InvoiceKPI, CashFlowMonth, SupplierBar, DashboardData
 ├── clients/
-│   ├── invoice_core.py        # Full client for invoice-core REST API (all /api/v1/* endpoints)
+│   ├── invoice_core.py        # Full client for invoice-core REST API (all /api/v1/* endpoints, incl. supplier/customer CRUD + pending-sync counts)
 │   └── srcprofit.py           # GET /api/summary, /api/portfolio (Basic auth; None on error)
 ├── services/
 │   └── dashboard_service.py   # Aggregation for /dashboard: KPIs, cash-flow, supplier join, IBKR total
 ├── ui/
 │   ├── router.py              # Vision-specific routes: /dashboard, /pitch, /
-│   ├── invoice_router.py      # Invoice-core UI routes: all /ui/* (15 routes)
+│   ├── invoice_router.py      # Invoice-core UI routes: all /ui/* (36 routes)
 │   ├── admin_router.py        # Admin pages: /ui/admin/users, /ui/admin/activity-types (real data, calls invoice-core CRUD)
-│   ├── controlling_router.py  # Controlling pages: /ui/controlling/projects + /timesheet (real data, calls invoice-core CRUD), reports (static mockup)
+│   ├── controlling_router.py  # Controlling pages: /ui/controlling/projects + /timesheet (real data, calls invoice-core CRUD) + /reports (real data, calls invoice-core GET /api/v1/reports/timesheet)
 │   └── utils.py               # dict_to_ns() — converts API JSON dicts to SimpleNamespace for dot-access
 ├── api/
 │   └── main.py                # FastAPI app, /health, HTTP logging middleware
@@ -121,14 +121,15 @@ src/vision/
 │   ├── admin_activity_types.html # Admin: activity types CRUD (HTMX forms)
 │   ├── controlling_projects.html # Controlling: projects CRUD (HTMX forms, client-side code/sequence preview)
 │   ├── controlling_timesheet.html # Controlling: own timesheet entries CRUD (HTMX forms, client-side project-week preview)
-│   ├── controlling_reports.html  # Controlling: reports — static mockup
+│   ├── controlling_reports.html  # Controlling: reports — real filters + 4 report types, DataTables Buttons export
 │   └── partials/              # HTMX partial responses (no base.html extension)
 │       ├── invoice_table.html
 │       ├── supplier_table.html
 │       ├── transaction_table.html
 │       ├── transaction_detail.html
 │       ├── invoice_file_table.html
-│       └── sync_result.html
+│       ├── sync_result.html
+│       └── pending_sync_card.html    # durable pending-partner-match count, included on sync.html and OOB-refreshed after each sync run
 └── static/
     └── custom.css             # HTMX indicator + sidebar + KPI + DataTables styles
 ```

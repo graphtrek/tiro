@@ -1,0 +1,13 @@
+{% if pending and (pending.unmatched_invoices or pending.unmatched_transactions) %}
+<div class="alert alert-warning py-2 mb-3" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>
+  {% if pending.unmatched_invoices %}
+    <a href="/ui/invoices" class="alert-link">{{ pending.unmatched_invoices }} számla</a>
+  {% endif %}
+  {% if pending.unmatched_invoices and pending.unmatched_transactions %}és{% endif %}
+  {% if pending.unmatched_transactions %}
+    <a href="/ui/transactions" class="alert-link">{{ pending.unmatched_transactions }} tranzakció</a>
+  {% endif %}
+  vár partner hozzárendelésre — hozza létre a hiányzó szállítót/vevőt a Szállítók/Vevők oldalon.
+</div>
+{% endif %}

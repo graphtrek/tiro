@@ -2,7 +2,7 @@
 title: "Specifikáció: Számla Adatbázis Mikroszerviz"
 description: "Számlákat és partnereket kezelő adatbázis mikroszerviz (MASTER orchestrator)"
 language: "HU"
-last_updated: "2026-07-17"
+last_updated: "2026-07-18"
 related: [INDEX.md, nav-invoice-spec.md, bank-spec.md]
 ---
 
@@ -21,7 +21,7 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - **Meghívja: nav-invoice** (NAV lekérdezés — csak a NAV API-t hívja)
 - **Meghívja: invoice-file-filter** (PDF feldolgozás — az meghívja attachment-downloadert)
 - **Meghívja: bank** (banki tranzakciók lekérése — Erste + Wise CSV, port 8005)
-- Vevő és szállító táblákat létrehozza nav-invoice adatai alapján
+- Vevő és szállító táblákhoz nav-invoice adatai alapján összekapcsolást végez (a sync soha nem hoz létre új partnert — csak kézi felvitel, lásd lentebb)
 - invoice-file-filter visszaadott adatait külön `invoice_file` táblában tárolja
 - `invoice_file` rekordokat összeköti az `invoice` táblával (words-alapú számlaszám egyezés)
 - bank tranzakciókat `bank_transaction` táblában tárolja, összeköti `supplier`/`customer`/`invoice` táblákkal
@@ -37,8 +37,8 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 - id (PK)
 - invoice_number (nav_invoice-tól)
 - invoice_date
-- supplier_id (FK → supplier)
-- customer_id (FK → customer)
+- supplier_id (FK → supplier, **nullable** — lásd "Partner párosítás" lentebb)
+- customer_id (FK → customer, **nullable**)
 - amount_net, amount_vat, amount_total
 - payment_status (PAID|UNPAID|PARTIAL)
 - nav_transaction_id
@@ -64,18 +64,59 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 ### supplier (szállítók)
 - id (PK)
 - name
-- tax_id
+- tax_id (nullable, egyedi — lásd "Partner párosítás" lentebb)
 - address, email, phone
-- bank_account
+- iban, bban
 - created_at, updated_at
+
+Szállító kétféleképpen keletkezik: **automatikusan** a NAV szinkron során (ha
+`tax_id` vagy név alapján egyezik egy meglévő sorral), vagy **kézzel**, a
+`POST /api/v1/partners/suppliers` végponton / a [[vision-spec.md|vision]]
+`/ui/suppliers` "Új szállító" modaljában keresztül — pl. azért, hogy egy
+partnerrel már tervezhessünk, mielőtt bármilyen számla vagy banki tranzakció
+megérkezne róla. A sync **soha nem hoz létre új sort automatikusan** — lásd
+"Partner párosítás (nincs auto-create)" lentebb.
 
 ### customer (vevők)
 - id (PK)
 - name
-- tax_id
+- tax_id (nullable, egyedi)
 - address, email, phone
 - payment_terms
+- iban, bban
 - created_at, updated_at
+
+Ugyanaz a kézi létrehozás/módosítás/törlés érvényes rá, mint a szállítóra
+(`POST`/`PUT`/`DELETE /api/v1/partners/customers`).
+
+### Partner párosítás (nincs auto-create)
+
+A sync **csak összekapcsol** egy meglévő `supplier`/`customer` sorral — soha
+nem hoz létre újat. Új partner kizárólag kézi létrehozással jön létre (lásd
+fent). Ez azért fontos, mert korábban a NAV szinkron automatikusan létrehozott
+egy új szállító/vevő sort minden egyezés nélküli digest-hez — ha a felhasználó
+már kézzel felvette ugyanazt a partnert (pl. mielőtt ismerte volna az
+adószámát), ez **duplikátumot** eredményezett volna.
+
+- **NAV szinkron (`sync_nav`)**: először `tax_id` szerint keres; ha nincs
+  találat, kis-nagybetűtől független névegyezést próbál minden olyan sorral
+  szemben, amelynek `tax_id`-ja `NULL` (azaz kézzel felvett, adószám nélküli
+  placeholder), és ha talál, visszatölti rá a `tax_id`-t. Ha egyik sem talál
+  egyezést, a számla **akkor is bekerül** az adatbázisba, csak az adott oldal
+  (`supplier_id`/`customer_id`) `NULL` marad, és egy figyelmeztetés kerül a
+  sync futás `errors` listájába (pl. *"Számla INV-100: ismeretlen szállító
+  'ACME Kft' (adószám: 12345678-1-42) — hozza létre a Szállítók oldalon"*).
+- **Bank szinkron (`sync_bank`)**: ez már eddig is csak kereső volt (soha nem
+  hozott létre partnert) — most emellett figyelmeztetést is ad, ha egy
+  tranzakcióhoz a névegyezés sem talál se szállítót, se vevőt.
+- **Öngyógyulás**: ha a hiányzó partner időközben létrejön (kézzel, vagy egy
+  következő NAV digest visszatölti a `tax_id`-t), a következő sync futás
+  automatikusan összekapcsolja a korábban függőben lévő számlát/tranzakciót —
+  nincs szükség manuális újra-linkelésre.
+- **Láthatóság**: `GET /api/v1/sync/pending` visszaadja, hány számla/tranzakció
+  vár még párosításra — ez független az utolsó futás átmeneti
+  figyelmeztetéseitől, és ezt olvassa a [[vision-spec.md|vision]] Sync
+  oldalának állandó "függőben lévő párosítás" kártyája.
 
 ### bank_transaction (banki tranzakciók — Erste + Wise)
 - id (PK)
@@ -178,6 +219,16 @@ zárolás) funkció **egyelőre nincs implementálva** — nincs admin/role foga
 `user` táblán, ezért ez a UI-n látható, de letiltott gomb marad, amíg a
 szerepkör-modell meg nem érkezik.
 
+A `report_service` a `timesheet_entry` táblát **felhasználói szűrés nélkül**,
+minden felhasználó bejegyzésén olvassa (a `/api/v1/reports/timesheet`
+végpont mögött) — ez szándékos eltérés a fenti saját-rekord CRUD-tól, mivel a
+[[vision-spec.md|vision]] `/ui/controlling/reports` riportoldala az összes
+felhasználó munkaidejét összesíti. Nincs admin/role ellenőrzés itt sem
+(ugyanaz a hiányzó szerepkör-modell), tehát bármely bejelentkezett felhasználó
+lekérdezheti bárki óráit. A csoportosítás/pivot Python oldalon történik (nem
+SQL `GROUP BY`), hogy SQLite alatt (tesztek) és PostgreSQL alatt (production)
+egyaránt ugyanúgy működjön — ugyanaz a minta, mint a `tax_service`-nél.
+
 ## Logika (Orchestration)
 1. **invoice-core iniciál** → sorban:
    - **nav-invoice** meghívása (GET /invoices?from=...&to=...&direction=...)
@@ -223,6 +274,7 @@ szerepkör-modell meg nem érkezik.
 | `POST` | `/api/v1/sync/bank` | Bank szinkronizálás |
 | `POST` | `/api/v1/sync/match` | Összekapcsolás (PDF ↔ bank) |
 | `GET`  | `/api/v1/sync/logs` | Szinkron naplóbejegyzések (`limit` param) |
+| `GET`  | `/api/v1/sync/pending` | Hány számla/tranzakció vár még partner-párosításra (`{"unmatched_invoices": n, "unmatched_transactions": n}`) — állandó, nem az utolsó futástól függő érték |
 | `GET`  | `/api/v1/invoices/count` | Számlák száma `{"count": n}` — regisztrálva `/{invoice_number}` előtt |
 | `GET`  | `/api/v1/invoices` | Számlalista (szűrés: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`) |
 | `GET`  | `/api/v1/invoices/{invoice_id:int}` | Számla részletei (PK alapján, bank tranzakciókkal) |
@@ -232,8 +284,14 @@ szerepkör-modell meg nem érkezik.
 | `GET`  | `/api/v1/partners/suppliers` | Szállítólista |
 | `GET`  | `/api/v1/partners/suppliers/summary` | Szállítói statisztikák — regisztrálva `/{supplier_id:int}` előtt |
 | `GET`  | `/api/v1/partners/suppliers/{supplier_id:int}` | Szállító részletei (számláival, tranzakcióival) |
+| `POST` | `/api/v1/partners/suppliers` | Szállító kézi létrehozása; 409 ha a `name` vagy `tax_id` már foglalt |
+| `PUT`  | `/api/v1/partners/suppliers/{supplier_id:int}` | Szállító módosítása; 404 ha nem létezik, 409 név/adószám ütközésnél |
+| `DELETE` | `/api/v1/partners/suppliers/{supplier_id:int}` | Szállító törlése; 404 ha nem létezik, 409 ha van hozzá kapcsolt számla vagy banki tranzakció |
 | `GET`  | `/api/v1/partners/customers` | Vevőlista |
 | `GET`  | `/api/v1/partners/customers/{customer_id:int}` | Vevő részletei |
+| `POST` | `/api/v1/partners/customers` | Vevő kézi létrehozása; 409 ha a `name` vagy `tax_id` már foglalt |
+| `PUT`  | `/api/v1/partners/customers/{customer_id:int}` | Vevő módosítása; 404 ha nem létezik, 409 név/adószám ütközésnél |
+| `DELETE` | `/api/v1/partners/customers/{customer_id:int}` | Vevő törlése; 404 ha nem létezik, 409 ha van hozzá kapcsolt számla vagy banki tranzakció |
 | `GET`  | `/api/v1/transactions` | Bank tranzakció lista (szűrés: `date_from`, `date_to`, `linked`, `partner_name`, `amount_min`, `amount_max`) |
 | `GET`  | `/api/v1/transactions/balances` | Legutolsó egyenleg bankonként |
 | `GET`  | `/api/v1/transactions/{transaction_id:int}` | Tranzakció részletei |
@@ -253,6 +311,7 @@ szerepkör-modell meg nem érkezik.
 | `GET`  | `/api/v1/timesheet-entries` | Egy felhasználó rekordjai (kötelező `user_id` query), `entry_date` majd `id` szerint; minden sor tartalmazza a `project_code`/`customer_name`/`activity_type_name`/`user_name` mezőket és a szerver-számított `project_week`-et |
 | `PUT`  | `/api/v1/timesheet-entries/{id}` | Rekord módosítása (kötelező `user_id` query — más felhasználó rekordja 404, nem 403); ugyanaz a validáció mint létrehozásnál |
 | `DELETE` | `/api/v1/timesheet-entries/{id}` | Rekord törlése (kötelező `user_id` query); 404 ha nem létezik/nem a sajátja |
+| `GET`  | `/api/v1/reports/timesheet` | Timesheet riport — `report_type` (`project`\|`person`\|`customer`\|`activity_type`, kötelező), `date_from`, `date_to`, `customer_id`, `project_id`, `user_id`, `activity_type_id` (mind opcionális); `project_id` kötelező, ha `report_type=project`; 400 ha hiányzik vagy ismeretlen a `report_type` |
 
 ## Tech stack
 - Python 3.10+

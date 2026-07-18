@@ -197,6 +197,36 @@ class InvoiceCoreClient:
     def get_customer(self, customer_id: int) -> dict | None:
         return self._get_one(f"/api/v1/partners/customers/{customer_id}")
 
+    def create_supplier(self, **fields) -> dict:
+        return self._write_json(
+            "POST", "/api/v1/partners/suppliers", fields, "Nem sikerült létrehozni a szállítót"
+        )
+
+    def update_supplier(self, supplier_id: int, **fields) -> dict:
+        return self._write_json(
+            "PUT", f"/api/v1/partners/suppliers/{supplier_id}", fields, "Nem sikerült menteni a szállítót"
+        )
+
+    def delete_supplier(self, supplier_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/partners/suppliers/{supplier_id}", {}, "Nem sikerült törölni a szállítót"
+        )
+
+    def create_customer(self, **fields) -> dict:
+        return self._write_json(
+            "POST", "/api/v1/partners/customers", fields, "Nem sikerült létrehozni a vevőt"
+        )
+
+    def update_customer(self, customer_id: int, **fields) -> dict:
+        return self._write_json(
+            "PUT", f"/api/v1/partners/customers/{customer_id}", fields, "Nem sikerült menteni a vevőt"
+        )
+
+    def delete_customer(self, customer_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/partners/customers/{customer_id}", {}, "Nem sikerült törölni a vevőt"
+        )
+
     # ── Transactions ───────────────────────────────────────────────────────────
 
     def get_transactions(
@@ -228,6 +258,9 @@ class InvoiceCoreClient:
 
     def get_sync_logs(self, limit: int = 10) -> list[dict]:
         return self._get("/api/v1/sync/logs", {"limit": limit})
+
+    def get_pending_sync_counts(self) -> dict:
+        return self._get_one("/api/v1/sync/pending") or {"unmatched_invoices": 0, "unmatched_transactions": 0}
 
     def trigger_sync(
         self,
@@ -414,3 +447,24 @@ class InvoiceCoreClient:
     def get_tax_report(self, year: int | None = None) -> dict:
         params = {"year": year} if year is not None else None
         return self._get_one("/api/v1/reports/tax", params) or {}
+
+    def get_timesheet_report(
+        self,
+        report_type: str,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        customer_id: int | None = None,
+        project_id: int | None = None,
+        user_id: int | None = None,
+        activity_type_id: int | None = None,
+    ) -> dict:
+        params = {k: v for k, v in {
+            "report_type": report_type,
+            "date_from": date_from,
+            "date_to": date_to,
+            "customer_id": customer_id,
+            "project_id": project_id,
+            "user_id": user_id,
+            "activity_type_id": activity_type_id,
+        }.items() if v is not None}
+        return self._get_one("/api/v1/reports/timesheet", params) or {}

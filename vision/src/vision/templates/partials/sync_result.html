@@ -47,3 +47,7 @@
 </div>
 <!-- OOB swap: frissíti a sidebar számláló badge-et -->
 <span id="invoice-count-badge" hx-swap-oob="true">{{ invoice_count }}</span>
+<!-- OOB swap: frissíti a függőben lévő partner-párosítás kártyát -->
+<div id="pending-sync-card" hx-swap-oob="true">
+  {% include "partials/pending_sync_card.html" %}
+</div>

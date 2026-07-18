@@ -71,6 +71,38 @@ class CustomerOut(BaseModel):
     updated_at: datetime
 
 
+# ── Write DTOs (manual create/edit of partners) ─────────────────────────────
+
+
+class SupplierIn(BaseModel):
+    name: str
+    tax_id: Optional[str] = None
+    address: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    iban: Optional[str] = None
+    bban: Optional[str] = None
+
+
+class SupplierUpdate(SupplierIn):
+    pass
+
+
+class CustomerIn(BaseModel):
+    name: str
+    tax_id: Optional[str] = None
+    address: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    payment_terms: Optional[int] = None
+    iban: Optional[str] = None
+    bban: Optional[str] = None
+
+
+class CustomerUpdate(CustomerIn):
+    pass
+
+
 class InvoiceFileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

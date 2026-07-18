@@ -49,18 +49,26 @@
       <div class="card mb-2">
         <div class="card-body py-2">
           <div class="text-muted small mb-1"><i class="bi bi-building me-1"></i>Szállító</div>
-          <a href="/ui/suppliers/{{ invoice.supplier_id }}" class="fw-bold text-decoration-none">{{ invoice.supplier_name or '—' }}</a>
+          {% if invoice.supplier_id %}
+          <a href="/ui/suppliers/{{ invoice.supplier_id }}" class="fw-bold text-decoration-none">{{ invoice.supplier_name }}</a>
           {% if invoice.supplier_tax_id %}
             <div class="text-muted small">{{ invoice.supplier_tax_id }}</div>
+          {% endif %}
+          {% else %}
+          <span class="text-warning">—</span>
           {% endif %}
         </div>
       </div>
       <div class="card">
         <div class="card-body py-2">
           <div class="text-muted small mb-1"><i class="bi bi-person me-1"></i>Vevő</div>
-          <a href="/ui/customers/{{ invoice.customer_id }}" class="fw-bold text-decoration-none">{{ invoice.customer_name or '—' }}</a>
+          {% if invoice.customer_id %}
+          <a href="/ui/customers/{{ invoice.customer_id }}" class="fw-bold text-decoration-none">{{ invoice.customer_name }}</a>
           {% if invoice.customer_tax_id %}
             <div class="text-muted small">{{ invoice.customer_tax_id }}</div>
+          {% endif %}
+          {% else %}
+          <span class="text-warning">—</span>
           {% endif %}
         </div>
       </div>

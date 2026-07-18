@@ -140,6 +140,27 @@ def suppliers_page(request: Request):
     return _resp(request, template, client, rows=rows, summary=summary)
 
 
+@router.post("/suppliers")
+def create_supplier(
+    request: Request,
+    name: str = Form(...),
+    tax_id: str = Form(""),
+    address: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    iban: str = Form(""),
+    bban: str = Form(""),
+):
+    client = _client()
+    result = client.create_supplier(
+        name=name, tax_id=tax_id or None, address=address or None,
+        email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
+    )
+    rows = dict_to_ns(client.get_suppliers())
+    summary = dict_to_ns(client.get_supplier_summary())
+    return _resp(request, "suppliers.html", client, rows=rows, summary=summary, error=result.get("error"))
+
+
 @router.get("/suppliers/{supplier_id:int}")
 def supplier_detail_page(request: Request, supplier_id: int):
     client = _client()
@@ -147,6 +168,39 @@ def supplier_detail_page(request: Request, supplier_id: int):
     if not data:
         raise HTTPException(status_code=404, detail="Szállító nem található")
     return _resp(request, "supplier_detail.html", client, supplier=dict_to_ns(data))
+
+
+@router.post("/suppliers/{supplier_id:int}")
+def update_supplier(
+    request: Request,
+    supplier_id: int,
+    name: str = Form(...),
+    tax_id: str = Form(""),
+    address: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    iban: str = Form(""),
+    bban: str = Form(""),
+):
+    client = _client()
+    result = client.update_supplier(
+        supplier_id, name=name, tax_id=tax_id or None, address=address or None,
+        email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
+    )
+    data = client.get_supplier(supplier_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Szállító nem található")
+    return _resp(request, "supplier_detail.html", client, supplier=dict_to_ns(data), error=result.get("error"))
+
+
+@router.delete("/suppliers/{supplier_id:int}/delete")
+def delete_supplier(request: Request, supplier_id: int):
+    client = _client()
+    result = client.delete_supplier(supplier_id)
+    if result.get("error"):
+        data = client.get_supplier(supplier_id)
+        return _resp(request, "supplier_detail.html", client, supplier=dict_to_ns(data), error=result["error"])
+    return Response(status_code=200, headers={"HX-Redirect": "/ui/suppliers"})
 
 
 # ── Customers ─────────────────────────────────────────────────────────────────
@@ -158,6 +212,29 @@ def customers_page(request: Request):
     return _resp(request, "customers.html", client, rows=rows)
 
 
+@router.post("/customers")
+def create_customer(
+    request: Request,
+    name: str = Form(...),
+    tax_id: str = Form(""),
+    address: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    payment_terms: str = Form(""),
+    iban: str = Form(""),
+    bban: str = Form(""),
+):
+    client = _client()
+    result = client.create_customer(
+        name=name, tax_id=tax_id or None, address=address or None,
+        email=email or None, phone=phone or None,
+        payment_terms=int(payment_terms) if payment_terms else None,
+        iban=iban or None, bban=bban or None,
+    )
+    rows = dict_to_ns(client.get_customers())
+    return _resp(request, "customers.html", client, rows=rows, error=result.get("error"))
+
+
 @router.get("/customers/{customer_id:int}")
 def customer_detail_page(request: Request, customer_id: int):
     client = _client()
@@ -165,6 +242,42 @@ def customer_detail_page(request: Request, customer_id: int):
     if not data:
         raise HTTPException(status_code=404, detail="Vevő nem található")
     return _resp(request, "customer_detail.html", client, customer=dict_to_ns(data))
+
+
+@router.post("/customers/{customer_id:int}")
+def update_customer(
+    request: Request,
+    customer_id: int,
+    name: str = Form(...),
+    tax_id: str = Form(""),
+    address: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    payment_terms: str = Form(""),
+    iban: str = Form(""),
+    bban: str = Form(""),
+):
+    client = _client()
+    result = client.update_customer(
+        customer_id, name=name, tax_id=tax_id or None, address=address or None,
+        email=email or None, phone=phone or None,
+        payment_terms=int(payment_terms) if payment_terms else None,
+        iban=iban or None, bban=bban or None,
+    )
+    data = client.get_customer(customer_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Vevő nem található")
+    return _resp(request, "customer_detail.html", client, customer=dict_to_ns(data), error=result.get("error"))
+
+
+@router.delete("/customers/{customer_id:int}/delete")
+def delete_customer(request: Request, customer_id: int):
+    client = _client()
+    result = client.delete_customer(customer_id)
+    if result.get("error"):
+        data = client.get_customer(customer_id)
+        return _resp(request, "customer_detail.html", client, customer=dict_to_ns(data), error=result["error"])
+    return Response(status_code=200, headers={"HX-Redirect": "/ui/customers"})
 
 
 # ── Transactions ──────────────────────────────────────────────────────────────
@@ -433,7 +546,8 @@ def adok_page(request: Request, year: Optional[int] = None):
 def sync_page(request: Request):
     client = _client()
     sync_logs = dict_to_ns(client.get_sync_logs())
-    return _resp(request, "sync.html", client, sync_logs=sync_logs, result=None)
+    pending = dict_to_ns(client.get_pending_sync_counts())
+    return _resp(request, "sync.html", client, sync_logs=sync_logs, result=None, pending=pending)
 
 
 @router.post("/sync/trigger")
@@ -452,5 +566,6 @@ def sync_trigger(
     )
     elapsed = time.monotonic() - t0
     result = dict_to_ns(result_data)
-    ctx = _ctx(client, result=result, duration_s=elapsed)
+    pending = dict_to_ns(client.get_pending_sync_counts())
+    ctx = _ctx(client, result=result, duration_s=elapsed, pending=pending)
     return templates.TemplateResponse(request, "partials/sync_result.html", ctx)
