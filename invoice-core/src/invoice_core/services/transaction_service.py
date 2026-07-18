@@ -8,7 +8,7 @@ from fastapi import Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from invoice_core.db import BankTransaction, Invoice, InvoiceFile, Supplier, invoice_bank_transaction
+from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, invoice_bank_transaction
 
 
 @dataclass
@@ -71,6 +71,8 @@ class TransactionRow:
     partner_name: Optional[str]
     invoice_file_id: Optional[int]
     invoice_file_filename: Optional[str]
+    supplier_id: Optional[int] = None
+    customer_id: Optional[int] = None
     fees: Optional[float] = None
     invoice_file_locked: bool = False
     invoice_ids: list[int] = field(default_factory=list)
@@ -109,9 +111,10 @@ def list_transactions(
     ibt = invoice_bank_transaction
 
     q = (
-        db.query(BankTransaction, InvoiceFile.filename, InvoiceFile.preview_base64, Supplier.name)
+        db.query(BankTransaction, InvoiceFile.filename, InvoiceFile.preview_base64, Supplier.name, Customer.name)
         .outerjoin(InvoiceFile, BankTransaction.invoice_file_id == InvoiceFile.id)
         .outerjoin(Supplier, BankTransaction.supplier_id == Supplier.id)
+        .outerjoin(Customer, BankTransaction.customer_id == Customer.id)
     )
     if date_from:
         q = q.filter(BankTransaction.transaction_date >= datetime.combine(date_from, datetime.min.time()))
@@ -131,7 +134,7 @@ def list_transactions(
     q = q.order_by(BankTransaction.transaction_date.desc())
     txn_rows_raw = q.all()
 
-    txn_ids = [t.id for t, _, _, _ in txn_rows_raw]
+    txn_ids = [t.id for t, _, _, _, _ in txn_rows_raw]
     inv_by_txn: dict[int, list[tuple[int, str]]] = {}
     if txn_ids:
         links = (
@@ -154,16 +157,18 @@ def list_transactions(
             direction=t.direction,
             description=t.description,
             payment_reference=t.payment_reference,
-            partner_name=t.counterparty_name or supplier_name,
+            partner_name=supplier_name if t.direction == "DEBIT" else customer_name,
             invoice_file_id=t.invoice_file_id,
             invoice_file_filename=inv_file,
+            supplier_id=t.supplier_id,
+            customer_id=t.customer_id,
             fees=t.fees,
             invoice_file_locked=bool(t.invoice_file_locked),
             invoice_ids=[pair[0] for pair in inv_by_txn.get(t.id, [])],
             invoice_numbers=[pair[1] for pair in inv_by_txn.get(t.id, [])],
             invoice_file_preview_base64=inv_preview,
         )
-        for t, inv_file, inv_preview, supplier_name in txn_rows_raw
+        for t, inv_file, inv_preview, supplier_name, customer_name in txn_rows_raw
     ]
 
 

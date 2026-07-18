@@ -101,7 +101,15 @@
           <span class="text-muted">—</span>
         {% endif %}
       </td>
-      <td>{{ row.partner_name or '—' }}</td>
+      <td>
+        {% if row.direction == 'DEBIT' and row.supplier_id %}
+          <a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.partner_name }}</a>
+        {% elif row.direction == 'CREDIT' and row.customer_id %}
+          <a href="/ui/customers/{{ row.customer_id }}">{{ row.partner_name }}</a>
+        {% else %}
+          <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+        {% endif %}
+      </td>
       <td>{{ row.payment_reference or '—' }}</td>
       <td>{{ row.description or '—' }}</td>
     </tr>
