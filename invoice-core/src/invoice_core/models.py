@@ -271,6 +271,14 @@ class LinkFileRequest(BaseModel):
     invoice_file_id: int
 
 
+class LinkSupplierRequest(BaseModel):
+    supplier_id: int
+
+
+class LinkCustomerRequest(BaseModel):
+    customer_id: int
+
+
 class PatchInvoiceRequest(BaseModel):
     note: Optional[str] = None
     payment_status_locked: Optional[bool] = None

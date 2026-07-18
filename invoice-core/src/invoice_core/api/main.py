@@ -39,7 +39,9 @@ from invoice_core.models import (
     CustomerOut,
     CustomerUpdate,
     InvoiceOut,
+    LinkCustomerRequest,
     LinkFileRequest,
+    LinkSupplierRequest,
     PatchInvoiceRequest,
     ProjectIn,
     ProjectOut,
@@ -571,6 +573,54 @@ def unlink_invoice_from_file(invoice_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Invoice not found")
     inv.invoice_file_id = None
     inv.invoice_file_locked = False
+    db.commit()
+    return {"ok": True}
+
+
+@app.put("/api/v1/invoices/{invoice_id}/supplier")
+def link_invoice_to_supplier(invoice_id: int, req: LinkSupplierRequest, db: Session = Depends(get_db)):
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if not db.get(Supplier, req.supplier_id):
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    inv.supplier_id = req.supplier_id
+    inv.updated_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/v1/invoices/{invoice_id}/supplier")
+def unlink_invoice_from_supplier(invoice_id: int, db: Session = Depends(get_db)):
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    inv.supplier_id = None
+    inv.updated_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True}
+
+
+@app.put("/api/v1/invoices/{invoice_id}/customer")
+def link_invoice_to_customer(invoice_id: int, req: LinkCustomerRequest, db: Session = Depends(get_db)):
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if not db.get(Customer, req.customer_id):
+        raise HTTPException(status_code=404, detail="Customer not found")
+    inv.customer_id = req.customer_id
+    inv.updated_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/v1/invoices/{invoice_id}/customer")
+def unlink_invoice_from_customer(invoice_id: int, db: Session = Depends(get_db)):
+    inv = db.get(Invoice, invoice_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    inv.customer_id = None
+    inv.updated_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
 

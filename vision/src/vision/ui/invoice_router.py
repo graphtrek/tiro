@@ -363,6 +363,48 @@ def invoice_unlink_file(request: Request, invoice_id: int):
     return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
 
 
+# ── Manual link / unlink (Invoice ↔ Supplier / Customer) ─────────────────────
+
+@router.post("/invoices/{invoice_id}/supplier/link")
+def invoice_link_supplier(request: Request, invoice_id: int, supplier_id: int = Form(...)):
+    client = _client()
+    client.link_invoice_supplier(invoice_id, supplier_id)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
+@router.post("/invoices/{invoice_id}/supplier/unlink")
+def invoice_unlink_supplier(request: Request, invoice_id: int):
+    client = _client()
+    client.unlink_invoice_supplier(invoice_id)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
+@router.post("/invoices/{invoice_id}/customer/link")
+def invoice_link_customer(request: Request, invoice_id: int, customer_id: int = Form(...)):
+    client = _client()
+    client.link_invoice_customer(invoice_id, customer_id)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
+@router.post("/invoices/{invoice_id}/customer/unlink")
+def invoice_unlink_customer(request: Request, invoice_id: int):
+    client = _client()
+    client.unlink_invoice_customer(invoice_id)
+    data = client.get_invoice(invoice_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Számla nem található")
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+
+
 # ── Manual link / unlink (BankTransaction ↔ InvoiceFile) ─────────────────────
 
 @router.post("/transactions/{txn_id}/invoice-file/link")
@@ -508,6 +550,30 @@ def picker_invoices(
         rows=rows,
         txn_id=txn_id,
         tx=tx,
+    )
+
+
+@router.get("/picker/partners")
+def picker_partners(
+    request: Request,
+    kind: str,
+    invoice_id: Optional[int] = None,
+):
+    if kind not in ("supplier", "customer"):
+        raise HTTPException(status_code=422, detail="kind must be 'supplier' or 'customer'")
+    client = _client()
+    rows = dict_to_ns(client.get_suppliers() if kind == "supplier" else client.get_customers())
+    invoice = None
+    if invoice_id:
+        inv_data = client.get_invoice(invoice_id)
+        if inv_data:
+            invoice = dict_to_ns(inv_data)
+    return _resp(
+        request, "partials/picker_partners.html", client,
+        rows=rows,
+        kind=kind,
+        invoice_id=invoice_id,
+        invoice=invoice,
     )
 
 

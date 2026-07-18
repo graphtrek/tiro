@@ -162,6 +162,18 @@ class InvoiceCoreClient:
     def unlink_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict | None:
         return self._delete(f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}")
 
+    def link_invoice_supplier(self, invoice_id: int, supplier_id: int) -> dict | None:
+        return self._put(f"/api/v1/invoices/{invoice_id}/supplier", {"supplier_id": supplier_id})
+
+    def unlink_invoice_supplier(self, invoice_id: int) -> dict | None:
+        return self._delete(f"/api/v1/invoices/{invoice_id}/supplier")
+
+    def link_invoice_customer(self, invoice_id: int, customer_id: int) -> dict | None:
+        return self._put(f"/api/v1/invoices/{invoice_id}/customer", {"customer_id": customer_id})
+
+    def unlink_invoice_customer(self, invoice_id: int) -> dict | None:
+        return self._delete(f"/api/v1/invoices/{invoice_id}/customer")
+
     # ── Invoice file delete ────────────────────────────────────────────────────
 
     def delete_invoice_file(self, file_id: int) -> dict | None:

@@ -1,0 +1,60 @@
+{% from "_macros.html" import direction_badge %}
+
+{% if invoice %}
+<div class="card border-primary mb-3">
+  <div class="card-header py-1 px-3 bg-primary bg-opacity-10 small fw-semibold text-primary">
+    <i class="bi bi-file-earmark-text me-1"></i>Számla
+  </div>
+  <div class="card-body py-2 px-3">
+    <div class="d-flex flex-wrap gap-3">
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Számlaszám</div>
+        <div class="small fw-bold font-monospace">{{ invoice.invoice_number }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.7rem">Irány</div>
+        <div class="small">{{ direction_badge(invoice.direction) }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="table-responsive">
+  <table id="picker-partners-table" class="table table-sm table-hover mb-0">
+    <thead class="table-light">
+      <tr>
+        <th>Név</th>
+        <th>Adószám</th>
+        <th>Cím</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="small fw-bold">{{ row.name }}</td>
+        <td class="small font-monospace">{{ row.tax_id or '—' }}</td>
+        <td class="small">{{ row.address or '—' }}</td>
+        <td>
+          <form hx-post="/ui/invoices/{{ invoice_id }}/{{ kind }}/link"
+                hx-target="body"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                class="d-inline m-0">
+            <input type="hidden" name="{{ kind }}_id" value="{{ row.id }}">
+            <button type="submit" class="btn btn-primary btn-sm py-0"
+                    onclick="bootstrap.Modal.getInstance(document.getElementById('pickerModal'))?.hide()">
+              Kiválaszt
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4" class="text-muted text-center py-3">Nincs találat</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
