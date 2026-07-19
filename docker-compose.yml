@@ -194,12 +194,12 @@ services:
       OAUTH2_PROXY_CLIENT_SECRET: ${DOZZLE_GOOGLE_CLIENT_SECRET}
       OAUTH2_PROXY_COOKIE_SECRET: ${DOZZLE_COOKIE_SECRET}
       OAUTH2_PROXY_EMAIL_DOMAINS: ${DOZZLE_EMAIL_DOMAIN:-*}
-      OAUTH2_PROXY_REDIRECT_URL: http://${PUBLIC_HOST:-localhost}:8888/oauth2/callback
+      OAUTH2_PROXY_REDIRECT_URL: http://${PUBLIC_HOST:-localhost}:8008/oauth2/callback
       OAUTH2_PROXY_UPSTREAMS: http://dozzle:8080
       OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
       OAUTH2_PROXY_COOKIE_SECURE: "false"
     ports:
-      - "8888:4180"
+      - "8008:4180"
     depends_on:
       - dozzle
     restart: unless-stopped
