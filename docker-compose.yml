@@ -21,7 +21,9 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: imre.tatai@graphtrek.co
       PGADMIN_DEFAULT_PASSWORD: graphtrek
-      PGADMIN_CONFIG_SERVER_MODE: "False"
+      # Must be True for Google OAuth2 login below to take effect — desktop
+      # mode (False) auto-authenticates the browser and skips login entirely.
+      PGADMIN_CONFIG_SERVER_MODE: "True"
       # Read by pgadmin/config_local.py to configure Google OAuth2 login.
       # Register http://<PUBLIC_HOST>:5050/oauth2/authorize as the redirect
       # URI on this Google OAuth client.
