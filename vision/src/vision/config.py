@@ -54,6 +54,10 @@ class Settings(BaseSettings):
 
     # Upstream services
     auth_service_url: str = "http://localhost:8007"
+    # Browser-reachable auth URL (login links, silent-refresh fetch). Falls back to
+    # auth_service_url — only needs overriding when that's a Docker-internal hostname
+    # the browser can't resolve (e.g. auth_service_url=http://auth:8007).
+    auth_public_url: str = ""
     invoice_core_url: str = "http://localhost:8004"
     uploader_url: str = "http://localhost:8006"
     srcprofit_url: str = "https://srcprofit2.graphtrek.co"
@@ -65,6 +69,10 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8009
     log_level: str = "INFO"
+
+    @property
+    def auth_public_url_or_default(self) -> str:
+        return self.auth_public_url or self.auth_service_url
 
 
 def get_settings() -> Settings:

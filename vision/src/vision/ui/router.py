@@ -38,7 +38,7 @@ def _load_providers(settings: Settings) -> list[dict]:
         resp.raise_for_status()
         providers = resp.json()
         for provider in providers:
-            provider["login_url"] = f"{settings.auth_service_url}{provider['login_url']}"
+            provider["login_url"] = f"{settings.auth_public_url_or_default}{provider['login_url']}"
         if providers:
             return providers
     except requests.RequestException as exc:
@@ -48,7 +48,7 @@ def _load_providers(settings: Settings) -> list[dict]:
             "key": "google",
             "label": "Belépés Google-fiókkal",
             "icon": "bi-google",
-            "login_url": f"{settings.auth_service_url}/auth/google/login",
+            "login_url": f"{settings.auth_public_url_or_default}/auth/google/login",
         },
     ]
 
@@ -65,7 +65,7 @@ def login(request: Request, next: str | None = None, error: str | None = None):
             "providers": _load_providers(settings),
             "next": next or "/ui/",
             "error": error,
-            "auth_service_url": settings.auth_service_url,
+            "auth_service_url": settings.auth_public_url_or_default,
             "current_year": date.today().year,
         },
     )

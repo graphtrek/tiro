@@ -16,13 +16,30 @@ services:
       retries: 10
     restart: unless-stopped
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: imre.tatai@graphtrek.co
+      PGADMIN_DEFAULT_PASSWORD: graphtrek
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    restart: unless-stopped
+
   auth:
     build: ./auth
     env_file: ./auth/.env
     environment:
       API_PORT: 8007
       INVOICE_CORE_URL: http://invoice-core:8004
-      VISION_URL: http://vision:8009
+      # Browser-facing redirect target after login — must be reachable from the
+      # user's browser, not the Docker-internal service name.
+      VISION_URL: http://${PUBLIC_HOST:-localhost}:8009
     ports:
       - "8007:8007"
     volumes:
@@ -136,7 +153,11 @@ services:
     environment:
       API_PORT: 8009
       INVOICE_CORE_URL: http://invoice-core:8004
+      # Internal (container-to-container) auth calls.
       AUTH_SERVICE_URL: http://auth:8007
+      # Browser-facing auth URL (login links, silent-refresh fetch) — must be
+      # reachable from the user's browser, not the Docker-internal service name.
+      AUTH_PUBLIC_URL: http://${PUBLIC_HOST:-localhost}:8007
     ports:
       - "8009:8009"
     depends_on:
@@ -145,6 +166,7 @@ services:
 
 volumes:
   pgdata:
+  pgadmin-data:
   downloads-data:
   bank-storage:
   auth-keys:
