@@ -113,8 +113,6 @@
       <td>{{ row.payment_reference or '—' }}</td>
       <td>{{ row.description or '—' }}</td>
     </tr>
-    {% else %}
-    <tr><td colspan="9" class="text-center text-muted">Nincs találat</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -129,7 +127,7 @@
       $("#transaction-table").DataTable().destroy();
     }
     const dt = new DataTable("#transaction-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs találat" },
       pageLength: 10,
       lengthMenu: [10, 25, 50, 100],
       order: [[1, "desc"]],

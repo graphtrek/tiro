@@ -1,0 +1,150 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: invoice
+      POSTGRES_USER: graphtrek
+      POSTGRES_PASSWORD: graphtrek
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U graphtrek -d invoice"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  auth:
+    build: ./auth
+    env_file: ./auth/.env
+    environment:
+      API_PORT: 8007
+      INVOICE_CORE_URL: http://invoice-core:8004
+      VISION_URL: http://vision:8009
+    ports:
+      - "8007:8007"
+    volumes:
+      - auth-keys:/app/keys
+    restart: unless-stopped
+
+  attachment-downloader:
+    build: ./attachment-downloader
+    env_file: ./attachment-downloader/.env
+    environment:
+      API_PORT: 8000
+      AUTH_SERVICE_URL: http://auth:8007
+    ports:
+      - "8000:8000"
+    volumes:
+      - downloads-data:/app/downloads
+      - ./attachment-downloader/credentials.json:/app/credentials.json:ro
+      - ./attachment-downloader/token.json:/app/token.json
+    depends_on:
+      - auth
+    restart: unless-stopped
+
+  nav-invoice:
+    build: ./nav-invoice
+    env_file: ./nav-invoice/.env
+    environment:
+      API_PORT: 8002
+      AUTH_SERVICE_URL: http://auth:8007
+    ports:
+      - "8002:8002"
+    depends_on:
+      - auth
+    restart: unless-stopped
+
+  bank:
+    build: ./bank
+    env_file: ./bank/.env
+    environment:
+      API_PORT: 8005
+      AUTH_SERVICE_URL: http://auth:8007
+      BALANCE_STATEMENTS_DIR: /data/bank-storage
+    ports:
+      - "8005:8005"
+    volumes:
+      - bank-storage:/data/bank-storage
+    depends_on:
+      - auth
+    restart: unless-stopped
+
+  uploader:
+    build: ./uploader
+    env_file: ./uploader/.env
+    environment:
+      API_PORT: 8006
+      AUTH_SERVICE_URL: http://auth:8007
+      STORAGE_DIR: /data/bank-storage
+    ports:
+      - "8006:8006"
+    volumes:
+      - bank-storage:/data/bank-storage
+    depends_on:
+      - auth
+    restart: unless-stopped
+
+  invoice-file-filter:
+    build: ./invoice-file-filter
+    env_file: ./invoice-file-filter/.env
+    environment:
+      API_PORT: 8001
+      ATTACHMENT_DOWNLOADER_URL: http://attachment-downloader:8000
+      AUTH_SERVICE_URL: http://auth:8007
+    ports:
+      - "8001:8001"
+    volumes:
+      - downloads-data:/app/downloads
+    depends_on:
+      - attachment-downloader
+      - auth
+    restart: unless-stopped
+
+  invoice-core:
+    build: ./invoice-core
+    env_file: ./invoice-core/.env
+    environment:
+      API_PORT: 8004
+      DB_URL: jdbc:postgresql://db:5432/invoice
+      DB_USER: graphtrek
+      DB_PWD: graphtrek
+      NAV_INVOICE_URL: http://nav-invoice:8002
+      INVOICE_FILE_FILTER_URL: http://invoice-file-filter:8001
+      BANK_URL: http://bank:8005
+      AUTH_SERVICE_URL: http://auth:8007
+    ports:
+      - "8004:8004"
+    volumes:
+      - downloads-data:/app/downloads
+    depends_on:
+      db:
+        condition: service_healthy
+      nav-invoice:
+        condition: service_started
+      invoice-file-filter:
+        condition: service_started
+      bank:
+        condition: service_started
+    restart: unless-stopped
+
+  vision:
+    build: ./vision
+    env_file: ./vision/.env
+    environment:
+      API_PORT: 8009
+      INVOICE_CORE_URL: http://invoice-core:8004
+      AUTH_SERVICE_URL: http://auth:8007
+    ports:
+      - "8009:8009"
+    depends_on:
+      - invoice-core
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  downloads-data:
+  bank-storage:
+  auth-keys:

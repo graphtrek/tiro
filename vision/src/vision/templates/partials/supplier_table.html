@@ -30,8 +30,6 @@
       <td class="text-end">{{ amount_fmt(row.bank_total) }}</td>
       <td>{{ row.last_invoice_date or '—' }}</td>
     </tr>
-    {% else %}
-    <tr><td colspan="8" class="text-center text-muted">Nincs találat</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -42,7 +40,7 @@
       $("#supplier-table").DataTable().destroy();
     }
     new DataTable("#supplier-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs találat" },
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
       order: [[0, "asc"]],

@@ -54,8 +54,6 @@
         </button>
       </td>
     </tr>
-    {% else %}
-    <tr><td colspan="8" class="text-center text-muted">Nincs találat</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -70,7 +68,7 @@
       $("#file-table").DataTable().destroy();
     }
     new DataTable("#file-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs találat" },
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
       scrollX: true,
