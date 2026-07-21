@@ -60,28 +60,6 @@ class InvoiceCoreClient:
             logger.warning("invoice-core POST %s failed: %s", path, exc)
             return None
 
-    def _put(self, path: str, json: dict | None = None) -> dict | None:
-        try:
-            resp = self.session.put(
-                f"{self.base_url}{path}",
-                json=json,
-                timeout=self.timeout,
-            )
-            resp.raise_for_status()
-            return resp.json()
-        except requests.RequestException as exc:
-            logger.warning("invoice-core PUT %s failed: %s", path, exc)
-            return None
-
-    def _delete(self, path: str) -> dict | None:
-        try:
-            resp = self.session.delete(f"{self.base_url}{path}", timeout=self.timeout)
-            resp.raise_for_status()
-            return resp.json()
-        except requests.RequestException as exc:
-            logger.warning("invoice-core DELETE %s failed: %s", path, exc)
-            return None
-
     # ── Dashboard ──────────────────────────────────────────────────────────────
 
     def get_dashboard(self) -> dict:
@@ -143,48 +121,84 @@ class InvoiceCoreClient:
         return resp
 
     # ── Manual link / unlink ───────────────────────────────────────────────────
+    # These use `_write_json` (not `_put`/`_delete`) so a failed link/unlink
+    # surfaces as {"error": ...} to the caller instead of being silently dropped.
 
-    def link_invoice_to_file(self, invoice_id: int, file_id: int) -> dict | None:
-        return self._put(f"/api/v1/invoices/{invoice_id}/invoice-file", {"invoice_file_id": file_id})
+    def link_invoice_to_file(self, invoice_id: int, file_id: int) -> dict:
+        return self._write_json(
+            "PUT", f"/api/v1/invoices/{invoice_id}/invoice-file",
+            {"invoice_file_id": file_id}, "Nem sikerült csatolni a fájlt"
+        )
 
-    def unlink_invoice_from_file(self, invoice_id: int) -> dict | None:
-        return self._delete(f"/api/v1/invoices/{invoice_id}/invoice-file")
+    def unlink_invoice_from_file(self, invoice_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/invoices/{invoice_id}/invoice-file", {}, "Nem sikerült leválasztani a fájlt"
+        )
 
-    def link_transaction_to_file(self, txn_id: int, file_id: int) -> dict | None:
-        return self._put(f"/api/v1/transactions/{txn_id}/invoice-file", {"invoice_file_id": file_id})
+    def link_transaction_to_file(self, txn_id: int, file_id: int) -> dict:
+        return self._write_json(
+            "PUT", f"/api/v1/transactions/{txn_id}/invoice-file",
+            {"invoice_file_id": file_id}, "Nem sikerült csatolni a fájlt"
+        )
 
-    def unlink_transaction_from_file(self, txn_id: int) -> dict | None:
-        return self._delete(f"/api/v1/transactions/{txn_id}/invoice-file")
+    def unlink_transaction_from_file(self, txn_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/transactions/{txn_id}/invoice-file", {}, "Nem sikerült leválasztani a fájlt"
+        )
 
-    def link_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict | None:
-        return self._put(f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}")
+    def link_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict:
+        return self._write_json(
+            "PUT", f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}", {}, "Nem sikerült kapcsolni a tranzakciót"
+        )
 
-    def unlink_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict | None:
-        return self._delete(f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}")
+    def unlink_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}", {}, "Nem sikerült leválasztani a tranzakciót"
+        )
 
-    def link_invoice_supplier(self, invoice_id: int, supplier_id: int) -> dict | None:
-        return self._put(f"/api/v1/invoices/{invoice_id}/supplier", {"supplier_id": supplier_id})
+    def link_invoice_supplier(self, invoice_id: int, supplier_id: int) -> dict:
+        return self._write_json(
+            "PUT", f"/api/v1/invoices/{invoice_id}/supplier",
+            {"supplier_id": supplier_id}, "Nem sikerült kapcsolni a szállítót"
+        )
 
-    def unlink_invoice_supplier(self, invoice_id: int) -> dict | None:
-        return self._delete(f"/api/v1/invoices/{invoice_id}/supplier")
+    def unlink_invoice_supplier(self, invoice_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/invoices/{invoice_id}/supplier", {}, "Nem sikerült leválasztani a szállítót"
+        )
 
-    def link_invoice_customer(self, invoice_id: int, customer_id: int) -> dict | None:
-        return self._put(f"/api/v1/invoices/{invoice_id}/customer", {"customer_id": customer_id})
+    def link_invoice_customer(self, invoice_id: int, customer_id: int) -> dict:
+        return self._write_json(
+            "PUT", f"/api/v1/invoices/{invoice_id}/customer",
+            {"customer_id": customer_id}, "Nem sikerült kapcsolni a vevőt"
+        )
 
-    def unlink_invoice_customer(self, invoice_id: int) -> dict | None:
-        return self._delete(f"/api/v1/invoices/{invoice_id}/customer")
+    def unlink_invoice_customer(self, invoice_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/invoices/{invoice_id}/customer", {}, "Nem sikerült leválasztani a vevőt"
+        )
 
-    def link_transaction_supplier(self, txn_id: int, supplier_id: int) -> dict | None:
-        return self._put(f"/api/v1/transactions/{txn_id}/supplier", {"supplier_id": supplier_id})
+    def link_transaction_supplier(self, txn_id: int, supplier_id: int) -> dict:
+        return self._write_json(
+            "PUT", f"/api/v1/transactions/{txn_id}/supplier",
+            {"supplier_id": supplier_id}, "Nem sikerült kapcsolni a szállítót"
+        )
 
-    def unlink_transaction_supplier(self, txn_id: int) -> dict | None:
-        return self._delete(f"/api/v1/transactions/{txn_id}/supplier")
+    def unlink_transaction_supplier(self, txn_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/transactions/{txn_id}/supplier", {}, "Nem sikerült leválasztani a szállítót"
+        )
 
-    def link_transaction_customer(self, txn_id: int, customer_id: int) -> dict | None:
-        return self._put(f"/api/v1/transactions/{txn_id}/customer", {"customer_id": customer_id})
+    def link_transaction_customer(self, txn_id: int, customer_id: int) -> dict:
+        return self._write_json(
+            "PUT", f"/api/v1/transactions/{txn_id}/customer",
+            {"customer_id": customer_id}, "Nem sikerült kapcsolni a vevőt"
+        )
 
-    def unlink_transaction_customer(self, txn_id: int) -> dict | None:
-        return self._delete(f"/api/v1/transactions/{txn_id}/customer")
+    def unlink_transaction_customer(self, txn_id: int) -> dict:
+        return self._write_json(
+            "DELETE", f"/api/v1/transactions/{txn_id}/customer", {}, "Nem sikerült leválasztani a vevőt"
+        )
 
     # ── Invoice file delete ────────────────────────────────────────────────────
 

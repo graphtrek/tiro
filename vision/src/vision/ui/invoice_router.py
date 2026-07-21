@@ -346,21 +346,21 @@ def invoice_set_fizetve(request: Request, invoice_id: int, locked: str = Form("t
 @router.post("/invoices/{invoice_id}/invoice-file/link")
 def invoice_link_file(request: Request, invoice_id: int, file_id: int = Form(...)):
     client = _client()
-    client.link_invoice_to_file(invoice_id, file_id)
+    result = client.link_invoice_to_file(invoice_id, file_id)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/invoices/{invoice_id}/invoice-file/unlink")
 def invoice_unlink_file(request: Request, invoice_id: int):
     client = _client()
-    client.unlink_invoice_from_file(invoice_id)
+    result = client.unlink_invoice_from_file(invoice_id)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
 
 
 # ── Manual link / unlink (Invoice ↔ Supplier / Customer) ─────────────────────
@@ -368,41 +368,41 @@ def invoice_unlink_file(request: Request, invoice_id: int):
 @router.post("/invoices/{invoice_id}/supplier/link")
 def invoice_link_supplier(request: Request, invoice_id: int, supplier_id: int = Form(...)):
     client = _client()
-    client.link_invoice_supplier(invoice_id, supplier_id)
+    result = client.link_invoice_supplier(invoice_id, supplier_id)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/invoices/{invoice_id}/supplier/unlink")
 def invoice_unlink_supplier(request: Request, invoice_id: int):
     client = _client()
-    client.unlink_invoice_supplier(invoice_id)
+    result = client.unlink_invoice_supplier(invoice_id)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/invoices/{invoice_id}/customer/link")
 def invoice_link_customer(request: Request, invoice_id: int, customer_id: int = Form(...)):
     client = _client()
-    client.link_invoice_customer(invoice_id, customer_id)
+    result = client.link_invoice_customer(invoice_id, customer_id)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/invoices/{invoice_id}/customer/unlink")
 def invoice_unlink_customer(request: Request, invoice_id: int):
     client = _client()
-    client.unlink_invoice_customer(invoice_id)
+    result = client.unlink_invoice_customer(invoice_id)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/invoices/{invoice_id}/supplier/create-and-link")
@@ -423,7 +423,8 @@ def invoice_create_and_link_supplier(
         email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
     )
     if not result.get("error"):
-        client.link_invoice_supplier(invoice_id, result["id"])
+        link_result = client.link_invoice_supplier(invoice_id, result["id"])
+        result = {"error": link_result.get("error")} if link_result.get("error") else result
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
@@ -451,7 +452,8 @@ def invoice_create_and_link_customer(
         iban=iban or None, bban=bban or None,
     )
     if not result.get("error"):
-        client.link_invoice_customer(invoice_id, result["id"])
+        link_result = client.link_invoice_customer(invoice_id, result["id"])
+        result = {"error": link_result.get("error")} if link_result.get("error") else result
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
@@ -463,21 +465,21 @@ def invoice_create_and_link_customer(
 @router.post("/transactions/{txn_id}/invoice-file/link")
 def transaction_link_file(request: Request, txn_id: int, file_id: int = Form(...)):
     client = _client()
-    client.link_transaction_to_file(txn_id, file_id)
+    result = client.link_transaction_to_file(txn_id, file_id)
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/transactions/{txn_id}/invoice-file/unlink")
 def transaction_unlink_file(request: Request, txn_id: int):
     client = _client()
-    client.unlink_transaction_from_file(txn_id)
+    result = client.unlink_transaction_from_file(txn_id)
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
 
 
 # ── Manual link / unlink (BankTransaction ↔ Supplier / Customer) ─────────────
@@ -485,41 +487,41 @@ def transaction_unlink_file(request: Request, txn_id: int):
 @router.post("/transactions/{txn_id}/supplier/link")
 def transaction_link_supplier(request: Request, txn_id: int, supplier_id: int = Form(...)):
     client = _client()
-    client.link_transaction_supplier(txn_id, supplier_id)
+    result = client.link_transaction_supplier(txn_id, supplier_id)
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/transactions/{txn_id}/supplier/unlink")
 def transaction_unlink_supplier(request: Request, txn_id: int):
     client = _client()
-    client.unlink_transaction_supplier(txn_id)
+    result = client.unlink_transaction_supplier(txn_id)
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/transactions/{txn_id}/customer/link")
 def transaction_link_customer(request: Request, txn_id: int, customer_id: int = Form(...)):
     client = _client()
-    client.link_transaction_customer(txn_id, customer_id)
+    result = client.link_transaction_customer(txn_id, customer_id)
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/transactions/{txn_id}/customer/unlink")
 def transaction_unlink_customer(request: Request, txn_id: int):
     client = _client()
-    client.unlink_transaction_customer(txn_id)
+    result = client.unlink_transaction_customer(txn_id)
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/transactions/{txn_id}/supplier/create-and-link")
@@ -540,7 +542,8 @@ def transaction_create_and_link_supplier(
         email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
     )
     if not result.get("error"):
-        client.link_transaction_supplier(txn_id, result["id"])
+        link_result = client.link_transaction_supplier(txn_id, result["id"])
+        result = {"error": link_result.get("error")} if link_result.get("error") else result
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
@@ -568,7 +571,8 @@ def transaction_create_and_link_customer(
         iban=iban or None, bban=bban or None,
     )
     if not result.get("error"):
-        client.link_transaction_customer(txn_id, result["id"])
+        link_result = client.link_transaction_customer(txn_id, result["id"])
+        result = {"error": link_result.get("error")} if link_result.get("error") else result
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
@@ -580,21 +584,21 @@ def transaction_create_and_link_customer(
 @router.post("/invoices/{invoice_id}/transactions/{txn_id}/link")
 def invoice_link_transaction(request: Request, invoice_id: int, txn_id: int):
     client = _client()
-    client.link_invoice_transaction(invoice_id, txn_id)
+    result = client.link_invoice_transaction(invoice_id, txn_id)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/invoices/{invoice_id}/transactions/{txn_id}/unlink")
 def invoice_unlink_transaction(request: Request, invoice_id: int, txn_id: int):
     client = _client()
-    client.unlink_invoice_transaction(invoice_id, txn_id)
+    result = client.unlink_invoice_transaction(invoice_id, txn_id)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data))
+    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
 
 
 # ── Manual link / unlink (BankTransaction ↔ Invoice, transaction-side) ───────
@@ -604,21 +608,21 @@ def invoice_unlink_transaction(request: Request, invoice_id: int, txn_id: int):
 @router.post("/transactions/{txn_id}/invoices/{invoice_id}/link")
 def transaction_link_invoice(request: Request, txn_id: int, invoice_id: int):
     client = _client()
-    client.link_invoice_transaction(invoice_id, txn_id)
+    result = client.link_invoice_transaction(invoice_id, txn_id)
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
 
 
 @router.post("/transactions/{txn_id}/invoices/{invoice_id}/unlink")
 def transaction_unlink_invoice(request: Request, txn_id: int, invoice_id: int):
     client = _client()
-    client.unlink_invoice_transaction(invoice_id, txn_id)
+    result = client.unlink_invoice_transaction(invoice_id, txn_id)
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data))
+    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
 
 
 # ── Picker routes (HTMX-loaded candidate lists for modal) ─────────────────────
