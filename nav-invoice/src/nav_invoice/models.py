@@ -62,7 +62,6 @@ class InvoiceDetail(BaseModel):
     header: InvoiceHeader
     line_items: list[InvoiceLineItem] = []
     status: Optional[InvoiceStatus] = None
-    keltes_datuma: date
 
 
 class InvoiceListEntry(BaseModel):

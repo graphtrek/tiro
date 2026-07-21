@@ -62,9 +62,12 @@ class TestInvoiceQueryParams:
 
 class TestSubmitInvoiceRequest:
     def test_create_request(self):
-        request = SubmitInvoiceRequest(
-            invoice=InvoiceDetail(header=None)  # type: ignore[arg-type]
+        header = InvoiceHeader(
+            szamlaszam="2026051234",
+            keltes_datuma=date(2026, 5, 12),
+            szamlazas_vegezo="Test Kft.",
         )
+        request = SubmitInvoiceRequest(invoice=InvoiceDetail(header=header))
 
         assert request.invoice is not None
 
