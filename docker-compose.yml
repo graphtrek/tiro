@@ -1,16 +1,17 @@
 services:
   db:
     image: postgres:16-alpine
+    env_file: ./.env
     environment:
-      POSTGRES_DB: invoice
-      POSTGRES_USER: graphtrek
-      POSTGRES_PASSWORD: graphtrek
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PWD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U graphtrek -d invoice"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -42,7 +43,7 @@ services:
 
   auth:
     build: ./auth
-    env_file: ./auth/.env
+    env_file: ./.env
     environment:
       API_PORT: 8007
       INVOICE_CORE_URL: http://invoice-core:8004
@@ -57,10 +58,13 @@ services:
 
   attachment-downloader:
     build: ./attachment-downloader
-    env_file: ./attachment-downloader/.env
+    env_file: ./.env
     environment:
       API_PORT: 8000
       AUTH_SERVICE_URL: http://auth:8007
+      # Exception to the shared AUTH_ENABLED=true default in .env — this
+      # service is still called unauthenticated by the invoice-core sync CLI.
+      AUTH_ENABLED: "false"
     ports:
       - "8000:8000"
     volumes:
@@ -73,7 +77,7 @@ services:
 
   nav-invoice:
     build: ./nav-invoice
-    env_file: ./nav-invoice/.env
+    env_file: ./.env
     environment:
       API_PORT: 8002
       AUTH_SERVICE_URL: http://auth:8007
@@ -85,7 +89,7 @@ services:
 
   bank:
     build: ./bank
-    env_file: ./bank/.env
+    env_file: ./.env
     environment:
       API_PORT: 8005
       AUTH_SERVICE_URL: http://auth:8007
@@ -100,7 +104,7 @@ services:
 
   uploader:
     build: ./uploader
-    env_file: ./uploader/.env
+    env_file: ./.env
     environment:
       API_PORT: 8006
       AUTH_SERVICE_URL: http://auth:8007
@@ -115,7 +119,7 @@ services:
 
   invoice-file-filter:
     build: ./invoice-file-filter
-    env_file: ./invoice-file-filter/.env
+    env_file: ./.env
     environment:
       API_PORT: 8001
       ATTACHMENT_DOWNLOADER_URL: http://attachment-downloader:8000
@@ -131,12 +135,12 @@ services:
 
   invoice-core:
     build: ./invoice-core
-    env_file: ./invoice-core/.env
+    env_file: ./.env
     environment:
       API_PORT: 8004
-      DB_URL: jdbc:postgresql://db:5432/invoice
-      DB_USER: graphtrek
-      DB_PWD: graphtrek
+      DB_URL: jdbc:postgresql://db:${DB_PORT:-5432}/${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PWD: ${DB_PWD}
       NAV_INVOICE_URL: http://nav-invoice:8002
       INVOICE_FILE_FILTER_URL: http://invoice-file-filter:8001
       BANK_URL: http://bank:8005
@@ -158,7 +162,7 @@ services:
 
   vision:
     build: ./vision
-    env_file: ./vision/.env
+    env_file: ./.env
     environment:
       API_PORT: 8009
       INVOICE_CORE_URL: http://invoice-core:8004
