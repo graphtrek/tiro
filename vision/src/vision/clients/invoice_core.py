@@ -220,9 +220,8 @@ class InvoiceCoreClient:
 
     # ── Partners ───────────────────────────────────────────────────────────────
 
-    def get_suppliers(self, exclude_own_company: bool = False) -> list[dict]:
-        params = {"exclude_own_company": exclude_own_company} if exclude_own_company else None
-        return self._get("/api/v1/partners/suppliers", params)
+    def get_suppliers(self) -> list[dict]:
+        return self._get("/api/v1/partners/suppliers")
 
     def get_supplier_summary(self) -> dict:
         return self._get_one("/api/v1/partners/suppliers/summary") or {}
@@ -230,9 +229,8 @@ class InvoiceCoreClient:
     def get_supplier(self, supplier_id: int) -> dict | None:
         return self._get_one(f"/api/v1/partners/suppliers/{supplier_id}")
 
-    def get_customers(self, exclude_own_company: bool = False) -> list[dict]:
-        params = {"exclude_own_company": exclude_own_company} if exclude_own_company else None
-        return self._get("/api/v1/partners/customers", params)
+    def get_customers(self) -> list[dict]:
+        return self._get("/api/v1/partners/customers")
 
     def get_customer(self, customer_id: int) -> dict | None:
         return self._get_one(f"/api/v1/partners/customers/{customer_id}")

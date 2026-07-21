@@ -308,8 +308,8 @@ def supplier_summary(db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/partners/suppliers")
-def list_suppliers(exclude_own_company: bool = False, db: Session = Depends(get_db)):
-    return [dataclasses.asdict(r) for r in partner_service.list_suppliers(db, exclude_own_company)]
+def list_suppliers(db: Session = Depends(get_db)):
+    return [dataclasses.asdict(r) for r in partner_service.list_suppliers(db)]
 
 
 @app.get("/api/v1/partners/suppliers/{supplier_id:int}")
@@ -321,8 +321,8 @@ def get_supplier(supplier_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/partners/customers")
-def list_customers(exclude_own_company: bool = False, db: Session = Depends(get_db)):
-    return [dataclasses.asdict(r) for r in partner_service.list_customers(db, exclude_own_company)]
+def list_customers(db: Session = Depends(get_db)):
+    return [dataclasses.asdict(r) for r in partner_service.list_customers(db)]
 
 
 @app.get("/api/v1/partners/customers/{customer_id:int}")

@@ -718,10 +718,7 @@ def picker_partners(
     if invoice_id and not source_type:
         source_type, source_id = "invoice", invoice_id
     client = _client()
-    rows = dict_to_ns(
-        client.get_suppliers(exclude_own_company=True) if kind == "supplier"
-        else client.get_customers(exclude_own_company=True)
-    )
+    rows = dict_to_ns(client.get_suppliers() if kind == "supplier" else client.get_customers())
     invoice = None
     tx = None
     if source_type == "transaction":

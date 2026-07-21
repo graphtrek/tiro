@@ -127,7 +127,7 @@ def _partner_invoice_rows(invoices: list[Invoice]) -> list[PartnerInvoiceRow]:
 # (same stats-join shape, just Supplier vs. Customer) — with only 2 call sites,
 # sharing that logic isn't worth the extra indirection. If you change one,
 # check whether the other needs the same change.
-def list_suppliers(db: Session, exclude_own_company: bool = False) -> list[SupplierRow]:
+def list_suppliers(db: Session) -> list[SupplierRow]:
     inv_stats = (
         db.query(
             Invoice.supplier_id,
@@ -153,10 +153,7 @@ def list_suppliers(db: Session, exclude_own_company: bool = False) -> list[Suppl
     )
     bank_map = {r.supplier_id: r for r in bank_stats}
 
-    query = db.query(Supplier)
-    if exclude_own_company:
-        query = query.filter(~Supplier.name.ilike(OWN_COMPANY_NAME_FILTER))
-    suppliers = query.order_by(Supplier.name).all()
+    suppliers = db.query(Supplier).order_by(Supplier.name).all()
     return [
         SupplierRow(
             id=sup.id,
@@ -274,7 +271,7 @@ def get_supplier(db: Session, supplier_id: int) -> Optional[SupplierDetail]:
     )
 
 
-def list_customers(db: Session, exclude_own_company: bool = False) -> list[CustomerRow]:
+def list_customers(db: Session) -> list[CustomerRow]:
     inv_stats = (
         db.query(
             Invoice.customer_id,
@@ -300,10 +297,7 @@ def list_customers(db: Session, exclude_own_company: bool = False) -> list[Custo
     )
     bank_map = {r.customer_id: r for r in bank_stats}
 
-    query = db.query(Customer)
-    if exclude_own_company:
-        query = query.filter(~Customer.name.ilike(OWN_COMPANY_NAME_FILTER))
-    customers = query.order_by(Customer.name).all()
+    customers = db.query(Customer).order_by(Customer.name).all()
     return [
         CustomerRow(
             id=cust.id,
