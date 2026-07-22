@@ -212,9 +212,11 @@ services:
       OAUTH2_PROXY_CLIENT_SECRET: ${DOZZLE_GOOGLE_CLIENT_SECRET}
       OAUTH2_PROXY_COOKIE_SECRET: ${DOZZLE_COOKIE_SECRET}
       OAUTH2_PROXY_EMAIL_DOMAINS: ${DOZZLE_EMAIL_DOMAIN:-*}
-      # nginx terminates TLS on 8008 and proxies here over loopback — register
-      # this exact https URI as the redirect URI on the Google OAuth client.
-      OAUTH2_PROXY_REDIRECT_URL: https://${PUBLIC_HOST:-localhost}:8008/oauth2/callback
+      # Dozzle lives on its own subdomain in production (e.g. tirologs.example.com),
+      # separate from PUBLIC_HOST (used by auth/vision) — set DOZZLE_REDIRECT_URL
+      # explicitly there. Register this exact URI as the redirect URI on the
+      # Google OAuth client.
+      OAUTH2_PROXY_REDIRECT_URL: ${DOZZLE_REDIRECT_URL:-http://localhost:8008/oauth2/callback}
       OAUTH2_PROXY_UPSTREAMS: http://dozzle:8080
       OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
       OAUTH2_PROXY_COOKIE_SECURE: "true"
