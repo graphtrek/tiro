@@ -174,7 +174,7 @@
           </button>
         </form>
       </div>
-    {% elif tx.direction == 'DEBIT' %}
+    {% else %}
       <span class="text-muted">—</span>
       <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-1"
               data-bs-toggle="modal" data-bs-target="#pickerModal"
@@ -182,8 +182,6 @@
               title="Szállító kapcsolása">
         <i class="bi bi-link-45deg"></i> Szállító kapcsolása
       </button>
-    {% else %}
-      <span class="text-muted">—</span>
     {% endif %}
   </dd>
 
@@ -200,7 +198,7 @@
           </button>
         </form>
       </div>
-    {% elif tx.direction == 'CREDIT' %}
+    {% else %}
       <span class="text-muted">—</span>
       <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-1"
               data-bs-toggle="modal" data-bs-target="#pickerModal"
@@ -208,8 +206,6 @@
               title="Vevő kapcsolása">
         <i class="bi bi-link-45deg"></i> Vevő kapcsolása
       </button>
-    {% else %}
-      <span class="text-muted">—</span>
     {% endif %}
   </dd>
 </dl>

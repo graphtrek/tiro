@@ -1,5 +1,13 @@
 {% from "_macros.html" import amount_fmt %}
 
+<style>
+  #transaction-table.dataTable.nowrap td.tx-wrap {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+
 <section id="tx-summary" class="invl-metrics mb-3">
   <article class="invl-metric-card">
     <span class="invl-metric-icon success"><i class="bi bi-arrow-down-circle"></i></span>
@@ -102,16 +110,26 @@
         {% endif %}
       </td>
       <td>
-        {% if row.direction == 'DEBIT' and row.supplier_id %}
-          <a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.partner_name }}</a>
-        {% elif row.direction == 'CREDIT' and row.customer_id %}
-          <a href="/ui/customers/{{ row.customer_id }}">{{ row.partner_name }}</a>
+        {% if row.direction == 'DEBIT' %}
+          {% if row.supplier_id %}
+            <a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.partner_name }}</a>
+          {% elif row.customer_id %}
+            <a href="/ui/customers/{{ row.customer_id }}">{{ row.partner_name }}</a>
+          {% else %}
+            <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+          {% endif %}
         {% else %}
-          <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+          {% if row.customer_id %}
+            <a href="/ui/customers/{{ row.customer_id }}">{{ row.partner_name }}</a>
+          {% elif row.supplier_id %}
+            <a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.partner_name }}</a>
+          {% else %}
+            <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+          {% endif %}
         {% endif %}
       </td>
-      <td>{{ row.payment_reference or '—' }}</td>
-      <td>{{ row.description or '—' }}</td>
+      <td class="tx-wrap" title="{{ row.payment_reference or '' }}">{{ row.payment_reference or '—' }}</td>
+      <td class="tx-wrap" title="{{ row.description or '' }}">{{ row.description or '—' }}</td>
     </tr>
     {% endfor %}
   </tbody>

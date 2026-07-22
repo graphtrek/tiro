@@ -157,7 +157,10 @@ def list_transactions(
             direction=t.direction,
             description=t.description,
             payment_reference=t.payment_reference,
-            partner_name=supplier_name if t.direction == "DEBIT" else customer_name,
+            partner_name=(
+                (supplier_name or customer_name) if t.direction == "DEBIT"
+                else (customer_name or supplier_name)
+            ),
             invoice_file_id=t.invoice_file_id,
             invoice_file_filename=inv_file,
             supplier_id=t.supplier_id,
