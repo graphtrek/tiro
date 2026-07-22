@@ -26,8 +26,10 @@ services:
       # mode (False) auto-authenticates the browser and skips login entirely.
       PGADMIN_CONFIG_SERVER_MODE: "True"
       # Read by pgadmin/config_local.py to configure Google OAuth2 login.
-      # Register http://<PUBLIC_HOST>:5050/oauth2/authorize as the redirect
-      # URI on this Google OAuth client.
+      # Register https://<PUBLIC_HOST>:5050/oauth2/authorize as the redirect
+      # URI on this Google OAuth client — nginx terminates TLS on 5050 and
+      # proxies to this container over loopback (see config_local.py for the
+      # PROXY_X_* settings that make pgAdmin trust nginx's X-Forwarded-Proto).
       OAUTH2_GOOGLE_CLIENT_ID: ${PGADMIN_GOOGLE_CLIENT_ID}
       OAUTH2_GOOGLE_CLIENT_SECRET: ${PGADMIN_GOOGLE_CLIENT_SECRET}
       OAUTH2_GOOGLE_HD: ${PGADMIN_GOOGLE_HD:-}
@@ -36,7 +38,7 @@ services:
       - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
       - ./pgadmin/config_local.py:/pgadmin4/config_local.py:ro
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     depends_on:
       - db
     restart: unless-stopped
@@ -210,12 +212,15 @@ services:
       OAUTH2_PROXY_CLIENT_SECRET: ${DOZZLE_GOOGLE_CLIENT_SECRET}
       OAUTH2_PROXY_COOKIE_SECRET: ${DOZZLE_COOKIE_SECRET}
       OAUTH2_PROXY_EMAIL_DOMAINS: ${DOZZLE_EMAIL_DOMAIN:-*}
-      OAUTH2_PROXY_REDIRECT_URL: http://${PUBLIC_HOST:-localhost}:8008/oauth2/callback
+      # nginx terminates TLS on 8008 and proxies here over loopback — register
+      # this exact https URI as the redirect URI on the Google OAuth client.
+      OAUTH2_PROXY_REDIRECT_URL: https://${PUBLIC_HOST:-localhost}:8008/oauth2/callback
       OAUTH2_PROXY_UPSTREAMS: http://dozzle:8080
       OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
-      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
     ports:
-      - "8008:4180"
+      - "127.0.0.1:8008:4180"
     depends_on:
       - dozzle
     restart: unless-stopped
