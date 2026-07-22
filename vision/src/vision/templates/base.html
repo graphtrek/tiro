@@ -138,6 +138,23 @@
           }
         });
       }
+
+      // A boosted nav (Bank submenu, a partner link inside the offcanvas, ...)
+      // replaces <body>'s innerHTML wholesale, so a still-open offcanvas/modal
+      // is yanked out without ever running Bootstrap's own hide() cleanup.
+      // Bootstrap's scroll-lock styles (overflow/padding-right), which it sets
+      // directly on the <body> ELEMENT — surviving the swap just like the
+      // element's classList does — are then stuck forever, leaving the page
+      // narrower and unable to scroll (DataTables columns end up cramped).
+      // A freshly boosted page never legitimately has one open, so clear them.
+      if (!window._boostScrollLockFixBound) {
+        window._boostScrollLockFixBound = true;
+        document.body.addEventListener('htmx:afterSwap', function (evt) {
+          if (evt.detail.target !== document.body) return;
+          document.body.style.removeProperty('overflow');
+          document.body.style.removeProperty('padding-right');
+        });
+      }
     })();
   </script>
 
