@@ -176,6 +176,7 @@ services:
     environment:
       API_PORT: 8009
       INVOICE_CORE_URL: http://invoice-core:8004
+      UPLOADER_URL: http://uploader:8006
       # Internal (container-to-container) auth calls.
       AUTH_SERVICE_URL: http://auth:8007
       # Browser-facing auth URL (login links, silent-refresh fetch) — must be

@@ -19,6 +19,7 @@ dist/
 
 # Environment & secrets
 .env
+.env_prod
 token.json
 credentials.json
 
