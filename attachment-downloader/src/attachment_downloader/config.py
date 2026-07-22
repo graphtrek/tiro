@@ -1,11 +1,14 @@
 import logging
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _BASE_DIR = Path(__file__).resolve().parent.parent.parent
+_WORKSPACE_ROOT = _BASE_DIR.parent
 _LOG_DIR = _BASE_DIR / "logs"
 _SRC_DIR = Path(__file__).resolve().parent.parent
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 
 class _Formatter(logging.Formatter):
@@ -35,7 +38,9 @@ def configure_logging(log_level: str = "INFO") -> None:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
+    )
 
     google_credentials_file: str = "credentials.json"
     google_token_file: str = "token.json"
@@ -43,7 +48,10 @@ class Settings(BaseSettings):
     download_root_dir: str = "downloads"
     log_level: str = "INFO"
     api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    api_port: int = Field(
+        8000,
+        validation_alias=AliasChoices("ATTACHMENT_DOWNLOADER_API_PORT", "API_PORT"),
+    )
 
     @property
     def credentials_path(self) -> Path:

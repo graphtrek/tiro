@@ -5,11 +5,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_WORKSPACE_ROOT = _PROJECT_ROOT.parent
 _LOG_DIR = _PROJECT_ROOT / "logs"
 _KEYS_DIR = _PROJECT_ROOT / "keys"
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 
 def configure_logging(log_level: str = "INFO") -> None:
@@ -36,7 +39,7 @@ class Settings(BaseSettings):
     """Auth mikroszerviz beállítások."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=False, extra="ignore"
+        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
     )
 
     # Google OAuth (Google Cloud Console → OAuth 2.0 Client ID, Web application)
@@ -73,7 +76,9 @@ class Settings(BaseSettings):
     # Szerver
     vision_url: str = "http://localhost:8009"  # login utáni default redirect
     api_host: str = "0.0.0.0"
-    api_port: int = 8007
+    api_port: int = Field(
+        8007, validation_alias=AliasChoices("AUTH_API_PORT", "API_PORT")
+    )
     log_level: str = "INFO"
 
     # invoice-core — login rekord mentése (best-effort, POST /api/v1/users)

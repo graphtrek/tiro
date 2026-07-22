@@ -7,11 +7,13 @@ credentials and software registration data into a single ``Settings`` object.
 import logging
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_WORKSPACE_ROOT = _PROJECT_ROOT.parent
 LOG_DIR = _PROJECT_ROOT / "logs"
-_ENV_FILE = _PROJECT_ROOT / ".env"
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 _SRC_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -83,7 +85,9 @@ class Settings(BaseSettings):
 
     # ── FastAPI server ──────────────────────────────────
     api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    api_port: int = Field(
+        8002, validation_alias=AliasChoices("NAV_INVOICE_API_PORT", "API_PORT")
+    )
 
     log_level: str = "INFO"
     cache_ttl_seconds: int = 3600

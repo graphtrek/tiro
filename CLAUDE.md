@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository layout
 
-This is a multi-project `uv`-based Python workspace. **Each sub-project has its own isolated virtual environment (`.venv`), `pyproject.toml`, and `.env`. There is NO shared/root virtual environment.**
+This is a multi-project `uv`-based Python workspace. **Each sub-project has its own isolated virtual environment (`.venv`) and `pyproject.toml`. There is NO shared/root virtual environment.**
 
 > **IMPORTANT — always use the project's own venv.** Before running any Python, test, or dependency command, `cd` into the specific sub-project and use *that* project's environment — either activate it (`source .venv/bin/activate`) or prefix with `uv run`. Never run a project's code from another project's venv or assume a workspace-wide environment.
+
+**Configuration is a single shared root `.env`** (copied from root `.env.example`) — every service's `config.py` (and duplicated `auth.py`/`jwt_auth.py` modules) points its `pydantic-settings` `env_file` there instead of a per-service `.env`. This is also the file Docker Compose reads (`env_file: ./.env` for every container). Most keys are shared plain names (`DB_USER`, `GOOGLE_CLIENT_ID`, `JWT_*`, NAV credentials, ...). A handful of keys genuinely differ per service — `API_PORT` always, plus `AUTH_ENABLED`/`LOG_LEVEL`/`REQUEST_TIMEOUT` for one exception service each — those use a `<SERVICE>_<KEY>` prefixed override (e.g. `NAV_INVOICE_API_PORT`, `ATTACHMENT_DOWNLOADER_AUTH_ENABLED`) that each service's Settings field reads first via a pydantic `validation_alias`, falling back to the shared plain key (which is also what Docker Compose's per-container `environment:` blocks set).
 
 | Directory | Purpose |
 |---|---|
@@ -26,7 +28,7 @@ Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs),
 - Each project's `.venv` lives at `<project>/.venv` and is the only environment you should use for that project's commands.
 - Install: `cd <project> && uv sync` (creates/updates `<project>/.venv`; or `pip install -e .` after activating it).
 - Run a command in the project's env: `cd <project> && uv run <cmd>`, or `source <project>/.venv/bin/activate` first.
-- Each service exposes both a **FastAPI** app under `api/` and a **CLI** (Click/Typer) under `cli/`, backed by a typed core package. Config via `pydantic-settings` reading `.env`. Tests under `tests/` (`uv run pytest`).
+- Each service exposes both a **FastAPI** app under `api/` and a **CLI** (Click/Typer) under `cli/`, backed by a typed core package. Config via `pydantic-settings` reading the shared root `.env`. Tests under `tests/` (`uv run pytest`).
 
 ## moneypenny — design wiki (not code)
 
@@ -83,8 +85,8 @@ uv run ruff format src/
 - `api/main.py` — FastAPI endpoints (`/health`, `/auth/login`, `/invoices`, `/invoices/{szamlaszam}`, `/report`, `/settings`)
 - `cli/main.py` — Click CLI
 
-### Environment (`.env` from `.env.example`)
-`USERNAME`, `PASSWORD`, `LICENSE_KEY` (XML signKey), `CSERE_KEY` (XML exchangeKey, 16 chars), `TAX_NUMBER` (8 digits), `SOFTWARE_*` (software registration block required in every request), `ENVIRONMENT` (`test`/`production`), optional `ENDPOINT_URL` override, `API_HOST`/`API_PORT`, `LOG_LEVEL`.
+### Environment (shared root `.env`)
+`USERNAME`, `PASSWORD`, `LICENSE_KEY` (XML signKey), `CSERE_KEY` (XML exchangeKey, 16 chars), `TAX_NUMBER` (8 digits), `SOFTWARE_*` (software registration block required in every request), `ENVIRONMENT` (`test`/`production`), optional `ENDPOINT_URL` override, `API_HOST`/`NAV_INVOICE_API_PORT`, `LOG_LEVEL`.
 
 ## attachment-downloader — Gmail PDF attachment downloader
 
@@ -238,12 +240,12 @@ uv run pytest tests/ -v
 - **Endpoints**: public — `/health`, `/.well-known/jwks.json`, `/auth/providers`, `/auth/{provider}/login?next=`, `/auth/{provider}/callback`, `POST /auth/refresh`, `POST /auth/verify`; JWT-protected — `/auth/me`, `POST /auth/logout`, `/settings`.
 - Browser gets HttpOnly `mp_access_token` + `mp_refresh_token` cookies (SameSite=Lax; `COOKIE_SECURE=true` behind HTTPS); services also accept `Authorization: Bearer`.
 
-### Environment (`.env` from `.env.example`)
-`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_REDIRECT_URL`, `JWT_PRIVATE_KEY_PATH`/`JWT_PUBLIC_KEY_PATH`, `ACCESS_TOKEN_TTL`/`REFRESH_TOKEN_TTL`, `JWT_AUDIENCE`/`JWT_ISSUER`, `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` (whitelist), `ENABLED_PROVIDERS`, `COOKIE_SECURE`, `VISION_URL`, `API_HOST`/`API_PORT` (8007), `LOG_LEVEL`.
+### Environment (shared root `.env`)
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_REDIRECT_URL`, `JWT_PRIVATE_KEY_PATH`/`JWT_PUBLIC_KEY_PATH`, `ACCESS_TOKEN_TTL`/`REFRESH_TOKEN_TTL`, `JWT_AUDIENCE`/`JWT_ISSUER`, `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` (whitelist), `ENABLED_PROVIDERS`, `COOKIE_SECURE`, `VISION_URL`, `API_HOST`/`AUTH_API_PORT` (8007), `LOG_LEVEL`.
 
 ### JWT protection in the other services
-- Every backend service (invoice-core, nav-invoice, invoice-file-filter, attachment-downloader, bank, uploader) has a copied `auth.py` module (`jwt_auth.py` in nav-invoice — its `auth.py` is the NAV tokenExchange) wired as an app-level dependency; only `GET /health` is public. Toggle per service with `AUTH_ENABLED` in `.env`.
-- **`AUTH_ENABLED=false` is the current state in every service's `.env`** (auth is opt-in until Google OAuth is configured; the code default is `true`, so a missing flag means protected). To enable: configure `auth/.env` Google credentials, then flip `AUTH_ENABLED=true` in each service's `.env` (vision included). Keep it `false` where the `invoice-core sync` CLI (no user token) hits leaf services.
+- Every backend service (invoice-core, nav-invoice, invoice-file-filter, attachment-downloader, bank, uploader) has a copied `auth.py` module (`jwt_auth.py` in nav-invoice — its `auth.py` is the NAV tokenExchange) wired as an app-level dependency; only `GET /health` is public. Toggle per service with `AUTH_ENABLED` in the shared root `.env`.
+- **`AUTH_ENABLED=true` is the current state for every service except `attachment-downloader`**, which overrides back to `false` via `ATTACHMENT_DOWNLOADER_AUTH_ENABLED=false` — it's a leaf service hit by the `invoice-core sync` CLI (no user token). Flip the shared `AUTH_ENABLED` to `false` workspace-wide if Google OAuth isn't configured yet in `auth`'s section of the root `.env`.
 - vision uses a middleware instead: public `/`, `/pitch`, `/login`, `/logout`, `/static/*`, `/health`; other pages redirect browsers to `/login?next=…` (API calls get 401 JSON). The login page (NiceAdmin-style, provider buttons from `GET /auth/providers`) silently refreshes via `POST /auth/refresh` when a valid refresh cookie exists.
 - Token passthrough: vision and invoice-core (and invoice-file-filter → attachment-downloader) forward the incoming Bearer token to downstream services via a `TokenPassthrough` requests-auth hook + `current_token` ContextVar.
 

@@ -5,12 +5,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _WORKSPACE_ROOT = _PROJECT_ROOT.parent
 _LOG_DIR = _PROJECT_ROOT / "logs"
 _BALANCE_STATEMENTS_DIR = _WORKSPACE_ROOT / "storage" / "bank" / "balance-statements"
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 
 def configure_logging(log_level: str = "INFO") -> None:
@@ -37,14 +39,16 @@ class Settings(BaseSettings):
     """Bank mikroszerviz beállítások."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=False, extra="ignore"
+        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
     )
 
     balance_statements_dir: str = str(_BALANCE_STATEMENTS_DIR)
     erste_subdir: str = "erste"
     wise_subdir: str = "wise"
     api_host: str = "0.0.0.0"
-    api_port: int = 8005
+    api_port: int = Field(
+        8005, validation_alias=AliasChoices("BANK_API_PORT", "API_PORT")
+    )
     log_level: str = "INFO"
 
 

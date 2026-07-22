@@ -7,10 +7,14 @@ from pathlib import Path
 
 import requests
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_WORKSPACE_ROOT = _PROJECT_ROOT.parent
+_LOG_DIR = _PROJECT_ROOT / "logs"
 _SRC_DIR = Path(__file__).resolve().parent.parent
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 
 class _Formatter(logging.Formatter):
@@ -49,7 +53,7 @@ class Settings(BaseSettings):
     """Invoice Core settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=False, extra="ignore"
+        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
     )
 
     # ── Database (existing .env uses JDBC format) ────────────────────────────
@@ -79,7 +83,9 @@ class Settings(BaseSettings):
 
     # ── FastAPI server ───────────────────────────────────────────────────────
     api_host: str = "0.0.0.0"
-    api_port: int = 8004
+    api_port: int = Field(
+        8004, validation_alias=AliasChoices("INVOICE_CORE_API_PORT", "API_PORT")
+    )
     log_level: str = "INFO"
 
     # ── Tax account → label mapping (override via TAX_ACCOUNTS JSON in .env) ─

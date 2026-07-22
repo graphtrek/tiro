@@ -17,14 +17,19 @@ Használat (app szintű dependency, a publikus útvonalakat a PUBLIC_PATHS adja)
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Optional
 
 import jwt
 from fastapi import HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
+
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 ACCESS_COOKIE_NAME = "mp_access_token"
 PUBLIC_PATHS = {"/health"}
@@ -32,10 +37,18 @@ PUBLIC_PATHS = {"/health"}
 
 class AuthSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=False, extra="ignore"
+        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
     )
 
-    auth_enabled: bool = True  # teszthez kikapcsolható: AUTH_ENABLED=false
+    # This is the one service where AUTH_ENABLED differs from the shared
+    # default (it's a leaf service hit by `invoice-core sync` without a user
+    # token), so it needs its own override key in the shared root .env.
+    auth_enabled: bool = Field(
+        True,
+        validation_alias=AliasChoices(
+            "ATTACHMENT_DOWNLOADER_AUTH_ENABLED", "AUTH_ENABLED"
+        ),
+    )
     auth_service_url: str = "http://localhost:8007"
     jwt_audience: str = "moneypenny"
     jwt_issuer: str = "auth-service"

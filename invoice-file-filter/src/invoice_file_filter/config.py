@@ -7,11 +7,15 @@ import logging.handlers
 import os
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_WORKSPACE_ROOT = _PROJECT_ROOT.parent
+_LOG_DIR = _PROJECT_ROOT / "logs"
 _LOG_PID = os.getpid()
 _SRC_DIR = Path(__file__).resolve().parent.parent
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 
 class _Formatter(logging.Formatter):
@@ -52,7 +56,7 @@ class Settings(BaseSettings):
     """PDF Számla Feldolgozó settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=False, extra="ignore"
+        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
     )
 
     # ── attachment-downloader (download) service ─────────────
@@ -75,8 +79,16 @@ class Settings(BaseSettings):
 
     # ── FastAPI server ──────────────────────────────────────
     api_host: str = "0.0.0.0"
-    api_port: int = 8001
-    log_level: str = "INFO"
+    api_port: int = Field(
+        8001,
+        validation_alias=AliasChoices("INVOICE_FILE_FILTER_API_PORT", "API_PORT"),
+    )
+    # This is the one service where LOG_LEVEL differs from the shared default
+    # (DEBUG, for OCR/extraction troubleshooting), hence its own override key.
+    log_level: str = Field(
+        "INFO",
+        validation_alias=AliasChoices("INVOICE_FILE_FILTER_LOG_LEVEL", "LOG_LEVEL"),
+    )
 
 
 def get_settings() -> Settings:

@@ -6,10 +6,14 @@ import logging
 from pathlib import Path
 
 import requests
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_LOG_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_WORKSPACE_ROOT = _PROJECT_ROOT.parent
+_LOG_DIR = _PROJECT_ROOT / "logs"
 _SRC_DIR = Path(__file__).resolve().parent.parent
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 
 class _Formatter(logging.Formatter):
@@ -44,7 +48,7 @@ class Settings(BaseSettings):
     """Vision service settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=False, extra="ignore"
+        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
     )
 
     # Auth — minden /ui/* oldal JWT-vel védett (teszthez kikapcsolható)
@@ -67,7 +71,9 @@ class Settings(BaseSettings):
 
     # FastAPI server
     api_host: str = "0.0.0.0"
-    api_port: int = 8009
+    api_port: int = Field(
+        8009, validation_alias=AliasChoices("VISION_API_PORT", "API_PORT")
+    )
     log_level: str = "INFO"
 
     @property

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 from contextvars import ContextVar
+from pathlib import Path
 from typing import Optional
 
 import jwt
@@ -27,6 +28,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
+
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 ACCESS_COOKIE_NAME = "mp_access_token"
 PUBLIC_PATHS = {"/health"}
@@ -48,7 +52,7 @@ class TokenPassthrough(requests.auth.AuthBase):
 
 class AuthSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=False, extra="ignore"
+        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
     )
 
     auth_enabled: bool = True  # teszthez kikapcsolható: AUTH_ENABLED=false

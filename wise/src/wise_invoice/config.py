@@ -5,11 +5,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_WORKSPACE_ROOT = _PROJECT_ROOT.parent
 _LOG_DIR = _PROJECT_ROOT / "logs"
 _BALANCE_STATEMENTS_DIR = _PROJECT_ROOT / "balance-statements"
+_ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 
 def configure_logging(log_level: str = "INFO") -> None:
@@ -36,7 +39,7 @@ class Settings(BaseSettings):
     """Wise Banki Mikorszerviz beállítások."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=False, extra="ignore"
+        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
     )
 
     # ── Wise API ────────────────────────────────────────────────
@@ -47,7 +50,9 @@ class Settings(BaseSettings):
 
     # ── FastAPI szerver ─────────────────────────────────────────
     api_host: str = "0.0.0.0"
-    api_port: int = 8003
+    api_port: int = Field(
+        8003, validation_alias=AliasChoices("WISE_API_PORT", "API_PORT")
+    )
     log_level: str = "INFO"
 
     # ── SCA (Strong Customer Authentication) ────────────────────
@@ -61,7 +66,11 @@ class Settings(BaseSettings):
     balance_statements_dir: str = str(_BALANCE_STATEMENTS_DIR)
 
     # ── HTTP kliens ─────────────────────────────────────────────
-    request_timeout: int = 30
+    # This is the one service where REQUEST_TIMEOUT differs from the shared
+    # default (SCA balance-statement downloads are slow), hence its own key.
+    request_timeout: int = Field(
+        30, validation_alias=AliasChoices("WISE_REQUEST_TIMEOUT", "REQUEST_TIMEOUT")
+    )
     max_retries: int = 3
     retry_delay: float = 1.0
 

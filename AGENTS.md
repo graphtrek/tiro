@@ -1,11 +1,12 @@
 # AGENTS.md
 
 ## Core Workspace Principles
-- **Multi-project scope**: This is a `uv`-based Python workspace. Each sub-project has its own `pyproject.toml`, `.env`, and isolated `.venv`.
+- **Multi-project scope**: This is a `uv`-based Python workspace. Each sub-project has its own `pyproject.toml` and isolated `.venv`.
 - **Isolated virtual environments**: **Every sub-project has its own `.venv` at `<project>/.venv`. There is NO shared/root venv.** Always use the target project's own environment — `cd <project>` then either `source .venv/bin/activate` or prefix with `uv run`. Never cross-use environments.
-- **Context Isolation**: Always `cd` into the specific project directory before running commands, syncing deps, or inspecting `.env` files.
+- **Context Isolation**: Always `cd` into the specific project directory before running commands or syncing deps.
 - **Dependency management**: `cd <project> && uv sync` installs into that project's `.venv`; `uv run <cmd>` executes inside it.
-- **Workspace meta**: Root holds `python-for-ai.code-workspace` (VS Code), `.env.example` (Scaleway inference defaults), and project-wide docs (this file, `CLAUDE.md`).
+- **Shared config**: All services read a single root `.env` (copied from root `.env.example`) via `pydantic-settings` — there is no per-service `.env` anymore. Most keys are shared plain names; a few that genuinely differ per service (`API_PORT` always, plus one-off `AUTH_ENABLED`/`LOG_LEVEL`/`REQUEST_TIMEOUT` exceptions) use a `<SERVICE>_<KEY>` prefixed override, falling back to the shared plain key. See `CLAUDE.md` for the full key list.
+- **Workspace meta**: Root holds `python-for-ai.code-workspace` (VS Code), `.env.example`, and project-wide docs (this file, `CLAUDE.md`).
 
 ## moneypenny — Design Wiki (Obsidian)
 - **Not code**: an Obsidian vault of `*-spec.md` (specifications) and `*-prompt.md` (generation prompts) plus `INDEX.md` (navigation). Written in Hungarian.
@@ -30,7 +31,7 @@
   - API: `cd nav-invoice && python run_api.py` (port 8002).
   - CLI: `uv run nav login | list [--from DATE --to DATE] [--direction INBOUND] [--json] | show <invoice>`.
   - Tests: `uv run pytest tests/ -v`. Lint/format: `uv run ruff check|format src/`.
-- **Env** (`.env` from `.env.example`): `USERNAME`, `PASSWORD`, `LICENSE_KEY`, `CSERE_KEY`, `TAX_NUMBER`, `SOFTWARE_*`, `ENVIRONMENT` (`test`/`production`), optional `ENDPOINT_URL`, `API_HOST`/`API_PORT`, `LOG_LEVEL`, `CACHE_TTL_SECONDS`.
+- **Env** (shared root `.env`): `USERNAME`, `PASSWORD`, `LICENSE_KEY`, `CSERE_KEY`, `TAX_NUMBER`, `SOFTWARE_*`, `ENVIRONMENT` (`test`/`production`), optional `ENDPOINT_URL`, `API_HOST`/`NAV_INVOICE_API_PORT`, `LOG_LEVEL`, `CACHE_TTL_SECONDS`.
 
 ## attachment-downloader — Gmail PDF attachment downloader
 - **Purpose**: Downloads PDF attachments from Gmail for a given date range. Leaf service consumed by `invoice-file-filter`. Supports multiple providers (Gmail implemented; Outlook planned).
