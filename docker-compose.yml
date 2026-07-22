@@ -138,7 +138,10 @@ services:
     env_file: ./.env
     environment:
       API_PORT: 8004
-      DB_URL: jdbc:postgresql://db:${DB_PORT:-5432}/${DB_NAME}
+      # Container-to-container traffic uses Postgres's fixed internal port
+      # (5432 inside the `db` container), independent of the host-side
+      # DB_PORT remap used in the `ports:` mapping below.
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PWD: ${DB_PWD}
       NAV_INVOICE_URL: http://nav-invoice:8002
