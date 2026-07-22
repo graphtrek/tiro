@@ -47,9 +47,12 @@ services:
     environment:
       API_PORT: 8007
       INVOICE_CORE_URL: http://invoice-core:8004
-      # Browser-facing redirect target after login — must be reachable from the
-      # user's browser, not the Docker-internal service name.
+      # Browser-facing redirect targets — must be reachable from the user's
+      # browser, not the Docker-internal service name. OAUTH_REDIRECT_URL must
+      # also be registered as an authorized redirect URI on the Google OAuth
+      # client (Google Cloud Console → Credentials).
       VISION_URL: http://${PUBLIC_HOST:-localhost}:8009
+      OAUTH_REDIRECT_URL: http://${PUBLIC_HOST:-localhost}:8007/auth/google/callback
     ports:
       - "8007:8007"
     volumes:
