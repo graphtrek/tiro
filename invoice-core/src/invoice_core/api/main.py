@@ -138,14 +138,27 @@ async def touch_last_login(request: Request, call_next):
 
 @app.middleware("http")
 async def record_audit_log(request: Request, call_next):
-    response = await call_next(request)
+    # Resolved *before* the mutation runs: a DELETE removes the row, so
+    # looking up its name/number afterwards would find nothing.
     db = SessionLocal()
     try:
-        audit_service.record(db, request, response)
+        prepared = audit_service.prepare_record(db, request)
     except Exception as exc:
-        logger.warning("Nem sikerült audit logot rögzíteni: %s", exc)
+        logger.warning("Nem sikerült előkészíteni az audit bejegyzést: %s", exc)
+        prepared = None
     finally:
         db.close()
+
+    response = await call_next(request)
+
+    if prepared is not None:
+        db = SessionLocal()
+        try:
+            audit_service.finalize_record(db, request, response, prepared)
+        except Exception as exc:
+            logger.warning("Nem sikerült audit logot rögzíteni: %s", exc)
+        finally:
+            db.close()
     return response
 
 

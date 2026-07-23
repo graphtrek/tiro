@@ -447,7 +447,9 @@ class AuditLog(Base):
     user_email = Column(String, nullable=True, index=True)
     method = Column(String, nullable=False)
     path = Column(String, nullable=False)
-    page = Column(String, nullable=False, index=True)
+    page = Column(String, nullable=False, index=True)  # menu the mutation belongs to
+    record = Column(String, nullable=True)  # human-readable record identifier (invoice number, partner name, ...)
+    label = Column(String, nullable=True)  # button/action name the user clicked, if sent
     action = Column(String, nullable=False)  # create | update | delete
     status_code = Column(Integer, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False, index=True)

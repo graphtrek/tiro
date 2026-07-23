@@ -207,6 +207,8 @@ class AuditLogOut(BaseModel):
     method: str
     path: str
     page: str
+    record: Optional[str] = None
+    label: Optional[str] = None
     action: str
     status_code: int
     created_at: datetime

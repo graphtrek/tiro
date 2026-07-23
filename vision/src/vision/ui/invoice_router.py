@@ -321,7 +321,7 @@ def transaction_detail_partial(request: Request, transaction_id: int):
 @router.post("/invoices/{invoice_id}/note")
 def invoice_save_note(request: Request, invoice_id: int, note: str = Form("")):
     client = _client()
-    client.patch_invoice(invoice_id, note=note)
+    client.patch_invoice(invoice_id, label="Megjegyzés mentése", note=note)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
@@ -332,9 +332,11 @@ def invoice_save_note(request: Request, invoice_id: int, note: str = Form("")):
 def invoice_set_fizetve(request: Request, invoice_id: int, locked: str = Form("true")):
     client = _client()
     if locked == "true":
-        client.patch_invoice(invoice_id, payment_status_locked=True, payment_status="PAID")
+        client.patch_invoice(
+            invoice_id, label="Fizetve jelölés", payment_status_locked=True, payment_status="PAID"
+        )
     else:
-        client.patch_invoice(invoice_id, payment_status_locked=False)
+        client.patch_invoice(invoice_id, label="Zár feloldása", payment_status_locked=False)
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")

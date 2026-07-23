@@ -64,7 +64,9 @@ def update_activity_type(
 
 @router.post("/activity-types/{activity_type_id}/deactivate")
 def deactivate_activity_type(request: Request, activity_type_id: int, name: str = Form(...)):
-    result = _client().update_activity_type(activity_type_id, name, is_active=False)
+    result = _client().update_activity_type(
+        activity_type_id, name, is_active=False, label="Tevékenység típus inaktiválása"
+    )
     return _activity_types_page(request, error=result.get("error"))
 
 
