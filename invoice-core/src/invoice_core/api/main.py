@@ -36,6 +36,7 @@ from invoice_core.models import (
     ActivityTypeIn,
     ActivityTypeOut,
     ActivityTypeUpdate,
+    AuditLogOut,
     CustomerIn,
     CustomerOut,
     CustomerUpdate,
@@ -62,6 +63,7 @@ from invoice_core.models import (
 from invoice_core.service import _recompute_payment_status, get_pending_sync_counts, sync_all
 from invoice_core.services import (
     activity_type_service,
+    audit_service,
     dashboard_service,
     dividend_service,
     invoice_file_service,
@@ -134,6 +136,19 @@ async def touch_last_login(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def record_audit_log(request: Request, call_next):
+    response = await call_next(request)
+    db = SessionLocal()
+    try:
+        audit_service.record(db, request, response)
+    except Exception as exc:
+        logger.warning("Nem sikerült audit logot rögzíteni: %s", exc)
+    finally:
+        db.close()
+    return response
+
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
@@ -183,6 +198,20 @@ def sync_logs(
 ):
     logs = dashboard_service.get_sync_logs(db, limit=limit)
     return [dataclasses.asdict(log) for log in logs]
+
+
+# ── Audit log endpoint ───────────────────────────────────────────────────────
+
+@app.get("/api/v1/audit-log", response_model=List[AuditLogOut])
+def audit_log(
+    user_email: Optional[str] = None,
+    page: Optional[str] = None,
+    date_from: Optional[_date] = None,
+    date_to: Optional[_date] = None,
+    limit: int = Query(200, ge=1, le=1000),
+    db: Session = Depends(get_db),
+):
+    return audit_service.list_audit_log(db, user_email, page, date_from, date_to, limit)
 
 
 # ── Dashboard endpoint ────────────────────────────────────────────────────────

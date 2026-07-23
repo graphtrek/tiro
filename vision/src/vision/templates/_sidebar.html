@@ -125,6 +125,11 @@
           </a>
         </li>
         <li>
+          <a class="nav-link {% if '/ui/admin/audit' in request.url.path %}active{% endif %}" href="/ui/admin/audit">
+            <i class="fas fa-clipboard-list"></i> Audit
+          </a>
+        </li>
+        <li>
           <a class="nav-link {% if '/ui/sync' in request.url.path %}active{% endif %}" href="/ui/sync">
             <i class="fas fa-sync-alt"></i> Sync
           </a>

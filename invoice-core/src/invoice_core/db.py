@@ -438,6 +438,21 @@ class SyncLog(Base):
     warnings = Column(Text, nullable=True)
 
 
+class AuditLog(Base):
+    """One row per successful user-initiated mutation, for the admin Audit page."""
+
+    __tablename__ = "audit_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_email = Column(String, nullable=True, index=True)
+    method = Column(String, nullable=False)
+    path = Column(String, nullable=False)
+    page = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False)  # create | update | delete
+    status_code = Column(Integer, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False, index=True)
+
+
 # ── Business rules ──────────────────────────────────────────────────────────
 
 def invoice_has_bank_txn():

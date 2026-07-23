@@ -199,6 +199,19 @@ class ActivityTypeOut(BaseModel):
     updated_at: datetime
 
 
+class AuditLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_email: Optional[str] = None
+    method: str
+    path: str
+    page: str
+    action: str
+    status_code: int
+    created_at: datetime
+
+
 class ProjectIn(BaseModel):
     customer_id: int
     short_name: str

@@ -27,6 +27,12 @@ def users_page(request: Request):
     return templates.TemplateResponse(request, "admin_users.html", {"rows": rows})
 
 
+@router.get("/audit")
+def audit_page(request: Request):
+    rows = dict_to_ns(_client().get_audit_log())
+    return templates.TemplateResponse(request, "admin_audit.html", {"rows": rows})
+
+
 def _activity_types_page(request: Request, error: str | None = None):
     rows = dict_to_ns(_client().get_activity_types())
     return templates.TemplateResponse(

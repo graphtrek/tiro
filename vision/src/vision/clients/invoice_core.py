@@ -313,6 +313,25 @@ class InvoiceCoreClient:
     def get_users(self) -> list[dict]:
         return self._get("/api/v1/users")
 
+    # ── Audit log ──────────────────────────────────────────────────────────────
+
+    def get_audit_log(
+        self,
+        user_email=None,
+        page=None,
+        date_from=None,
+        date_to=None,
+        limit: int = 200,
+    ) -> list[dict]:
+        params = {k: v for k, v in {
+            "user_email": user_email,
+            "page": page,
+            "date_from": date_from,
+            "date_to": date_to,
+            "limit": limit,
+        }.items() if v is not None}
+        return self._get("/api/v1/audit-log", params or None)
+
     # ── Activity types ─────────────────────────────────────────────────────────
 
     def get_activity_types(self) -> list[dict]:
