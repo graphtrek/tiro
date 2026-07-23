@@ -53,8 +53,8 @@
       <th class="text-end">Összeg</th>
       <th>D/C</th>
       <th>Kapcsolt számla</th>
-      <th>PDF</th>
       <th>Partner</th>
+      <th>PDF</th>
       <th>Referencia</th>
       <th>Leírás</th>
     </tr>
@@ -99,17 +99,6 @@
         {% endif %}
       </td>
       <td>
-        {% if row.invoice_file_id and row.invoice_file_filename %}
-          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}"
-             data-preview="{{ row.invoice_file_preview_base64 or '' }}">
-            <i class="bi bi-file-earmark-pdf text-danger"></i>
-            <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
-          </a>
-        {% else %}
-          <span class="text-muted">—</span>
-        {% endif %}
-      </td>
-      <td>
         {% if row.direction == 'DEBIT' %}
           {% if row.supplier_id %}
             <a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.partner_name }}</a>
@@ -126,6 +115,17 @@
           {% else %}
             <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
           {% endif %}
+        {% endif %}
+      </td>
+      <td>
+        {% if row.invoice_file_id and row.invoice_file_filename %}
+          <a href="/ui/invoice-files/{{ row.invoice_file_id }}/pdf" target="_blank" title="{{ row.invoice_file_filename }}"
+             data-preview="{{ row.invoice_file_preview_base64 or '' }}">
+            <i class="bi bi-file-earmark-pdf text-danger"></i>
+            <small class="font-monospace">{{ row.invoice_file_filename | truncate(30, true, '…') }}</small>
+          </a>
+        {% else %}
+          <span class="text-muted">—</span>
         {% endif %}
       </td>
       <td class="tx-wrap" title="{{ row.payment_reference or '' }}">{{ row.payment_reference or '—' }}</td>
@@ -153,7 +153,7 @@
       autoWidth: false,
       columnDefs: [
         { targets: [2], className: "text-end" },
-        { targets: [5], orderable: false },
+        { targets: [6], orderable: false },
       ],
     });
 
