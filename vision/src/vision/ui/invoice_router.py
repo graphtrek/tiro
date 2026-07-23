@@ -26,7 +26,7 @@ def _client() -> InvoiceCoreClient:
 
 
 def _ctx(client: InvoiceCoreClient, **kwargs) -> dict:
-    return {"invoice_count": client.get_invoice_count(), **kwargs}
+    return {**kwargs}
 
 
 def _resp(request: Request, template: str, client: InvoiceCoreClient, **kwargs):
@@ -777,13 +777,6 @@ def adok_page(request: Request, year: Optional[int] = None):
         m.totals = raw_m.get("totals", {})
 
     raw_estimate = client.get_tax_estimate_report(year=effective_year)
-    # "Havi bontás" covers the whole year's actual invoice-backed data, so its
-    # header shows the real (non-projected) gross revenue recorded so far —
-    # computed before the monthly list below is filtered down to just the
-    # upcoming months for "Becsült adók".
-    report.gross_revenue = sum(
-        m.get("gross_revenue", 0) for m in raw_estimate.get("monthly", []) if not m.get("is_projected")
-    )
 
     # "Becsült adók" is meant to look ahead only: drop any month before the
     # current one (already elapsed, regardless of whether it shows up in

@@ -31,7 +31,6 @@
         <li>
           <a class="nav-link {% if '/ui/invoices' in request.url.path %}active{% endif %}" href="/ui/invoices">
             <i class="fas fa-file-invoice-dollar"></i> Számlák
-            <span id="invoice-count-badge" class="badge">{{ invoice_count or '' }}</span>
           </a>
         </li>
         <li>

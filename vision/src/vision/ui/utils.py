@@ -3,18 +3,25 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 _ISO_DT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+# invoice-core stores/serializes timestamps as naive UTC (datetime.utcnow()) — convert
+# to local wall-clock time here so templates never have to think about it.
+_LOCAL_TZ = ZoneInfo("Europe/Budapest")
 
 
 def _parse_leaf(v):
     if isinstance(v, str) and _ISO_DT.match(v):
         try:
-            return datetime.fromisoformat(v)
+            dt = datetime.fromisoformat(v)
         except ValueError:
-            pass
+            return v
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(_LOCAL_TZ)
     return v
 
 

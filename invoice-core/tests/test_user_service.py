@@ -60,3 +60,22 @@ def test_list_users_orders_by_last_login_desc(db):
 
     users = user_service.list_users(db)
     assert [u.sub for u in users] == ["u2", "u1"]
+
+
+def test_touch_last_login_bumps_existing_user(db):
+    created = user_service.upsert_user(
+        db, UserIn(provider="google", sub="google-user-1", email="imre.tatai@graphtrek.co")
+    )
+    first_login = created.last_login_at
+
+    user_service.touch_last_login(db, "google", "google-user-1")
+
+    refreshed = user_service.list_users(db)[0]
+    assert refreshed.id == created.id
+    assert refreshed.last_login_at >= first_login
+
+
+def test_touch_last_login_noop_for_unknown_user(db):
+    # Should not raise or create a row for a (provider, sub) with no existing record.
+    user_service.touch_last_login(db, "google", "no-such-user")
+    assert user_service.list_users(db) == []

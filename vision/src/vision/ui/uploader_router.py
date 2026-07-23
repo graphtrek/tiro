@@ -10,7 +10,6 @@ from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from vision.clients.invoice_core import InvoiceCoreClient
 from vision.clients.uploader import UploaderClient
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -20,10 +19,6 @@ router = APIRouter(prefix="/ui", tags=["uploader-ui"])
 logger = logging.getLogger(__name__)
 
 
-def _invoice_client() -> InvoiceCoreClient:
-    return InvoiceCoreClient()
-
-
 def _uploader_client() -> UploaderClient:
     return UploaderClient()
 
@@ -31,14 +26,12 @@ def _uploader_client() -> UploaderClient:
 @router.get("/upload")
 def upload_page(request: Request):
     """Feltöltési oldal."""
-    ic = _invoice_client()
     uc = _uploader_client()
     storage = uc.list_files()
     return templates.TemplateResponse(
         request,
         "upload.html",
         {
-            "invoice_count": ic.get_invoice_count(),
             "storage": storage,
         },
     )

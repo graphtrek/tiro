@@ -1,4 +1,36 @@
 {% from "_macros.html" import payment_badge, pdf_icon, bank_icon, amount_fmt, direction_badge %}
+
+<section id="inv-summary" class="invl-metrics mb-3">
+  <article class="invl-metric-card">
+    <span class="invl-metric-icon"><i class="bi bi-file-earmark-text"></i></span>
+    <div>
+      <div class="invl-metric-label">Számlák</div>
+      <div id="inv-sum-count" class="invl-metric-value">—</div>
+    </div>
+  </article>
+  <article class="invl-metric-card">
+    <span class="invl-metric-icon success"><i class="bi bi-arrow-down-circle"></i></span>
+    <div>
+      <div class="invl-metric-label">Bejövő</div>
+      <div id="inv-sum-inbound" class="invl-metric-value">—</div>
+    </div>
+  </article>
+  <article class="invl-metric-card">
+    <span class="invl-metric-icon danger"><i class="bi bi-arrow-up-circle"></i></span>
+    <div>
+      <div class="invl-metric-label">Kimenő</div>
+      <div id="inv-sum-outbound" class="invl-metric-value">—</div>
+    </div>
+  </article>
+  <article class="invl-metric-card">
+    <span class="invl-metric-icon warning"><i class="bi bi-exclamation-circle"></i></span>
+    <div>
+      <div class="invl-metric-label">Fizetetlen</div>
+      <div id="inv-sum-unpaid" class="invl-metric-value">—</div>
+    </div>
+  </article>
+</section>
+
 <table id="invoice-table" class="table table-hover table-sm nowrap" style="width:100%">
   <thead>
     <tr>
@@ -17,7 +49,10 @@
   </thead>
   <tbody>
     {% for row in rows %}
-    <tr>
+    <tr data-amount-total="{{ row.amount_total or 0 }}"
+        data-direction="{{ row.direction or '' }}"
+        data-currency="{{ row.currency or 'HUF' }}"
+        data-payment-status="{{ row.payment_status or '' }}">
       <td>{{ payment_badge(row.payment_status) }}</td>
       <td>
         <a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a>
@@ -84,7 +119,7 @@
     if ($.fn.DataTable && $.fn.DataTable.isDataTable("#invoice-table")) {
       $("#invoice-table").DataTable().destroy();
     }
-    new DataTable("#invoice-table", {
+    const dt = new DataTable("#invoice-table", {
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs találat" },
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
@@ -96,6 +131,39 @@
         { targets: [8, 9], orderable: false },
       ],
     });
+
+    function updateSummary() {
+      const byCurrency = { inbound: {}, outbound: {}, unpaid: {} };
+      let count = 0;
+      dt.rows({ filter: "applied", page: "all" }).nodes().each(function(node) {
+        count++;
+        const dir = node.dataset.direction;
+        const amt = parseFloat(node.dataset.amountTotal) || 0;
+        const cur = node.dataset.currency || "HUF";
+        const status = node.dataset.paymentStatus;
+
+        if (dir === "INBOUND") byCurrency.inbound[cur] = (byCurrency.inbound[cur] || 0) + amt;
+        else if (dir === "OUTBOUND") byCurrency.outbound[cur] = (byCurrency.outbound[cur] || 0) + amt;
+
+        if (status !== "PAID") byCurrency.unpaid[cur] = (byCurrency.unpaid[cur] || 0) + amt;
+      });
+
+      const fmt = (n, cur) =>
+        n.toLocaleString("hu-HU", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " " + cur;
+      const fmtGroup = (group) => {
+        const currencies = Object.keys(group).sort();
+        return currencies.map(c => fmt(group[c], c)).join(" / ") || "—";
+      };
+
+      document.getElementById("inv-sum-count").textContent = count.toLocaleString("hu-HU");
+      document.getElementById("inv-sum-inbound").textContent = fmtGroup(byCurrency.inbound);
+      document.getElementById("inv-sum-outbound").textContent = fmtGroup(byCurrency.outbound);
+      document.getElementById("inv-sum-unpaid").textContent = fmtGroup(byCurrency.unpaid);
+    }
+
+    dt.on("draw", updateSummary);
+    updateSummary();
+
     document.getElementById("invoice-table").addEventListener("click", function(e) {
       const lnk = e.target.closest("a[data-tx-db-id]");
       if (!lnk) return;

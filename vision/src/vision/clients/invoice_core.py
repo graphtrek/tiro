@@ -65,10 +65,6 @@ class InvoiceCoreClient:
     def get_dashboard(self) -> dict:
         return self._get_one("/api/v1/dashboard") or {}
 
-    def get_invoice_count(self) -> int:
-        result = self._get_one("/api/v1/invoices/count")
-        return result.get("count", 0) if result else 0
-
     # ── Invoices ───────────────────────────────────────────────────────────────
 
     def get_invoices(

@@ -24,9 +24,7 @@ def _client() -> InvoiceCoreClient:
 def users_page(request: Request):
     client = _client()
     rows = dict_to_ns(client.get_users())
-    return templates.TemplateResponse(
-        request, "admin_users.html", {"invoice_count": client.get_invoice_count(), "rows": rows}
-    )
+    return templates.TemplateResponse(request, "admin_users.html", {"rows": rows})
 
 
 def _activity_types_page(request: Request, error: str | None = None):

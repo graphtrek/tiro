@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from invoice_core.config import get_settings
@@ -32,6 +33,7 @@ class TaxMonthRow:
 class TaxReport:
     year: int
     grand_total: float
+    gross_revenue: float
     totals_by_type: dict[str, float]
     monthly: list[TaxMonthRow]
     transactions: list[TaxTransaction]
@@ -57,6 +59,17 @@ def get_tax_report(db: Session, year: int) -> TaxReport:
         )
         .order_by(BankTransaction.transaction_date.desc())
         .all()
+    )
+
+    gross_revenue = float(
+        db.query(func.coalesce(func.sum(BankTransaction.amount), 0.0))
+        .filter(
+            BankTransaction.direction == "CREDIT",
+            BankTransaction.transaction_date >= datetime(year, 1, 1),
+            BankTransaction.transaction_date < datetime(year + 1, 1, 1),
+        )
+        .scalar()
+        or 0.0
     )
 
     tax_labels = list(tax_accounts.values())
@@ -97,6 +110,7 @@ def get_tax_report(db: Session, year: int) -> TaxReport:
     return TaxReport(
         year=year,
         grand_total=grand_total,
+        gross_revenue=gross_revenue,
         totals_by_type=dict(totals_by_type),
         monthly=monthly,
         transactions=transactions,

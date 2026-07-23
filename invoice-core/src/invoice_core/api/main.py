@@ -26,6 +26,7 @@ from invoice_core.db import (
     Customer,
     Invoice,
     InvoiceFile,
+    SessionLocal,
     Supplier,
     _PaymentStatus,
     get_db,
@@ -102,6 +103,34 @@ async def log_requests(request: Request, call_next):
     if request.url.query:
         path = f"{path}?{request.url.query}"
     logger.info("%s %s → %d in %.0fms", request.method, path, response.status_code, elapsed_ms)
+    return response
+
+
+# In-process debounce so a single page view (which fires several backend calls)
+# doesn't turn into that many "last_login_at" writes — only bump once per user
+# per window.
+_LAST_TOUCH_WINDOW_S = 60.0
+_last_touch: dict[tuple[str, str], float] = {}
+
+
+@app.middleware("http")
+async def touch_last_login(request: Request, call_next):
+    response = await call_next(request)
+    claims = getattr(request.state, "user", None)
+    if claims:
+        provider, sub = claims.get("provider"), claims.get("sub")
+        if provider and sub:
+            now = time.monotonic()
+            key = (provider, sub)
+            if now - _last_touch.get(key, 0.0) >= _LAST_TOUCH_WINDOW_S:
+                _last_touch[key] = now
+                db = SessionLocal()
+                try:
+                    user_service.touch_last_login(db, provider, sub)
+                except Exception as exc:
+                    logger.warning("Nem sikerült frissíteni a last_login_at mezőt: %s", exc)
+                finally:
+                    db.close()
     return response
 
 

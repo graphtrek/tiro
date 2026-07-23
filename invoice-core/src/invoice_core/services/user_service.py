@@ -29,3 +29,12 @@ def upsert_user(db: Session, payload: UserIn) -> User:
 
 def list_users(db: Session) -> list[User]:
     return db.query(User).order_by(User.last_login_at.desc()).all()
+
+
+def touch_last_login(db: Session, provider: str, sub: str) -> None:
+    """Bump `last_login_at` for an existing user on any authenticated request —
+    so "Utolsó belépés" reflects last activity, not just the OAuth login moment."""
+    db.query(User).filter(User.provider == provider, User.sub == sub).update(
+        {"last_login_at": datetime.utcnow()}
+    )
+    db.commit()
