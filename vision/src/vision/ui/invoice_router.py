@@ -811,6 +811,11 @@ def adok_page(request: Request, year: Optional[int] = None):
         "NAV Szochó": "szocho_tax",
     }
     active_labels = [label for label in report.tax_labels if report.totals_by_type.get(label, 0)]
+    if not active_labels:
+        # No tax paid yet this year (e.g. early in a fresh year) — fall back to
+        # showing every estimable tax type instead of an empty table, so the
+        # projection is still useful before any actual payment history exists.
+        active_labels = [label for label in report.tax_labels if label in estimate_label_map]
     for m in upcoming:
         m["label_totals"] = {label: m.get(estimate_label_map[label], 0.0) for label in active_labels if label in estimate_label_map}
     raw_estimate["totals"]["label_totals"] = {
