@@ -58,7 +58,13 @@
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
       order: [[4, "desc"]],
-      columnDefs: [{ targets: 0, searchable: false, orderable: false }],
+      responsive: true,
+      columnDefs: [
+        { targets: 0, searchable: false, orderable: false, responsivePriority: 10001 },
+        { targets: 1, responsivePriority: 1 },
+        { targets: 2, responsivePriority: 2 },
+        { targets: [3, 5], responsivePriority: 10001 },
+      ],
     });
   });
 </script>

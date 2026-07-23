@@ -144,7 +144,7 @@
 </div>
 
 <!-- Transaction detail offcanvas -->
-<div class="offcanvas offcanvas-end" tabindex="-1" id="txOffcanvas" style="width:420px">
+<div class="offcanvas offcanvas-end" tabindex="-1" id="txOffcanvas">
   <div class="offcanvas-header border-bottom">
     <h5 class="offcanvas-title"><i class="bi bi-bank me-2 text-info"></i>Tranzakció részletei</h5>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
@@ -164,7 +164,13 @@
     new DataTable("#sup-inv-table", {
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs számla" },
       pageLength: 15, lengthMenu: [10, 15, 25, 50, 100], order: [[1, "desc"]],
-      columnDefs: [{ targets: [2], className: "text-end" }, { targets: [4], orderable: false }],
+      responsive: true,
+      columnDefs: [
+        { targets: 0, responsivePriority: 1 },
+        { targets: 2, responsivePriority: 2, className: "text-end" },
+        { targets: [1, 3], responsivePriority: 10001 },
+        { targets: [4], orderable: false, responsivePriority: 10001 },
+      ],
     });
 
     document.getElementById("sup-inv-table").addEventListener("click", function(e) {

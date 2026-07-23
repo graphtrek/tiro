@@ -140,11 +140,20 @@ h1, h2, h3, h4, h5, h6 {
    Sidebar
    ========================================================================== */
 #sidebar {
-    min-width: 220px;
-    max-width: 220px;
-    min-height: 100vh;
-    background: var(--sidebar-bg);
+    --bs-offcanvas-width: min(280px, 82vw);
+    /* !important: Bootstrap's own >=992px offcanvas-lg reset sets
+       background-color: transparent !important, since it assumes a "docked"
+       responsive sidebar has no panel background of its own — this app wants
+       the themed panel look at every width, so it must win that fight too. */
+    background: var(--sidebar-bg) !important;
     box-shadow: var(--sidebar-shadow);
+}
+@media (min-width: 992px) {
+    #sidebar {
+        min-width: 220px;
+        max-width: 220px;
+        min-height: 100vh;
+    }
 }
 [data-bs-theme="dark"] #sidebar {
     color-scheme: dark;
@@ -743,6 +752,44 @@ table.dataTable tbody td.text-wrap {
 .progress-group .progress {
     height: 8px;
     background-color: var(--border-color-light);
+}
+
+/* Bank-transaction detail offcanvas — cap width so it never overflows a phone
+   viewport (was a hardcoded 420px inline style repeated across 4 templates) */
+#txOffcanvas {
+    width: min(420px, 100vw);
+}
+
+/* ==========================================================================
+   DataTables Responsive — control column + child rows, NiceAdmin styling
+   ========================================================================== */
+table.dataTable.dtr-column > tbody > tr > td.dtr-control {
+    cursor: pointer;
+}
+table.dataTable.dtr-column > tbody > tr > td.dtr-control::before {
+    background-color: var(--accent-color);
+    box-shadow: none;
+}
+table.dataTable > tbody > tr.dtr-expanded > td.dtr-control::before {
+    background-color: var(--danger-color);
+}
+table.dataTable > tbody > tr.child {
+    background-color: var(--table-stripe-bg);
+}
+table.dataTable > tbody > tr.child ul.dtr-details {
+    font-size: 0.8125rem;
+}
+table.dataTable > tbody > tr.child ul.dtr-details > li {
+    border-bottom: 1px solid var(--border-color-light);
+    padding: 0.4rem 0;
+    /* A column's own text-end (numeric-column) class bleeds into the child-row
+       <li> too — always keep the label/value pair left-aligned here, since
+       there's no column grid to right-align against in this stacked layout. */
+    text-align: left !important;
+}
+table.dataTable > tbody > tr.child span.dtr-title {
+    color: var(--muted-color);
+    font-weight: 600;
 }
 
 /* Invoice status pills (NiceAdmin invoice-list "inv-status" pattern) */

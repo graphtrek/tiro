@@ -192,6 +192,7 @@
     <span class="text-muted small">({{ summary_label }} szerint)</span>
   </div>
   <div class="card-body pt-3">
+    <div class="table-responsive">
     <table id="report-summary-table" class="table table-sm mb-0">
       <thead>
         <tr>
@@ -222,6 +223,7 @@
         </tr>
       </tfoot>
     </table>
+    </div>
   </div>
 </div>
 {% endif %}
@@ -330,9 +332,12 @@
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50],
       order: [[0, "asc"]],
+      responsive: true,
       columnDefs: [
+        { targets: '_all', responsivePriority: 3 },
+        { targets: 0, responsivePriority: 1 },
         {% if report_type == "project" %}
-        { targets: -1, searchable: false, orderable: false },
+        { targets: -1, searchable: false, orderable: false, responsivePriority: 10001 },
         {% endif %}
       ],
       buttons: [

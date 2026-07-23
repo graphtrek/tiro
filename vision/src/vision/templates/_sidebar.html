@@ -1,4 +1,8 @@
-<nav id="sidebar" class="d-flex flex-column py-3 px-2">
+<nav id="sidebar" class="offcanvas-lg offcanvas-start d-flex flex-column py-3 px-2"
+     tabindex="-1" aria-label="Navigáció">
+  <div class="d-flex justify-content-end d-lg-none px-1 pb-2">
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Bezárás"></button>
+  </div>
   <ul class="nav flex-column gap-1">
     <li class="nav-item">
       {# the home page (pitch.html) is standalone with its own <head> styles — a

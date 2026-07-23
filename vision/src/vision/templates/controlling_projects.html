@@ -85,9 +85,13 @@
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50],
       order: [[0, "asc"]],
+      responsive: true,
       columnDefs: [
-        { targets: 4, className: "text-end" },
-        { targets: -1, searchable: false, orderable: false },
+        { targets: 0, responsivePriority: 1 },
+        { targets: 1, responsivePriority: 2 },
+        { targets: -1, searchable: false, orderable: false, responsivePriority: 1 },
+        { targets: [2, 3], responsivePriority: 10001 },
+        { targets: 4, className: "text-end", responsivePriority: 10001 },
       ],
     });
   })();
