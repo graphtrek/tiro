@@ -10,9 +10,9 @@
   "NAV Szochó":       {"badge": "warning",   "border": "border-warning",   "text": "text-warning"},
   "NAV TAO":          {"badge": "info",      "border": "border-info",      "text": "text-info"},
   "NAV TB":           {"badge": "secondary", "border": "border-secondary", "text": "text-secondary"},
-  "HIPA":             {"badge": "dark",      "border": "border-dark",      "text": "text-dark"},
-  "HIPA - Késedelmi": {"badge": "dark",      "border": "border-dark",      "text": "text-dark"},
-  "Iparkamara":       {"badge": "secondary", "border": "border-secondary", "text": "text-secondary"}
+  "HIPA":             {"badge": "dark",      "border": "border-dark",      "text": "text-tax-hipa"},
+  "HIPA - Késedelmi": {"badge": "dark",      "border": "border-dark",      "text": "text-tax-hipa-late"},
+  "Iparkamara":       {"badge": "secondary", "border": "border-secondary", "text": "text-tax-iparkamara"}
 } %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -26,26 +26,21 @@
 </div>
 
 <!-- KPI kártyák -->
-<div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
-  <div class="col">
-    <div class="card kpi-card shadow-sm h-100 border-danger">
-      <div class="card-body">
-        <div class="card-title">Összes adó</div>
-        <div class="kpi-value text-danger">{{ amount_fmt(report.grand_total) }}</div>
-        <div class="text-muted small">{{ report.transactions | length }} tétel</div>
-      </div>
+<div class="d-flex flex-nowrap gap-3 mb-4 overflow-auto">
+  <div class="card kpi-card shadow-sm h-100 border-danger flex-fill" style="min-width:150px;">
+    <div class="card-body">
+      <div class="card-title kpi-title-compact">Összes adó</div>
+      <div class="kpi-value kpi-value-compact text-danger">{{ amount_fmt(report.grand_total) }}</div>
     </div>
   </div>
   {% for label in report.tax_labels %}
   {% set total = report.totals_by_type.get(label, 0) %}
   {% if total %}
   {% set c = tax_colors.get(label, {"badge": "secondary", "border": "border-secondary", "text": "text-secondary"}) %}
-  <div class="col">
-    <div class="card kpi-card shadow-sm h-100 {{ c.border }}">
-      <div class="card-body">
-        <div class="card-title">{{ label }}</div>
-        <div class="kpi-value {{ c.text }}">{{ amount_fmt(total) }}</div>
-      </div>
+  <div class="card kpi-card shadow-sm h-100 flex-fill {{ c.border }}" style="min-width:150px;">
+    <div class="card-body">
+      <div class="card-title kpi-title-compact">{{ label }}</div>
+      <div class="kpi-value kpi-value-compact {{ c.text }}">{{ amount_fmt(total) }}</div>
     </div>
   </div>
   {% endif %}
@@ -55,8 +50,11 @@
 <!-- Havi bontás -->
 {% if report.monthly %}
 <div class="card shadow-sm mb-4">
-  <div class="card-header">
-    <i class="bi bi-calendar3 me-2"></i><strong>Havi bontás — {{ report.year }}</strong>
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <i class="bi bi-calendar3 me-2"></i><strong>Havi bontás — {{ report.year }}</strong>
+    </div>
+    <span class="text-muted small">Bruttó bevétel: <span class="fw-semibold text-body">{{ amount_fmt(report.gross_revenue) }}</span></span>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -108,6 +106,63 @@
   </div>
 </div>
 {% endif %}
+
+<!-- Becsült adók -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <i class="bi bi-graph-up-arrow me-2"></i><strong>Becsült adók — {{ estimate.year }}</strong>
+      <span class="text-muted small ms-2">TAO/KIVA {{ (estimate.tao_rate*100)|int }}%, HIPA {{ (estimate.hipa_rate*100)|int }}%, SZJA {{ (estimate.szja_rate*100)|int }}%, SZOCHÓ {{ (estimate.szocho_rate*100)|int }}%</span>
+    </div>
+    <span class="text-muted small">Becsült bruttó bevétel: <span class="fw-semibold text-body">{{ amount_fmt(estimate.totals.gross_revenue) }}</span></span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Hónap</th>
+            {% for label in estimate_labels %}
+            {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
+            <th class="text-end {{ c.text }}">{{ label }}</th>
+            {% endfor %}
+            <th class="text-end fw-bold">Összesen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in estimate.monthly %}
+          <tr class="{% if row.is_projected %}text-muted fst-italic{% endif %}">
+            <td>{{ row.month }}</td>
+            {% for label in estimate_labels %}
+            {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
+            <td class="text-end">
+              {% set v = row.label_totals.get(label, 0) %}
+              {% if v %}<span class="{{ c.text }}">{{ amount_fmt(v) }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            {% endfor %}
+            <td class="text-end fw-semibold">{{ amount_fmt(row.total) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="{{ estimate_labels|length + 2 }}" class="text-center text-muted">Nincs adat</td></tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="table-light">
+          <tr class="fw-semibold">
+            <td>{{ estimate.totals.month }}</td>
+            {% for label in estimate_labels %}
+            {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
+            {% set yearly = estimate.totals.label_totals.get(label, 0) %}
+            <td class="text-end {% if yearly %}{{ c.text }}{% else %}text-muted{% endif %}">
+              {% if yearly %}{{ amount_fmt(yearly) }}{% else %}—{% endif %}
+            </td>
+            {% endfor %}
+            <td class="text-end fw-bold">{{ amount_fmt(estimate.totals.total) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
 
 <!-- Tranzakciók -->
 {% if report.transactions %}

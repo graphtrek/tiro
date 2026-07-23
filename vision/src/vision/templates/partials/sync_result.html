@@ -1,11 +1,15 @@
 <div id="sync-result">
   {% if result %}
     {% set error_count = result.errors | length %}
-    <div class="card border-{% if error_count > 0 %}warning{% else %}success{% endif %} shadow-sm mt-3">
+    {% set warning_count = result.warnings | length %}
+    <div class="card border-{% if error_count > 0 %}danger{% elif warning_count > 0 %}warning{% else %}success{% endif %} shadow-sm mt-3">
       <div class="card-header d-flex align-items-center gap-2">
         {% if error_count > 0 %}
+          <i class="bi bi-x-octagon-fill text-danger"></i>
+          <strong>Sync befejezve — {{ error_count }} hiba{% if warning_count > 0 %}, {{ warning_count }} figyelmeztetés{% endif %}</strong>
+        {% elif warning_count > 0 %}
           <i class="bi bi-exclamation-triangle-fill text-warning"></i>
-          <strong>Sync befejezve — {{ error_count }} hiba</strong>
+          <strong>Sync befejezve — {{ warning_count }} figyelmeztetés</strong>
         {% else %}
           <i class="bi bi-check-circle-fill text-success"></i>
           <strong>Sync sikeres</strong>
@@ -33,11 +37,14 @@
             <div class="text-muted small">PDF összekapcsolva</div>
           </div>
         </div>
-        {% if result.errors %}
+        {% if result.errors or result.warnings %}
         <hr>
         <ul class="mb-0">
           {% for err in result.errors %}
             <li class="text-danger small">{{ err }}</li>
+          {% endfor %}
+          {% for warn in result.warnings %}
+            <li class="text-warning-emphasis small">{{ warn }}</li>
           {% endfor %}
         </ul>
         {% endif %}

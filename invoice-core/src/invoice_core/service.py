@@ -1266,6 +1266,7 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
     start, end = _default_dates(request.start_date, request.end_date)
     mode = request.sync_mode or SyncMode.full
     errors: list[str] = []
+    warnings: list[str] = []
     nav_count = pdf_count = bank_count = match_count = 0
     t0 = time.monotonic()
 
@@ -1281,7 +1282,7 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
     if mode in (SyncMode.full, SyncMode.nav_only):
         try:
             nav_count, nav_warnings = sync_nav(start, end, db, settings)
-            errors.extend(nav_warnings)
+            warnings.extend(nav_warnings)
         except NavClientError as exc:
             logger.error("NAV sync failed: %s", exc)
             errors.append(f"NAV: {exc}")
@@ -1296,7 +1297,7 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
     if mode in (SyncMode.full, SyncMode.bank_only):
         try:
             bank_count, bank_warnings = sync_bank(start, end, db, settings)
-            errors.extend(bank_warnings)
+            warnings.extend(bank_warnings)
         except BankClientError as exc:
             logger.error("Bank sync failed: %s", exc)
             errors.append(f"Bank: {exc}")
@@ -1319,11 +1320,14 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
     log.bank_count = bank_count
     log.error_count = len(errors)
     log.errors = "; ".join(errors) if errors else None
+    log.warning_count = len(warnings)
+    log.warnings = "; ".join(warnings) if warnings else None
     db.commit()
 
     logger.info(
-        "sync_all [%s] %s..%s: nav=%d pdf=%d bank=%d match=%d errors=%d in %.0fms",
-        mode.value, start, end, nav_count, pdf_count, bank_count, match_count, len(errors), elapsed_ms,
+        "sync_all [%s] %s..%s: nav=%d pdf=%d bank=%d match=%d errors=%d warnings=%d in %.0fms",
+        mode.value, start, end, nav_count, pdf_count, bank_count, match_count,
+        len(errors), len(warnings), elapsed_ms,
     )
     return SyncResponse(
         start_date=start,
@@ -1333,4 +1337,5 @@ def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = N
         bank_transactions_synced=bank_count,
         bank_files_matched=match_count,
         errors=errors,
+        warnings=warnings,
     )

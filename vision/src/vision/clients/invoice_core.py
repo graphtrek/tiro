@@ -486,6 +486,10 @@ class InvoiceCoreClient:
         params = {"year": year} if year is not None else None
         return self._get_one("/api/v1/reports/tax", params) or {}
 
+    def get_tax_estimate_report(self, year: int | None = None) -> dict:
+        params = {"year": year} if year is not None else None
+        return self._get_one("/api/v1/reports/tax-estimate", params) or {}
+
     def get_timesheet_report(
         self,
         report_type: str,

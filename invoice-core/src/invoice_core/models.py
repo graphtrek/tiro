@@ -35,6 +35,7 @@ class SyncResponse(BaseModel):
     bank_transactions_synced: int = 0
     bank_files_matched: int = 0
     errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
 
 
 # ── Read DTOs (from_attributes=True for ORM → Pydantic) ─────────────────────

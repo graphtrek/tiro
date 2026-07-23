@@ -38,6 +38,12 @@
     --danger-color-light: #ffe3e8;
     --info-color: #2f80ed;
     --info-color-light: #e4efff;
+    /* Extra tax-report colors — "dark"/"secondary" text utilities read as
+       near-black/gray in both themes and are hard to tell apart; these give
+       HIPA-related and Iparkamara amounts their own legible, distinct hue. */
+    --tax-hipa-color: #0f766e;
+    --tax-hipa-late-color: #b45309;
+    --tax-iparkamara-color: #6d28d9;
 }
 [data-bs-theme="light"] {
     --bs-body-bg: #f5f7ff;
@@ -81,7 +87,15 @@
     --danger-color-light: rgba(255, 107, 143, 0.2);
     --info-color: #67b7ff;
     --info-color-light: rgba(103, 183, 255, 0.2);
+    --tax-hipa-color: #2dd4bf;
+    --tax-hipa-late-color: #fbbf24;
+    --tax-iparkamara-color: #a78bfa;
 }
+
+/* Tax-report colors (see --tax-* vars above) */
+.text-tax-hipa { color: var(--tax-hipa-color) !important; }
+.text-tax-hipa-late { color: var(--tax-hipa-late-color) !important; }
+.text-tax-iparkamara { color: var(--tax-iparkamara-color) !important; }
 
 /* Typography — NiceAdmin fonts (loaded in base.html) */
 body {
@@ -256,6 +270,17 @@ h1, h2, h3, h4, h5, h6 {
 .kpi-card .kpi-value {
     font-size: 2rem;
     font-weight: 700;
+}
+/* Narrower KPI cards (e.g. Adók's one-row tax breakdown) — smaller value
+   so long "N NNN NNN HUF" amounts stay on one line instead of wrapping. */
+.kpi-card .kpi-value.kpi-value-compact {
+    font-size: 1.15rem;
+    white-space: nowrap;
+}
+.kpi-card .card-title.kpi-title-compact {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Make main content scrollable */

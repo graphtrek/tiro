@@ -775,7 +775,61 @@ def adok_page(request: Request, year: Optional[int] = None):
     report.totals_by_type = raw.get("totals_by_type", {})
     for m, raw_m in zip(report.monthly or [], raw.get("monthly", [])):
         m.totals = raw_m.get("totals", {})
-    return _resp(request, "adok.html", client, report=report, year=effective_year)
+
+    raw_estimate = client.get_tax_estimate_report(year=effective_year)
+    # "Havi bontás" covers the whole year's actual invoice-backed data, so its
+    # header shows the real (non-projected) gross revenue recorded so far —
+    # computed before the monthly list below is filtered down to just the
+    # upcoming months for "Becsült adók".
+    report.gross_revenue = sum(
+        m.get("gross_revenue", 0) for m in raw_estimate.get("monthly", []) if not m.get("is_projected")
+    )
+
+    # "Becsült adók" is meant to look ahead only: drop any month before the
+    # current one (already elapsed, regardless of whether it shows up in
+    # "Havi bontás") and any month already shown in "Havi bontás" (actual tax
+    # payments) above, so the two tables never repeat a month.
+    current_month_key = _date.today().strftime("%Y-%m")
+    paid_months = {m.get("month") for m in raw.get("monthly", [])}
+    upcoming = [
+        m for m in raw_estimate.get("monthly", [])
+        if m.get("month") >= current_month_key and m.get("month") not in paid_months
+    ]
+    raw_estimate["monthly"] = upcoming
+    estimate_fields = ["revenue", "gross_revenue", "expenses", "vat_payable", "tao_tax", "hipa_tax", "szja_tax", "szocho_tax", "total"]
+    raw_estimate["totals"] = {
+        "month": "Összesen",
+        "is_projected": False,
+        **{f: sum(m.get(f, 0) for m in upcoming) for f in estimate_fields},
+    }
+
+    # Only estimate the tax types actually active in "Havi bontás" this year
+    # (its columns are the tax-account labels with a nonzero yearly total),
+    # so both tables show the same set of taxes. Labels with no rate-based
+    # estimate (e.g. "Iparkamara", "HIPA - Késedelmi") fall back to 0/dash,
+    # same as "Havi bontás" already does for months with no payment.
+    estimate_label_map = {
+        "NAV ÁFA": "vat_payable",
+        "NAV TAO": "tao_tax",
+        "HIPA": "hipa_tax",
+        "NAV SZJA": "szja_tax",
+        "NAV Szochó": "szocho_tax",
+    }
+    active_labels = [label for label in report.tax_labels if report.totals_by_type.get(label, 0)]
+    for m in upcoming:
+        m["label_totals"] = {label: m.get(estimate_label_map[label], 0.0) for label in active_labels if label in estimate_label_map}
+    raw_estimate["totals"]["label_totals"] = {
+        label: raw_estimate["totals"].get(estimate_label_map[label], 0.0) for label in active_labels if label in estimate_label_map
+    }
+
+    estimate = dict_to_ns(raw_estimate)
+    for m, raw_m in zip(estimate.monthly or [], upcoming):
+        m.label_totals = raw_m.get("label_totals", {})
+    estimate.totals.label_totals = raw_estimate["totals"].get("label_totals", {})
+    return _resp(
+        request, "adok.html", client,
+        report=report, estimate=estimate, estimate_labels=active_labels, year=effective_year,
+    )
 
 
 # ── Sync ──────────────────────────────────────────────────────────────────────

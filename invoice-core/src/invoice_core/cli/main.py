@@ -76,7 +76,9 @@ def _print_result(result: SyncResponse, as_json: bool) -> None:
     console.print(table)
     for err in result.errors:
         console.print(f"[red]  {err}[/red]")
-    if not result.errors:
+    for warn in result.warnings:
+        console.print(f"[yellow]  {warn}[/yellow]")
+    if not result.errors and not result.warnings:
         console.print("[green]✓ Sync complete[/green]")
 
 

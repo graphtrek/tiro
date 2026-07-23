@@ -90,6 +90,8 @@ class SyncLogRow:
     bank_count: int
     error_count: int
     errors: Optional[str]
+    warning_count: int
+    warnings: Optional[str]
     duration_s: Optional[float]
 
 
@@ -305,5 +307,7 @@ def _to_sync_log_row(log: SyncLog) -> SyncLogRow:
         bank_count=log.bank_count or 0,
         error_count=log.error_count or 0,
         errors=log.errors,
+        warning_count=log.warning_count or 0,
+        warnings=log.warnings,
         duration_s=duration,
     )

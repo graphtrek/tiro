@@ -434,6 +434,8 @@ class SyncLog(Base):
     bank_count = Column(Integer, default=0, nullable=False)
     error_count = Column(Integer, default=0, nullable=False)
     errors = Column(Text, nullable=True)
+    warning_count = Column(Integer, default=0, nullable=False)
+    warnings = Column(Text, nullable=True)
 
 
 # ── Business rules ──────────────────────────────────────────────────────────

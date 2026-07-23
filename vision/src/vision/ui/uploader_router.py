@@ -64,7 +64,14 @@ async def do_upload(
         html = (
             '<div class="alert alert-danger">'
             '<i class="bi bi-x-circle me-2"></i>'
-            "Feltöltés sikertelen — az uploader szerviz nem elérhető vagy hibát jelzett."
+            "Feltöltés sikertelen — az uploader szerviz nem elérhető."
+            "</div>"
+        )
+    elif "error" in result:
+        html = (
+            '<div class="alert alert-danger">'
+            '<i class="bi bi-x-circle me-2"></i>'
+            f"Feltöltés sikertelen: {result['error']}"
             "</div>"
         )
     else:

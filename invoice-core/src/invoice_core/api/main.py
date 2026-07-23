@@ -773,6 +773,21 @@ def tax_report(
     return dataclasses.asdict(report)
 
 
+@app.get("/api/v1/reports/tax-estimate")
+def tax_estimate_report(
+    year: Optional[int] = Query(None, description="Year (default: current year)"),
+    tao_rate: float = Query(0.10, description="TAO/KIVA rate (default 0.10)"),
+    hipa_rate: float = Query(0.02, description="HIPA rate (default 0.02)"),
+    szja_rate: float = Query(0.15, description="SZJA rate on dividend (default 0.15)"),
+    szocho_rate: float = Query(0.13, description="SZOCHÓ rate on dividend (default 0.13)"),
+    db: Session = Depends(get_db),
+):
+    """Estimate monthly tax liability for *year*, projecting remaining months of the current year from a trailing average."""
+    effective_year = year or _date.today().year
+    report = tax_service.get_tax_estimate(db, effective_year, tao_rate, hipa_rate, szja_rate, szocho_rate)
+    return dataclasses.asdict(report)
+
+
 @app.get("/api/v1/reports/timesheet")
 def timesheet_report(
     report_type: str = Query(..., description="project | person | customer | activity_type"),

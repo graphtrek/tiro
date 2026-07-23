@@ -40,6 +40,15 @@ class UploaderClient:
             )
             resp.raise_for_status()
             return resp.json()
+        except requests.HTTPError as exc:
+            detail = None
+            if exc.response is not None:
+                try:
+                    detail = exc.response.json().get("detail")
+                except ValueError:
+                    pass
+            logger.warning("uploader POST /api/v1/upload failed: %s", detail or exc)
+            return {"error": detail or str(exc)}
         except requests.RequestException as exc:
             logger.warning("uploader POST /api/v1/upload failed: %s", exc)
             return None
