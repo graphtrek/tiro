@@ -7,6 +7,8 @@ __pycache__/
 .mypy_cache/
 .git/
 .env
+credentials.json
+token.json
 logs/
 tests/
 *.md
