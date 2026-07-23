@@ -402,6 +402,37 @@ def test_sync_bank_persists_new_fields_and_updates_existing(sdb, settings, monke
     assert btxn.note == "late reconciliation"
 
 
+def test_sync_bank_locked_supplier_not_overwritten_by_counterparty_fallback(sdb, settings, monkeypatch):
+    """A manually cleared (locked) supplier link on an existing transaction must
+    stay cleared even though the counterparty-name fallback would otherwise match."""
+    sdb.add(Supplier(name="ACME Kft", tax_id="55555555-1-11"))
+    sdb.commit()
+
+    txn_dict = {
+        "transaction_id": "TX-LOCKED-1",
+        "bank": "erste",
+        "amount": 1000.0,
+        "currency": "HUF",
+        "direction": "CREDIT",
+        "date": "2026-05-12",
+        "counterparty_name": "ACME Kft",
+    }
+    monkeypatch.setattr(BankClient, "get_transactions", lambda self: [dict(txn_dict)])
+
+    sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+    btxn = sdb.query(BankTransaction).filter_by(transaction_id="TX-LOCKED-1").first()
+    assert btxn.supplier_id is not None  # auto-matched on first sync
+
+    # User decides this match is wrong and manually clears it — locking the field.
+    btxn.supplier_id = None
+    btxn.supplier_locked = True
+    sdb.commit()
+
+    sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+    sdb.refresh(btxn)
+    assert btxn.supplier_id is None  # stays cleared despite the matching counterparty name
+
+
 def _unknown_partner_digest(**overrides):
     digest = {
         "invoice_number": "INV-200",
@@ -480,6 +511,31 @@ class TestSyncNavDoesNotAutoCreatePartners:
         assert inv.customer_id is not None
         assert sdb.query(Supplier).count() == 1
         assert sdb.query(Customer).count() == 1
+
+    def test_locked_invoice_not_self_healed_even_when_partners_appear(self, sdb, settings, monkeypatch):
+        monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()])
+        monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: {})
+
+        # First run: nothing exists yet, invoice lands pending.
+        sync_nav("2026-05-01", "2026-05-31", sdb, settings)
+        inv = sdb.query(Invoice).filter_by(invoice_number="INV-200").first()
+        # User explicitly decides "no supplier/customer here" — manual clear locks it.
+        inv.supplier_locked = True
+        inv.customer_locked = True
+        sdb.commit()
+
+        # The missing partners show up later (e.g. created for an unrelated invoice).
+        sdb.add_all([
+            Supplier(name="Unknown Supplier Kft.", tax_id="33333333-1-11"),
+            Customer(name="Unknown Customer Kft.", tax_id="44444444-2-22"),
+        ])
+        sdb.commit()
+
+        sync_nav("2026-05-01", "2026-05-31", sdb, settings)
+
+        sdb.refresh(inv)
+        assert inv.supplier_id is None
+        assert inv.customer_id is None
 
 
 def test_sync_bank_unmatched_counterparty_warns_without_creating_partner(sdb, settings, monkeypatch):

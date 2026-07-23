@@ -2,7 +2,7 @@
 title: "Specifikáció: Számla Adatbázis Mikroszerviz"
 description: "Számlákat és partnereket kezelő adatbázis mikroszerviz (MASTER orchestrator)"
 language: "HU"
-last_updated: "2026-07-18"
+last_updated: "2026-07-23"
 related: [INDEX.md, nav-invoice-spec.md, bank-spec.md]
 ---
 
@@ -140,19 +140,34 @@ adószámát), ez **duplikátumot** eredményezett volna.
 - **Öngyógyulás**: ha a hiányzó partner időközben létrejön (kézzel, vagy egy
   következő NAV digest visszatölti a `tax_id`-t), a következő sync futás
   automatikusan összekapcsolja a korábban függőben lévő számlát/tranzakciót —
-  nincs szükség manuális újra-linkelésre.
+  nincs szükség manuális újra-linkelésre. Ez **kimarad**, ha a felhasználó már
+  kézzel beállította vagy törölte az adott mezőt (lásd `supplier_locked`/
+  `customer_locked` lentebb).
 - **Láthatóság**: `GET /api/v1/sync/pending` visszaadja, hány számla/tranzakció
   vár még párosításra — ez független az utolsó futás átmeneti
   figyelmeztetéseitől, és ezt olvassa a [[vision-spec.md|vision]] Sync
   oldalának állandó "függőben lévő párosítás" kártyája.
-- **Kézi kapcsolás/leválasztás a Számla részlet oldalon**: `PUT`/`DELETE
-  /api/v1/invoices/{id}/supplier` és `/customer` (a sync soha nem írja felül
-  a már beállított `supplier_id`/`customer_id`-t, csak `NULL` esetén tölti ki
-  — nincs itt külön lock flag, mint a PDF/tranzakció linkeknél). A
-  [[vision-spec.md|vision]] számla részlet oldala ezt egy picker modallal
-  (`GET /ui/picker/partners?kind=supplier|customer&invoice_id=`) és egy
-  beágyazott "új partner létrehozása és kapcsolása" mini-formmal érvényesíti,
-  amely az `invoice_detail` partner snapshotjából (fenti) előtölti a
+- **Kézi kapcsolás/leválasztás — zárolással (`supplier_locked` /
+  `customer_locked`, 2026-07-23-tól)**: `PUT`/`DELETE /api/v1/invoices/{id}/supplier`
+  és `/customer`, valamint `PUT`/`DELETE /api/v1/transactions/{id}/supplier` és
+  `/customer`. Az `invoice` és a `bank_transaction` tábla két új bool mezőt kapott
+  (`supplier_locked`, `customer_locked`, alapértelmezett `False`), amelyeket a
+  fenti négy végpont **mindkét iránya** (kapcsolás *és* leválasztás) `True`-ra
+  állít. A sync minden automatikus lépése (`sync_nav` öngyógyulás, `sync_bank`
+  számla-alapú levezetés/névegyezés/bank-díj heurisztika, `sync_match`
+  szállító+összeg egyeztetés és a végső backfill) kihagyja azt a mezőt, amelyiken
+  a megfelelő lock `True` — így egy kézi "nincs itt partner" döntés éppúgy
+  megmarad újraszinkronizálás után, mint egy kézi "ez a partner" döntés. Ez
+  szándékosan eltér az `invoice_file_id`/`invoice_file_locked` PDF-linktől
+  (`invoice-core link`/`link-bank` CLI, illetve `PUT`/`DELETE
+  /api/v1/invoices|transactions/{id}/invoice-file` — részletek:
+  `invoice-core/README.md` "Manual linking"), ahol a leválasztás feloldja a
+  zárolást — itt a leválasztás **is** zárol, mert egy
+  explicit "nincs partner" döntést a sync ugyanúgy nem írhat felül, mint egy
+  konkrét partner-választást. A [[vision-spec.md|vision]] számla részlet oldala
+  ezt egy picker modallal (`GET /ui/picker/partners?kind=supplier|customer&invoice_id=`)
+  és egy beágyazott "új partner létrehozása és kapcsolása" mini-formmal
+  érvényesíti, amely az `invoice_detail` partner snapshotjából (fenti) előtölti a
   név/adószám/cím/bankszámla mezőket — ez a leggyakoribb eset egyenes
   megoldása, amikor a számla olyan partnerre hivatkozik, ami helyben még nem
   létezik.

@@ -507,9 +507,11 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
             # Self-heal: a previously-pending invoice (no partner match at the
             # time) picks up the link once the user manually creates the
             # missing supplier/customer and this invoice syncs again.
-            if existing.supplier_id is None and supplier is not None:
+            # Skipped when the field was manually set/cleared (locked) — a
+            # manual decision always wins over automatic (re-)association.
+            if existing.supplier_id is None and supplier is not None and not existing.supplier_locked:
                 existing.supplier_id = supplier.id
-            if existing.customer_id is None and customer is not None:
+            if existing.customer_id is None and customer is not None and not existing.customer_locked:
                 existing.customer_id = customer.id
             existing.updated_at = datetime.utcnow()
         else:
@@ -715,8 +717,10 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
         for btxn in wrongly_linked:
             btxn.invoices.clear()
             btxn.invoice_file_id = None
-            btxn.supplier_id = None
-            btxn.customer_id = None
+            if not btxn.supplier_locked:
+                btxn.supplier_id = None
+            if not btxn.customer_locked:
+                btxn.customer_id = None
         for inv in affected_invoices:
             _recompute_payment_status(db, inv)
         if wrongly_linked:
@@ -807,23 +811,26 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
                 logger.info("Linked bank txn %s → invoice %s (paid)", txn_id, invoice.invoice_number)
 
         # ── Derive supplier/customer from linked invoice ───────────────────────
-        if btxn.invoices and (not btxn.supplier_id or not btxn.customer_id):
+        if btxn.invoices and (
+            (not btxn.supplier_id and not btxn.supplier_locked)
+            or (not btxn.customer_id and not btxn.customer_locked)
+        ):
             invoice = btxn.invoices[0]
-            if not btxn.supplier_id:
+            if not btxn.supplier_id and not btxn.supplier_locked:
                 btxn.supplier_id = invoice.supplier_id
-            if not btxn.customer_id:
+            if not btxn.customer_id and not btxn.customer_locked:
                 btxn.customer_id = invoice.customer_id
 
         # ── Link supplier/customer by counterparty name (fallback) ────────────
         counterparty = txn_dict.get("counterparty_name", "") or ""
         if counterparty:
-            if not btxn.supplier_id:
+            if not btxn.supplier_id and not btxn.supplier_locked:
                 supplier = db.query(Supplier).filter(
                     Supplier.name.ilike(f"%{counterparty}%")
                 ).first()
                 if supplier:
                     btxn.supplier_id = supplier.id
-            if not btxn.customer_id:
+            if not btxn.customer_id and not btxn.customer_locked:
                 customer = db.query(Customer).filter(
                     Customer.name.ilike(f"%{counterparty}%")
                 ).first()
@@ -831,7 +838,7 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
                     btxn.customer_id = customer.id
 
         # ── Link bank fee/interest transactions to the bank's own supplier ────
-        if not btxn.supplier_id and _is_bank_fee_or_interest(txn_dict):
+        if not btxn.supplier_id and not btxn.supplier_locked and _is_bank_fee_or_interest(txn_dict):
             bank_supplier = _get_or_create_bank_supplier(db, btxn.bank, settings)
             btxn.supplier_id = bank_supplier.id
 
@@ -1130,9 +1137,9 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
         matched = _find_invoice_by_supplier_amount(txn, inv_pool, used_inv_ids)
         if matched:
             _link_txn_to_invoice(txn, matched)
-            if not txn.supplier_id:
+            if not txn.supplier_id and not txn.supplier_locked:
                 txn.supplier_id = matched.supplier_id
-            if not txn.customer_id:
+            if not txn.customer_id and not txn.customer_locked:
                 txn.customer_id = matched.customer_id
             _recompute_payment_status(db, matched)
             used_inv_ids.add(matched.id)
@@ -1215,9 +1222,9 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     for txn in needs_backfill:
         invoice = txn.invoices[0] if txn.invoices else None
         if invoice:
-            if not txn.supplier_id:
+            if not txn.supplier_id and not txn.supplier_locked:
                 txn.supplier_id = invoice.supplier_id
-            if not txn.customer_id:
+            if not txn.customer_id and not txn.customer_locked:
                 txn.customer_id = invoice.customer_id
             txn.updated_at = datetime.utcnow()
 

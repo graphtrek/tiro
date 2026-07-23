@@ -32,6 +32,8 @@ class InvoiceRow:
     note: Optional[str] = None
     payment_status_locked: bool = False
     invoice_file_locked: bool = False
+    supplier_locked: bool = False
+    customer_locked: bool = False
     has_manual_bank_link: bool = False
     bank_transaction_ids: list[str] = field(default_factory=list)
     bank_transaction_db_ids: list[int] = field(default_factory=list)
@@ -94,6 +96,8 @@ class InvoiceDetail:
     invoice_file_locked: bool
     note: Optional[str]
     payment_status_locked: bool
+    supplier_locked: bool
+    customer_locked: bool
     created_at: datetime
     updated_at: datetime
     payment_method: Optional[str] = None
@@ -215,6 +219,8 @@ def list_invoices(
                 note=inv.note,
                 payment_status_locked=bool(inv.payment_status_locked),
                 invoice_file_locked=bool(inv.invoice_file_locked),
+                supplier_locked=bool(inv.supplier_locked),
+                customer_locked=bool(inv.customer_locked),
                 invoice_file_preview_base64=file_preview,
             )
         )
@@ -327,6 +333,8 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         invoice_file_locked=inv.invoice_file_locked,
         note=inv.note,
         payment_status_locked=bool(inv.payment_status_locked),
+        supplier_locked=bool(inv.supplier_locked),
+        customer_locked=bool(inv.customer_locked),
         created_at=inv.created_at,
         updated_at=inv.updated_at,
         payment_method=inv.payment_method,

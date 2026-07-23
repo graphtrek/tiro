@@ -176,6 +176,8 @@ class Invoice(Base):
     invoice_file_locked = Column(Boolean, nullable=False, default=False)
     note = Column(Text, nullable=True)
     payment_status_locked = Column(Boolean, nullable=False, default=False)
+    supplier_locked = Column(Boolean, nullable=False, default=False)
+    customer_locked = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -292,6 +294,8 @@ class BankTransaction(Base):
     customer_id = Column(Integer, ForeignKey("customer.id"), nullable=True)
     invoice_file_id = Column(Integer, ForeignKey("invoice_file.id"), nullable=True, index=True)
     invoice_file_locked = Column(Boolean, nullable=False, default=False)
+    supplier_locked = Column(Boolean, nullable=False, default=False)
+    customer_locked = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

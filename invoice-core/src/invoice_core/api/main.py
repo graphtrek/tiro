@@ -585,6 +585,7 @@ def link_invoice_to_supplier(invoice_id: int, req: LinkSupplierRequest, db: Sess
     if not db.get(Supplier, req.supplier_id):
         raise HTTPException(status_code=404, detail="Supplier not found")
     inv.supplier_id = req.supplier_id
+    inv.supplier_locked = True
     inv.updated_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
@@ -596,6 +597,7 @@ def unlink_invoice_from_supplier(invoice_id: int, db: Session = Depends(get_db))
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     inv.supplier_id = None
+    inv.supplier_locked = True
     inv.updated_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
@@ -609,6 +611,7 @@ def link_invoice_to_customer(invoice_id: int, req: LinkCustomerRequest, db: Sess
     if not db.get(Customer, req.customer_id):
         raise HTTPException(status_code=404, detail="Customer not found")
     inv.customer_id = req.customer_id
+    inv.customer_locked = True
     inv.updated_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
@@ -620,6 +623,7 @@ def unlink_invoice_from_customer(invoice_id: int, db: Session = Depends(get_db))
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
     inv.customer_id = None
+    inv.customer_locked = True
     inv.updated_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
@@ -658,6 +662,7 @@ def link_transaction_to_supplier(txn_id: int, req: LinkSupplierRequest, db: Sess
     if not db.get(Supplier, req.supplier_id):
         raise HTTPException(status_code=404, detail="Supplier not found")
     txn.supplier_id = req.supplier_id
+    txn.supplier_locked = True
     db.commit()
     return {"ok": True}
 
@@ -668,6 +673,7 @@ def unlink_transaction_from_supplier(txn_id: int, db: Session = Depends(get_db))
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
     txn.supplier_id = None
+    txn.supplier_locked = True
     db.commit()
     return {"ok": True}
 
@@ -680,6 +686,7 @@ def link_transaction_to_customer(txn_id: int, req: LinkCustomerRequest, db: Sess
     if not db.get(Customer, req.customer_id):
         raise HTTPException(status_code=404, detail="Customer not found")
     txn.customer_id = req.customer_id
+    txn.customer_locked = True
     db.commit()
     return {"ok": True}
 
@@ -690,6 +697,7 @@ def unlink_transaction_from_customer(txn_id: int, db: Session = Depends(get_db))
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
     txn.customer_id = None
+    txn.customer_locked = True
     db.commit()
     return {"ok": True}
 

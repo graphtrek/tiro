@@ -50,10 +50,14 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/invoices` | Invoice list (filter: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`) |
 | `GET`  | `/api/v1/invoices/{invoice_id:int}` | Invoice detail by integer PK — includes linked bank transactions plus the full NAV enrichment: `detail` (partner snapshot + category/delivery date/currency/exchange rate/amounts, excludes `raw_xml`), `lines`, `vat_summary` |
 | `GET`  | `/api/v1/invoices/{invoice_number}` | Invoice by invoice number string |
-| `PUT`  | `/api/v1/invoices/{invoice_id}/supplier` | Link an invoice to an existing supplier; body: `{"supplier_id": int}`; `404` if invoice or supplier not found |
-| `DELETE` | `/api/v1/invoices/{invoice_id}/supplier` | Unlink an invoice's supplier (`supplier_id` → `NULL`) |
-| `PUT`  | `/api/v1/invoices/{invoice_id}/customer` | Link an invoice to an existing customer; body: `{"customer_id": int}`; `404` if invoice or customer not found |
-| `DELETE` | `/api/v1/invoices/{invoice_id}/customer` | Unlink an invoice's customer (`customer_id` → `NULL`) |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/supplier` | Link an invoice to an existing supplier — sets `supplier_locked=True`; body: `{"supplier_id": int}`; `404` if invoice or supplier not found |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/supplier` | Unlink an invoice's supplier (`supplier_id` → `NULL`) — **also** sets `supplier_locked=True`, so auto-sync never re-fills it |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/customer` | Link an invoice to an existing customer — sets `customer_locked=True`; body: `{"customer_id": int}`; `404` if invoice or customer not found |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/customer` | Unlink an invoice's customer (`customer_id` → `NULL`) — **also** sets `customer_locked=True` |
+| `PUT`  | `/api/v1/transactions/{txn_id}/supplier` | Link a bank transaction to an existing supplier — sets `supplier_locked=True`; body: `{"supplier_id": int}`; `404` if transaction or supplier not found |
+| `DELETE` | `/api/v1/transactions/{txn_id}/supplier` | Unlink a bank transaction's supplier (`supplier_id` → `NULL`) — **also** sets `supplier_locked=True` |
+| `PUT`  | `/api/v1/transactions/{txn_id}/customer` | Link a bank transaction to an existing customer — sets `customer_locked=True`; body: `{"customer_id": int}`; `404` if transaction or customer not found |
+| `DELETE` | `/api/v1/transactions/{txn_id}/customer` | Unlink a bank transaction's customer (`customer_id` → `NULL`) — **also** sets `customer_locked=True` |
 | `GET`  | `/api/v1/invoice-files` | Invoice file list (filter: `linked` = `yes`/`no`; `filename` = substring search) |
 | `GET`  | `/api/v1/invoice-files/{file_id:int}/pdf` | Serve PDF file inline |
 | `GET`  | `/api/v1/partners/suppliers` | Supplier list |
@@ -244,12 +248,12 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `supplier` | Suppliers — sourced from NAV invoice data, or created manually via the REST API / vision UI (e.g. to plan ahead before any invoice exists) |
 | `customer` | Customers — sourced from NAV invoice data, or created manually via the REST API / vision UI |
 | `invoice_file` | PDF files from invoice-file-filter: filename, filesystem path, and extracted word text |
-| `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier and customer (both nullable — see "Partner matching" below) and optionally invoice_file; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
+| `invoice` | NAV invoices (`INBOUND` / `OUTBOUND`), linked to supplier and customer (both nullable — see "Partner matching" below) and optionally invoice_file; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id`; `supplier_locked`/`customer_locked` (bool) — when `True`, auto-sync skips re-assigning (or re-clearing) that FK, set by the manual link/unlink API on both actions |
 | `invoice_detail` | 1:1 with `invoice`. `raw_xml` (full NAV `queryInvoiceData` response) plus decoded fields: `invoice_category`, `delivery_date`, `currency_code`, `exchange_rate`, `invoice_appearance`, `invoice_net_amount`/`invoice_vat_amount`/`invoice_gross_amount`. Also carries a **partner snapshot** (`supplier_name`/`supplier_tax_number`/`supplier_address`/`supplier_bank_account`, `customer_*` equivalents) taken straight from the NAV digest — refreshed on every sync regardless of whether the detail-fetch ran, so an invoice with an unmatched `supplier_id`/`customer_id` still shows who needs to be created, independent of local FK matching |
 | `invoice_line` | Line items for an invoice's NAV detail (`line_number`, `line_description`, `quantity`, `unit_of_measure`, `unit_price`, `line_net_amount`, `line_vat_rate`, `line_vat_amount`, `line_gross_amount`); replaced (delete-then-reinsert) on each enrichment fetch |
 | `invoice_vat_summary` | Per-VAT-rate summary rows for an invoice (`vat_rate`, `vat_rate_net_amount`, `vat_rate_vat_amount`); replaced on each enrichment fetch |
 | `invoice_bank_transaction` | Junction table — many-to-many link between `invoice` and `bank_transaction`; `manual` (bool) — `True` for rows created via the manual link API |
-| `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id` |
+| `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id`; `supplier_locked`/`customer_locked` (bool) — same as on `invoice`, guards the derive-from-invoice / counterparty-name / bank-fee auto-linking in `sync_bank` and `sync_match` |
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
 | `user` | Login records pushed (best-effort) by the `auth` service on every login: `provider`, `sub`, `email`, `name`, `picture`, `last_login_at`; unique on `(provider, sub)` — this is the only table not populated by the sync pipeline |
 | `activity_type` | Admin master data for the Timesheet feature: `name` (unique), `is_active` (soft-deactivate). Managed via the vision `/ui/admin/activity-types` page; not touched by the sync pipeline. Delete is still unconditional (the vision page's usage-count check is hardcoded to `0` — not yet wired to `timesheet_entry`) |
@@ -280,6 +284,7 @@ uv run alembic revision --autogenerate -m "describe change"
 | `o4p5q6r7s8t9` | `invoice.supplier_id` / `invoice.customer_id` made nullable — sync no longer auto-creates a partner for an unmatched NAV digest; the invoice imports with that side left unlinked instead |
 | `p5q6r7s8t9u0` | `invoice_detail` / `invoice_line` / `invoice_vat_summary` tables — full NAV `queryInvoiceData` enrichment (category, delivery date, currency/exchange rate, amounts, line items, VAT breakdown) |
 | `q6r7s8t9u0v1` | `invoice_detail` partner snapshot columns (`supplier_name`/`supplier_tax_number`/`supplier_address`/`supplier_bank_account`, `customer_*`) — sourced from the NAV digest independent of local supplier/customer matching |
+| `r7s8t9u0v1w2` | `supplier_locked` / `customer_locked` (bool, default `False`) on `invoice` and `bank_transaction` — a manual supplier/customer link *or unlink* now survives future sync runs, matching the existing `invoice_file_locked` protection |
 
 ## Code structure
 
@@ -328,7 +333,7 @@ Sync only ever **links** an invoice or bank transaction to an existing `supplier
 
 - **NAV sync (`sync_nav`)**: matches by `tax_id` first; if that misses, falls back to a case-insensitive name match against any existing row with `tax_id IS NULL` (a manually-created placeholder) and backfills its `tax_id`. If neither matches, the invoice is still imported with that side (`supplier_id`/`customer_id`) left `NULL`, and a warning is added to the sync run's `errors` (e.g. *"Számla INV-100: ismeretlen szállító 'ACME Kft' (adószám: 12345678-1-42) — hozza létre a Szállítók oldalon"*).
 - **Bank sync (`sync_bank`)**: already link-only — it looks up a supplier/customer by counterparty name but has never created one. An unmatched counterparty likewise produces a warning instead of a silent gap.
-- **Self-healing**: once the missing partner is created (manually, or backfilled by a later NAV digest), the next sync run picks up the link for any previously-pending invoice or transaction automatically — no manual re-linking needed.
+- **Self-healing**: once the missing partner is created (manually, or backfilled by a later NAV digest), the next sync run picks up the link for any previously-pending invoice or transaction automatically — no manual re-linking needed. Skipped if the user has already manually set or cleared that field (`supplier_locked`/`customer_locked` — see "Manual linking" below).
 - **Visibility**: `GET /api/v1/sync/pending` reports how many invoices/transactions are still unmatched, independent of the last sync run's transient warnings — this is what the vision Sync page's pending-count card reads.
 
 This exists specifically to avoid duplicate partner rows: before this, `sync_nav` would create a brand-new `supplier`/`customer` for any unmatched digest, which would double up a partner the user had already entered by hand before its `tax_id` was known.
@@ -346,15 +351,17 @@ Use the vision UI (lock badge + "PDF kapcsolása" button on the invoice detail p
 
 ### Invoice ↔ Supplier / Customer
 
-Sync (`sync_nav`) only ever fills `invoice.supplier_id`/`customer_id` when it's currently `NULL` — it never overwrites an existing value — so there's no separate lock flag for this link (unlike the PDF/transaction links above): once set, manually or automatically, a value is never replaced by a later sync run.
+Sync (`sync_nav`) fills `invoice.supplier_id`/`customer_id` when currently `NULL`, gated by `supplier_locked`/`customer_locked` — once either flag is `True`, that field is never touched again by auto-sync, whether it currently holds a value or is intentionally `NULL`.
 
-Manual set/clear goes through `PUT`/`DELETE /api/v1/invoices/{id}/supplier` and `/customer` (body `{"supplier_id": int}` / `{"customer_id": int}`). The vision invoice detail page drives this via a picker modal (`GET /ui/picker/partners?kind=supplier|customer&invoice_id=`) listing existing suppliers/customers to attach, plus an inline "create new and link" form pre-filled from the invoice's NAV partner snapshot (`invoice_detail.supplier_name`/`supplier_tax_number`/`supplier_address`/`supplier_bank_account`, `customer_*`) for the common case where the invoice references a partner that doesn't exist locally yet.
+Manual set/clear goes through `PUT`/`DELETE /api/v1/invoices/{id}/supplier` and `/customer` (body `{"supplier_id": int}` / `{"customer_id": int}`) — **both** actions set the corresponding lock flag to `True` (a manual "no supplier here" decision must stick just as much as a manual "this supplier" decision; this diverges from the `invoice_file_locked` unlink behavior below, which unlocks). The vision invoice detail page drives this via a picker modal (`GET /ui/picker/partners?kind=supplier|customer&invoice_id=`) listing existing suppliers/customers to attach, plus an inline "create new and link" form pre-filled from the invoice's NAV partner snapshot (`invoice_detail.supplier_name`/`supplier_tax_number`/`supplier_address`/`supplier_bank_account`, `customer_*`) for the common case where the invoice references a partner that doesn't exist locally yet.
 
 ### Bank transaction → Invoice / Supplier / Customer
 
 1. **Invoice** — exact match on `payment_reference` vs `invoice_number`, then separator-normalised fallback.
 2. **Supplier / Customer from invoice** — reuses the linked invoice's `supplier_id` and `customer_id`.
 3. **Counterparty name fallback** — case-insensitive match against `supplier.name` / `customer.name`.
+
+All three auto-linking steps above (plus `sync_match`'s supplier+amount phase and its final invoice-backfill pass) are gated the same way as `sync_nav`: skipped per-field when `supplier_locked`/`customer_locked` is `True`. Manual set/clear via `PUT`/`DELETE /api/v1/transactions/{id}/supplier` and `/customer` sets that lock on both actions, same as the invoice endpoints above.
 
 `GET /api/v1/transactions` resolves the displayed partner by transaction direction rather than returning both FKs blindly: `DEBIT` (money out) shows the linked `supplier`, `CREDIT` (money in) shows the linked `customer` — the vision transaction table links to whichever one applies and flags rows with neither as "nincs partner" instead of silently falling back to raw counterparty text.
 
@@ -373,15 +380,17 @@ Use the vision UI (transaction offcanvas → "PDF kapcsolása" button) or `PUT /
 
 ### Manual linking
 
-When automatic strategies can't establish the correct relationship, all three link types (invoice↔PDF, transaction↔PDF, invoice↔transaction) can be set manually via the REST API or the vision UI. Manual links are protected from being overwritten by subsequent sync runs.
+When automatic strategies can't establish the correct relationship, all five link types (invoice↔PDF, transaction↔PDF, invoice↔supplier, invoice↔customer, transaction↔supplier, transaction↔customer, invoice↔transaction) can be set manually via the REST API or the vision UI. Manual links are protected from being overwritten by subsequent sync runs.
 
 **Lock semantics:**
 
-| Action | `invoice_file_locked` after | Effect on auto-sync |
-|--------|----------------------------|---------------------|
-| Manual link (`PUT`) | `True` | Sync skips re-assigning `invoice_file_id` for this record |
-| Manual unlink (`DELETE`) | `False` | Sync may auto-link again on the next run |
-| Never touched (default) | `False` | Sync behaves as normal |
+| Field | Action | Lock after | Effect on auto-sync |
+|-------|--------|------------|----------------------|
+| `invoice_file_locked` (invoice/transaction PDF link) | Manual link (`PUT`) | `True` | Sync skips re-assigning `invoice_file_id` for this record |
+| `invoice_file_locked` | Manual unlink (`DELETE`) | `False` | Sync may auto-link again on the next run |
+| `supplier_locked` / `customer_locked` (invoice/transaction partner link) | Manual link (`PUT`) | `True` | Sync skips re-assigning this FK for this record |
+| `supplier_locked` / `customer_locked` | Manual unlink (`DELETE`) | **`True`** | Sync skips re-assigning this FK — an explicit "no partner" decision persists too, unlike the PDF-link flag above |
+| any lock flag | Never touched (default) | `False` | Sync behaves as normal |
 
 Invoice↔transaction M2M rows are never removed by sync, so manual M2M links are always preserved automatically. The `manual` flag on junction rows is an audit marker shown as a lock badge in the vision UI.
 

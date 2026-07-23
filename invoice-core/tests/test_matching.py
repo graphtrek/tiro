@@ -418,6 +418,83 @@ def test_locked_txn_not_relinked(mdb):
     assert txn.invoice_file_id == original_file.id  # must not change
 
 
+def test_locked_txn_supplier_customer_not_backfilled_on_phase3_backlink(mdb):
+    """Phase 3 (back-link via shared file) must still link the invoice, but must
+    not overwrite a locked supplier_id/customer_id on the transaction."""
+    supplier = Supplier(name="Teszt Szállító", tax_id="12345678-1-42")
+    customer = Customer(name="Teszt Vevő", tax_id="87654321-2-13")
+    pdf = InvoiceFile(filename="2026-06-05_0025_GRPHT-2026-16.pdf", words="2026-16 teszt")
+    mdb.add_all([supplier, customer, pdf])
+    mdb.flush()
+    inv = Invoice(
+        invoice_number="GRPHT-2026-16",
+        supplier_id=supplier.id,
+        customer_id=customer.id,
+        payment_status=_PaymentStatus.UNPAID,
+        direction=_InvoiceDirection.OUTBOUND,
+        invoice_file_id=pdf.id,
+    )
+    mdb.add(inv)
+    mdb.flush()
+    t = BankTransaction(
+        transaction_id="TRANSFER-LOCKED-99",
+        bank="wise",
+        direction="DEBIT",
+        amount=127000,
+        currency="HUF",
+        transaction_date=datetime(2026, 6, 5),
+        invoice_file_id=pdf.id,
+        supplier_locked=True,
+        customer_locked=True,
+    )
+    mdb.add(t)
+    mdb.flush()
+
+    sync_match(mdb)
+
+    assert inv in t.invoices               # back-link still happens
+    assert t.supplier_id is None           # but locked fields are not backfilled
+    assert t.customer_id is None
+
+
+def test_locked_txn_supplier_not_overwritten_by_phase15_match(mdb):
+    """Phase 1.5 (supplier-name + amount match) must still link the invoice,
+    but must not overwrite a locked supplier_id/customer_id on the transaction."""
+    supplier = Supplier(name="Orzsem Services Kft", tax_id="11223344-1-01")
+    customer = Customer(name="Graphtrek Kft", tax_id="99887766-2-02")
+    mdb.add_all([supplier, customer])
+    mdb.flush()
+    inv = Invoice(
+        invoice_number="ORZSEM-2026-77",
+        supplier_id=supplier.id,
+        customer_id=customer.id,
+        payment_status=_PaymentStatus.UNPAID,
+        direction=_InvoiceDirection.INBOUND,
+        invoice_date=datetime(2026, 6, 4).date(),
+        amount_total=94624,
+        currency="HUF",
+    )
+    mdb.add(inv)
+    mdb.flush()
+    t = _txn(
+        transaction_id="TRANSFER-ORZSEM-LOCKED",
+        amount=94624,
+        counterparty_name="Őrszem Services Kft",
+        transaction_date=datetime(2026, 6, 4),
+        supplier_locked=True,
+        customer_locked=True,
+    )
+    mdb.add(t)
+    mdb.flush()
+
+    sync_match(mdb)
+    mdb.refresh(t)
+
+    assert inv in t.invoices          # still matched to the invoice via supplier+amount
+    assert t.supplier_id is None      # but the locked supplier/customer are not backfilled
+    assert t.customer_id is None
+
+
 def test_manual_m2m_survives_sync(mdb):
     """M2M row with manual=True must not be removed by sync_match."""
     sup, cust = _make_sup_cust(mdb)
@@ -486,6 +563,45 @@ def test_locked_txn_not_cleared_by_tax_guard(mdb, monkeypatch):
     mdb.refresh(txn)
     assert txn.invoice_file_id == f.id  # still linked — the lock protected it
     assert txn.invoice_file_locked is True
+
+
+def test_locked_txn_supplier_not_cleared_by_tax_guard(mdb, monkeypatch):
+    """sync_bank's tax-account clearing clears the file/invoice link (unlocked),
+    but must not null out a supplier_id the user explicitly locked."""
+    from invoice_core.bank_client import BankClient
+    from invoice_core.config import Settings
+    from invoice_core.service import sync_bank
+
+    tax_account = "10032000-00290080-00000000"
+    settings = Settings(
+        db_url="sqlite:///:memory:",
+        tax_accounts={tax_account: "NAV ÁFA"},
+    )
+
+    supplier = Supplier(name="Szállító", tax_id="11111111-1-11")
+    mdb.add(supplier)
+    f = InvoiceFile(filename="reclassified.pdf", words="content")
+    mdb.add(f)
+    mdb.flush()
+
+    txn = _txn(
+        transaction_id="TAX-LOCKED-2",
+        amount=5000,
+        counterparty_account=tax_account,
+        invoice_file_id=f.id,
+        invoice_file_locked=False,
+        supplier_id=supplier.id,
+        supplier_locked=True,
+    )
+    mdb.add(txn)
+    mdb.commit()
+
+    monkeypatch.setattr(BankClient, "get_transactions", lambda self: [])
+    sync_bank("2026-06-01", "2026-06-30", mdb, settings)
+
+    mdb.refresh(txn)
+    assert txn.invoice_file_id is None        # unlocked file link is cleared as before
+    assert txn.supplier_id == supplier.id     # locked supplier survives the clear
 
 
 def test_tax_account_clearing_recomputes_payment_status(mdb, monkeypatch):

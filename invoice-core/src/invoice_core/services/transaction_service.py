@@ -51,8 +51,10 @@ class TransactionDetail:
     invoice_file_locked: bool
     supplier_id: Optional[int]
     supplier_name: Optional[str]
+    supplier_locked: bool
     customer_id: Optional[int]
     customer_name: Optional[str]
+    customer_locked: bool
     created_at: datetime
     updated_at: datetime
 
@@ -75,6 +77,8 @@ class TransactionRow:
     customer_id: Optional[int] = None
     fees: Optional[float] = None
     invoice_file_locked: bool = False
+    supplier_locked: bool = False
+    customer_locked: bool = False
     invoice_ids: list[int] = field(default_factory=list)
     invoice_numbers: list[str] = field(default_factory=list)
     invoice_file_preview_base64: Optional[str] = None
@@ -167,6 +171,8 @@ def list_transactions(
             customer_id=t.customer_id,
             fees=t.fees,
             invoice_file_locked=bool(t.invoice_file_locked),
+            supplier_locked=bool(t.supplier_locked),
+            customer_locked=bool(t.customer_locked),
             invoice_ids=[pair[0] for pair in inv_by_txn.get(t.id, [])],
             invoice_numbers=[pair[1] for pair in inv_by_txn.get(t.id, [])],
             invoice_file_preview_base64=inv_preview,
@@ -223,8 +229,10 @@ def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDet
         invoice_file_locked=t.invoice_file_locked,
         supplier_id=t.supplier_id,
         supplier_name=t.supplier.name if t.supplier else None,
+        supplier_locked=t.supplier_locked,
         customer_id=t.customer_id,
         customer_name=t.customer.name if t.customer else None,
+        customer_locked=t.customer_locked,
         created_at=t.created_at,
         updated_at=t.updated_at,
     )

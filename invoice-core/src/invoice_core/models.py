@@ -151,6 +151,8 @@ class InvoiceOut(BaseModel):
     payment_due_date: Optional[date] = None
     invoice_file_id: Optional[int] = None
     invoice_file_locked: bool = False
+    supplier_locked: bool = False
+    customer_locked: bool = False
     created_at: datetime
     updated_at: datetime
 
