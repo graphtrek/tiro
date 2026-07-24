@@ -199,6 +199,7 @@
 
     document.getElementById("transaction-table").addEventListener("click", function(e) {
       if (e.target.closest("a")) return;
+      if (e.target.closest("td.dtr-control")) return;
       const row = e.target.closest("tr[data-tx-id]");
       if (!row) return;
       htmx.ajax("GET", "/ui/transactions/" + row.dataset.txId, {
