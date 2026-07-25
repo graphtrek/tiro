@@ -9,9 +9,9 @@
   },
   "runArgs": ["--env-file", "${localWorkspaceFolder}/.env"],
   "containerEnv": { "AGENT_BROWSER_EXECUTABLE_PATH": "/usr/bin/chromium" },
-  "forwardPorts": [8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8009],
+  "forwardPorts": [8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8009, 5432, 5050],
   "postCreateCommand": "bash .devcontainer/setup.sh",
-  "postStartCommand": "for i in 1 2 3 4 5 6 7 8 9 10; do docker network connect python-for-ai_default $(hostname) >/dev/null 2>&1 && break; sleep 1; done; true",
+  "postStartCommand": "bash .devcontainer/start-services.sh",
   "customizations": {
     "vscode": {
       "extensions": [
