@@ -87,6 +87,7 @@
     });
     $("#file-table tbody").on("click", "tr", function(e) {
       if ($(e.target).closest("a, button").length) return;
+      if ($(e.target).closest("td").is(":first-child")) return;
       var url = $(this).data("pdf-url");
       if (url) window.open(url, "_blank");
     });
