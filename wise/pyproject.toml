@@ -3,7 +3,7 @@ name = "wise-invoice"
 version = "0.1.0"
 description = "Wise bank statement sync microservice (Moneypenny wise) with FastAPI and CLI"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
