@@ -38,6 +38,15 @@ PGADMIN_SITE_PKG=$(find /usr/local/py-utils/venvs/pgadmin4/lib -maxdepth 3 -path
 cat > "$PGADMIN_SITE_PKG/config_local.py" <<'EOF'
 MASTER_PASSWORD_REQUIRED = False
 USE_OS_SECRET_STORAGE = False
+
+# The apt "postgresql" package (v15 on Debian bookworm) installs pg_dump/
+# pg_restore/psql as /usr/bin symlinks — without this, pgAdmin's backup/
+# restore fails with "Utility file not found" because it has no default
+# Binary Path preference until a user sets one by hand.
+DEFAULT_BINARY_PATHS = {
+    "pg": "/usr/bin",
+    "pg-15": "/usr/bin",
+}
 EOF
 
 echo "Starting PostgreSQL and creating the ${DB_NAME} role/database..."
