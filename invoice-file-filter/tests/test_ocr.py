@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from invoice_file_filter.ocr import ocr_extract_words, ocr_pdf
 
 
@@ -76,7 +74,7 @@ class TestExtractTextOcrFallback:
         with (
             patch("invoice_file_filter.extractor.pdfplumber") as mock_pdfplumber,
             patch("invoice_file_filter.extractor.get_settings") as mock_settings,
-            patch("invoice_file_filter.extractor.ocr_pdf", return_value="OCR: Számla") as mock_ocr,
+            patch("invoice_file_filter.extractor.ocr_pdf", return_value="OCR: Számla"),
         ):
             mock_page = MagicMock()
             mock_page.extract_text.return_value = ""
@@ -263,7 +261,10 @@ class TestExtractWordsCsvOcrFallback:
             patch("invoice_file_filter.extractor.pdfplumber") as mock_pdfplumber,
             patch("invoice_file_filter.extractor.get_settings") as mock_settings,
             patch("invoice_file_filter.extractor.os.path.getmtime", return_value=0.0),
-            patch("invoice_file_filter.extractor.ocr_extract_words", return_value=["Számla", "Eladó"]) as mock_ocr,
+            patch(
+                "invoice_file_filter.extractor.ocr_extract_words",
+                return_value=["Számla", "Eladó"],
+            ) as mock_ocr,
         ):
             mock_page = MagicMock()
             mock_page.extract_words.return_value = []
@@ -306,7 +307,7 @@ class TestExtractWordsCsvOcrFallback:
 
             from invoice_file_filter.extractor import clear_words_cache, extract_words_csv
             clear_words_cache()
-            result = extract_words_csv(str(pdf))
+            extract_words_csv(str(pdf))
 
         mock_ocr.assert_not_called()
 

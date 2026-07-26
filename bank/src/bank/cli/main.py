@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json as _json
-import logging
 from datetime import date
 from typing import Annotated
 
@@ -44,8 +43,8 @@ def _print_transaction_table(transactions: list[BankTransaction]) -> None:
             f"[{color}]{txn.direction}[/{color}]",
             str(txn.date),
             f"{txn.amount:,.2f} {txn.currency}",
-            txn.counterparty_name or "[dim]–[/dim]",
-            txn.payment_reference or "[dim]–[/dim]",
+            txn.counterparty_name or "[dim]–[/dim]",  # noqa: RUF001 - intentional Hungarian dash
+            txn.payment_reference or "[dim]–[/dim]",  # noqa: RUF001 - intentional Hungarian dash
         )
     console.print(table)
 
@@ -97,7 +96,7 @@ def list_cmd(
             f.bank,
             f.filename,
             f.account_id,
-            f.currency or "–",
+            f.currency or "–",  # noqa: RUF001 - intentional Hungarian dash
             f"{f.from_date} .. {f.to_date}",
         )
     console.print(table)
@@ -105,14 +104,16 @@ def list_cmd(
 
 @app.command(name="import")
 def import_csv(
-    filename: Annotated[str, typer.Argument(help="CSV fájlnév (pl. statement_25546267_HUF_2026-01-01_2026-06-17.csv)")],
+    filename: Annotated[
+        str,
+        typer.Argument(
+            help="CSV fájlnév (pl. statement_25546267_HUF_2026-01-01_2026-06-17.csv)"
+        ),
+    ],
     as_json: bool = typer.Option(False, "--json", help="JSON kimenet"),
 ):
     """Egy CSV fájl beolvasása és tranzakciók megjelenítése."""
-    if filename.startswith("statement_"):
-        bank = "wise"
-    else:
-        bank = "erste"
+    bank = "wise" if filename.startswith("statement_") else "erste"
 
     stmt = get_statement_by_filename(bank=bank, filename=filename)
     if stmt is None:

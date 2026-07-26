@@ -11,11 +11,17 @@ import pytest
 
 from bank.parsers.erste import (
     _parse_amount as erste_parse_amount,
+)
+from bank.parsers.erste import (
     _parse_balance as erste_parse_balance,
+)
+from bank.parsers.erste import (
     parse_erste_csv,
 )
 from bank.parsers.wise import (
     _parse_amount as wise_parse_amount,
+)
+from bank.parsers.wise import (
     parse_wise_csv,
 )
 

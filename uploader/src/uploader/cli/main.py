@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -38,7 +37,8 @@ def status():
         console.print(f"\n[bold]{bank.upper()}[/bold] — {len(files)} fájl")
         for f in files:
             console.print(
-                f"  {f.filename}  ({f.size_bytes:,} bájt, {f.modified_at.strftime('%Y-%m-%d %H:%M')})"
+                f"  {f.filename}  ({f.size_bytes:,} bájt, "
+                f"{f.modified_at.strftime('%Y-%m-%d %H:%M')})"
             )
     if status.total_files == 0:
         console.print("\n[yellow]Nincs elérhető CSV fájl.[/yellow]")
@@ -79,7 +79,9 @@ def list_cmd(
 @app.command()
 def upload(
     file: Annotated[Path, typer.Argument(help="Feltöltendő CSV fájl elérési útja")],
-    bank: Optional[str] = typer.Option(None, "--bank", help="erste | wise (auto-detektálás ha nincs megadva)"),
+    bank: str | None = typer.Option(
+        None, "--bank", help="erste | wise (auto-detektálás ha nincs megadva)"
+    ),
     overwrite: bool = typer.Option(False, "--overwrite", help="Létező fájl felülírása"),
 ):
     """CSV fájl feltöltése a storage mappába."""
@@ -87,7 +89,7 @@ def upload(
         console.print(f"[red]✗ Fájl nem található: {file}[/red]")
         raise typer.Exit(code=1)
 
-    if not file.suffix.lower() == ".csv":
+    if file.suffix.lower() != ".csv":
         console.print(f"[red]✗ Csak CSV fájl fogadható el: {file.name}[/red]")
         raise typer.Exit(code=1)
 
@@ -96,7 +98,9 @@ def upload(
     data = file.read_bytes()
 
     if len(data) > max_bytes:
-        console.print(f"[red]✗ A fájl mérete meghaladja a maximumot ({s.max_file_size_mb} MB).[/red]")
+        console.print(
+            f"[red]✗ A fájl mérete meghaladja a maximumot ({s.max_file_size_mb} MB).[/red]"
+        )
         raise typer.Exit(code=1)
 
     detected = bank or detect_bank(file.name)
@@ -118,7 +122,7 @@ def upload(
         )
     except FileExistsError as exc:
         console.print(f"[red]✗ {exc}[/red]\n  Használd a --overwrite kapcsolót a felülíráshoz.")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     action = "[yellow]Felülírva[/yellow]" if result.overwritten else "[green]Feltöltve[/green]"
     console.print(
@@ -142,7 +146,7 @@ def delete(
         console.print(f"[green]✓ Törölve:[/green] {bank}/{filename}")
     except FileNotFoundError as exc:
         console.print(f"[red]✗ {exc}[/red]")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
 
 if __name__ == "__main__":

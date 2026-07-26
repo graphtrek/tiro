@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from invoice_core.db import Base, Customer, Invoice, Supplier, _InvoiceDirection
+from invoice_core.db import Base, Invoice, Supplier, _InvoiceDirection
 from invoice_core.services import invoice_service
 
 
@@ -23,10 +23,14 @@ def db():
 
 
 def test_list_invoices_includes_invoice_with_no_partner(db):
-    db.add(Invoice(
-        invoice_number="INV-PENDING", supplier_id=None, customer_id=None,
-        direction=_InvoiceDirection.OUTBOUND,
-    ))
+    db.add(
+        Invoice(
+            invoice_number="INV-PENDING",
+            supplier_id=None,
+            customer_id=None,
+            direction=_InvoiceDirection.OUTBOUND,
+        )
+    )
     db.commit()
 
     rows = invoice_service.list_invoices(db)
@@ -42,10 +46,14 @@ def test_list_invoices_includes_invoice_with_only_supplier_matched(db):
     sup = Supplier(name="ACME Kft")
     db.add(sup)
     db.flush()
-    db.add(Invoice(
-        invoice_number="INV-PARTIAL", supplier_id=sup.id, customer_id=None,
-        direction=_InvoiceDirection.OUTBOUND,
-    ))
+    db.add(
+        Invoice(
+            invoice_number="INV-PARTIAL",
+            supplier_id=sup.id,
+            customer_id=None,
+            direction=_InvoiceDirection.OUTBOUND,
+        )
+    )
     db.commit()
 
     rows = invoice_service.list_invoices(db)
@@ -58,7 +66,9 @@ def test_list_invoices_includes_invoice_with_only_supplier_matched(db):
 
 def test_get_invoice_returns_detail_with_no_partner(db):
     inv = Invoice(
-        invoice_number="INV-PENDING", supplier_id=None, customer_id=None,
+        invoice_number="INV-PENDING",
+        supplier_id=None,
+        customer_id=None,
         direction=_InvoiceDirection.OUTBOUND,
     )
     db.add(inv)

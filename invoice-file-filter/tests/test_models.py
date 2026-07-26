@@ -1,6 +1,6 @@
 """Tests for the Pydantic models."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from invoice_file_filter.models import (
     DownloadedFile,
@@ -12,7 +12,7 @@ from invoice_file_filter.models import (
 
 class TestProcessedFile:
     def test_fields(self):
-        now = datetime(2026, 5, 1, 12, 0)
+        now = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
         meta = ProcessedFile(filename="x.pdf", path="/tmp/x.pdf", modified=now)
         assert meta.filename == "x.pdf"
         assert meta.path == "/tmp/x.pdf"

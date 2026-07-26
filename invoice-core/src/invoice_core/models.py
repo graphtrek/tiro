@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from enum import Enum
-from typing import List, Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # ── Sync ─────────────────────────────────────────────────────────────────────
 
 
-class SyncMode(str, Enum):
+class SyncMode(StrEnum):
     full = "full"
     nav_only = "nav_only"
     pdf_only = "pdf_only"
@@ -21,10 +19,12 @@ class SyncMode(str, Enum):
 
 
 class SyncRequest(BaseModel):
-    start_date: Optional[str] = Field(None, description="YYYY-MM-DD; default 30 days ago")
-    end_date: Optional[str] = Field(None, description="YYYY-MM-DD; default today")
-    sync_mode: Optional[SyncMode] = None
-    clear_cache: bool = Field(False, description="Clear all downstream service caches before syncing")
+    start_date: str | None = Field(None, description="YYYY-MM-DD; default 30 days ago")
+    end_date: str | None = Field(None, description="YYYY-MM-DD; default today")
+    sync_mode: SyncMode | None = None
+    clear_cache: bool = Field(
+        False, description="Clear all downstream service caches before syncing"
+    )
 
 
 class SyncResponse(BaseModel):
@@ -34,8 +34,8 @@ class SyncResponse(BaseModel):
     pdf_files_synced: int = 0
     bank_transactions_synced: int = 0
     bank_files_matched: int = 0
-    errors: List[str] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 # ── Read DTOs (from_attributes=True for ORM → Pydantic) ─────────────────────
@@ -46,12 +46,12 @@ class SupplierOut(BaseModel):
 
     id: int
     name: str
-    tax_id: Optional[str] = None
-    address: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    iban: Optional[str] = None
-    bban: Optional[str] = None
+    tax_id: str | None = None
+    address: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    iban: str | None = None
+    bban: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -61,13 +61,13 @@ class CustomerOut(BaseModel):
 
     id: int
     name: str
-    tax_id: Optional[str] = None
-    address: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    payment_terms: Optional[int] = None
-    iban: Optional[str] = None
-    bban: Optional[str] = None
+    tax_id: str | None = None
+    address: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    payment_terms: int | None = None
+    iban: str | None = None
+    bban: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -77,12 +77,12 @@ class CustomerOut(BaseModel):
 
 class SupplierIn(BaseModel):
     name: str
-    tax_id: Optional[str] = None
-    address: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    iban: Optional[str] = None
-    bban: Optional[str] = None
+    tax_id: str | None = None
+    address: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    iban: str | None = None
+    bban: str | None = None
 
 
 class SupplierUpdate(SupplierIn):
@@ -91,13 +91,13 @@ class SupplierUpdate(SupplierIn):
 
 class CustomerIn(BaseModel):
     name: str
-    tax_id: Optional[str] = None
-    address: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    payment_terms: Optional[int] = None
-    iban: Optional[str] = None
-    bban: Optional[str] = None
+    tax_id: str | None = None
+    address: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    payment_terms: int | None = None
+    iban: str | None = None
+    bban: str | None = None
 
 
 class CustomerUpdate(CustomerIn):
@@ -109,9 +109,9 @@ class InvoiceFileOut(BaseModel):
 
     id: int
     filename: str
-    path: Optional[str] = None
-    words: Optional[str] = None
-    preview_base64: Optional[str] = None
+    path: str | None = None
+    words: str | None = None
+    preview_base64: str | None = None
     is_deleted: bool = False
     created_at: datetime
     updated_at: datetime
@@ -120,13 +120,13 @@ class InvoiceFileOut(BaseModel):
 # These mirror `db.py`'s `_PaymentStatus`/`_InvoiceDirection` SQLAlchemy enums
 # (same member names/values), just re-declared here so the API layer doesn't need
 # to import the "private" ORM enums directly. Keep both pairs in sync by hand.
-class PaymentStatus(str, Enum):
+class PaymentStatus(StrEnum):
     PAID = "PAID"
     UNPAID = "UNPAID"
     PARTIAL = "PARTIAL"
 
 
-class InvoiceDirection(str, Enum):
+class InvoiceDirection(StrEnum):
     INBOUND = "INBOUND"
     OUTBOUND = "OUTBOUND"
 
@@ -136,21 +136,21 @@ class InvoiceOut(BaseModel):
 
     id: int
     invoice_number: str
-    invoice_date: Optional[date] = None
-    supplier_id: int
-    customer_id: int
-    amount_net: Optional[float] = None
-    amount_vat: Optional[float] = None
-    amount_total: Optional[float] = None
+    invoice_date: date | None = None
+    supplier_id: int | None = None
+    customer_id: int | None = None
+    amount_net: float | None = None
+    amount_vat: float | None = None
+    amount_total: float | None = None
     payment_status: PaymentStatus
     direction: InvoiceDirection
-    currency: Optional[str] = None
-    invoice_operation: Optional[str] = None
-    invoice_category: Optional[str] = None
-    nav_ins_date: Optional[str] = None
-    payment_method: Optional[str] = None
-    payment_due_date: Optional[date] = None
-    invoice_file_id: Optional[int] = None
+    currency: str | None = None
+    invoice_operation: str | None = None
+    invoice_category: str | None = None
+    nav_ins_date: str | None = None
+    payment_method: str | None = None
+    payment_due_date: date | None = None
+    invoice_file_id: int | None = None
     invoice_file_locked: bool = False
     supplier_locked: bool = False
     customer_locked: bool = False
@@ -162,8 +162,8 @@ class UserIn(BaseModel):
     provider: str
     sub: str
     email: str
-    name: Optional[str] = None
-    picture: Optional[str] = None
+    name: str | None = None
+    picture: str | None = None
 
 
 class UserOut(BaseModel):
@@ -173,8 +173,8 @@ class UserOut(BaseModel):
     provider: str
     sub: str
     email: str
-    name: Optional[str] = None
-    picture: Optional[str] = None
+    name: str | None = None
+    picture: str | None = None
     created_at: datetime
     updated_at: datetime
     last_login_at: datetime
@@ -203,12 +203,12 @@ class AuditLogOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    user_email: Optional[str] = None
+    user_email: str | None = None
     method: str
     path: str
     page: str
-    record: Optional[str] = None
-    label: Optional[str] = None
+    record: str | None = None
+    label: str | None = None
     action: str
     status_code: int
     created_at: datetime
@@ -218,7 +218,7 @@ class ProjectIn(BaseModel):
     customer_id: int
     short_name: str
     owner_id: int
-    permitted_user_ids: List[int] = Field(default_factory=list)
+    permitted_user_ids: list[int] = Field(default_factory=list)
 
 
 class ProjectUpdate(BaseModel):
@@ -226,7 +226,7 @@ class ProjectUpdate(BaseModel):
     short_name: str
     owner_id: int
     is_active: bool
-    permitted_user_ids: List[int] = Field(default_factory=list)
+    permitted_user_ids: list[int] = Field(default_factory=list)
 
 
 class ProjectOut(BaseModel):
@@ -241,7 +241,7 @@ class ProjectOut(BaseModel):
     owner_id: int
     owner_name: str
     is_active: bool
-    permitted_user_ids: List[int]
+    permitted_user_ids: list[int]
     usage_hours: float
     created_at: datetime
     updated_at: datetime
@@ -253,8 +253,8 @@ class TimesheetEntryIn(BaseModel):
     activity_type_id: int
     entry_date: date
     hours: float
-    participants: Optional[str] = None
-    description: Optional[str] = None
+    participants: str | None = None
+    description: str | None = None
 
 
 class TimesheetEntryUpdate(BaseModel):
@@ -262,8 +262,8 @@ class TimesheetEntryUpdate(BaseModel):
     activity_type_id: int
     entry_date: date
     hours: float
-    participants: Optional[str] = None
-    description: Optional[str] = None
+    participants: str | None = None
+    description: str | None = None
 
 
 class TimesheetEntryOut(BaseModel):
@@ -280,8 +280,8 @@ class TimesheetEntryOut(BaseModel):
     entry_date: date
     project_week: int
     hours: float
-    participants: Optional[str] = None
-    description: Optional[str] = None
+    participants: str | None = None
+    description: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -299,9 +299,9 @@ class LinkCustomerRequest(BaseModel):
 
 
 class PatchInvoiceRequest(BaseModel):
-    note: Optional[str] = None
-    payment_status_locked: Optional[bool] = None
-    payment_status: Optional[str] = None
+    note: str | None = None
+    payment_status_locked: bool | None = None
+    payment_status: str | None = None
 
 
 class BankTransactionOut(BaseModel):
@@ -314,26 +314,26 @@ class BankTransactionOut(BaseModel):
     currency: str
     direction: str
     transaction_date: datetime
-    description: Optional[str] = None
-    payment_reference: Optional[str] = None
-    counterparty_name: Optional[str] = None
-    counterparty_account: Optional[str] = None
-    counterparty_iban: Optional[str] = None
-    transaction_type: Optional[str] = None
-    category: Optional[str] = None
-    balance: Optional[float] = None
-    fees: Optional[float] = None
-    counterparty_address: Optional[str] = None
-    sender_address: Optional[str] = None
-    counterparty_bank_code: Optional[str] = None
-    exchange_rate: Optional[float] = None
-    exchange_to_currency: Optional[str] = None
-    card_last_four: Optional[str] = None
-    note: Optional[str] = None
-    supplier_id: Optional[int] = None
-    customer_id: Optional[int] = None
+    description: str | None = None
+    payment_reference: str | None = None
+    counterparty_name: str | None = None
+    counterparty_account: str | None = None
+    counterparty_iban: str | None = None
+    transaction_type: str | None = None
+    category: str | None = None
+    balance: float | None = None
+    fees: float | None = None
+    counterparty_address: str | None = None
+    sender_address: str | None = None
+    counterparty_bank_code: str | None = None
+    exchange_rate: float | None = None
+    exchange_to_currency: str | None = None
+    card_last_four: str | None = None
+    note: str | None = None
+    supplier_id: int | None = None
+    customer_id: int | None = None
     invoice_ids: list[int] = []
     invoice_numbers: list[str] = []
-    invoice_file_id: Optional[int] = None
+    invoice_file_id: int | None = None
     created_at: datetime
     updated_at: datetime

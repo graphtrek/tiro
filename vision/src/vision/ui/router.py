@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
 from pathlib import Path
 
 import requests
@@ -12,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from vision.config import Settings, get_settings
+from vision.ui.utils import local_today
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ def login(request: Request, next: str | None = None, error: str | None = None):
             "next": next or "/ui/",
             "error": error,
             "auth_service_url": settings.auth_public_url_or_default,
-            "current_year": date.today().year,
+            "current_year": local_today().year,
         },
     )
 

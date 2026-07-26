@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 from .client import AttachmentDownloaderClient
 from .config import Settings, get_settings
@@ -16,15 +15,15 @@ from .models import ExtractRequest, ExtractResponse
 logger = logging.getLogger(__name__)
 
 
-def _default_dates(start: Optional[str], end: Optional[str]) -> tuple[str, str]:
+def _default_dates(start: str | None, end: str | None) -> tuple[str, str]:
     """Default to the last 30 days when dates are omitted."""
-    end_obj = date.fromisoformat(end) if end else date.today()
+    end_obj = date.fromisoformat(end) if end else datetime.now(tz=UTC).astimezone().date()
     start_obj = date.fromisoformat(start) if start else end_obj - timedelta(days=30)
     return start_obj.isoformat(), end_obj.isoformat()
 
 
 def run_extract(
-    request: ExtractRequest, settings: Optional[Settings] = None
+    request: ExtractRequest, settings: Settings | None = None
 ) -> ExtractResponse:
     """Run an extraction: optionally download via attachment-downloader, then parse.
 

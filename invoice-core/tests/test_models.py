@@ -1,9 +1,5 @@
 """Tests for Pydantic models, JDBC URL derivation, and ORM round-trips."""
 
-from datetime import datetime
-
-import pytest
-
 from invoice_core.config import Settings
 from invoice_core.db import Customer, Invoice, Supplier, _InvoiceDirection, _PaymentStatus
 from invoice_core.models import InvoiceDirection, SyncMode, SyncRequest, SyncResponse

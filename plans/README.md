@@ -13,7 +13,7 @@ your row when done.
 | 002  | Recompute invoice payment status when a tax-account link is cleared | P1 | S | — | DONE |
 | 003  | Add tests for bank CSV parsers, fix self-referential tax-guard test | P1 | S–M | — | DONE |
 | 004  | Add CI to run every sub-project's test suite | P1 | M | — | DONE (note: full end-to-end verification requires a push to GitHub — not yet done; local dry-runs of invoice-core, attachment-downloader, and auth all passed) |
-| 005  | Pagination, N+1 fix, and date-column indexes in invoice-core | P2 | M | — | TODO |
+| 005  | Pagination, N+1 fix, and date-column indexes in invoice-core | P2 | M | — | DONE (note: Part B was reshaped in execution — the N+1 was already fixed by `selectinload(Invoice.bank_transactions)` before this ran, so what shipped instead was a fix to a latent ordering bug in `_partner_invoice_rows` (picked the first-inserted bank transaction instead of the most recently dated one); wiring `vision` to actually paginate through the new `limit`/`offset` params remains a follow-up, not done here) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 

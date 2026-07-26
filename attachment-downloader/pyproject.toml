@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A CLI and FastAPI interface for downloading email attachments."
 dependencies = [
     "pyjwt[crypto]>=2.8",
+    "certifi>=2024.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.22.0",
     "typer>=0.9.0",
@@ -11,17 +12,15 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
     "rich>=13.0.0",
-]
-readme = "README.md"
-requires-python = ">=3.14"
-
-[project.optional-dependencies]
-gmail = [
+    # Gmail is the only implemented provider and the service's core function, so
+    # the Google client libraries are required, not optional. The documented
+    # `uv sync && uv run pytest tests/` flow must work without an extra.
     "google-api-python-client>=0.120.0",
     "google-auth-oauthlib>=0.16.0",
     "google-auth-httplib2>=0.1.0",
 ]
-all = ["attachment-downloader[gmail]"]
+readme = "README.md"
+requires-python = ">=3.11"
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -34,6 +33,17 @@ where = ["src"]
 dev = [
     "pytest>=7.0.0",
     "debugpy>=1.8.21",
+    "ruff>=0.6.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "SIM", "B", "BLE", "DTZ", "RUF", "C4"]
+ignore = [
+    "B008",  # FastAPI idiom: default values via Depends()/Query()/Option() in function signatures.
 ]
 
 [project.scripts]

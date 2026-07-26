@@ -7,11 +7,9 @@ from decimal import Decimal
 from wise_invoice.models import (
     SyncRequest,
     SyncResponse,
-    TransactionSummary,
     TransactionType,
     WiseAmount,
     WiseStatement,
-    WiseTransaction,
     WiseTransactionDetails,
 )
 from wise_invoice.sync import _partner_name, _to_summary

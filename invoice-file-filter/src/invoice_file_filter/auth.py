@@ -17,10 +17,11 @@ Használat (app szintű dependency, a publikus útvonalakat a PUBLIC_PATHS adja)
 from __future__ import annotations
 
 import logging
+import ssl
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Optional
 
+import certifi
 import jwt
 import requests.auth
 from fastapi import HTTPException, Request
@@ -37,7 +38,7 @@ PUBLIC_PATHS = {"/health"}
 
 # A beérkező kérés Bearer tokenje — a downstream kliensek (nav-invoice,
 # invoice-file-filter, bank) ezt adják tovább (token passthrough).
-current_token: ContextVar[Optional[str]] = ContextVar("current_token", default=None)
+current_token: ContextVar[str | None] = ContextVar("current_token", default=None)
 
 
 class TokenPassthrough(requests.auth.AuthBase):
@@ -61,8 +62,21 @@ class AuthSettings(BaseSettings):
     jwt_issuer: str = "auth-service"
 
 
-_settings: Optional[AuthSettings] = None
-_jwk_client: Optional[jwt.PyJWKClient] = None
+def _build_ssl_context() -> ssl.SSLContext:
+    """Certifi-alapú TLS trust store a JWKS lekéréshez (ne a rendszer CA store).
+
+    A PyJWKClient a urllib.request modult használja a JWKS letöltéséhez, ami a
+    rendszer CA store-jára támaszkodik -- ez pl. egy python.org-os macOS
+    telepítésen vagy egy csupasz konténerben üres/hiányos lehet, és a JWKS
+    lekérést hamis "invalid token" hibaként buktatja. A többi HTTP hívás
+    (requests/httpx) certifi-t bundle-el; itt explicit certifi-alapú
+    SSLContext-tel ugyanazt a megbízható store-ot használjuk.
+    """
+    return ssl.create_default_context(cafile=certifi.where())
+
+
+_settings: AuthSettings | None = None
+_jwk_client: jwt.PyJWKClient | None = None
 
 
 def get_auth_settings() -> AuthSettings:
@@ -76,7 +90,9 @@ def _get_signing_key(token: str):
     global _jwk_client
     if _jwk_client is None:
         url = f"{get_auth_settings().auth_service_url.rstrip('/')}/.well-known/jwks.json"
-        _jwk_client = jwt.PyJWKClient(url, cache_keys=True, lifespan=3600)
+        _jwk_client = jwt.PyJWKClient(
+            url, cache_keys=True, lifespan=3600, ssl_context=_build_ssl_context()
+        )
     return _jwk_client.get_signing_key_from_jwt(token).key
 
 
@@ -91,9 +107,19 @@ def verify_jwt(token: str) -> dict:
             audience=settings.jwt_audience,
             issuer=settings.jwt_issuer,
         )
+    except jwt.PyJWKClientConnectionError as exc:
+        # A JWKS lekérés hálózati/TLS hibája nem azonos egy érvénytelen access
+        # tokennel -- ne keverjük össze a hibaüzenetben (ez okozta a
+        # "Fail to fetch data from the url" TLS hibák "Érvénytelen access
+        # token"-ként való megjelenését).
+        logger.error("JWKS lekérés sikertelen (hálózat/TLS, fut az auth szerviz?): %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Az auth szerviz JWKS végpontja nem érhető el (hálózat/TLS hiba)",
+        ) from exc
     except jwt.PyJWTError as exc:
         raise HTTPException(status_code=401, detail=f"Érvénytelen access token: {exc}") from exc
-    except Exception as exc:  # a JWKS nem érhető el
+    except Exception as exc:  # a JWKS nem érhető el egyéb okból
         logger.error("JWT validálás sikertelen (fut az auth szerviz?): %s", exc)
         raise HTTPException(status_code=503, detail="Az auth szerviz nem érhető el") from exc
     if claims.get("typ") != "access":
@@ -114,7 +140,7 @@ async def require_auth(request: Request):
     if not settings.auth_enabled or request.url.path in PUBLIC_PATHS:
         yield None
         return
-    credentials: Optional[HTTPAuthorizationCredentials] = await security(request)
+    credentials: HTTPAuthorizationCredentials | None = await security(request)
     token = credentials.credentials if credentials else request.cookies.get(ACCESS_COOKIE_NAME)
     if not token:
         raise HTTPException(status_code=401, detail="Hiányzó access token")

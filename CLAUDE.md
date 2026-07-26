@@ -96,7 +96,7 @@ Downloads PDF attachments from Gmail for a given date range and exposes them via
 
 ```bash
 cd attachment-downloader
-uv sync --extra gmail
+uv sync
 
 # REST API (port 8000)
 uv run uvicorn attachment_downloader.api.main:app --host 0.0.0.0 --port 8000 --reload

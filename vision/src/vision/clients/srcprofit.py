@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from vision.config import Settings, get_settings, make_http_session
 
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 class SrcProfitClient:
     """Defensive client for SrcProfit — returns None on any error."""
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.srcprofit_url.rstrip("/")
         self.timeout = self.settings.request_timeout

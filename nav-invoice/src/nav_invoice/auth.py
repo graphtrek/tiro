@@ -6,16 +6,17 @@ the canonical way to verify that the technical user credentials are valid.
 """
 
 import logging
-from typing import Optional
+
+import requests
 
 from nav_invoice import crypto
-from nav_invoice.client import NavClient, NavApiError, findtext
+from nav_invoice.client import NavApiError, NavClient, findtext
 from nav_invoice.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
 
-def request_token(settings: Optional[Settings] = None) -> dict:
+def request_token(settings: Settings | None = None) -> dict:
     """Call ``tokenExchange`` and return the decrypted token + validity.
 
     Returns a dict: ``{"token": str, "valid_from": str, "valid_to": str}``.
@@ -41,7 +42,7 @@ def request_token(settings: Optional[Settings] = None) -> dict:
     }
 
 
-def login(settings: Optional[Settings] = None) -> dict:
+def login(settings: Settings | None = None) -> dict:
     """Verify NAV authentication via ``tokenExchange``.
 
     Returns a dict with ``success`` and either ``session_id`` (the token) or
@@ -54,7 +55,8 @@ def login(settings: Optional[Settings] = None) -> dict:
         result = request_token(settings)
     except NavApiError as exc:
         return {"success": False, "error": str(exc)}
-    except Exception as exc:  # network / crypto errors
+    except (requests.RequestException, ValueError) as exc:
+        # network / crypto errors: bad key length, base64/UTF-8 decode, HTTP transport.
         logger.warning("Login failed: %s", exc)
         return {"success": False, "error": str(exc)}
 
@@ -67,6 +69,6 @@ def login(settings: Optional[Settings] = None) -> dict:
     }
 
 
-def check_connection(settings: Optional[Settings] = None) -> bool:
+def check_connection(settings: Settings | None = None) -> bool:
     """Quick health-check against the NAV endpoint."""
     return login(settings).get("success", False)

@@ -1,15 +1,13 @@
 """Pydantic models for NAV Online Számla data."""
 
-from datetime import date, datetime
-from enum import Enum
-from typing import Optional
+from datetime import date
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
-
 # ── Enums ───────────────────────────────────────────────
 
-class InvoiceType(str, Enum):
+class InvoiceType(StrEnum):
     """Számlatípusok."""
     SML = "SML"           # Számla
     ELSZ = "ELSZ"         # Előlegszámla
@@ -18,7 +16,7 @@ class InvoiceType(str, Enum):
     KNY = "KNY"           # Könyvelési bizonylat
 
 
-class InvoiceStatus(str, Enum):
+class InvoiceStatus(StrEnum):
     """Számla státusz."""
     BEJELENTVE = "BEJELENTVE"
     MÓDOSÍTVA = "MÓDOSÍTVA"
@@ -61,7 +59,7 @@ class InvoiceDetail(BaseModel):
 
     header: InvoiceHeader
     line_items: list[InvoiceLineItem] = []
-    status: Optional[InvoiceStatus] = None
+    status: InvoiceStatus | None = None
 
 
 class InvoiceListEntry(BaseModel):
@@ -73,7 +71,7 @@ class InvoiceListEntry(BaseModel):
     szamlazo_neve: str = ""
     vevo_adoszama: str = ""
     bruttototal: float = 0.0
-    status: Optional[InvoiceStatus] = None
+    status: InvoiceStatus | None = None
 
 
 # ── Authentication models ───────────────────────────────
@@ -99,12 +97,12 @@ class AuthResponse(BaseModel):
 class InvoiceQueryParams(BaseModel):
     """Lekérdezési paraméterek."""
 
-    from_date: Optional[date] = None
-    to_date: Optional[date] = None
-    invoice_type: Optional[InvoiceType] = None
-    szamlaszam: Optional[str] = None
-    status: Optional[InvoiceStatus] = None
-    szamlazo_adoszam: Optional[str] = None
+    from_date: date | None = None
+    to_date: date | None = None
+    invoice_type: InvoiceType | None = None
+    szamlaszam: str | None = None
+    status: InvoiceStatus | None = None
+    szamlazo_adoszam: str | None = None
 
 
 class InvoiceQueryResponse(BaseModel):
@@ -132,13 +130,13 @@ class SubmitInvoiceResponse(BaseModel):
 
 # ── NAV Online Számla 3.0 — real API models ─────────────
 
-class InvoiceDirection(str, Enum):
+class InvoiceDirection(StrEnum):
     """Lekérdezés iránya."""
     OUTBOUND = "OUTBOUND"   # kiállított (eladó oldal)
     INBOUND = "INBOUND"     # befogadott (vevő oldal)
 
 
-class ManageInvoiceOperation(str, Enum):
+class ManageInvoiceOperation(StrEnum):
     """manageInvoice művelet típusa."""
     CREATE = "CREATE"
     MODIFY = "MODIFY"
@@ -156,8 +154,8 @@ class InvoiceDigest(BaseModel):
     supplier_name: str = ""
     customer_tax_number: str = ""
     customer_name: str = ""
-    invoice_net_amount: Optional[float] = None
-    invoice_vat_amount: Optional[float] = None
+    invoice_net_amount: float | None = None
+    invoice_vat_amount: float | None = None
     currency: str = ""
     ins_date: str = ""
 
@@ -184,21 +182,21 @@ class InvoiceLineData(BaseModel):
 
     line_number: str = ""
     line_description: str = ""
-    quantity: Optional[float] = None
+    quantity: float | None = None
     unit_of_measure: str = ""
-    unit_price: Optional[float] = None
-    line_net_amount: Optional[float] = None
-    line_vat_rate: Optional[float] = None  # vatPercentage tizedes törtként, pl. 0.27
-    line_vat_amount: Optional[float] = None
-    line_gross_amount: Optional[float] = None
+    unit_price: float | None = None
+    line_net_amount: float | None = None
+    line_vat_rate: float | None = None  # vatPercentage tizedes törtként, pl. 0.27
+    line_vat_amount: float | None = None
+    line_gross_amount: float | None = None
 
 
 class InvoiceVatSummaryData(BaseModel):
     """ÁFA-kulcsonkénti összesítő az invoiceSummary/summaryNormal/summaryByVatRate elemekből."""
 
-    vat_rate: Optional[float] = None
-    vat_rate_net_amount: Optional[float] = None
-    vat_rate_vat_amount: Optional[float] = None
+    vat_rate: float | None = None
+    vat_rate_net_amount: float | None = None
+    vat_rate_vat_amount: float | None = None
 
 
 class InvoiceDetailData(BaseModel):
@@ -216,14 +214,15 @@ class InvoiceDetailData(BaseModel):
     customer_bank_account: str = ""
     payment_method: str = ""
     payment_due_date: str = ""
-    invoice_category: str = ""  # invoiceDetail blokkból — más forrás, mint InvoiceDigest.invoice_category
+    # invoiceDetail blokkból — más forrás, mint InvoiceDigest.invoice_category
+    invoice_category: str = ""
     delivery_date: str = ""  # invoiceDeliveryDate
     currency_code: str = ""  # currencyCode
-    exchange_rate: Optional[float] = None
+    exchange_rate: float | None = None
     invoice_appearance: str = ""
-    invoice_net_amount: Optional[float] = None
-    invoice_vat_amount: Optional[float] = None
-    invoice_gross_amount: Optional[float] = None
+    invoice_net_amount: float | None = None
+    invoice_vat_amount: float | None = None
+    invoice_gross_amount: float | None = None
     lines: list[InvoiceLineData] = []
     vat_summary: list[InvoiceVatSummaryData] = []
 

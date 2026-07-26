@@ -3,21 +3,39 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
+import socket
 import time
 import unicodedata
 from datetime import date, datetime, timedelta
-from typing import NamedTuple, Optional, Tuple
+from typing import NamedTuple
 
-from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_, select
+from sqlalchemy import update as sa_update
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from .bank_client import BankClient, BankClientError
 from .config import Settings, get_settings
-from .db import BankTransaction, Customer, Invoice, InvoiceDetail, InvoiceFile, InvoiceLine, InvoiceVatSummary, Supplier, SyncLog, _InvoiceDirection, _PaymentStatus, invoice_bank_transaction
+from .db import (
+    BankTransaction,
+    Customer,
+    Invoice,
+    InvoiceDetail,
+    InvoiceFile,
+    InvoiceLine,
+    InvoiceVatSummary,
+    Supplier,
+    SyncLock,
+    SyncLog,
+    _InvoiceDirection,
+    _PaymentStatus,
+    invoice_bank_transaction,
+)
 from .models import SyncMode, SyncRequest, SyncResponse
 from .nav_client import NavClient, NavClientError
 from .pdf_client import PdfClient, PdfClientError
+from .timeutil import today, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +46,7 @@ class _FileScore(NamedTuple):
     hit_amount: bool
 
 
-def _opt_float(d: dict, key: str) -> Optional[float]:
+def _opt_float(d: dict, key: str) -> float | None:
     """Parse a float from dict *d* at *key*, returning None for 0.0 or invalid."""
     raw = d.get(key)
     if raw is None:
@@ -43,7 +61,7 @@ def _opt_float(d: dict, key: str) -> Optional[float]:
 _IBAN_RE = re.compile(r"^[A-Za-z]{2}\d{2}")
 
 
-def classify_bank_account(raw: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+def classify_bank_account(raw: str | None) -> tuple[str | None, str | None]:
     """Split a single NAV bank-account string into (iban, bban).
 
     NAV exposes exactly one string per party (supplierBankAccountNumber /
@@ -59,7 +77,7 @@ def classify_bank_account(raw: Optional[str]) -> Tuple[Optional[str], Optional[s
     return None, value
 
 
-def _is_tax_account(account: Optional[str], settings: Settings) -> bool:
+def _is_tax_account(account: str | None, settings: Settings) -> bool:
     """Return True if the bank account number belongs to a configured tax authority."""
     return bool(account and account in settings.tax_accounts)
 
@@ -83,14 +101,12 @@ def _recompute_payment_status(db: Session, invoice: Invoice) -> None:
     if not linked:
         if invoice.payment_status != _PaymentStatus.UNPAID:
             invoice.payment_status = _PaymentStatus.UNPAID
-            invoice.updated_at = datetime.utcnow()
+            invoice.updated_at = utcnow()
         return
     total = invoice.amount_total or 0.0
     currency = invoice.currency
     paid_sum = sum(abs(t.amount) for t in linked if not currency or t.currency == currency)
-    if total <= 0:
-        new_status = _PaymentStatus.PAID
-    elif paid_sum >= total:
+    if total <= 0 or paid_sum >= total:
         new_status = _PaymentStatus.PAID
     elif paid_sum > 0:
         new_status = _PaymentStatus.PARTIAL
@@ -98,7 +114,7 @@ def _recompute_payment_status(db: Session, invoice: Invoice) -> None:
         new_status = _PaymentStatus.UNPAID
     if invoice.payment_status != new_status:
         invoice.payment_status = new_status
-        invoice.updated_at = datetime.utcnow()
+        invoice.updated_at = utcnow()
 
 
 # ── Fuzzy-matching helpers used by _link_invoices_to_files() and sync_match() ──
@@ -116,6 +132,7 @@ def _recompute_payment_status(db: Session, invoice: Invoice) -> None:
 #                                the digits as a plain substring
 # Both invoice→file linking (_link_invoices_to_files) and transaction→file
 # linking (sync_match) run candidates through this same cascade.
+
 
 def _norm(s: str) -> str:
     """Normalize an invoice number or text for fuzzy matching.
@@ -141,7 +158,7 @@ def _token_match(needle: str, haystack: str) -> bool:
     return n in h
 
 
-def _norm_year_collapsed(inv_num_norm: str) -> Optional[str]:
+def _norm_year_collapsed(inv_num_norm: str) -> str | None:
     """Return a variant where the sequence number and 4-digit year are concatenated.
 
     Handles filenames where the separator before the year was dropped:
@@ -154,7 +171,8 @@ def _norm_year_collapsed(inv_num_norm: str) -> Optional[str]:
 
 
 _STRIP_SEPS_RE = re.compile(r"[-_/#]")
-# Hungarian tax number (adószám): 8digits-1digit-2digits — appears in every invoice as buyer/seller; useless as payment ref
+# Hungarian tax number (adószám): 8digits-1digit-2digits — appears in every
+# invoice as buyer/seller; useless as payment reference.
 _HU_TAX_NUMBER_RE = re.compile(r"^\d{8}-\d-\d{2}$")
 
 
@@ -181,7 +199,7 @@ def _ascii_lower(s: str) -> str:
 def _link_invoices_to_files(
     db: Session,
     files: list[InvoiceFile],
-    pdf_client: Optional[object] = None,
+    pdf_client: object | None = None,
 ) -> int:
     """Link unmatched invoices to files by filename then PDF text.
 
@@ -192,11 +210,16 @@ def _link_invoices_to_files(
     # `== False` comparisons on a Column — it only works because Column.__eq__ is
     # overridden. Python's own `is None`/`is False` would NOT work here (SQLAlchemy
     # would never see it), so the "== None" style is intentional despite normally
-    # being bad Python style; `# noqa: E711` tells the linter not to flag it.
-    unlinked = db.query(Invoice).filter(  # noqa: E711
-        Invoice.invoice_file_id == None,
-        Invoice.invoice_file_locked == False,
-    ).all()
+    # being bad Python style; the noqa directives on the two lines below tell the
+    # linter not to flag them.
+    unlinked = (
+        db.query(Invoice)
+        .filter(
+            Invoice.invoice_file_id == None,  # noqa: E711
+            Invoice.invoice_file_locked == False,  # noqa: E712
+        )
+        .all()
+    )
     linked = 0
     for inv in unlinked:
         if not inv.invoice_number:
@@ -211,8 +234,10 @@ def _link_invoices_to_files(
                 or _stripped_match(inv_num, fn_norm)
             ):
                 inv.invoice_file_id = invoice_file.id
-                inv.updated_at = datetime.utcnow()
-                logger.info("Linked %s → %s (filename match)", inv.invoice_number, invoice_file.filename)
+                inv.updated_at = utcnow()
+                logger.info(
+                    "Linked %s → %s (filename match)", inv.invoice_number, invoice_file.filename
+                )
                 linked += 1
                 break
             if invoice_file.path:
@@ -229,8 +254,12 @@ def _link_invoices_to_files(
                         or _stripped_match(inv_num, words_norm)
                     ):
                         inv.invoice_file_id = invoice_file.id
-                        inv.updated_at = datetime.utcnow()
-                        logger.info("Linked %s → %s (word search)", inv.invoice_number, invoice_file.filename)
+                        inv.updated_at = utcnow()
+                        logger.info(
+                            "Linked %s → %s (word search)",
+                            inv.invoice_number,
+                            invoice_file.filename,
+                        )
                         linked += 1
                         break
         # This `else` belongs to the "for invoice_file in files" loop right above
@@ -241,66 +270,181 @@ def _link_invoices_to_files(
     return linked
 
 
-def _default_dates(start: Optional[str], end: Optional[str]) -> tuple[str, str]:
-    end_obj = date.fromisoformat(end) if end else date.today()
+def _default_dates(start: str | None, end: str | None) -> tuple[str, str]:
+    end_obj = date.fromisoformat(end) if end else today()
     start_obj = date.fromisoformat(start) if start else end_obj - timedelta(days=30)
     return start_obj.isoformat(), end_obj.isoformat()
 
 
+def _normalize_tax_number(raw: str | None) -> str | None:
+    """The 8-digit "torzsszam" core of a Hungarian tax number, digits only.
+
+    NAV tax numbers are formatted XXXXXXXX-Y-ZZ (8-digit core + VAT code +
+    county code); the suffix can legitimately differ between sources/branches
+    of the same taxpayer, so the 8-digit core is the stable identifying key
+    used to match partners across re-syncs regardless of exact formatting.
+    """
+    if not raw:
+        return None
+    digits = re.sub(r"\D", "", raw)
+    return digits[:8] if len(digits) >= 8 else None
+
+
+def _normalize_name(name: str | None) -> str | None:
+    """Collapse whitespace and lower-case a partner name for fuzzy matching."""
+    if not name:
+        return None
+    collapsed = " ".join(name.split())
+    return collapsed.lower() or None
+
+
 def _find_supplier(
-    db: Session, tax_id: str, name: str,
-    address: Optional[str] = None, iban: Optional[str] = None, bban: Optional[str] = None,
-) -> Optional[Supplier]:
+    db: Session,
+    tax_id: str,
+    name: str,
+    address: str | None = None,
+    iban: str | None = None,
+    bban: str | None = None,
+) -> Supplier | None:
     """Look up (never create) the supplier a NAV digest refers to.
 
-    Manual creation is now the only way a new Supplier row comes into being
-    (see partner_service.create_supplier) — sync only links to what already
-    exists, so it can never spawn a duplicate for a partner the user already
-    entered by hand. A row with `tax_id IS NULL` is treated as a manually
-    created placeholder and adopted (with its tax_id backfilled) once NAV
-    reports the same name with a real tax_id.
+    Matches first by tax number — exact string, then by normalized 8-digit
+    core (so differing dash formatting/VAT-code suffixes don't spawn
+    duplicates) — falling back to a normalized name match against rows with
+    no tax number yet (manually created placeholders, whose tax_id gets
+    backfilled once NAV reports one). See `_find_or_create_supplier` for the
+    create half of the upsert. A match is only ever augmented, never
+    overwritten: fields the user already set by hand are left untouched, and
+    only currently-empty fields get filled in from NAV data.
     """
     existing = db.query(Supplier).filter_by(tax_id=tax_id).first() if tax_id else None
+    if not existing and tax_id:
+        core = _normalize_tax_number(tax_id)
+        if core:
+            for candidate in db.query(Supplier).filter(Supplier.tax_id.isnot(None)):
+                if _normalize_tax_number(candidate.tax_id) == core:
+                    existing = candidate
+                    break
     if not existing:
-        existing = db.query(Supplier).filter(
-            Supplier.tax_id.is_(None), func.lower(Supplier.name) == name.lower()
-        ).first()
+        name_norm = _normalize_name(name)
+        if name_norm:
+            for candidate in db.query(Supplier).filter(Supplier.tax_id.is_(None)):
+                if _normalize_name(candidate.name) == name_norm:
+                    existing = candidate
+                    break
         if existing and tax_id:
             existing.tax_id = tax_id
     if existing:
-        existing.name = name
-        if address:
+        if not existing.name and name:
+            existing.name = name
+        if not existing.address and address:
             existing.address = address
-        if iban:
+        if not existing.iban and iban:
             existing.iban = iban
-        if bban:
+        if not existing.bban and bban:
             existing.bban = bban
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = utcnow()
     return existing
+
+
+def _find_or_create_supplier(
+    db: Session,
+    tax_id: str,
+    name: str,
+    address: str | None = None,
+    iban: str | None = None,
+    bban: str | None = None,
+) -> Supplier | None:
+    """Look up (see `_find_supplier`) or create the supplier a NAV digest refers to.
+
+    Only creates a new row when NAV actually supplied identifying data (a tax
+    number or a name) — a digest with neither returns None so sync_nav's
+    existing warning path still fires instead of a junk row being created.
+    """
+    supplier = _find_supplier(db, tax_id=tax_id, name=name, address=address, iban=iban, bban=bban)
+    if supplier is not None:
+        return supplier
+    if not tax_id and not name:
+        return None
+    supplier = Supplier(
+        name=name or tax_id,
+        tax_id=tax_id or None,
+        address=address,
+        iban=iban,
+        bban=bban,
+    )
+    db.add(supplier)
+    db.flush()  # populate supplier.id for use as a FK below
+    return supplier
 
 
 def _find_customer(
-    db: Session, tax_id: str, name: str,
-    address: Optional[str] = None, iban: Optional[str] = None, bban: Optional[str] = None,
-) -> Optional[Customer]:
+    db: Session,
+    tax_id: str,
+    name: str,
+    address: str | None = None,
+    iban: str | None = None,
+    bban: str | None = None,
+) -> Customer | None:
     """Look up (never create) the customer a NAV digest refers to — see _find_supplier."""
     existing = db.query(Customer).filter_by(tax_id=tax_id).first() if tax_id else None
+    if not existing and tax_id:
+        core = _normalize_tax_number(tax_id)
+        if core:
+            for candidate in db.query(Customer).filter(Customer.tax_id.isnot(None)):
+                if _normalize_tax_number(candidate.tax_id) == core:
+                    existing = candidate
+                    break
     if not existing:
-        existing = db.query(Customer).filter(
-            Customer.tax_id.is_(None), func.lower(Customer.name) == name.lower()
-        ).first()
+        name_norm = _normalize_name(name)
+        if name_norm:
+            for candidate in db.query(Customer).filter(Customer.tax_id.is_(None)):
+                if _normalize_name(candidate.name) == name_norm:
+                    existing = candidate
+                    break
         if existing and tax_id:
             existing.tax_id = tax_id
     if existing:
-        existing.name = name
-        if address:
+        if not existing.name and name:
+            existing.name = name
+        if not existing.address and address:
             existing.address = address
-        if iban:
+        if not existing.iban and iban:
             existing.iban = iban
-        if bban:
+        if not existing.bban and bban:
             existing.bban = bban
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = utcnow()
     return existing
+
+
+def _find_or_create_customer(
+    db: Session,
+    tax_id: str,
+    name: str,
+    address: str | None = None,
+    iban: str | None = None,
+    bban: str | None = None,
+) -> Customer | None:
+    """Look up (see `_find_customer`) or create the customer a NAV digest refers to.
+
+    See `_find_or_create_supplier` — only creates when NAV gave identifying
+    data, and never overwrites a field the user already set by hand.
+    """
+    customer = _find_customer(db, tax_id=tax_id, name=name, address=address, iban=iban, bban=bban)
+    if customer is not None:
+        return customer
+    if not tax_id and not name:
+        return None
+    customer = Customer(
+        name=name or tax_id,
+        tax_id=tax_id or None,
+        address=address,
+        iban=iban,
+        bban=bban,
+    )
+    db.add(customer)
+    db.flush()  # populate customer.id for use as a FK below
+    return customer
 
 
 def _persist_invoice_detail(
@@ -327,12 +471,12 @@ def _persist_invoice_detail(
     delete-then-reinsert per invoice on each enrichment fetch is safe and
     simpler than diffing line-by-line.
     """
-    partner_fields = dict(
-        supplier_name=supplier_name or None,
-        supplier_tax_number=supplier_tax_number or None,
-        customer_name=customer_name or None,
-        customer_tax_number=customer_tax_number or None,
-    )
+    partner_fields = {
+        "supplier_name": supplier_name or None,
+        "supplier_tax_number": supplier_tax_number or None,
+        "customer_name": customer_name or None,
+        "customer_tax_number": customer_tax_number or None,
+    }
     existing_row = db.query(InvoiceDetail).filter_by(invoice_id=invoice_id).first()
     if existing_row:
         for key, value in partner_fields.items():
@@ -348,58 +492,68 @@ def _persist_invoice_detail(
         except ValueError:
             delivery_date = None
 
-        detail_only_fields = dict(
-            raw_xml=detail.get("invoice_xml"),
-            supplier_address=detail.get("supplier_address") or None,
-            supplier_bank_account=detail.get("supplier_bank_account") or None,
-            customer_address=detail.get("customer_address") or None,
-            customer_bank_account=detail.get("customer_bank_account") or None,
-            invoice_category=detail.get("invoice_category") or None,
-            delivery_date=delivery_date,
-            currency_code=detail.get("currency_code") or None,
-            exchange_rate=detail.get("exchange_rate"),
-            invoice_appearance=detail.get("invoice_appearance") or None,
-            invoice_net_amount=detail.get("invoice_net_amount"),
-            invoice_vat_amount=detail.get("invoice_vat_amount"),
-            invoice_gross_amount=detail.get("invoice_gross_amount"),
-        )
+        detail_only_fields = {
+            "raw_xml": detail.get("invoice_xml"),
+            "supplier_address": detail.get("supplier_address") or None,
+            "supplier_bank_account": detail.get("supplier_bank_account") or None,
+            "customer_address": detail.get("customer_address") or None,
+            "customer_bank_account": detail.get("customer_bank_account") or None,
+            "invoice_category": detail.get("invoice_category") or None,
+            "delivery_date": delivery_date,
+            "currency_code": detail.get("currency_code") or None,
+            "exchange_rate": detail.get("exchange_rate"),
+            "invoice_appearance": detail.get("invoice_appearance") or None,
+            "invoice_net_amount": detail.get("invoice_net_amount"),
+            "invoice_vat_amount": detail.get("invoice_vat_amount"),
+            "invoice_gross_amount": detail.get("invoice_gross_amount"),
+        }
         for key, value in detail_only_fields.items():
             setattr(existing_row, key, value)
 
         db.query(InvoiceLine).filter_by(invoice_id=invoice_id).delete()
         for line in detail.get("lines") or []:
-            db.add(InvoiceLine(
-                invoice_id=invoice_id,
-                line_number=line.get("line_number") or None,
-                line_description=line.get("line_description") or None,
-                quantity=line.get("quantity"),
-                unit_of_measure=line.get("unit_of_measure") or None,
-                unit_price=line.get("unit_price"),
-                line_net_amount=line.get("line_net_amount"),
-                line_vat_rate=line.get("line_vat_rate"),
-                line_vat_amount=line.get("line_vat_amount"),
-                line_gross_amount=line.get("line_gross_amount"),
-            ))
+            db.add(
+                InvoiceLine(
+                    invoice_id=invoice_id,
+                    line_number=line.get("line_number") or None,
+                    line_description=line.get("line_description") or None,
+                    quantity=line.get("quantity"),
+                    unit_of_measure=line.get("unit_of_measure") or None,
+                    unit_price=line.get("unit_price"),
+                    line_net_amount=line.get("line_net_amount"),
+                    line_vat_rate=line.get("line_vat_rate"),
+                    line_vat_amount=line.get("line_vat_amount"),
+                    line_gross_amount=line.get("line_gross_amount"),
+                )
+            )
 
         db.query(InvoiceVatSummary).filter_by(invoice_id=invoice_id).delete()
         for row in detail.get("vat_summary") or []:
-            db.add(InvoiceVatSummary(
-                invoice_id=invoice_id,
-                vat_rate=row.get("vat_rate"),
-                vat_rate_net_amount=row.get("vat_rate_net_amount"),
-                vat_rate_vat_amount=row.get("vat_rate_vat_amount"),
-            ))
+            db.add(
+                InvoiceVatSummary(
+                    invoice_id=invoice_id,
+                    vat_rate=row.get("vat_rate"),
+                    vat_rate_net_amount=row.get("vat_rate_net_amount"),
+                    vat_rate_vat_amount=row.get("vat_rate_vat_amount"),
+                )
+            )
 
-    existing_row.updated_at = datetime.utcnow()
+    existing_row.updated_at = utcnow()
 
 
-def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> Tuple[int, list[str]]:
-    """Fetch NAV invoices and link/insert invoices. Returns (new_invoice_count, warnings).
+def sync_nav(
+    start: str, end: str, db: Session, settings: Settings | None = None
+) -> tuple[int, list[str]]:
+    """Fetch NAV invoices, upsert invoices, and upsert suppliers/customers.
 
-    Suppliers/customers are only ever linked, never created here (see
-    _find_supplier/_find_customer) — if a digest references a partner that
-    doesn't exist yet, the invoice is still imported (with that side left
-    unlinked) and a warning is returned for the Sync page to surface.
+    Suppliers/customers referenced by a digest are looked up first and only
+    created when missing (see `_find_or_create_supplier`/
+    `_find_or_create_customer`), so re-syncs never spawn duplicates and a
+    partner's manually-edited fields are never overwritten. A digest that
+    gives NAV no usable identifying data (neither a tax number nor a name)
+    still can't be linked or created — the invoice is still imported (with
+    that side left unlinked) and a warning is returned for the Sync page to
+    surface.
     """
     settings = settings or get_settings()
     nav_client = NavClient(settings)
@@ -416,7 +570,11 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
             continue
 
         direction_str = digest.get("direction", "OUTBOUND")
-        direction = _InvoiceDirection[direction_str] if direction_str in _InvoiceDirection.__members__ else _InvoiceDirection.OUTBOUND
+        direction = (
+            _InvoiceDirection[direction_str]
+            if direction_str in _InvoiceDirection.__members__
+            else _InvoiceDirection.OUTBOUND
+        )
 
         existing = db.query(Invoice).filter_by(invoice_number=invoice_number).first()
         existing_detail = (
@@ -438,22 +596,31 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
             or not existing_detail
             or not existing_detail.raw_xml
         ):
-            detail = nav_client.get_invoice_detail(
-                invoice_number, direction_str, supplier_tax_number=supplier_tax
-            ) or {}
+            detail = (
+                nav_client.get_invoice_detail(
+                    invoice_number, direction_str, supplier_tax_number=supplier_tax
+                )
+                or {}
+            )
 
         supplier_iban, supplier_bban = classify_bank_account(detail.get("supplier_bank_account"))
         customer_iban, customer_bban = classify_bank_account(detail.get("customer_bank_account"))
 
-        supplier = _find_supplier(
-            db, tax_id=supplier_tax, name=supplier_name,
+        supplier = _find_or_create_supplier(
+            db,
+            tax_id=supplier_tax,
+            name=supplier_name,
             address=detail.get("supplier_address") or None,
-            iban=supplier_iban, bban=supplier_bban,
+            iban=supplier_iban,
+            bban=supplier_bban,
         )
-        customer = _find_customer(
-            db, tax_id=customer_tax, name=customer_name,
+        customer = _find_or_create_customer(
+            db,
+            tax_id=customer_tax,
+            name=customer_name,
             address=detail.get("customer_address") or None,
-            iban=customer_iban, bban=customer_bban,
+            iban=customer_iban,
+            bban=customer_bban,
         )
         if not supplier:
             warnings.append(
@@ -486,7 +653,9 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
         payment_method = detail.get("payment_method") or None
         payment_due_date_str = detail.get("payment_due_date") or ""
         try:
-            payment_due_date = date.fromisoformat(payment_due_date_str) if payment_due_date_str else None
+            payment_due_date = (
+                date.fromisoformat(payment_due_date_str) if payment_due_date_str else None
+            )
         except ValueError:
             payment_due_date = None
 
@@ -509,11 +678,19 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
             # missing supplier/customer and this invoice syncs again.
             # Skipped when the field was manually set/cleared (locked) — a
             # manual decision always wins over automatic (re-)association.
-            if existing.supplier_id is None and supplier is not None and not existing.supplier_locked:
+            if (
+                existing.supplier_id is None
+                and supplier is not None
+                and not existing.supplier_locked
+            ):
                 existing.supplier_id = supplier.id
-            if existing.customer_id is None and customer is not None and not existing.customer_locked:
+            if (
+                existing.customer_id is None
+                and customer is not None
+                and not existing.customer_locked
+            ):
                 existing.customer_id = customer.id
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = utcnow()
         else:
             inv_obj = Invoice(
                 invoice_number=invoice_number,
@@ -540,15 +717,21 @@ def sync_nav(start: str, end: str, db: Session, settings: Optional[Settings] = N
         # digest); detail-derived fields inside are only touched when a
         # detail fetch happened this run (see _persist_invoice_detail).
         _persist_invoice_detail(
-            db, inv_obj.id, detail,
-            supplier_name=supplier_name, supplier_tax_number=supplier_tax,
-            customer_name=customer_name, customer_tax_number=customer_tax,
+            db,
+            inv_obj.id,
+            detail,
+            supplier_name=supplier_name,
+            supplier_tax_number=supplier_tax,
+            customer_name=customer_name,
+            customer_tax_number=customer_tax,
         )
 
     db.commit()
     logger.info(
         "sync_nav: %d new invoice(s) from %d digest(s), %d warning(s)",
-        count, len(digests), len(warnings),
+        count,
+        len(digests),
+        len(warnings),
     )
     return count, warnings
 
@@ -559,7 +742,7 @@ def _is_deleted(db: Session, filename: str) -> bool:
     return existing is not None and existing.is_deleted
 
 
-def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> int:
+def sync_pdf(start: str, end: str, db: Session, settings: Settings | None = None) -> int:
     """Fetch PDF file index and upsert InvoiceFile records, then link to Invoice.
 
     Linking strategy (in order):
@@ -571,7 +754,9 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
     pdf_client = PdfClient(settings)
     files = pdf_client.extract(start, end)
     if not files:
-        logger.warning("sync_pdf: no invoice files returned by invoice-file-filter for %s..%s", start, end)
+        logger.warning(
+            "sync_pdf: no invoice files returned by invoice-file-filter for %s..%s", start, end
+        )
         return 0
 
     # Skip any already-deleted files (is_deleted=True)
@@ -598,12 +783,13 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
             if size is not None:
                 existing.file_size = size
             existing.preview_base64 = preview_base64
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = utcnow()
             db.flush()
             invoice_file = existing
         else:
-            invoice_file = InvoiceFile(filename=filename, path=path, file_size=size,
-                                       preview_base64=preview_base64)
+            invoice_file = InvoiceFile(
+                filename=filename, path=path, file_size=size, preview_base64=preview_base64
+            )
             db.add(invoice_file)
             db.flush()
             count += 1
@@ -617,23 +803,26 @@ def sync_pdf(start: str, end: str, db: Session, settings: Optional[Settings] = N
     return count
 
 
-def _find_invoice_by_ref(db: Session, payment_ref: str) -> Optional[Invoice]:
+def _find_invoice_by_ref(db: Session, payment_ref: str) -> Invoice | None:
     """Exact → norm → stripped → subtoken search against invoice numbers."""
     invoice = db.query(Invoice).filter_by(invoice_number=payment_ref).first()
     if invoice:
         return invoice
 
-    def _search(token: str) -> Optional[Invoice]:
+    def _search(token: str) -> Invoice | None:
         norm_tok = _norm(token)
         stripped_tok = _STRIP_SEPS_RE.sub("", token.lower())
         like_pattern = re.sub(r"[-/\\\\_. ]+", "%", token)
-        candidates = db.query(Invoice).filter(
-            Invoice.invoice_number.ilike(f"%{like_pattern}%")
-        ).all()
+        candidates = (
+            db.query(Invoice).filter(Invoice.invoice_number.ilike(f"%{like_pattern}%")).all()
+        )
         return next(
-            (inv for inv in candidates
-             if _norm(inv.invoice_number) == norm_tok
-             or _STRIP_SEPS_RE.sub("", (inv.invoice_number or "").lower()) == stripped_tok),
+            (
+                inv
+                for inv in candidates
+                if _norm(inv.invoice_number) == norm_tok
+                or _STRIP_SEPS_RE.sub("", (inv.invoice_number or "").lower()) == stripped_tok
+            ),
             None,
         )
 
@@ -677,7 +866,9 @@ def _get_or_create_bank_supplier(db: Session, bank_code: str, settings: Settings
     return supplier
 
 
-def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = None) -> Tuple[int, list[str]]:
+def sync_bank(
+    start: str, end: str, db: Session, settings: Settings | None = None
+) -> tuple[int, list[str]]:
     """Fetch bank transactions, insert new ones, and link to invoice/supplier/customer.
 
     Runs through several phases in order, each handling transactions the
@@ -706,11 +897,14 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
     # Clear any previously created links on tax-account transactions.
     tax_keys = list(settings.tax_accounts.keys())
     if tax_keys:
-        tax_txns = db.query(BankTransaction).filter(
-            BankTransaction.counterparty_account.in_(tax_keys)
-        ).all()
+        tax_txns = (
+            db.query(BankTransaction)
+            .filter(BankTransaction.counterparty_account.in_(tax_keys))
+            .all()
+        )
         wrongly_linked = [
-            tax_txn for tax_txn in tax_txns
+            tax_txn
+            for tax_txn in tax_txns
             if (tax_txn.invoices or tax_txn.invoice_file_id) and not tax_txn.invoice_file_locked
         ]
         affected_invoices = {inv for tax_txn in wrongly_linked for inv in tax_txn.invoices}
@@ -754,14 +948,14 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
                 btxn.card_last_four = txn_dict["card_last_four"]
             if txn_dict.get("note"):
                 btxn.note = txn_dict["note"]
-            btxn.updated_at = datetime.utcnow()
+            btxn.updated_at = utcnow()
         else:
             # Use datetime if available, fall back to date
             txn_dt_raw = txn_dict.get("datetime") or txn_dict.get("date")
             try:
-                txn_date = datetime.fromisoformat(str(txn_dt_raw)) if txn_dt_raw else datetime.utcnow()
+                txn_date = datetime.fromisoformat(str(txn_dt_raw)) if txn_dt_raw else utcnow()
             except ValueError:
-                txn_date = datetime.utcnow()
+                txn_date = utcnow()
 
             amount_raw = txn_dict.get("amount", 0)
             try:
@@ -808,7 +1002,9 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
             if invoice:
                 _link_txn_to_invoice(btxn, invoice)
                 _recompute_payment_status(db, invoice)
-                logger.info("Linked bank txn %s → invoice %s (paid)", txn_id, invoice.invoice_number)
+                logger.info(
+                    "Linked bank txn %s → invoice %s (paid)", txn_id, invoice.invoice_number
+                )
 
         # ── Derive supplier/customer from linked invoice ───────────────────────
         if btxn.invoices and (
@@ -825,15 +1021,15 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
         counterparty = txn_dict.get("counterparty_name", "") or ""
         if counterparty:
             if not btxn.supplier_id and not btxn.supplier_locked:
-                supplier = db.query(Supplier).filter(
-                    Supplier.name.ilike(f"%{counterparty}%")
-                ).first()
+                supplier = (
+                    db.query(Supplier).filter(Supplier.name.ilike(f"%{counterparty}%")).first()
+                )
                 if supplier:
                     btxn.supplier_id = supplier.id
             if not btxn.customer_id and not btxn.customer_locked:
-                customer = db.query(Customer).filter(
-                    Customer.name.ilike(f"%{counterparty}%")
-                ).first()
+                customer = (
+                    db.query(Customer).filter(Customer.name.ilike(f"%{counterparty}%")).first()
+                )
                 if customer:
                     btxn.customer_id = customer.id
 
@@ -864,7 +1060,9 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
     db.commit()
     logger.info(
         "sync_bank: %d new transaction(s) from %d fetched, %d warning(s)",
-        count, len(transactions), len(warnings),
+        count,
+        len(transactions),
+        len(warnings),
     )
     return count, warnings
 
@@ -872,9 +1070,22 @@ def sync_bank(start: str, end: str, db: Session, settings: Optional[Settings] = 
 # ── BankTransaction ↔ invoice_file matching ────────────────────────────────────
 
 _VENDOR_STOPWORDS = {
-    "kommunikacios", "ugynokseg", "zartkoruen", "mukodo", "reszvenytarsasag",
-    "subscription", "payment", "fizetes", "budapest", "paris", "dublin",
-    "graphtrek", "graphtre", "invoice", "receipt", "szamla",
+    "kommunikacios",
+    "ugynokseg",
+    "zartkoruen",
+    "mukodo",
+    "reszvenytarsasag",
+    "subscription",
+    "payment",
+    "fizetes",
+    "budapest",
+    "paris",
+    "dublin",
+    "graphtrek",
+    "graphtre",
+    "invoice",
+    "receipt",
+    "szamla",
 }
 
 _CURRENCY_RE = re.compile(r"(\d[\d\s.,]*\d|\d)\s*(?:EUR|USD|HUF|GBP|CHF)", re.IGNORECASE)
@@ -896,7 +1107,7 @@ def _amount_str_variants(num: str) -> set[str]:
 
 
 def _int_amount_variants(n: float) -> set[str]:
-    ival = int(round(n))
+    ival = round(n)
     grouped = f"{ival:,}".replace(",", ".")  # 3400 → "3.400"
     return {str(ival), grouped, f"{grouped},00"}
 
@@ -921,7 +1132,8 @@ def _vendor_tokens(txn: BankTransaction) -> set[str]:
     """Distinctive vendor name tokens from counterparty_name."""
     raw = txn.counterparty_name or ""
     return {
-        tok for tok in _TOKEN_RE.findall(_ascii_lower(raw))
+        tok
+        for tok in _TOKEN_RE.findall(_ascii_lower(raw))
         if len(tok) >= 4 and tok not in _VENDOR_STOPWORDS
     }
 
@@ -943,7 +1155,7 @@ def _find_invoice_by_supplier_amount(
     amount_abs_tol: float = 5.0,
     amount_pct_tol: float = 0.01,
     max_days: int = 60,
-) -> Optional[Invoice]:
+) -> Invoice | None:
     """Match a transaction to an invoice by supplier-name prefix + close amount + date proximity.
 
     Used when no payment_reference is present and PDF-text scoring fails (e.g. e-commerce).
@@ -952,7 +1164,8 @@ def _find_invoice_by_supplier_amount(
     if not txn.counterparty_name or not txn.amount:
         return None
     txn_toks = {
-        t for t in _TOKEN_RE.findall(_ascii_lower(txn.counterparty_name))
+        t
+        for t in _TOKEN_RE.findall(_ascii_lower(txn.counterparty_name))
         if len(t) >= 4 and t not in _VENDOR_STOPWORDS
     }
     if not txn_toks:
@@ -960,7 +1173,7 @@ def _find_invoice_by_supplier_amount(
     txn_amt = abs(txn.amount)
     txn_date = txn.transaction_date.date() if txn.transaction_date else None
 
-    best: Optional[Invoice] = None
+    best: Invoice | None = None
     best_days = max_days + 1
 
     for inv in candidates:
@@ -975,12 +1188,17 @@ def _find_invoice_by_supplier_amount(
         if diff > amount_abs_tol and (txn_amt == 0 or diff / txn_amt > amount_pct_tol):
             continue
         sup_toks = {
-            t for t in _TOKEN_RE.findall(_ascii_lower(inv.supplier.name))
+            t
+            for t in _TOKEN_RE.findall(_ascii_lower(inv.supplier.name))
             if len(t) >= 4 and t not in _VENDOR_STOPWORDS
         }
         if not _names_overlap(txn_toks, sup_toks):
             continue
-        days = abs((txn_date - inv.invoice_date).days) if (txn_date and inv.invoice_date) else max_days + 1
+        days = (
+            abs((txn_date - inv.invoice_date).days)
+            if (txn_date and inv.invoice_date)
+            else max_days + 1
+        )
         if days > max_days:
             continue
         if days < best_days:
@@ -990,7 +1208,7 @@ def _find_invoice_by_supplier_amount(
     return best
 
 
-def _file_date(filename: str) -> Optional[date]:
+def _file_date(filename: str) -> date | None:
     """Parse the ``YYYY-MM-DD`` prefix that invoice-file-filter prepends."""
     m = re.match(r"(\d{4}-\d{2}-\d{2})", filename or "")
     if not m:
@@ -1004,10 +1222,10 @@ def _file_date(filename: str) -> Optional[date]:
 def _file_score(
     amount_cands: set[str],
     vendor_toks: set[str],
-    txn_date: Optional[date],
+    txn_date: date | None,
     haystack: str,
     filename_norm: str,
-    file_date: Optional[date],
+    file_date: date | None,
 ) -> _FileScore:
     """Weighted match score for one (transaction, file) pair."""
     hit_vendor = any(t in haystack for t in vendor_toks)
@@ -1029,7 +1247,7 @@ def _file_score(
     return _FileScore(score=score, hit_vendor=hit_vendor, hit_amount=hit_amount)
 
 
-def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
+def sync_match(db: Session, settings: Settings | None = None) -> int:
     """Best-match unlinked bank transactions to invoice files.
 
     1. Transitive shortcut: if the txn already links to an invoice that has a PDF,
@@ -1041,8 +1259,8 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
        proximity; greedily assign in descending-score order.
     """
     # `settings` is used further down (PdfClient, tax_accounts, etc.); the
-    # noqa: F841 here just silences a pre-existing linter false positive.
-    settings = settings or get_settings()  # noqa: F841
+
+    settings = settings or get_settings()
 
     files = db.query(InvoiceFile).all()
 
@@ -1053,9 +1271,9 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     tax_keys = list(settings.tax_accounts.keys())
     # Same reason as in _link_invoices_to_files(): SQLAlchemy needs `== None` /
     # `== False` (not `is None`/`is False`) to build the SQL WHERE clause.
-    unmatched_q = db.query(BankTransaction).filter(  # noqa: E711
-        BankTransaction.invoice_file_id == None,
-        BankTransaction.invoice_file_locked == False,
+    unmatched_q = db.query(BankTransaction).filter(
+        BankTransaction.invoice_file_id == None,  # noqa: E711
+        BankTransaction.invoice_file_locked == False,  # noqa: E712
     )
     if tax_keys:
         # `NOT IN` is SQL-NULL-unsafe: a row with counterparty_account IS NULL
@@ -1069,8 +1287,11 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
         )
     unmatched = unmatched_q.all()
     file_feats = {
-        f.id: (_ascii_lower(f.filename) + " " + _ascii_lower(f.words or ""),
-               _norm(f.filename) + " " + _norm(f.words or ""), _file_date(f.filename))
+        f.id: (
+            _ascii_lower(f.filename) + " " + _ascii_lower(f.words or ""),
+            _norm(f.filename) + " " + _norm(f.words or ""),
+            _file_date(f.filename),
+        )
         for f in files
     }
     used_files: set[int] = set()
@@ -1079,7 +1300,7 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
     def _assign(txn: BankTransaction, file_id: int, why: str) -> None:
         nonlocal count
         txn.invoice_file_id = file_id
-        txn.updated_at = datetime.utcnow()
+        txn.updated_at = utcnow()
         used_files.add(file_id)
         count += 1
         logger.info("Matched bank txn %s → file_id %s (%s)", txn.transaction_id, file_id, why)
@@ -1097,15 +1318,19 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
         if ref and any(ch.isdigit() for ch in ref) and not _HU_TAX_NUMBER_RE.match(ref):
             norm_ref = _norm(ref)
             subtokens = [
-                p for p in norm_ref.split()
+                p
+                for p in norm_ref.split()
                 if any(ch.isdigit() for ch in p) and p not in _VENDOR_STOPWORDS
             ]
-            search_parts = list(dict.fromkeys([norm_ref] + subtokens))
+            search_parts = list(dict.fromkeys([norm_ref, *subtokens]))
             hit = None
             for part in search_parts:
                 hit = next(
-                    (f.id for f in files
-                     if f.id not in used_files and _token_match(part, file_feats[f.id][1])),
+                    (
+                        f.id
+                        for f in files
+                        if f.id not in used_files and _token_match(part, file_feats[f.id][1])
+                    ),
                     None,
                 )
                 if hit is not None:
@@ -1115,7 +1340,8 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
             else:
                 logger.warning(
                     "Bank txn %s reference %s not found in any file — left unlinked",
-                    txn.transaction_id, ref,
+                    txn.transaction_id,
+                    ref,
                 )
             continue
 
@@ -1123,10 +1349,17 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
 
     # ── Phase 1.5: supplier-name + amount match for reference-less transactions ──
     linked_invoice_ids: set[int] = {
-        row[0]
-        for row in db.execute(select(invoice_bank_transaction.c.invoice_id).distinct())
+        row[0] for row in db.execute(select(invoice_bank_transaction.c.invoice_id).distinct())
     }
-    inv_pool = db.query(Invoice).filter(Invoice.id.notin_(linked_invoice_ids)).all()
+    inv_pool = (
+        db.query(Invoice)
+        # _find_invoice_by_supplier_amount reads inv.supplier.name per
+        # (txn, inv) pair — without selectinload that's one query per
+        # invoice in the pool (N+1 across the whole scored pass).
+        .options(selectinload(Invoice.supplier))
+        .filter(Invoice.id.notin_(linked_invoice_ids))
+        .all()
+    )
     used_inv_ids: set[int] = set()
     remaining_after_15: list[BankTransaction] = []
 
@@ -1146,10 +1379,11 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
             if matched.invoice_file_id and matched.invoice_file_id not in used_files:
                 _assign(txn, matched.invoice_file_id, f"supplier+amount {txn.counterparty_name}")
             else:
-                txn.updated_at = datetime.utcnow()
+                txn.updated_at = utcnow()
                 logger.info(
                     "Linked bank txn %s → invoice %s (supplier+amount, no file)",
-                    txn.transaction_id, matched.invoice_number,
+                    txn.transaction_id,
+                    matched.invoice_number,
                 )
         else:
             remaining_after_15.append(txn)
@@ -1178,45 +1412,69 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
             continue
         txn = txn_by_id[txn_id]
         txn.invoice_file_id = file_id
-        txn.updated_at = datetime.utcnow()
+        txn.updated_at = utcnow()
         used_txns.add(txn_id)
         used_files.add(file_id)
         count += 1
         logger.info(
             "Matched bank txn %s → file_id %s (score %.2f)",
-            txn.transaction_id, file_id, score,
+            txn.transaction_id,
+            file_id,
+            score,
         )
 
     for txn in remaining:
         if txn.id not in used_txns:
             logger.warning(
                 "No confident invoice_file match for bank txn %s (%s)",
-                txn.transaction_id, txn.counterparty_name or "",
+                txn.transaction_id,
+                txn.counterparty_name or "",
             )
 
     # ── Phase 3: back-link transactions to invoices via shared invoice_file ────
-    to_backlink_all = db.query(BankTransaction).filter(
-        BankTransaction.invoice_file_id.isnot(None),
-    ).all()
+    # selectinload(BankTransaction.invoices): the `not t.invoices` filter below
+    # touches the relationship per row — without it that's one query per
+    # transaction (N+1) just to check emptiness.
+    to_backlink_all = (
+        db.query(BankTransaction)
+        .options(selectinload(BankTransaction.invoices))
+        .filter(BankTransaction.invoice_file_id.isnot(None))
+        .all()
+    )
     to_backlink = [t for t in to_backlink_all if not t.invoices]
+    # Batch the invoice-by-file_id lookups: the old code ran one
+    # `db.query(Invoice).filter_by(invoice_file_id=...)` per txn (N queries).
+    # Now a single query fetches every distinct invoice and
+    # selectinload(Invoice.bank_transactions) preloads the relationship that
+    # _recompute_payment_status reads, so no per-invoice lazy load either.
+    backlink_file_ids = {t.invoice_file_id for t in to_backlink if t.invoice_file_id}
+    invoice_by_file_id: dict[int, Invoice] = {}
+    if backlink_file_ids:
+        inv_rows = (
+            db.query(Invoice)
+            .options(selectinload(Invoice.bank_transactions))
+            .filter(Invoice.invoice_file_id.in_(backlink_file_ids))
+            .all()
+        )
+        invoice_by_file_id = {inv.invoice_file_id: inv for inv in inv_rows}
     for txn in to_backlink:
-        invoice = db.query(Invoice).filter_by(invoice_file_id=txn.invoice_file_id).first()
+        invoice = invoice_by_file_id.get(txn.invoice_file_id)
         if invoice:
             _link_txn_to_invoice(txn, invoice)
-            txn.updated_at = datetime.utcnow()
+            txn.updated_at = utcnow()
             _recompute_payment_status(db, invoice)
             logger.info(
                 "Backlinked bank txn %s → invoice %s via shared file_id %s",
-                txn.transaction_id, invoice.invoice_number, txn.invoice_file_id,
+                txn.transaction_id,
+                invoice.invoice_number,
+                txn.invoice_file_id,
             )
 
     # ── Backfill supplier_id / customer_id from linked invoice ───────────────
     needs_backfill = (
         db.query(BankTransaction)
         .join(BankTransaction.invoices)
-        .filter(
-            (BankTransaction.supplier_id.is_(None)) | (BankTransaction.customer_id.is_(None))
-        )
+        .filter((BankTransaction.supplier_id.is_(None)) | (BankTransaction.customer_id.is_(None)))
         .all()
     )
     for txn in needs_backfill:
@@ -1226,14 +1484,14 @@ def sync_match(db: Session, settings: Optional[Settings] = None) -> int:
                 txn.supplier_id = invoice.supplier_id
             if not txn.customer_id and not txn.customer_locked:
                 txn.customer_id = invoice.customer_id
-            txn.updated_at = datetime.utcnow()
+            txn.updated_at = utcnow()
 
     db.commit()
     logger.info("sync_match: %d bank transaction(s) linked to a file", count)
     return count
 
 
-def get_pending_sync_counts(db: Session, settings: Optional[Settings] = None) -> Tuple[int, int]:
+def get_pending_sync_counts(db: Session, settings: Settings | None = None) -> tuple[int, int]:
     """Durable counts of invoices/bank transactions still missing a partner match.
 
     Unlike the per-run `errors`/warnings (transient — only shown right after a
@@ -1260,82 +1518,181 @@ def get_pending_sync_counts(db: Session, settings: Optional[Settings] = None) ->
     return unmatched_invoices, unmatched_txn_q.count()
 
 
-def sync_all(request: SyncRequest, db: Session, settings: Optional[Settings] = None) -> SyncResponse:
-    """Run the full or partial sync pipeline."""
-    settings = settings or get_settings()
-    start, end = _default_dates(request.start_date, request.end_date)
-    mode = request.sync_mode or SyncMode.full
-    errors: list[str] = []
-    warnings: list[str] = []
-    nav_count = pdf_count = bank_count = match_count = 0
-    t0 = time.monotonic()
+# ── sync_all concurrency guard (DEF-012) ─────────────────────────────────────
+#
+# See SyncLock's docstring in db.py for why this is a DB row rather than an
+# in-process lock or a PostgreSQL advisory lock.
 
-    log = SyncLog(started_at=datetime.utcnow(), mode=mode.value)
-    db.add(log)
-    db.flush()
+SYNC_LOCK_ID = 1
 
-    if request.clear_cache:
-        logger.info("Clearing downstream caches before sync")
-        NavClient(settings).clear_cache()
-        PdfClient(settings).clear_cache()
+# How long a lock is honored before a later caller is allowed to steal it back.
+# Must comfortably exceed a legitimate full sync's real-world duration (NAV +
+# PDF + bank + match, each with its own sync_timeout=300s downstream HTTP
+# budget) while still self-healing in a bounded time if the process holding
+# the lock dies (killed, crashed, host rebooted) without reaching the
+# `finally` that would have released it -- see _release_sync_lock. No manual
+# intervention (e.g. a DB UPDATE) is ever required to recover from that case;
+# the next sync attempt after this timeout simply takes the lock over.
+SYNC_LOCK_STALE_SECONDS = 1800  # 30 minutes
 
-    if mode in (SyncMode.full, SyncMode.nav_only):
+SYNC_IN_PROGRESS_MESSAGE = (
+    "Szinkronizálás már folyamatban van, kérjük várja meg a jelenlegi "
+    "folyamat befejezését, mielőtt újat indítana."
+)
+
+
+class SyncInProgressError(RuntimeError):
+    """Raised when sync_all is invoked while another sync already holds the lock."""
+
+
+def _acquire_sync_lock(db: Session) -> None:
+    """Atomically acquire the singleton sync_lock row, or raise SyncInProgressError.
+
+    The acquire itself is a single ``UPDATE ... WHERE (unlocked OR stale)``
+    statement, so two concurrent callers racing for the same row can never
+    both succeed: on PostgreSQL the second UPDATE blocks on the first's row
+    lock until it commits and then re-evaluates the WHERE clause (and loses,
+    because locked_at is no longer NULL/stale); SQLite serializes writers at
+    the database level the same way. Whichever caller's UPDATE actually
+    matches a row (rowcount == 1) holds the lock; the other gets rowcount == 0
+    and must fail fast and cleanly rather than queue or retry.
+    """
+    now = utcnow()
+    stale_cutoff = now - timedelta(seconds=SYNC_LOCK_STALE_SECONDS)
+
+    if db.get(SyncLock, SYNC_LOCK_ID) is None:
+        # First sync ever attempted against this database: create the
+        # singleton row up front. Harmless if another process races us here
+        # and inserts it first -- we just retry the lookup.
+        db.add(SyncLock(id=SYNC_LOCK_ID, locked_at=None, locked_by=None))
         try:
-            nav_count, nav_warnings = sync_nav(start, end, db, settings)
-            warnings.extend(nav_warnings)
-        except NavClientError as exc:
-            logger.error("NAV sync failed: %s", exc)
-            errors.append(f"NAV: {exc}")
+            db.commit()
+        except Exception:  # noqa: BLE001 -- unique-violation race, row already exists
+            db.rollback()
 
-    if mode in (SyncMode.full, SyncMode.pdf_only):
-        try:
-            pdf_count = sync_pdf(start, end, db, settings)
-        except PdfClientError as exc:
-            logger.error("PDF sync failed: %s", exc)
-            errors.append(f"PDF: {exc}")
+    owner = f"{socket.gethostname()}:{os.getpid()}"
+    result = db.execute(
+        sa_update(SyncLock)
+        .where(
+            SyncLock.id == SYNC_LOCK_ID,
+            or_(SyncLock.locked_at.is_(None), SyncLock.locked_at < stale_cutoff),
+        )
+        .values(locked_at=now, locked_by=owner)
+    )
+    db.commit()
+    if result.rowcount == 0:
+        logger.warning("sync_all rejected: another sync is already in progress")
+        raise SyncInProgressError(SYNC_IN_PROGRESS_MESSAGE)
 
-    if mode in (SyncMode.full, SyncMode.bank_only):
-        try:
-            bank_count, bank_warnings = sync_bank(start, end, db, settings)
-            warnings.extend(bank_warnings)
-        except BankClientError as exc:
-            logger.error("Bank sync failed: %s", exc)
-            errors.append(f"Bank: {exc}")
 
-    if mode in (SyncMode.full, SyncMode.match_only):
-        try:
-            match_count = sync_match(db, settings)
-        # Catching the broad `Exception` (not a specific *ClientError) is
-        # deliberate here: sync_match has no dedicated exception type of its own,
-        # and any unexpected error in it must not abort the whole sync run —
-        # the other phases above already succeeded and their results should
-        # still be reported. `# noqa: BLE001` tells the linter this is intentional.
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Bank↔file matching failed: %s", exc)
-            errors.append(f"Match: {exc}")
-
-    elapsed_ms = (time.monotonic() - t0) * 1000
-    log.finished_at = datetime.utcnow()
-    log.invoice_count = nav_count
-    log.bank_count = bank_count
-    log.error_count = len(errors)
-    log.errors = "; ".join(errors) if errors else None
-    log.warning_count = len(warnings)
-    log.warnings = "; ".join(warnings) if warnings else None
+def _release_sync_lock(db: Session) -> None:
+    """Release the sync_all lock. Called from a `finally`, so this runs on both
+    success and failure -- the lock is never held past the end of the request
+    that acquired it (short of the process being killed outright; see
+    SYNC_LOCK_STALE_SECONDS above for that case).
+    """
+    db.execute(
+        sa_update(SyncLock)
+        .where(SyncLock.id == SYNC_LOCK_ID)
+        .values(locked_at=None, locked_by=None)
+    )
     db.commit()
 
-    logger.info(
-        "sync_all [%s] %s..%s: nav=%d pdf=%d bank=%d match=%d errors=%d warnings=%d in %.0fms",
-        mode.value, start, end, nav_count, pdf_count, bank_count, match_count,
-        len(errors), len(warnings), elapsed_ms,
-    )
-    return SyncResponse(
-        start_date=start,
-        end_date=end,
-        nav_invoices_synced=nav_count,
-        pdf_files_synced=pdf_count,
-        bank_transactions_synced=bank_count,
-        bank_files_matched=match_count,
-        errors=errors,
-        warnings=warnings,
-    )
+
+def sync_all(request: SyncRequest, db: Session, settings: Settings | None = None) -> SyncResponse:
+    """Run the full or partial sync pipeline.
+
+    Guarded by a DB-backed mutex (see _acquire_sync_lock) so a second
+    concurrent call -- from a second API request or a second CLI invocation,
+    possibly against a different uvicorn worker process -- fails fast with
+    SyncInProgressError instead of racing this one for the same DB rows.
+    """
+    settings = settings or get_settings()
+    _acquire_sync_lock(db)
+    try:
+        start, end = _default_dates(request.start_date, request.end_date)
+        mode = request.sync_mode or SyncMode.full
+        errors: list[str] = []
+        warnings: list[str] = []
+        nav_count = pdf_count = bank_count = match_count = 0
+        t0 = time.monotonic()
+
+        log = SyncLog(started_at=utcnow(), mode=mode.value)
+        db.add(log)
+        db.flush()
+
+        if request.clear_cache:
+            logger.info("Clearing downstream caches before sync")
+            NavClient(settings).clear_cache()
+            PdfClient(settings).clear_cache()
+
+        if mode in (SyncMode.full, SyncMode.nav_only):
+            try:
+                nav_count, nav_warnings = sync_nav(start, end, db, settings)
+                warnings.extend(nav_warnings)
+            except NavClientError as exc:
+                logger.error("NAV sync failed: %s", exc)
+                errors.append(f"NAV: {exc}")
+
+        if mode in (SyncMode.full, SyncMode.pdf_only):
+            try:
+                pdf_count = sync_pdf(start, end, db, settings)
+            except PdfClientError as exc:
+                logger.error("PDF sync failed: %s", exc)
+                errors.append(f"PDF: {exc}")
+
+        if mode in (SyncMode.full, SyncMode.bank_only):
+            try:
+                bank_count, bank_warnings = sync_bank(start, end, db, settings)
+                warnings.extend(bank_warnings)
+            except BankClientError as exc:
+                logger.error("Bank sync failed: %s", exc)
+                errors.append(f"Bank: {exc}")
+
+        if mode in (SyncMode.full, SyncMode.match_only):
+            try:
+                match_count = sync_match(db, settings)
+            # Catching the broad `Exception` (not a specific *ClientError) is
+            # deliberate here: sync_match has no dedicated exception type of its own,
+            # and any unexpected error in it must not abort the whole sync run —
+            # the other phases above already succeeded and their results should
+            # still be reported. The noqa on the except line below silences BLE001.
+            except Exception as exc:  # noqa: BLE001
+                logger.error("Bank↔file matching failed: %s", exc)
+                errors.append(f"Match: {exc}")
+
+        elapsed_ms = (time.monotonic() - t0) * 1000
+        log.finished_at = utcnow()
+        log.invoice_count = nav_count
+        log.bank_count = bank_count
+        log.error_count = len(errors)
+        log.errors = "; ".join(errors) if errors else None
+        log.warning_count = len(warnings)
+        log.warnings = "; ".join(warnings) if warnings else None
+        db.commit()
+
+        logger.info(
+            "sync_all [%s] %s..%s: nav=%d pdf=%d bank=%d match=%d errors=%d warnings=%d in %.0fms",
+            mode.value,
+            start,
+            end,
+            nav_count,
+            pdf_count,
+            bank_count,
+            match_count,
+            len(errors),
+            len(warnings),
+            elapsed_ms,
+        )
+        return SyncResponse(
+            start_date=start,
+            end_date=end,
+            nav_invoices_synced=nav_count,
+            pdf_files_synced=pdf_count,
+            bank_transactions_synced=bank_count,
+            bank_files_matched=match_count,
+            errors=errors,
+            warnings=warnings,
+        )
+    finally:
+        _release_sync_lock(db)

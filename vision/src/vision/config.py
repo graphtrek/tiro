@@ -47,9 +47,7 @@ def configure_logging(log_level: str = "INFO") -> None:
 class Settings(BaseSettings):
     """Vision service settings."""
 
-    model_config = SettingsConfigDict(
-        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore")
 
     # Auth — minden /ui/* oldal JWT-vel védett (teszthez kikapcsolható)
     auth_enabled: bool = True
@@ -71,9 +69,7 @@ class Settings(BaseSettings):
 
     # FastAPI server
     api_host: str = "0.0.0.0"
-    api_port: int = Field(
-        8009, validation_alias=AliasChoices("VISION_API_PORT", "API_PORT")
-    )
+    api_port: int = Field(8009, validation_alias=AliasChoices("VISION_API_PORT", "API_PORT"))
     log_level: str = "INFO"
 
     @property

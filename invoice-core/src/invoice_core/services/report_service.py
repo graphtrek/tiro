@@ -77,9 +77,7 @@ def get_project_report(
 
     by_week: dict[int, dict] = {}
     for entry in entries:
-        week = by_week.setdefault(
-            entry.project_week, {"week_hours": 0.0, "by_activity_type": {}}
-        )
+        week = by_week.setdefault(entry.project_week, {"week_hours": 0.0, "by_activity_type": {}})
         week["week_hours"] += entry.hours
         week["by_activity_type"][entry.activity_type_name] = (
             week["by_activity_type"].get(entry.activity_type_name, 0.0) + entry.hours

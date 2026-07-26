@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -33,13 +32,13 @@ def _main() -> None:
 
 @app.command()
 def process(
-    start: Optional[str] = typer.Option(
+    start: str | None = typer.Option(
         None, "--start", help="Filter start date (YYYY-MM-DD); default 30 days ago"
     ),
-    end: Optional[str] = typer.Option(
+    end: str | None = typer.Option(
         None, "--end", help="Filter end date (YYYY-MM-DD); default today"
     ),
-    output_dir: Optional[str] = typer.Option(
+    output_dir: str | None = typer.Option(
         None, "--output-dir", help="PDF directory (default: ../attachment-downloader/downloads)"
     ),
     local: bool = typer.Option(
@@ -67,11 +66,11 @@ def process(
     except AttachmentDownloaderError as exc:
         logger.error("attachment-downloader error: %s", exc)
         console.print(f"[red]✗ attachment-downloader hiba:[/red] {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     except Exception as exc:
         logger.exception("Unexpected error during extraction")
         console.print(f"[red]✗ Váratlan hiba:[/red] {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     if as_json:
         console.print_json(json.dumps(result.model_dump()))
@@ -98,7 +97,7 @@ def process(
 @app.command()
 def words(
     pdf_path: str = typer.Argument(..., help="Path to the PDF file"),
-    output: Optional[str] = typer.Option(
+    output: str | None = typer.Option(
         None, "--output", "-o", help="Write CSV to this file instead of stdout"
     ),
 ) -> None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -69,7 +69,7 @@ def sample_statement_json() -> dict:
 def credit_transaction() -> WiseTransaction:
     return WiseTransaction(
         type=TransactionType.CREDIT,
-        date=datetime(2026, 5, 15, 10, 30, 0, tzinfo=timezone.utc),
+        date=datetime(2026, 5, 15, 10, 30, 0, tzinfo=UTC),
         amount=WiseAmount(value=Decimal("1500.00"), currency="EUR"),
         totalFees=WiseAmount(value=Decimal("0.00"), currency="EUR"),
         details=WiseTransactionDetails(
@@ -87,7 +87,7 @@ def credit_transaction() -> WiseTransaction:
 def debit_transaction() -> WiseTransaction:
     return WiseTransaction(
         type=TransactionType.DEBIT,
-        date=datetime(2026, 5, 20, 8, 0, 0, tzinfo=timezone.utc),
+        date=datetime(2026, 5, 20, 8, 0, 0, tzinfo=UTC),
         amount=WiseAmount(value=Decimal("49.99"), currency="EUR"),
         totalFees=WiseAmount(value=Decimal("0.20"), currency="EUR"),
         details=WiseTransactionDetails(

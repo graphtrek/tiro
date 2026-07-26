@@ -32,7 +32,9 @@ def customer(db):
 
 @pytest.fixture
 def owner(db):
-    record = User(provider="google", sub="owner-sub", email="owner@example.com", name="Kozma Zoltán")
+    record = User(
+        provider="google", sub="owner-sub", email="owner@example.com", name="Kozma Zoltán"
+    )
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -78,14 +80,14 @@ def activity_type(db):
 
 
 def _payload(project_id, activity_type_id, user_id=None, entry_date=date(2026, 1, 12), hours=2.0):
-    kwargs = dict(
-        project_id=project_id,
-        activity_type_id=activity_type_id,
-        entry_date=entry_date,
-        hours=hours,
-        participants="Kozma Zoltán",
-        description="Specifikáció írása",
-    )
+    kwargs = {
+        "project_id": project_id,
+        "activity_type_id": activity_type_id,
+        "entry_date": entry_date,
+        "hours": hours,
+        "participants": "Kozma Zoltán",
+        "description": "Specifikáció írása",
+    }
     if user_id is not None:
         return TimesheetEntryIn(user_id=user_id, **kwargs)
     return TimesheetEntryUpdate(**kwargs)
@@ -144,7 +146,9 @@ def test_create_timesheet_entry_rejects_unpermitted_user(db, project, other_user
         )
 
 
-def test_create_timesheet_entry_allows_permitted_non_owner_user(db, project, other_user, activity_type):
+def test_create_timesheet_entry_allows_permitted_non_owner_user(
+    db, project, other_user, activity_type
+):
     project.permitted_users = [other_user]
     db.commit()
 
@@ -260,7 +264,9 @@ def test_delete_timesheet_entry_removes_row(db, project, owner, activity_type):
     assert timesheet_service.list_timesheet_entries(db, owner.id) == []
 
 
-def test_delete_timesheet_entry_returns_false_when_not_owned(db, project, owner, other_user, activity_type):
+def test_delete_timesheet_entry_returns_false_when_not_owned(
+    db, project, owner, other_user, activity_type
+):
     created = timesheet_service.create_timesheet_entry(
         db, _payload(project.id, activity_type.id, user_id=owner.id)
     )

@@ -2,13 +2,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Optional
 
 from fastapi import Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceFile, Supplier, invoice_bank_transaction
+from invoice_core.db import (
+    BankTransaction,
+    Customer,
+    Invoice,
+    InvoiceFile,
+    Supplier,
+    invoice_bank_transaction,
+)
 
 
 @dataclass
@@ -28,32 +34,32 @@ class TransactionDetail:
     amount: float
     currency: str
     direction: str
-    description: Optional[str]
-    payment_reference: Optional[str]
-    counterparty_name: Optional[str]
-    counterparty_account: Optional[str]
-    counterparty_iban: Optional[str]
-    transaction_type: Optional[str]
-    category: Optional[str]
-    balance: Optional[float]
-    fees: Optional[float]
-    counterparty_address: Optional[str]
-    sender_address: Optional[str]
-    counterparty_bank_code: Optional[str]
-    exchange_rate: Optional[float]
-    exchange_to_currency: Optional[str]
-    card_last_four: Optional[str]
-    note: Optional[str]
+    description: str | None
+    payment_reference: str | None
+    counterparty_name: str | None
+    counterparty_account: str | None
+    counterparty_iban: str | None
+    transaction_type: str | None
+    category: str | None
+    balance: float | None
+    fees: float | None
+    counterparty_address: str | None
+    sender_address: str | None
+    counterparty_bank_code: str | None
+    exchange_rate: float | None
+    exchange_to_currency: str | None
+    card_last_four: str | None
+    note: str | None
     invoice_ids: list[int]
     invoice_numbers: list[str]
-    invoice_file_id: Optional[int]
-    invoice_file_filename: Optional[str]
+    invoice_file_id: int | None
+    invoice_file_filename: str | None
     invoice_file_locked: bool
-    supplier_id: Optional[int]
-    supplier_name: Optional[str]
+    supplier_id: int | None
+    supplier_name: str | None
     supplier_locked: bool
-    customer_id: Optional[int]
-    customer_name: Optional[str]
+    customer_id: int | None
+    customer_name: str | None
     customer_locked: bool
     created_at: datetime
     updated_at: datetime
@@ -68,31 +74,31 @@ class TransactionRow:
     amount: float
     currency: str
     direction: str
-    description: Optional[str]
-    payment_reference: Optional[str]
-    partner_name: Optional[str]
-    invoice_file_id: Optional[int]
-    invoice_file_filename: Optional[str]
-    supplier_id: Optional[int] = None
-    customer_id: Optional[int] = None
-    fees: Optional[float] = None
+    description: str | None
+    payment_reference: str | None
+    partner_name: str | None
+    invoice_file_id: int | None
+    invoice_file_filename: str | None
+    supplier_id: int | None = None
+    customer_id: int | None = None
+    fees: float | None = None
     invoice_file_locked: bool = False
     supplier_locked: bool = False
     customer_locked: bool = False
     invoice_ids: list[int] = field(default_factory=list)
     invoice_numbers: list[str] = field(default_factory=list)
-    invoice_file_preview_base64: Optional[str] = None
+    invoice_file_preview_base64: str | None = None
 
 
 class TransactionFilters:
     def __init__(
         self,
-        date_from: Optional[date] = Query(None),
-        date_to: Optional[date] = Query(None),
-        linked: Optional[str] = Query(None),
-        partner_name: Optional[str] = Query(None),
-        amount_min: Optional[float] = Query(None),
-        amount_max: Optional[float] = Query(None),
+        date_from: date | None = Query(None),
+        date_to: date | None = Query(None),
+        linked: str | None = Query(None),
+        partner_name: str | None = Query(None),
+        amount_min: float | None = Query(None),
+        amount_max: float | None = Query(None),
     ):
         self.date_from = date_from
         self.date_to = date_to
@@ -104,26 +110,37 @@ class TransactionFilters:
 
 def list_transactions(
     db: Session,
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    linked: Optional[str] = None,
-    partner_name: Optional[str] = None,
-    amount_min: Optional[float] = None,
-    amount_max: Optional[float] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    linked: str | None = None,
+    partner_name: str | None = None,
+    amount_min: float | None = None,
+    amount_max: float | None = None,
 ) -> list[TransactionRow]:
     from sqlalchemy import exists as sa_exists
+
     ibt = invoice_bank_transaction
 
     q = (
-        db.query(BankTransaction, InvoiceFile.filename, InvoiceFile.preview_base64, Supplier.name, Customer.name)
+        db.query(
+            BankTransaction,
+            InvoiceFile.filename,
+            InvoiceFile.preview_base64,
+            Supplier.name,
+            Customer.name,
+        )
         .outerjoin(InvoiceFile, BankTransaction.invoice_file_id == InvoiceFile.id)
         .outerjoin(Supplier, BankTransaction.supplier_id == Supplier.id)
         .outerjoin(Customer, BankTransaction.customer_id == Customer.id)
     )
     if date_from:
-        q = q.filter(BankTransaction.transaction_date >= datetime.combine(date_from, datetime.min.time()))
+        q = q.filter(
+            BankTransaction.transaction_date >= datetime.combine(date_from, datetime.min.time())
+        )
     if date_to:
-        q = q.filter(BankTransaction.transaction_date <= datetime.combine(date_to, datetime.max.time()))
+        q = q.filter(
+            BankTransaction.transaction_date <= datetime.combine(date_to, datetime.max.time())
+        )
     if linked == "yes":
         q = q.filter(sa_exists().where(ibt.c.bank_transaction_id == BankTransaction.id))
     elif linked == "no":
@@ -162,7 +179,8 @@ def list_transactions(
             description=t.description,
             payment_reference=t.payment_reference,
             partner_name=(
-                (supplier_name or customer_name) if t.direction == "DEBIT"
+                (supplier_name or customer_name)
+                if t.direction == "DEBIT"
                 else (customer_name or supplier_name)
             ),
             invoice_file_id=t.invoice_file_id,
@@ -181,7 +199,7 @@ def list_transactions(
     ]
 
 
-def get_transaction(db: Session, transaction_id: int) -> Optional[TransactionDetail]:
+def get_transaction(db: Session, transaction_id: int) -> TransactionDetail | None:
     ibt = invoice_bank_transaction
     row = (
         db.query(BankTransaction, InvoiceFile.filename)
@@ -269,7 +287,12 @@ def get_bank_balances(db: Session) -> list[BankBalance]:
     every row that matches the max date would double-count balances — resolve
     same-day ties via _latest_of_same_day to get exactly one row per bank.
     """
-    banks = [r[0] for r in db.query(BankTransaction.bank).filter(BankTransaction.balance.isnot(None)).distinct()]
+    banks = [
+        r[0]
+        for r in db.query(BankTransaction.bank)
+        .filter(BankTransaction.balance.isnot(None))
+        .distinct()
+    ]
     result = []
     for bank in banks:
         max_date = (
@@ -289,5 +312,9 @@ def get_bank_balances(db: Session) -> list[BankBalance]:
             .all()
         )
         r = _latest_of_same_day(rows)
-        result.append(BankBalance(bank=r.bank, balance=r.balance, currency=r.currency, as_of=r.transaction_date))
+        result.append(
+            BankBalance(
+                bank=r.bank, balance=r.balance, currency=r.currency, as_of=r.transaction_date
+            )
+        )
     return result

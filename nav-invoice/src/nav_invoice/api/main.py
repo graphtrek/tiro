@@ -2,16 +2,16 @@
 
 import logging
 import time
-from datetime import date, datetime, timedelta
-from typing import Optional
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
 from nav_invoice import cache as _cache
 from nav_invoice.auth import login
-from nav_invoice.jwt_auth import require_auth
 from nav_invoice.client import NavApiError
 from nav_invoice.config import configure_logging, get_settings
+from nav_invoice.invoice_data import parse_invoice_data
+from nav_invoice.jwt_auth import require_auth
 from nav_invoice.models import (
     DigestQueryParams,
     InvoiceDigest,
@@ -19,7 +19,6 @@ from nav_invoice.models import (
     SubmitInvoiceRequest,
     SubmitInvoiceResponse,
 )
-from nav_invoice.invoice_data import parse_invoice_data
 from nav_invoice.query import query_invoice_data, query_invoice_digest
 from nav_invoice.reporting import submit_invoice
 
@@ -51,7 +50,7 @@ async def log_requests(request: Request, call_next):
 @app.get("/health")
 def health_check():
     """Service health check endpoint."""
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(tz=UTC).isoformat()}
 
 
 # ── Authentication ─────────────────────────────────────
@@ -71,15 +70,15 @@ def auth_login():
 
 @app.get("/invoices", response_model=list[InvoiceDigest])
 def get_invoices(
-    from_date: Optional[date] = Query(None, description="Start date"),
-    to_date: Optional[date] = Query(None, description="End date"),
+    from_date: date | None = Query(None, description="Start date"),
+    to_date: date | None = Query(None, description="End date"),
     direction: InvoiceDirection = Query(InvoiceDirection.OUTBOUND),
     page: int = Query(1, ge=1),
 ):
     """List invoices from NAV (queryInvoiceDigest)."""
     params = DigestQueryParams(
-        from_date=from_date or (date.today() - timedelta(days=30)),
-        to_date=to_date or date.today(),
+        from_date=from_date or (datetime.now(tz=UTC).astimezone().date() - timedelta(days=30)),
+        to_date=to_date or datetime.now(tz=UTC).astimezone().date(),
         direction=direction,
         page=page,
     )
@@ -87,14 +86,14 @@ def get_invoices(
     try:
         return query_invoice_digest(params)
     except NavApiError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.get("/invoices/{szamlaszam}")
 def get_invoice(
     szamlaszam: str,
     direction: InvoiceDirection = Query(InvoiceDirection.OUTBOUND),
-    supplier_tax_number: Optional[str] = Query(None),
+    supplier_tax_number: str | None = Query(None),
 ):
     """Get a single invoice's decoded XML + parsed detail fields (queryInvoiceData)."""
     try:
@@ -102,7 +101,7 @@ def get_invoice(
             szamlaszam, direction, supplier_tax_number=supplier_tax_number or ""
         )
     except NavApiError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     if not invoice_xml:
         raise HTTPException(status_code=404, detail=f"Invoice {szamlaszam} not found")

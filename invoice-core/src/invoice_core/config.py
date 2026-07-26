@@ -6,7 +6,6 @@ import logging
 from pathlib import Path
 
 import requests
-
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -52,9 +51,7 @@ def configure_logging(log_level: str = "INFO") -> None:
 class Settings(BaseSettings):
     """Invoice Core settings."""
 
-    model_config = SettingsConfigDict(
-        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore")
 
     # ── Database (existing .env uses JDBC format) ────────────────────────────
     db_url: str = "jdbc:postgresql://localhost:5432/invoice"
@@ -73,7 +70,9 @@ class Settings(BaseSettings):
         suffix and "user:pwd@" credentials right after "postgresql://".
         """
         url = self.db_url.removeprefix("jdbc:")
-        return url.replace("postgresql://", f"postgresql+psycopg2://{self.db_user}:{self.db_pwd}@", 1)
+        return url.replace(
+            "postgresql://", f"postgresql+psycopg2://{self.db_user}:{self.db_pwd}@", 1
+        )
 
     # ── Downstream services ──────────────────────────────────────────────────
     nav_invoice_url: str = "http://localhost:8002"
@@ -83,9 +82,7 @@ class Settings(BaseSettings):
 
     # ── FastAPI server ───────────────────────────────────────────────────────
     api_host: str = "0.0.0.0"
-    api_port: int = Field(
-        8004, validation_alias=AliasChoices("INVOICE_CORE_API_PORT", "API_PORT")
-    )
+    api_port: int = Field(8004, validation_alias=AliasChoices("INVOICE_CORE_API_PORT", "API_PORT"))
     log_level: str = "INFO"
 
     # ── Tax account → label mapping (override via TAX_ACCOUNTS JSON in .env) ─
@@ -129,3 +126,22 @@ def make_http_session() -> requests.Session:
     # A beérkező kérés Bearer tokenjét továbbadjuk a hívott szerviznek.
     session.auth = TokenPassthrough()
     return session
+
+
+def token_hint_for_error(exc: Exception) -> str:
+    """Suffix appended to an outbound-call error when it looks like a missing/
+    invalid bearer token (401 from the downstream service), telling the CLI
+    user how to supply one — see DEF-002 / README's CLI Auth section.
+
+    The CLI has no bearer token of its own (unlike a request coming through
+    the API, which forwards the caller's token via `current_token`/
+    `TokenPassthrough`); `invoice-core sync`'s `--token` option or the shared
+    `MP_SERVICE_TOKEN` env var fill that gap.
+    """
+    response = getattr(exc, "response", None)
+    if response is not None and getattr(response, "status_code", None) == 401:
+        return (
+            " — supply a bearer token via --token or the MP_SERVICE_TOKEN "
+            "env var (see invoice-core/README.md)"
+        )
+    return ""

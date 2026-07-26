@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from invoice_core.pdf_client import PdfClient
 
@@ -54,6 +54,7 @@ class TestGetWordsText:
 
     def test_request_error_returns_empty_string(self):
         import requests
+
         client = _make_client()
         client.session.post = MagicMock(side_effect=requests.RequestException("timeout"))
 

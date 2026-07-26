@@ -23,6 +23,7 @@ wise-invoice = "wise_invoice.cli.main:app"
 dev = [
     "pytest>=8.0",
     "httpx>=0.27",
+    "ruff>=0.8",
 ]
 
 [build-system]
@@ -34,3 +35,12 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "SIM", "B", "BLE", "DTZ", "RUF", "C4"]
+# B008: FastAPI idiom — Query/Depends are conventionally called in argument defaults.
+ignore = ["B008"]

@@ -14,7 +14,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import logging
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -65,7 +65,8 @@ def _parse_date(raw: str) -> date | None:
     if not raw or not raw.strip():
         return None
     try:
-        return datetime.strptime(raw.strip(), "%Y.%m.%d").date()
+        # Local Hungarian bank-statement date: aware-then-normalized to keep the date value.
+        return datetime.strptime(raw.strip(), "%Y.%m.%d").replace(tzinfo=UTC).date()
     except ValueError:
         return None
 
@@ -75,7 +76,8 @@ def _parse_datetime(raw: str) -> datetime | None:
         return None
     for fmt in ("%Y.%m.%d %H:%M:%S", "%Y.%m.%d"):
         try:
-            return datetime.strptime(raw.strip(), fmt)
+            # Local Hungarian bank-statement time: normalize to aware UTC, value preserved.
+            return datetime.strptime(raw.strip(), fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
     return None
@@ -93,7 +95,10 @@ def _make_id(row: dict, occurrence: int) -> str:
     későbbi export átfedő (más kezdő/záró dátumú) időszakot tartalmaz és emiatt a
     releváns sor előtt más sorok száma megváltozik.
     """
-    raw = f"{row.get(_COL_DATE,'')}{row.get(_COL_AMOUNT,'')}{row.get(_COL_DESCRIPTION,'')}{occurrence}"
+    raw = (
+        f"{row.get(_COL_DATE,'')}{row.get(_COL_AMOUNT,'')}"
+        f"{row.get(_COL_DESCRIPTION,'')}{occurrence}"
+    )
     return "ERSTE-" + hashlib.sha1(raw.encode()).hexdigest()[:16].upper()
 
 

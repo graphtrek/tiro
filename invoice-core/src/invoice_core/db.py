@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from collections.abc import Generator
 from enum import Enum as PyEnum
-from typing import Generator
 
 from sqlalchemy import (
     Boolean,
     Column,
     Date,
     DateTime,
-    Enum as SAEnum,
     Float,
     ForeignKey,
     Integer,
@@ -23,12 +21,15 @@ from sqlalchemy import (
     exists,
     func,
 )
+from sqlalchemy import (
+    Enum as SAEnum,
+)
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 
 from .config import get_settings
 
-
 # ── Engine + session ──────────────────────────────────────────────────────────
+
 
 def _make_engine():
     settings = get_settings()
@@ -60,6 +61,7 @@ def get_db() -> Generator[Session, None, None]:
 # these). If you add or rename a member here, update `models.py` too, or the
 # two layers will silently drift apart.
 
+
 class _PaymentStatus(PyEnum):
     PAID = "PAID"
     UNPAID = "UNPAID"
@@ -77,6 +79,7 @@ def _enum_str(value) -> str:
 
 
 # ── ORM models ────────────────────────────────────────────────────────────────
+
 
 class Supplier(Base):
     __tablename__ = "supplier"
@@ -146,10 +149,12 @@ class Invoice(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     invoice_number = Column(String, nullable=False, unique=True, index=True)
-    invoice_date = Column(Date, nullable=True)
-    # Nullable: sync no longer auto-creates a partner for an unmatched NAV
-    # digest — the invoice still imports, left unlinked until a matching
-    # supplier/customer is created manually (see service.py's _find_supplier).
+    invoice_date = Column(Date, nullable=True, index=True)
+    # Nullable: an unmatched NAV digest may not resolve to an existing
+    # supplier/customer at sync time (see service.py's _find_supplier) — the
+    # invoice still imports, left unlinked until a match is found or one is
+    # created manually. Sync itself does create partners when a match isn't
+    # found; nullability just covers the case where even that fails.
     supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=True)
     customer_id = Column(Integer, ForeignKey("customer.id"), nullable=True)
     amount_net = Column(Float, nullable=True)
@@ -192,7 +197,9 @@ class Invoice(Base):
     )
     detail = relationship("InvoiceDetail", back_populates="invoice", uselist=False)
     lines = relationship("InvoiceLine", back_populates="invoice", order_by="InvoiceLine.id")
-    vat_summaries = relationship("InvoiceVatSummary", back_populates="invoice", order_by="InvoiceVatSummary.id")
+    vat_summaries = relationship(
+        "InvoiceVatSummary", back_populates="invoice", order_by="InvoiceVatSummary.id"
+    )
 
 
 class InvoiceDetail(Base):
@@ -268,12 +275,12 @@ class BankTransaction(Base):
     __tablename__ = "bank_transaction"
 
     id = Column(Integer, primary_key=True, index=True)
-    bank = Column(String, nullable=False, index=True)        # "erste" | "wise"
+    bank = Column(String, nullable=False, index=True)  # "erste" | "wise"
     transaction_id = Column(String, nullable=False, unique=True, index=True)
     amount = Column(Float, nullable=False)
     currency = Column(String, nullable=False)
-    direction = Column(String, nullable=False)               # "CREDIT" | "DEBIT"
-    transaction_date = Column(DateTime, nullable=False)
+    direction = Column(String, nullable=False)  # "CREDIT" | "DEBIT"
+    transaction_date = Column(DateTime, nullable=False, index=True)
     description = Column(String, nullable=True)
     payment_reference = Column(String, nullable=True)
     counterparty_name = Column(String, nullable=True)
@@ -438,6 +445,30 @@ class SyncLog(Base):
     warnings = Column(Text, nullable=True)
 
 
+class SyncLock(Base):
+    """Single-row DB-backed mutex guarding sync_all against concurrent runs (DEF-012).
+
+    Deliberately a DB row, not an in-process threading.Lock/asyncio.Lock module
+    global: uvicorn can run multiple worker processes, each with its own Python
+    interpreter and memory space, so an in-process lock would only serialize
+    requests within one worker, not across workers. A PostgreSQL
+    pg_advisory_lock would also work but is Postgres-only and would need a
+    separate no-op/fallback code path for the SQLite in-memory DB the test
+    suite runs on. This single row instead is acquired via one atomic
+    ``UPDATE ... WHERE`` (a compare-and-swap on locked_at), which behaves
+    identically -- and correctly serializes concurrent acquirers -- on both
+    PostgreSQL and SQLite, so the exact same code path is exercised in tests
+    and in production. There is always exactly one row, with a fixed id
+    (see service.py's SYNC_LOCK_ID).
+    """
+
+    __tablename__ = "sync_lock"
+
+    id = Column(Integer, primary_key=True)
+    locked_at = Column(DateTime, nullable=True)
+    locked_by = Column(String, nullable=True)
+
+
 class AuditLog(Base):
     """One row per successful user-initiated mutation, for the admin Audit page."""
 
@@ -448,7 +479,9 @@ class AuditLog(Base):
     method = Column(String, nullable=False)
     path = Column(String, nullable=False)
     page = Column(String, nullable=False, index=True)  # menu the mutation belongs to
-    record = Column(String, nullable=True)  # human-readable record identifier (invoice number, partner name, ...)
+    record = Column(
+        String, nullable=True
+    )  # human-readable record identifier (invoice number, partner name, ...)
     label = Column(String, nullable=True)  # button/action name the user clicked, if sent
     action = Column(String, nullable=False)  # create | update | delete
     status_code = Column(Integer, nullable=False)
@@ -456,6 +489,7 @@ class AuditLog(Base):
 
 
 # ── Business rules ──────────────────────────────────────────────────────────
+
 
 def invoice_has_bank_txn():
     """Correlated EXISTS: the invoice has at least one linked bank transaction."""

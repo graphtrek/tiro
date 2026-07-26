@@ -6,11 +6,10 @@ import csv
 import io
 import logging
 import time
-from typing import Optional
 
 import requests
 
-from .config import Settings, get_settings, make_http_session
+from .config import Settings, get_settings, make_http_session, token_hint_for_error
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ class PdfClient:
     Fields in each file dict from extract(): filename, path, modified.
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.invoice_file_filter_url.rstrip("/")
         self.session = make_http_session()
@@ -42,7 +41,8 @@ class PdfClient:
             resp.raise_for_status()
         except requests.RequestException as exc:
             raise PdfClientError(
-                f"Failed to reach invoice-file-filter at {self.base_url}: {exc}"
+                f"Failed to reach invoice-file-filter at {self.base_url}: "
+                f"{exc}{token_hint_for_error(exc)}"
             ) from exc
         data = resp.json()
         files = data.get("files", [])
@@ -51,7 +51,9 @@ class PdfClient:
         elapsed_ms = (time.monotonic() - t0) * 1000
         logger.info(
             "POST %s/api/v1/invoices/extract → %d file(s) in %.0fms",
-            self.base_url, len(files), elapsed_ms,
+            self.base_url,
+            len(files),
+            elapsed_ms,
         )
         return files
 

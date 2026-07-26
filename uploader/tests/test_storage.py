@@ -25,7 +25,9 @@ def test_save_file_creates_bank_subdir_and_result(settings: Settings):
     assert result.filename == "a_2026-05-01_2026-05-31.csv"
     assert result.size_bytes == len(CSV_BYTES)
     assert result.overwritten is False
-    assert (Path(settings.storage_dir) / "erste" / "a_2026-05-01_2026-05-31.csv").read_bytes() == CSV_BYTES
+    assert (
+        Path(settings.storage_dir) / "erste" / "a_2026-05-01_2026-05-31.csv"
+    ).read_bytes() == CSV_BYTES
 
 
 def test_save_file_existing_without_overwrite_raises(settings: Settings):

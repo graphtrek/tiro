@@ -6,12 +6,11 @@ Implements ``manageInvoice`` (with automatic ``tokenExchange``) and
 
 import base64
 import logging
-from datetime import date
-from typing import Optional, Union
+from datetime import UTC, datetime
 from xml.sax.saxutils import escape
 
 from nav_invoice.auth import request_token
-from nav_invoice.client import NavClient, NavApiError, findall, findtext
+from nav_invoice.client import NavApiError, NavClient, findall, findtext
 from nav_invoice.config import Settings, get_settings
 from nav_invoice.models import (
     ManageInvoiceOperation,
@@ -31,8 +30,8 @@ COMMON_DATA_NS = "http://schemas.nav.gov.hu/NTCA/1.0/common"
 
 def manage_invoice(
     invoice_xml: str,
-    operation: Union[str, ManageInvoiceOperation] = ManageInvoiceOperation.CREATE,
-    settings: Optional[Settings] = None,
+    operation: str | ManageInvoiceOperation = ManageInvoiceOperation.CREATE,
+    settings: Settings | None = None,
 ) -> TransactionResult:
     """Submit a single invoice (szakmai XML) to NAV.
 
@@ -81,7 +80,7 @@ def manage_invoice(
 
 def query_transaction_status(
     transaction_id: str,
-    settings: Optional[Settings] = None,
+    settings: Settings | None = None,
 ) -> dict[str, object]:
     """Query the processing status of a previously submitted transaction."""
     if settings is None:
@@ -118,8 +117,16 @@ def _build_invoice_xml(request: SubmitInvoiceRequest, settings: Settings) -> str
     via :func:`manage_invoice`.
     """
     h = request.invoice.header
-    issue = h.keltes_datuma.isoformat() if h.keltes_datuma else date.today().isoformat()
-    vat_rate = (request.invoice.line_items[0].ado_kulcs / 100) if request.invoice.line_items else 0.27
+    issue = (
+        h.keltes_datuma.isoformat()
+        if h.keltes_datuma
+        else datetime.now(tz=UTC).astimezone().date().isoformat()
+    )
+    vat_rate = (
+        request.invoice.line_items[0].ado_kulcs / 100
+        if request.invoice.line_items
+        else 0.27
+    )
     vat_multiplier = 1 + vat_rate
     net = h.netto_total or (h.bruttototal / vat_multiplier if h.bruttototal else 0.0)
     vat = h.ado_total or (h.bruttototal - net if h.bruttototal else 0.0)
@@ -194,8 +201,8 @@ def _build_invoice_xml(request: SubmitInvoiceRequest, settings: Settings) -> str
 
 
 def submit_invoice(
-    request: Optional[SubmitInvoiceRequest] = None,
-    settings: Optional[Settings] = None,
+    request: SubmitInvoiceRequest | None = None,
+    settings: Settings | None = None,
 ) -> SubmitInvoiceResponse:
     """Legacy wrapper: build an invoice from the model and call manageInvoice."""
     if settings is None:

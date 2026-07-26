@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json as _json
-import logging
 from datetime import date
 
 import typer
@@ -41,7 +40,7 @@ def _print_transaction_table(transactions: list[TransactionSummary]) -> None:
             f"[{color}]{txn.type.value}[/{color}]",
             txn.transaction_date.strftime("%Y-%m-%d"),
             f"{txn.amount:,.2f} {txn.currency}",
-            txn.counterparty_name or "[dim]–[/dim]",
+            txn.counterparty_name or "[dim]–[/dim]",  # noqa: RUF001 - intentional Hungarian dash
         )
     console.print(table)
 
@@ -73,7 +72,7 @@ def sync(
         result = run_sync(request)
     except WiseApiError as exc:
         console.print(f"[red]✗ Wise API hiba:[/red] {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     if as_json:
         console.print_json(_json.dumps(result.model_dump(), default=str))
@@ -98,7 +97,7 @@ def balances():
         items = client.get_balances()
     except WiseApiError as exc:
         console.print(f"[red]✗ Wise API hiba:[/red] {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     if not items:
         console.print("Nincs egyenleg a profilban.")
@@ -112,8 +111,8 @@ def balances():
     for b in items:
         amt = b.get("amount", {})
         table.add_row(
-            str(b.get("id", "–")),
-            b.get("currency", "–"),
+            str(b.get("id", "–")),  # noqa: RUF001 - intentional Hungarian dash
+            b.get("currency", "–"),  # noqa: RUF001 - intentional Hungarian dash
             f"{amt.get('value', 0):,.2f} {amt.get('currency', '')}",
         )
     console.print(table)
@@ -141,7 +140,7 @@ def status():
             )
     except WiseApiError as exc:
         console.print(f"[red]✗ Wise API hiba:[/red] {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
 
 @app.command()
@@ -197,7 +196,8 @@ def balance_statements(
     ),
     as_json: bool = typer.Option(False, "--json", help="JSON kimenet"),
 ):
-    """GET /balance-statements: szűrő nélkül a legfrissebb kivonat tranzakcióit, szűrővel a fájllistát adja vissza."""
+    """GET /balance-statements: szűrő nélkül a legfrissebb kivonat tranzakcióit,
+    szűrővel a fájllistát adja vissza."""
     if from_ is None and to is None and currency is None:
         files = list_statement_files()
         if not files:
@@ -208,7 +208,7 @@ def balance_statements(
             result = parse_statement_csv(latest.filename)
         except StatementCsvError as exc:
             console.print(f"[red]✗ CSV hiba:[/red] {exc}")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from exc
 
         if as_json:
             console.print_json(_json.dumps(result.model_dump(), default=str))
@@ -269,7 +269,7 @@ def import_csv(
         result = parse_statement_csv(filename)
     except StatementCsvError as exc:
         console.print(f"[red]✗ CSV hiba:[/red] {exc}")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from exc
 
     if as_json:
         console.print_json(_json.dumps(result.model_dump(), default=str))

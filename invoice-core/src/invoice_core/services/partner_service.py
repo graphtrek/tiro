@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Optional
 
 from sqlalchemy import case, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from invoice_core.db import BankTransaction, Customer, Invoice, Supplier, _PaymentStatus, _enum_str
+from invoice_core.db import BankTransaction, Customer, Invoice, Supplier, _enum_str, _PaymentStatus
 from invoice_core.models import CustomerIn, CustomerUpdate, SupplierIn, SupplierUpdate
 from invoice_core.services._helpers import OWN_COMPANY_NAME_FILTER
+from invoice_core.timeutil import utcnow
 
 
 @dataclass
@@ -32,25 +32,25 @@ class SupplierSummary:
 class SupplierRow:
     id: int
     name: str
-    tax_id: Optional[str]
+    tax_id: str | None
     invoice_count: int
     unpaid_count: int
     bank_count: int
-    last_invoice_date: Optional[date]
-    invoice_total: Optional[float] = None
-    bank_total: Optional[float] = None
+    last_invoice_date: date | None
+    invoice_total: float | None = None
+    bank_total: float | None = None
 
 
 @dataclass
 class PartnerInvoiceRow:
     id: int
     invoice_number: str
-    invoice_date: Optional[date]
-    amount_total: Optional[float]
+    invoice_date: date | None
+    amount_total: float | None
     payment_status: str
-    invoice_file_id: Optional[int]
-    bank_txn_db_id: Optional[int] = None
-    bank_txn_external_id: Optional[str] = None
+    invoice_file_id: int | None
+    bank_txn_db_id: int | None = None
+    bank_txn_external_id: str | None = None
 
 
 @dataclass
@@ -61,19 +61,19 @@ class PartnerTxnRow:
     transaction_date: datetime
     amount: float
     currency: str
-    description: Optional[str]
+    description: str | None
 
 
 @dataclass
 class SupplierDetail:
     id: int
     name: str
-    tax_id: Optional[str]
-    address: Optional[str]
-    email: Optional[str]
-    phone: Optional[str]
-    iban: Optional[str]
-    bban: Optional[str]
+    tax_id: str | None
+    address: str | None
+    email: str | None
+    phone: str | None
+    iban: str | None
+    bban: str | None
     invoices: list[PartnerInvoiceRow] = field(default_factory=list)
     bank_transactions: list[PartnerTxnRow] = field(default_factory=list)
 
@@ -82,44 +82,58 @@ class SupplierDetail:
 class CustomerRow:
     id: int
     name: str
-    tax_id: Optional[str]
+    tax_id: str | None
     invoice_count: int
     unpaid_count: int
     bank_count: int
-    last_invoice_date: Optional[date]
-    invoice_total: Optional[float] = None
-    bank_total: Optional[float] = None
+    last_invoice_date: date | None
+    invoice_total: float | None = None
+    bank_total: float | None = None
 
 
 @dataclass
 class CustomerDetail:
     id: int
     name: str
-    tax_id: Optional[str]
-    address: Optional[str]
-    email: Optional[str]
-    phone: Optional[str]
-    payment_terms: Optional[int]
-    iban: Optional[str]
-    bban: Optional[str]
+    tax_id: str | None
+    address: str | None
+    email: str | None
+    phone: str | None
+    payment_terms: int | None
+    iban: str | None
+    bban: str | None
     invoices: list[PartnerInvoiceRow] = field(default_factory=list)
     bank_transactions: list[PartnerTxnRow] = field(default_factory=list)
 
 
 def _partner_invoice_rows(invoices: list[Invoice]) -> list[PartnerInvoiceRow]:
+    """Build one PartnerInvoiceRow per invoice.
+
+    `bank_txn_db_id`/`bank_txn_external_id` report the *most recently dated*
+    linked transaction (`transaction_date` desc), not the first one inserted
+    (i.e. not `i.bank_transactions[0]` in raw relationship order, which is
+    PK/insert order and can disagree with date order) — this matches how
+    invoice_service.py orders the same concept. `i.bank_transactions` is
+    expected to already be eagerly loaded (see selectinload in get_supplier/
+    get_customer) so this sort is in-Python over an already-fetched list, not
+    an extra query.
+    """
     rows = []
     for i in invoices:
-        txn = i.bank_transactions[0] if i.bank_transactions else None
-        rows.append(PartnerInvoiceRow(
-            id=i.id,
-            invoice_number=i.invoice_number,
-            invoice_date=i.invoice_date,
-            amount_total=i.amount_total,
-            payment_status=_enum_str(i.payment_status),
-            invoice_file_id=i.invoice_file_id,
-            bank_txn_db_id=txn.id if txn else None,
-            bank_txn_external_id=txn.transaction_id if txn else None,
-        ))
+        txns = sorted(i.bank_transactions, key=lambda t: t.transaction_date, reverse=True)
+        txn = txns[0] if txns else None
+        rows.append(
+            PartnerInvoiceRow(
+                id=i.id,
+                invoice_number=i.invoice_number,
+                invoice_date=i.invoice_date,
+                amount_total=i.amount_total,
+                payment_status=_enum_str(i.payment_status),
+                invoice_file_id=i.invoice_file_id,
+                bank_txn_db_id=txn.id if txn else None,
+                bank_txn_external_id=txn.transaction_id if txn else None,
+            )
+        )
     return rows
 
 
@@ -132,7 +146,9 @@ def list_suppliers(db: Session) -> list[SupplierRow]:
         db.query(
             Invoice.supplier_id,
             func.count(Invoice.id).label("inv_count"),
-            func.count(case((Invoice.payment_status == _PaymentStatus.UNPAID, Invoice.id))).label("unpaid_count"),
+            func.count(case((Invoice.payment_status == _PaymentStatus.UNPAID, Invoice.id))).label(
+                "unpaid_count"
+            ),
             func.max(Invoice.invoice_date).label("last_date"),
             func.sum(Invoice.amount_total).label("inv_total"),
         )
@@ -177,16 +193,16 @@ def get_supplier_summary(db: Session) -> SupplierSummary:
     excluded = db.query(Supplier.id).filter(Supplier.name.ilike(OWN_COMPANY_NAME_FILTER)).subquery()
 
     supplier_count = (
-        db.query(func.count(Supplier.id))
-        .filter(~Supplier.id.in_(excluded))
-        .scalar() or 0
+        db.query(func.count(Supplier.id)).filter(~Supplier.id.in_(excluded)).scalar() or 0
     )
 
     inv_q = (
         db.query(
             Invoice.currency,
             func.count(Invoice.id).label("cnt"),
-            func.count(case((Invoice.payment_status == _PaymentStatus.UNPAID, Invoice.id))).label("unpaid"),
+            func.count(case((Invoice.payment_status == _PaymentStatus.UNPAID, Invoice.id))).label(
+                "unpaid"
+            ),
             func.sum(Invoice.amount_total).label("total"),
         )
         .join(Supplier, Invoice.supplier_id == Supplier.id)
@@ -230,12 +246,16 @@ def get_supplier_summary(db: Session) -> SupplierSummary:
     )
 
 
-def get_supplier(db: Session, supplier_id: int) -> Optional[SupplierDetail]:
+def get_supplier(db: Session, supplier_id: int) -> SupplierDetail | None:
     sup = db.query(Supplier).filter_by(id=supplier_id).first()
     if not sup:
         return None
+    # selectinload(Invoice.bank_transactions): _partner_invoice_rows reads
+    # i.bank_transactions[0] per invoice — without eager loading that's one
+    # extra query per invoice (N+1).
     invoices = (
         db.query(Invoice)
+        .options(selectinload(Invoice.bank_transactions))
         .filter(Invoice.supplier_id == supplier_id)
         .order_by(Invoice.invoice_date.desc().nullslast())
         .all()
@@ -276,7 +296,9 @@ def list_customers(db: Session) -> list[CustomerRow]:
         db.query(
             Invoice.customer_id,
             func.count(Invoice.id).label("inv_count"),
-            func.count(case((Invoice.payment_status == _PaymentStatus.UNPAID, Invoice.id))).label("unpaid_count"),
+            func.count(case((Invoice.payment_status == _PaymentStatus.UNPAID, Invoice.id))).label(
+                "unpaid_count"
+            ),
             func.max(Invoice.invoice_date).label("last_date"),
             func.sum(Invoice.amount_total).label("inv_total"),
         )
@@ -314,12 +336,15 @@ def list_customers(db: Session) -> list[CustomerRow]:
     ]
 
 
-def get_customer(db: Session, customer_id: int) -> Optional[CustomerDetail]:
+def get_customer(db: Session, customer_id: int) -> CustomerDetail | None:
     cust = db.query(Customer).filter_by(id=customer_id).first()
     if not cust:
         return None
+    # selectinload: see get_supplier — _partner_invoice_rows touches
+    # i.bank_transactions[0] per row.
     invoices = (
         db.query(Invoice)
+        .options(selectinload(Invoice.bank_transactions))
         .filter(Invoice.customer_id == customer_id)
         .order_by(Invoice.invoice_date.desc().nullslast())
         .all()
@@ -359,14 +384,14 @@ def get_customer(db: Session, customer_id: int) -> Optional[CustomerDetail]:
 # ── Manual create/edit/delete ────────────────────────────────────────────────
 
 
-def _name_taken(model, db: Session, name: str, exclude_id: Optional[int] = None) -> bool:
+def _name_taken(model, db: Session, name: str, exclude_id: int | None = None) -> bool:
     query = db.query(model).filter(func.lower(model.name) == name.lower())
     if exclude_id is not None:
         query = query.filter(model.id != exclude_id)
     return query.first() is not None
 
 
-def _tax_id_taken(model, db: Session, tax_id: Optional[str], exclude_id: Optional[int] = None) -> bool:
+def _tax_id_taken(model, db: Session, tax_id: str | None, exclude_id: int | None = None) -> bool:
     if not tax_id:
         return False
     query = db.query(model).filter(model.tax_id == tax_id)
@@ -379,7 +404,10 @@ def _has_linked_records(model, db: Session, partner_id: int) -> bool:
     field_name = "supplier_id" if model is Supplier else "customer_id"
     if db.query(Invoice).filter(getattr(Invoice, field_name) == partner_id).first() is not None:
         return True
-    return db.query(BankTransaction).filter(getattr(BankTransaction, field_name) == partner_id).first() is not None
+    return (
+        db.query(BankTransaction).filter(getattr(BankTransaction, field_name) == partner_id).first()
+        is not None
+    )
 
 
 def create_supplier(db: Session, payload: SupplierIn) -> Supplier:
@@ -394,7 +422,7 @@ def create_supplier(db: Session, payload: SupplierIn) -> Supplier:
     return record
 
 
-def update_supplier(db: Session, supplier_id: int, payload: SupplierUpdate) -> Optional[Supplier]:
+def update_supplier(db: Session, supplier_id: int, payload: SupplierUpdate) -> Supplier | None:
     record = db.query(Supplier).filter(Supplier.id == supplier_id).one_or_none()
     if record is None:
         return None
@@ -404,7 +432,7 @@ def update_supplier(db: Session, supplier_id: int, payload: SupplierUpdate) -> O
         raise ValueError(f"Supplier with tax_id '{payload.tax_id}' already exists")
     for key, value in payload.model_dump().items():
         setattr(record, key, value)
-    record.updated_at = datetime.utcnow()
+    record.updated_at = utcnow()
     db.commit()
     db.refresh(record)
     return record
@@ -433,7 +461,7 @@ def create_customer(db: Session, payload: CustomerIn) -> Customer:
     return record
 
 
-def update_customer(db: Session, customer_id: int, payload: CustomerUpdate) -> Optional[Customer]:
+def update_customer(db: Session, customer_id: int, payload: CustomerUpdate) -> Customer | None:
     record = db.query(Customer).filter(Customer.id == customer_id).one_or_none()
     if record is None:
         return None
@@ -443,7 +471,7 @@ def update_customer(db: Session, customer_id: int, payload: CustomerUpdate) -> O
         raise ValueError(f"Customer with tax_id '{payload.tax_id}' already exists")
     for key, value in payload.model_dump().items():
         setattr(record, key, value)
-    record.updated_at = datetime.utcnow()
+    record.updated_at = utcnow()
     db.commit()
     db.refresh(record)
     return record

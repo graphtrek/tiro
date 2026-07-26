@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -41,7 +40,7 @@ def upload_page(request: Request):
 async def do_upload(
     request: Request,
     file: UploadFile = File(...),
-    bank: Optional[str] = Form(None),
+    bank: str | None = Form(None),
     overwrite: bool = Form(False),
 ):
     """HTMX endpoint: fájl feltöltése és eredmény partial visszaadása."""
@@ -72,8 +71,8 @@ async def do_upload(
         html = (
             f'<div class="alert alert-success">'
             f'<i class="bi bi-check-circle me-2"></i>'
-            f'<strong>{action}:</strong> {result["filename"]} '
-            f'({result["bank"].upper()}, {result["size_bytes"]:,} bájt)'
+            f"<strong>{action}:</strong> {result['filename']} "
+            f"({result['bank'].upper()}, {result['size_bytes']:,} bájt)"
             f"</div>"
             f'<div hx-get="/ui/upload/files" hx-trigger="load" hx-swap="outerHTML"></div>'
         )
@@ -107,9 +106,7 @@ def delete_file(request: Request, bank: str, filename: str):
     if not ok:
         return HTMLResponse(
             content=(
-                '<tr><td colspan="5">'
-                '<span class="text-danger">Törlés sikertelen.</span>'
-                "</td></tr>"
+                '<tr><td colspan="5"><span class="text-danger">Törlés sikertelen.</span></td></tr>'
             )
         )
     return HTMLResponse(content="")

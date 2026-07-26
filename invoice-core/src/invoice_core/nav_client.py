@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
 
 import requests
 
-from .config import Settings, get_settings, make_http_session
+from .config import Settings, get_settings, make_http_session, token_hint_for_error
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ class NavClient:
         invoice_gross_amount, lines, vat_summary, invoice_xml
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.nav_invoice_url.rstrip("/")
         self.session = make_http_session()
@@ -49,7 +48,7 @@ class NavClient:
             resp.raise_for_status()
         except requests.RequestException as exc:
             raise NavClientError(
-                f"Failed to reach nav-invoice at {self.base_url}: {exc}"
+                f"Failed to reach nav-invoice at {self.base_url}: {exc}{token_hint_for_error(exc)}"
             ) from exc
         data = resp.json()
         for item in data:
@@ -58,7 +57,7 @@ class NavClient:
 
     def get_invoice_detail(
         self, invoice_number: str, direction: str, supplier_tax_number: str = ""
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """GET /invoices/{invoice_number} → enriched dict (address/bank account/payment fields).
 
         Returns None on any failure (404, network error) so callers can degrade
@@ -97,7 +96,8 @@ class NavClient:
         NAV's queryInvoiceDigest API rejects ranges longer than 35 days, so wide
         date spans are split automatically and the results are concatenated.
         """
-        from datetime import date as _date, timedelta as _timedelta
+        from datetime import date as _date
+        from datetime import timedelta as _timedelta
 
         chunk_days = 35
         start = _date.fromisoformat(start_date)
@@ -114,8 +114,13 @@ class NavClient:
             elapsed_ms = (time.monotonic() - t0) * 1000
             logger.info(
                 "GET %s/invoices [%s → %s] → %d outbound + %d inbound = %d invoice(s) in %.0fms",
-                self.base_url, chunk_start, chunk_end,
-                len(outbound), len(inbound), len(chunk), elapsed_ms,
+                self.base_url,
+                chunk_start,
+                chunk_end,
+                len(outbound),
+                len(inbound),
+                len(chunk),
+                elapsed_ms,
             )
             combined.extend(chunk)
             chunk_start = chunk_end + _timedelta(days=1)

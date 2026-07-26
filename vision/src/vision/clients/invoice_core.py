@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from contextlib import suppress
 from urllib.parse import quote
 
 import requests
@@ -25,7 +25,7 @@ def _label_headers(label: str | None) -> dict[str, str]:
 class InvoiceCoreClient:
     """Client for invoice-core endpoints."""
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.invoice_core_url.rstrip("/")
         self.timeout = self.settings.request_timeout
@@ -86,14 +86,18 @@ class InvoiceCoreClient:
         has_pdf=None,
         supplier_name=None,
     ) -> list[dict]:
-        params = {k: v for k, v in {
-            "date_from": date_from,
-            "date_to": date_to,
-            "status": status,
-            "direction": direction,
-            "has_pdf": has_pdf,
-            "supplier_name": supplier_name,
-        }.items() if v is not None}
+        params = {
+            k: v
+            for k, v in {
+                "date_from": date_from,
+                "date_to": date_to,
+                "status": status,
+                "direction": direction,
+                "has_pdf": has_pdf,
+                "supplier_name": supplier_name,
+            }.items()
+            if v is not None
+        }
         return self._get("/api/v1/invoices", params or None)
 
     def get_invoice(self, invoice_id: int) -> dict | None:
@@ -109,14 +113,18 @@ class InvoiceCoreClient:
             )
             resp.raise_for_status()
             return resp.json()
-        except Exception as exc:
+        except requests.RequestException as exc:
             logger.warning("invoice-core PATCH /api/v1/invoices/%s failed: %s", invoice_id, exc)
             return None
 
     # ── Invoice files ──────────────────────────────────────────────────────────
 
-    def get_invoice_files(self, linked: str | None = None, filename: str | None = None) -> list[dict]:
-        params = {k: v for k, v in {"linked": linked, "filename": filename}.items() if v is not None}
+    def get_invoice_files(
+        self, linked: str | None = None, filename: str | None = None
+    ) -> list[dict]:
+        params = {
+            k: v for k, v in {"linked": linked, "filename": filename}.items() if v is not None
+        }
         return self._get("/api/v1/invoice-files", params or None)
 
     def get_invoice_file_pdf(self, file_id: int) -> requests.Response:
@@ -133,86 +141,128 @@ class InvoiceCoreClient:
 
     def link_invoice_to_file(self, invoice_id: int, file_id: int) -> dict:
         return self._write_json(
-            "PUT", f"/api/v1/invoices/{invoice_id}/invoice-file",
-            {"invoice_file_id": file_id}, "Nem sikerült csatolni a fájlt", label="PDF kapcsolása"
+            "PUT",
+            f"/api/v1/invoices/{invoice_id}/invoice-file",
+            {"invoice_file_id": file_id},
+            "Nem sikerült csatolni a fájlt",
+            label="PDF kapcsolása",
         )
 
     def unlink_invoice_from_file(self, invoice_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/invoices/{invoice_id}/invoice-file", {}, "Nem sikerült leválasztani a fájlt",
-            label="PDF leválasztása"
+            "DELETE",
+            f"/api/v1/invoices/{invoice_id}/invoice-file",
+            {},
+            "Nem sikerült leválasztani a fájlt",
+            label="PDF leválasztása",
         )
 
     def link_transaction_to_file(self, txn_id: int, file_id: int) -> dict:
         return self._write_json(
-            "PUT", f"/api/v1/transactions/{txn_id}/invoice-file",
-            {"invoice_file_id": file_id}, "Nem sikerült csatolni a fájlt", label="PDF kapcsolása"
+            "PUT",
+            f"/api/v1/transactions/{txn_id}/invoice-file",
+            {"invoice_file_id": file_id},
+            "Nem sikerült csatolni a fájlt",
+            label="PDF kapcsolása",
         )
 
     def unlink_transaction_from_file(self, txn_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/transactions/{txn_id}/invoice-file", {}, "Nem sikerült leválasztani a fájlt",
-            label="PDF leválasztása"
+            "DELETE",
+            f"/api/v1/transactions/{txn_id}/invoice-file",
+            {},
+            "Nem sikerült leválasztani a fájlt",
+            label="PDF leválasztása",
         )
 
     def link_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict:
         return self._write_json(
-            "PUT", f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}", {}, "Nem sikerült kapcsolni a tranzakciót",
-            label="Tranzakció kapcsolása"
+            "PUT",
+            f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}",
+            {},
+            "Nem sikerült kapcsolni a tranzakciót",
+            label="Tranzakció kapcsolása",
         )
 
     def unlink_invoice_transaction(self, invoice_id: int, txn_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}", {}, "Nem sikerült leválasztani a tranzakciót",
-            label="Kapcsolat törlése"
+            "DELETE",
+            f"/api/v1/invoices/{invoice_id}/transactions/{txn_id}",
+            {},
+            "Nem sikerült leválasztani a tranzakciót",
+            label="Kapcsolat törlése",
         )
 
     def link_invoice_supplier(self, invoice_id: int, supplier_id: int) -> dict:
         return self._write_json(
-            "PUT", f"/api/v1/invoices/{invoice_id}/supplier",
-            {"supplier_id": supplier_id}, "Nem sikerült kapcsolni a szállítót", label="Szállító kapcsolása"
+            "PUT",
+            f"/api/v1/invoices/{invoice_id}/supplier",
+            {"supplier_id": supplier_id},
+            "Nem sikerült kapcsolni a szállítót",
+            label="Szállító kapcsolása",
         )
 
     def unlink_invoice_supplier(self, invoice_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/invoices/{invoice_id}/supplier", {}, "Nem sikerült leválasztani a szállítót",
-            label="Szállító leválasztása"
+            "DELETE",
+            f"/api/v1/invoices/{invoice_id}/supplier",
+            {},
+            "Nem sikerült leválasztani a szállítót",
+            label="Szállító leválasztása",
         )
 
     def link_invoice_customer(self, invoice_id: int, customer_id: int) -> dict:
         return self._write_json(
-            "PUT", f"/api/v1/invoices/{invoice_id}/customer",
-            {"customer_id": customer_id}, "Nem sikerült kapcsolni a vevőt", label="Vevő kapcsolása"
+            "PUT",
+            f"/api/v1/invoices/{invoice_id}/customer",
+            {"customer_id": customer_id},
+            "Nem sikerült kapcsolni a vevőt",
+            label="Vevő kapcsolása",
         )
 
     def unlink_invoice_customer(self, invoice_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/invoices/{invoice_id}/customer", {}, "Nem sikerült leválasztani a vevőt",
-            label="Vevő leválasztása"
+            "DELETE",
+            f"/api/v1/invoices/{invoice_id}/customer",
+            {},
+            "Nem sikerült leválasztani a vevőt",
+            label="Vevő leválasztása",
         )
 
     def link_transaction_supplier(self, txn_id: int, supplier_id: int) -> dict:
         return self._write_json(
-            "PUT", f"/api/v1/transactions/{txn_id}/supplier",
-            {"supplier_id": supplier_id}, "Nem sikerült kapcsolni a szállítót", label="Szállító kapcsolása"
+            "PUT",
+            f"/api/v1/transactions/{txn_id}/supplier",
+            {"supplier_id": supplier_id},
+            "Nem sikerült kapcsolni a szállítót",
+            label="Szállító kapcsolása",
         )
 
     def unlink_transaction_supplier(self, txn_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/transactions/{txn_id}/supplier", {}, "Nem sikerült leválasztani a szállítót",
-            label="Szállító leválasztása"
+            "DELETE",
+            f"/api/v1/transactions/{txn_id}/supplier",
+            {},
+            "Nem sikerült leválasztani a szállítót",
+            label="Szállító leválasztása",
         )
 
     def link_transaction_customer(self, txn_id: int, customer_id: int) -> dict:
         return self._write_json(
-            "PUT", f"/api/v1/transactions/{txn_id}/customer",
-            {"customer_id": customer_id}, "Nem sikerült kapcsolni a vevőt", label="Vevő kapcsolása"
+            "PUT",
+            f"/api/v1/transactions/{txn_id}/customer",
+            {"customer_id": customer_id},
+            "Nem sikerült kapcsolni a vevőt",
+            label="Vevő kapcsolása",
         )
 
     def unlink_transaction_customer(self, txn_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/transactions/{txn_id}/customer", {}, "Nem sikerült leválasztani a vevőt",
-            label="Vevő leválasztása"
+            "DELETE",
+            f"/api/v1/transactions/{txn_id}/customer",
+            {},
+            "Nem sikerült leválasztani a vevőt",
+            label="Vevő leválasztása",
         )
 
     # ── Invoice file delete ────────────────────────────────────────────────────
@@ -230,7 +280,7 @@ class InvoiceCoreClient:
             )
             resp.raise_for_status()
             return resp.json()
-        except Exception as exc:
+        except requests.RequestException as exc:
             logger.warning("invoice-core PATCH /api/v1/invoice-files/%s failed: %s", file_id, exc)
             return None
 
@@ -253,38 +303,56 @@ class InvoiceCoreClient:
 
     def create_supplier(self, **fields) -> dict:
         return self._write_json(
-            "POST", "/api/v1/partners/suppliers", fields, "Nem sikerült létrehozni a szállítót",
-            label="Szállító létrehozása"
+            "POST",
+            "/api/v1/partners/suppliers",
+            fields,
+            "Nem sikerült létrehozni a szállítót",
+            label="Szállító létrehozása",
         )
 
     def update_supplier(self, supplier_id: int, **fields) -> dict:
         return self._write_json(
-            "PUT", f"/api/v1/partners/suppliers/{supplier_id}", fields, "Nem sikerült menteni a szállítót",
-            label="Szállító módosítása"
+            "PUT",
+            f"/api/v1/partners/suppliers/{supplier_id}",
+            fields,
+            "Nem sikerült menteni a szállítót",
+            label="Szállító módosítása",
         )
 
     def delete_supplier(self, supplier_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/partners/suppliers/{supplier_id}", {}, "Nem sikerült törölni a szállítót",
-            label="Szállító törlése"
+            "DELETE",
+            f"/api/v1/partners/suppliers/{supplier_id}",
+            {},
+            "Nem sikerült törölni a szállítót",
+            label="Szállító törlése",
         )
 
     def create_customer(self, **fields) -> dict:
         return self._write_json(
-            "POST", "/api/v1/partners/customers", fields, "Nem sikerült létrehozni a vevőt",
-            label="Vevő létrehozása"
+            "POST",
+            "/api/v1/partners/customers",
+            fields,
+            "Nem sikerült létrehozni a vevőt",
+            label="Vevő létrehozása",
         )
 
     def update_customer(self, customer_id: int, **fields) -> dict:
         return self._write_json(
-            "PUT", f"/api/v1/partners/customers/{customer_id}", fields, "Nem sikerült menteni a vevőt",
-            label="Vevő módosítása"
+            "PUT",
+            f"/api/v1/partners/customers/{customer_id}",
+            fields,
+            "Nem sikerült menteni a vevőt",
+            label="Vevő módosítása",
         )
 
     def delete_customer(self, customer_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/partners/customers/{customer_id}", {}, "Nem sikerült törölni a vevőt",
-            label="Vevő törlése"
+            "DELETE",
+            f"/api/v1/partners/customers/{customer_id}",
+            {},
+            "Nem sikerült törölni a vevőt",
+            label="Vevő törlése",
         )
 
     # ── Transactions ───────────────────────────────────────────────────────────
@@ -298,14 +366,18 @@ class InvoiceCoreClient:
         amount_min=None,
         amount_max=None,
     ) -> list[dict]:
-        params = {k: v for k, v in {
-            "date_from": date_from,
-            "date_to": date_to,
-            "linked": linked,
-            "partner_name": partner_name,
-            "amount_min": amount_min,
-            "amount_max": amount_max,
-        }.items() if v is not None}
+        params = {
+            k: v
+            for k, v in {
+                "date_from": date_from,
+                "date_to": date_to,
+                "linked": linked,
+                "partner_name": partner_name,
+                "amount_min": amount_min,
+                "amount_max": amount_max,
+            }.items()
+            if v is not None
+        }
         return self._get("/api/v1/transactions", params or None)
 
     def get_transaction(self, transaction_id: int) -> dict | None:
@@ -320,7 +392,10 @@ class InvoiceCoreClient:
         return self._get("/api/v1/sync/logs", {"limit": limit})
 
     def get_pending_sync_counts(self) -> dict:
-        return self._get_one("/api/v1/sync/pending") or {"unmatched_invoices": 0, "unmatched_transactions": 0}
+        return self._get_one("/api/v1/sync/pending") or {
+            "unmatched_invoices": 0,
+            "unmatched_transactions": 0,
+        }
 
     def trigger_sync(
         self,
@@ -328,11 +403,17 @@ class InvoiceCoreClient:
         date_to: str | None = None,
         sync_mode: str = "full",
     ) -> dict:
-        return self._post("/api/v1/sync", {
-            "start_date": date_from,
-            "end_date": date_to,
-            "sync_mode": sync_mode,
-        }) or {}
+        return (
+            self._post(
+                "/api/v1/sync",
+                {
+                    "start_date": date_from,
+                    "end_date": date_to,
+                    "sync_mode": sync_mode,
+                },
+            )
+            or {}
+        )
 
     # ── Users ──────────────────────────────────────────────────────────────────
 
@@ -349,13 +430,17 @@ class InvoiceCoreClient:
         date_to=None,
         limit: int = 200,
     ) -> list[dict]:
-        params = {k: v for k, v in {
-            "user_email": user_email,
-            "page": page,
-            "date_from": date_from,
-            "date_to": date_to,
-            "limit": limit,
-        }.items() if v is not None}
+        params = {
+            k: v
+            for k, v in {
+                "user_email": user_email,
+                "page": page,
+                "date_from": date_from,
+                "date_to": date_to,
+                "limit": limit,
+            }.items()
+            if v is not None
+        }
         return self._get("/api/v1/audit-log", params or None)
 
     # ── Activity types ─────────────────────────────────────────────────────────
@@ -365,12 +450,19 @@ class InvoiceCoreClient:
 
     def create_activity_type(self, name: str) -> dict:
         return self._write_json(
-            "POST", "/api/v1/activity-types", {"name": name}, "Nem sikerült menteni a tevékenység típust",
-            label="Új tevékenység típus"
+            "POST",
+            "/api/v1/activity-types",
+            {"name": name},
+            "Nem sikerült menteni a tevékenység típust",
+            label="Új tevékenység típus",
         )
 
     def update_activity_type(
-        self, activity_type_id: int, name: str, is_active: bool, label: str = "Tevékenység típus módosítása"
+        self,
+        activity_type_id: int,
+        name: str,
+        is_active: bool,
+        label: str = "Tevékenység típus módosítása",
     ) -> dict:
         return self._write_json(
             "PUT",
@@ -435,8 +527,11 @@ class InvoiceCoreClient:
 
     def delete_project(self, project_id: int) -> dict:
         return self._write_json(
-            "DELETE", f"/api/v1/projects/{project_id}", {}, "Nem sikerült törölni a projektet",
-            label="Projekt törlése"
+            "DELETE",
+            f"/api/v1/projects/{project_id}",
+            {},
+            "Nem sikerült törölni a projektet",
+            label="Projekt törlése",
         )
 
     # ── Timesheet entries ─────────────────────────────────────────────────────
@@ -515,17 +610,19 @@ class InvoiceCoreClient:
         """
         try:
             resp = self.session.request(
-                method, f"{self.base_url}{path}", json=json, headers=_label_headers(label), timeout=self.timeout
+                method,
+                f"{self.base_url}{path}",
+                json=json,
+                headers=_label_headers(label),
+                timeout=self.timeout,
             )
             resp.raise_for_status()
             return resp.json()
         except requests.HTTPError as exc:
             detail = None
             if exc.response is not None:
-                try:
+                with suppress(ValueError):
                     detail = exc.response.json().get("detail")
-                except ValueError:
-                    pass
             logger.warning("invoice-core %s %s failed: %s", method, path, exc)
             return {"error": detail or error_message}
         except requests.RequestException as exc:
@@ -534,8 +631,14 @@ class InvoiceCoreClient:
 
     # ── Reports ────────────────────────────────────────────────────────────────
 
-    def get_dividend_report(self, year: int | None = None, kiva_rate: float = 0.10, hipa_rate: float = 0.02) -> dict:
-        params = {k: v for k, v in {"year": year, "kiva_rate": kiva_rate, "hipa_rate": hipa_rate}.items() if v is not None}
+    def get_dividend_report(
+        self, year: int | None = None, kiva_rate: float = 0.10, hipa_rate: float = 0.02
+    ) -> dict:
+        params = {
+            k: v
+            for k, v in {"year": year, "kiva_rate": kiva_rate, "hipa_rate": hipa_rate}.items()
+            if v is not None
+        }
         return self._get_one("/api/v1/reports/dividend", params) or {}
 
     def get_tax_report(self, year: int | None = None) -> dict:
@@ -556,13 +659,17 @@ class InvoiceCoreClient:
         user_id: int | None = None,
         activity_type_id: int | None = None,
     ) -> dict:
-        params = {k: v for k, v in {
-            "report_type": report_type,
-            "date_from": date_from,
-            "date_to": date_to,
-            "customer_id": customer_id,
-            "project_id": project_id,
-            "user_id": user_id,
-            "activity_type_id": activity_type_id,
-        }.items() if v is not None}
+        params = {
+            k: v
+            for k, v in {
+                "report_type": report_type,
+                "date_from": date_from,
+                "date_to": date_to,
+                "customer_id": customer_id,
+                "project_id": project_id,
+                "user_id": user_id,
+                "activity_type_id": activity_type_id,
+            }.items()
+            if v is not None
+        }
         return self._get_one("/api/v1/reports/timesheet", params) or {}

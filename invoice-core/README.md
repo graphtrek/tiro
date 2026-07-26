@@ -170,17 +170,21 @@ curl "http://localhost:8004/api/v1/invoices?status=UNPAID&direction=INBOUND"
 ### sync
 
 ```bash
-uv run invoice-core sync [--start DATE] [--end DATE] [--clear-cache] [--json] [-v]
+uv run invoice-core sync [--start DATE] [--end DATE] [--clear-cache] [--json] [-v] [--token TOKEN]
 ```
 
 ### sync-nav / sync-pdf / sync-bank / sync-match
 
 ```bash
-uv run invoice-core sync-nav [--start DATE] [--end DATE] [--clear-cache] [--json] [-v]
-uv run invoice-core sync-pdf [--start DATE] [--end DATE] [--clear-cache] [--json] [-v]
-uv run invoice-core sync-bank [--clear-cache] [--json] [-v]
-uv run invoice-core sync-match [--json] [-v]      # match existing bank txns to invoice files
+uv run invoice-core sync-nav [--start DATE] [--end DATE] [--clear-cache] [--json] [-v] [--token TOKEN]
+uv run invoice-core sync-pdf [--start DATE] [--end DATE] [--clear-cache] [--json] [-v] [--token TOKEN]
+uv run invoice-core sync-bank [--clear-cache] [--json] [-v] [--token TOKEN]
+uv run invoice-core sync-match [--json] [-v] [--token TOKEN]      # match existing bank txns to invoice files
 ```
+
+`--token` (or the `MP_SERVICE_TOKEN` env var — see "Authentication (JWT)" below)
+supplies the bearer token these commands forward to nav-invoice/
+invoice-file-filter/bank when `AUTH_ENABLED=true`.
 
 `sync-match` fetches nothing. It links unmatched `bank_transaction` records to
 `invoice_file` rows (via transitive invoice link, payment reference, or scored
@@ -222,6 +226,7 @@ Runs a full sync for the given calendar month and prints a Rich summary table.
 | `TAX_ACCOUNTS` | *(see below)* | JSON object mapping bank account numbers to display labels for the Adók page |
 | `AUTH_ENABLED` | `true` *(currently `false` in `.env`)* | JWT validation on/off |
 | `AUTH_SERVICE_URL` | `http://localhost:8007` | Central auth service base URL (JWKS) |
+| `MP_SERVICE_TOKEN` | *(unset)* | Bearer token the CLI's sync commands forward to nav-invoice/invoice-file-filter/bank when `AUTH_ENABLED=true` and no `--token` flag is given (see DEF-002) |
 
 `TAX_ACCOUNTS` defaults to all NAV (ÁFA, Bírság, SZJA, Szochó, TAO, TB), HIPA, HIPA-Késedelmi, and Iparkamara accounts. Override in `.env` as a single-line JSON string:
 
@@ -235,7 +240,9 @@ The `DB_URL` field accepts the JDBC format already present in the project `.env`
 
 With `AUTH_ENABLED=true`, every endpoint except `GET /health` requires a valid JWT issued by the central **auth** service (:8007) after a Google login. The token arrives as an `Authorization: Bearer <token>` header or an `mp_access_token` HttpOnly cookie (vision forwards it automatically); validation is local (RS256 signature against the `/.well-known/jwks.json` public keys + `exp`/`aud`/`iss`) — no per-request network call to the auth service. Without a token the response is `401 Unauthorized`.
 
-The incoming Bearer token is passed through to downstream calls (nav-invoice, invoice-file-filter, bank) via `TokenPassthrough` in `src/invoice_core/auth.py`. Note: the `invoice-core sync` **CLI** carries no user token, so keep `AUTH_ENABLED=false` on the leaf services if you use it. Spec: `../moneypenny/auth-service-spec.md`.
+The incoming Bearer token is passed through to downstream calls (nav-invoice, invoice-file-filter, bank) via `TokenPassthrough` in `src/invoice_core/auth.py`.
+
+The `invoice-core sync`/`sync-nav`/`sync-pdf`/`sync-bank`/`sync-match` **CLI** commands carry no user token by default (there is no incoming HTTP request to forward one from) — pass one explicitly with `--token <jwt>`, or export it once as `MP_SERVICE_TOKEN` (`--token` wins if both are given). Either sets the same `current_token` context variable the API's `TokenPassthrough` hook reads, so the CLI reuses the existing auth mechanism rather than a second one. Get a token the same way vision does (`POST /auth/{provider}/login` → `/auth/{provider}/callback`, or `POST /auth/refresh` with a saved refresh token) — invoice-core itself never talks to Google or holds JWT signing keys. Without a token, each stage that calls a downstream service still degrades cleanly (a clear per-stage error plus a `sync_log` row), and the error text now says to supply `--token`/`MP_SERVICE_TOKEN`. Spec: `../moneypenny/auth-service-spec.md`.
 
 ## Database
 

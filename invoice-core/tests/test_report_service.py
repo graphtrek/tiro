@@ -41,7 +41,9 @@ def other_customer(db):
 
 @pytest.fixture
 def owner(db):
-    record = User(provider="google", sub="owner-sub", email="owner@example.com", name="Kozma Zoltán")
+    record = User(
+        provider="google", sub="owner-sub", email="owner@example.com", name="Kozma Zoltán"
+    )
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -158,7 +160,9 @@ def test_get_project_report_groups_by_week_with_cumulative_and_pivot(
     assert report.total_hours == 6.0
 
 
-def test_get_project_report_filters_by_activity_type(db, project, owner, activity_type, other_activity_type):
+def test_get_project_report_filters_by_activity_type(
+    db, project, owner, activity_type, other_activity_type
+):
     timesheet_service.create_timesheet_entry(
         db, _entry(project.id, activity_type.id, owner.id, date(2026, 1, 5), 2.0)
     )
@@ -282,7 +286,9 @@ def test_get_group_report_activity_type_has_no_pivot(
     assert {row.key_label for row in report.rows} == {"Szakértői munka", "Ügyfél megbeszélés"}
 
 
-def test_get_group_report_filters_by_customer(db, project, other_project, owner, customer, activity_type):
+def test_get_group_report_filters_by_customer(
+    db, project, other_project, owner, customer, activity_type
+):
     timesheet_service.create_timesheet_entry(
         db, _entry(project.id, activity_type.id, owner.id, date(2026, 1, 5), 2.0)
     )
@@ -311,7 +317,14 @@ def test_get_group_report_entries_list_detail_rows(
 
     timesheet_service.create_timesheet_entry(
         db,
-        _entry(project.id, activity_type.id, owner.id, date(2026, 1, 5), 2.0, participants="Kovács Béla"),
+        _entry(
+            project.id,
+            activity_type.id,
+            owner.id,
+            date(2026, 1, 5),
+            2.0,
+            participants="Kovács Béla",
+        ),
     )
     timesheet_service.create_timesheet_entry(
         db, _entry(project.id, other_activity_type.id, other_user.id, date(2026, 1, 6), 1.5)
@@ -336,7 +349,9 @@ def test_get_group_report_entries_list_detail_rows(
     assert other_row.participants == ""
 
 
-def test_get_group_report_entries_respect_filters(db, project, other_project, owner, customer, activity_type):
+def test_get_group_report_entries_respect_filters(
+    db, project, other_project, owner, customer, activity_type
+):
     timesheet_service.create_timesheet_entry(
         db, _entry(project.id, activity_type.id, owner.id, date(2026, 1, 5), 2.0)
     )

@@ -1,7 +1,7 @@
 import base64
 import logging
-from datetime import datetime, timedelta
-from typing import Callable, Iterator, List, Optional, Tuple
+from collections.abc import Callable, Iterator
+from datetime import UTC, datetime, timedelta
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -19,12 +19,12 @@ logger = logging.getLogger(__name__)
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 _Emit = Callable[[str, str], None]
-_Part = Tuple[str, str, int]          # (filename, attachment_id, size_bytes)
-_Msg = Tuple[int, str, List[_Part]]   # (internal_ms, message_id, parts)
+_Part = tuple[str, str, int]  # (filename, attachment_id, size_bytes)
+_Msg = tuple[int, str, list[_Part]]  # (internal_ms, message_id, parts)
 
 
 class GmailClient:
-    def __init__(self, settings: Optional[Settings] = None) -> None:
+    def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
         self._service = None
         self._cache: TTLCache = TTLCache(ttl_seconds=self._settings.cache_ttl_seconds)
@@ -78,18 +78,21 @@ class GmailClient:
         """Yield every message id matching ``query``, paging through results."""
         page_token = None
         while True:
-            resp = service.users().messages().list(
-                userId="me", q=query, maxResults=100, pageToken=page_token
-            ).execute()
+            resp = (
+                service.users()
+                .messages()
+                .list(userId="me", q=query, maxResults=100, pageToken=page_token)
+                .execute()
+            )
             for msg in resp.get("messages", []):
                 yield msg["id"]
             page_token = resp.get("nextPageToken")
             if not page_token:
                 break
 
-    def _extract_pdf_parts(self, payload: dict) -> List[_Part]:
+    def _extract_pdf_parts(self, payload: dict) -> list[_Part]:
         """Return (filename, attachment_id, size) for every PDF attachment in a payload."""
-        results: List[_Part] = []
+        results: list[_Part] = []
 
         def walk(part: dict) -> None:
             filename = part.get("filename", "") or ""
@@ -115,20 +118,23 @@ class GmailClient:
             f"before:{before_dt.strftime('%Y/%m/%d')}"
         )
 
-    def _fetch_messages(self, service, query: str, emit: _Emit) -> List[_Msg]:
+    def _fetch_messages(self, service, query: str, emit: _Emit) -> list[_Msg]:
         """List and fetch full messages matching query; return sorted by date."""
         try:
             message_ids = list(self._iter_message_ids(service, query))
         except HttpError as exc:
-            raise Exception(f"Failed to list messages: {exc}") from exc
+            raise RuntimeError(f"Failed to list messages: {exc}") from exc
         emit("INFO", f"Found {len(message_ids)} matching email(s)")
 
-        messages: List[_Msg] = []
+        messages: list[_Msg] = []
         for message_id in message_ids:
             try:
-                full = service.users().messages().get(
-                    userId="me", id=message_id, format="full"
-                ).execute()
+                full = (
+                    service.users()
+                    .messages()
+                    .get(userId="me", id=message_id, format="full")
+                    .execute()
+                )
             except HttpError as exc:
                 emit("WARN", f"Skipping {message_id}: {exc}")
                 continue
@@ -140,14 +146,16 @@ class GmailClient:
         messages.sort(key=lambda item: item[0])
         return messages
 
-    def _save_attachment(
-        self, service, msg_id: str, att_id: str, emit: _Emit
-    ) -> Optional[bytes]:
+    def _save_attachment(self, service, msg_id: str, att_id: str, emit: _Emit) -> bytes | None:
         """Fetch and decode one attachment; returns None on error."""
         try:
-            att = service.users().messages().attachments().get(
-                userId="me", messageId=msg_id, id=att_id
-            ).execute()
+            att = (
+                service.users()
+                .messages()
+                .attachments()
+                .get(userId="me", messageId=msg_id, id=att_id)
+                .execute()
+            )
             return base64.urlsafe_b64decode(att["data"])
         except (HttpError, KeyError) as exc:
             emit("WARN", f"Failed attachment on {msg_id}: {exc}")
@@ -159,8 +167,8 @@ class GmailClient:
         self,
         start_date: str,
         end_date: str,
-        output_dir: Optional[str] = None,
-        log: Optional[Callable[[str, str], None]] = None,
+        output_dir: str | None = None,
+        log: Callable[[str, str], None] | None = None,
     ) -> DownloadResult:
         """Download PDF attachments from emails received in [start_date, end_date].
 
@@ -174,6 +182,7 @@ class GmailClient:
         Attachments already present in ``output_dir`` (matched by original name
         and size, ignoring the counter) are skipped without re-downloading.
         """
+
         def _emit(level: str, message: str) -> None:
             getattr(logger, level.lower(), logger.info)(message)
             if log:
@@ -186,7 +195,10 @@ class GmailClient:
         )
 
         if not out_path.exists():
-            _emit("INFO", f"Output directory {out_path} does not exist — clearing cache and creating it")
+            _emit(
+                "INFO",
+                f"Output directory {out_path} does not exist — clearing cache and creating it",
+            )
             self._cache.clear()
             out_path.mkdir(parents=True, exist_ok=True)
 
@@ -196,8 +208,8 @@ class GmailClient:
             _emit("INFO", f"Cache hit for {start_date}..{end_date}")
             return cached
 
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")  # noqa: DTZ007 - calendar date
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")  # noqa: DTZ007 - calendar date
 
         query = self._build_query(start_dt, end_dt)
         _emit("INFO", f"Gmail query: {query}")
@@ -207,10 +219,12 @@ class GmailClient:
 
         seq_by_year, existing = scan_output(out_path)
         skipped = 0
-        downloaded: List[DownloadedFile] = []
+        downloaded: list[DownloadedFile] = []
 
         for internal, message_id, parts in messages:
-            email_dt = datetime.fromtimestamp(internal / 1000)
+            # Gmail internalDate is a UTC epoch (ms); convert to local time, matching
+            # the previous naive-fromtimestamp wall-clock date used for filenames.
+            email_dt = datetime.fromtimestamp(internal / 1000, tz=UTC).astimezone()
             date_str = email_dt.strftime("%Y-%m-%d")
             year = email_dt.year
 
@@ -219,7 +233,8 @@ class GmailClient:
                 if not safe_name.lower().endswith(".pdf"):
                     safe_name += ".pdf"
 
-                # Identity is (name, size); att_size==0 means Gmail didn't report one — always download.
+                # Identity is (name, size); att_size==0 means Gmail didn't report one —
+                # always download.
                 if att_size > 0 and (safe_name, att_size) in existing:
                     skipped += 1
                     _emit("INFO", f"Skipping already-downloaded {safe_name} ({att_size} bytes)")
@@ -236,14 +251,16 @@ class GmailClient:
                 dest = out_path / filename
                 dest.write_bytes(data)
                 _emit("INFO", f"Saved {filename} ({len(data)} bytes)")
-                downloaded.append(DownloadedFile(
-                    filename=filename,
-                    original_filename=original_filename,
-                    message_id=message_id,
-                    email_date=date_str,
-                    size_bytes=len(data),
-                    saved_path=str(dest),
-                ))
+                downloaded.append(
+                    DownloadedFile(
+                        filename=filename,
+                        original_filename=original_filename,
+                        message_id=message_id,
+                        email_date=date_str,
+                        size_bytes=len(data),
+                        saved_path=str(dest),
+                    )
+                )
 
         if skipped:
             _emit("INFO", f"Skipped {skipped} already-downloaded file(s)")

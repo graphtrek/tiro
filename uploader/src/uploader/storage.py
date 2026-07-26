@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from uploader.config import Settings, get_settings
@@ -60,7 +60,7 @@ def list_files(bank: str = "all", settings: Settings | None = None) -> list[Stor
                     bank=b,
                     filename=path.name,
                     size_bytes=stat.st_size,
-                    modified_at=datetime.fromtimestamp(stat.st_mtime),
+                    modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
                     path=str(path),
                 )
             )

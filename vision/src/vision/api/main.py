@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -75,9 +75,7 @@ async def require_auth(request: Request, call_next):
         # böngészős oldal → login oldal; API hívás → 401 JSON
         if "text/html" in request.headers.get("accept", ""):
             return RedirectResponse(login_url, status_code=302)
-        return JSONResponse(
-            {"detail": "Érvénytelen vagy hiányzó access token"}, status_code=401
-        )
+        return JSONResponse({"detail": "Érvénytelen vagy hiányzó access token"}, status_code=401)
 
     request.state.user = claims
     ctx = current_token.set(token)
@@ -101,6 +99,5 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
-
-
+    timestamp = datetime.now(UTC).astimezone().replace(tzinfo=None).isoformat()
+    return {"status": "ok", "timestamp": timestamp}

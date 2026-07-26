@@ -38,7 +38,7 @@ def _format_address(address_el: Optional["etree._Element"]) -> str:
     return ", ".join(part for part in parts if part)
 
 
-def _to_float(text: str) -> Optional[float]:
+def _to_float(text: str) -> float | None:
     """Best-effort float parse; returns None for empty/invalid text."""
     if not text:
         return None
@@ -73,7 +73,7 @@ def _parse_lines(invoice_el: "etree._Element") -> list[InvoiceLineData]:
 
 def _parse_vat_summary(
     invoice_el: "etree._Element",
-) -> tuple[list[InvoiceVatSummaryData], Optional[float], Optional[float], Optional[float]]:
+) -> tuple[list[InvoiceVatSummaryData], float | None, float | None, float | None]:
     """Parse invoiceSummary into (per-rate rows, invoice net, invoice vat, invoice gross)."""
     summary_el = _first(invoice_el, "invoiceSummary")
     if summary_el is None:
@@ -94,7 +94,11 @@ def _parse_vat_summary(
         vat_amount = _to_float(child_text(normal_el, "invoiceVatAmount"))
 
     gross_el = _first(summary_el, "summaryGrossData")
-    gross_amount = _to_float(child_text(gross_el, "invoiceGrossAmount")) if gross_el is not None else None
+    gross_amount = (
+        _to_float(child_text(gross_el, "invoiceGrossAmount"))
+        if gross_el is not None
+        else None
+    )
 
     return rows, net_amount, vat_amount, gross_amount
 
@@ -117,7 +121,12 @@ def parse_invoice_data(xml_str: str, invoice_number: str = "") -> InvoiceDetailD
     detail_el = _first(invoice_el, "invoiceDetail")
 
     lines = _parse_lines(invoice_el)
-    vat_summary, invoice_net_amount, invoice_vat_amount, invoice_gross_amount = _parse_vat_summary(invoice_el)
+    (
+        vat_summary,
+        invoice_net_amount,
+        invoice_vat_amount,
+        invoice_gross_amount,
+    ) = _parse_vat_summary(invoice_el)
 
     return InvoiceDetailData(
         invoice_number=invoice_number,
@@ -135,11 +144,19 @@ def parse_invoice_data(xml_str: str, invoice_number: str = "") -> InvoiceDetailD
         ),
         payment_method=(child_text(detail_el, "paymentMethod") if detail_el is not None else ""),
         payment_due_date=(child_text(detail_el, "paymentDate") if detail_el is not None else ""),
-        invoice_category=(child_text(detail_el, "invoiceCategory") if detail_el is not None else ""),
-        delivery_date=(child_text(detail_el, "invoiceDeliveryDate") if detail_el is not None else ""),
+        invoice_category=(
+            child_text(detail_el, "invoiceCategory") if detail_el is not None else ""
+        ),
+        delivery_date=(
+            child_text(detail_el, "invoiceDeliveryDate") if detail_el is not None else ""
+        ),
         currency_code=(child_text(detail_el, "currencyCode") if detail_el is not None else ""),
-        exchange_rate=(_to_float(child_text(detail_el, "exchangeRate")) if detail_el is not None else None),
-        invoice_appearance=(child_text(detail_el, "invoiceAppearance") if detail_el is not None else ""),
+        exchange_rate=(
+            _to_float(child_text(detail_el, "exchangeRate")) if detail_el is not None else None
+        ),
+        invoice_appearance=(
+            child_text(detail_el, "invoiceAppearance") if detail_el is not None else ""
+        ),
         invoice_net_amount=invoice_net_amount,
         invoice_vat_amount=invoice_vat_amount,
         invoice_gross_amount=invoice_gross_amount,

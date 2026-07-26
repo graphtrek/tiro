@@ -91,7 +91,7 @@ def test_complete_login_succeeds_even_if_invoice_core_is_down(
         invoice_core_client=failing_client,
     )
     state = _state_from(service.start_login("google"))
-    tokens, user, _next_url = service.complete_login("google", code="code-1", state=state)
+    _tokens, user, _next_url = service.complete_login("google", code="code-1", state=state)
 
     assert user.email == "imre.tatai@graphtrek.co"
     assert failing_client.save_calls  # a hívás megtörtént, de a hiba nem buktatta a belépést
@@ -159,7 +159,9 @@ def test_revoked_refresh_token_rejected(service: AuthService, provider: FakeProv
 
 
 def test_denylist_persists_to_file(settings, jwt_service, provider):
-    service = AuthService(settings=settings, jwt_service=jwt_service, providers={"google": provider})
+    service = AuthService(
+        settings=settings, jwt_service=jwt_service, providers={"google": provider}
+    )
     tokens = service.issue_tokens(provider.user)
     service.revoke_refresh_token(tokens.refresh_token)
 

@@ -1,19 +1,15 @@
 """Tests for Pydantic models."""
 
-from datetime import date
-
-import pytest
+from datetime import UTC, date, datetime
 
 from nav_invoice.models import (
     InvoiceDetail,
     InvoiceHeader,
-    InvoiceLineItem,
     InvoiceListEntry,
     InvoiceQueryParams,
     InvoiceStatus,
     InvoiceType,
     SubmitInvoiceRequest,
-    SubmitInvoiceResponse,
 )
 
 
@@ -31,7 +27,7 @@ class TestInvoiceHeader:
     def test_default_values(self):
         header = InvoiceHeader(
             szamlaszam="123",
-            keltes_datuma=date.today(),
+            keltes_datuma=datetime.now(tz=UTC).astimezone().date(),
             szamlazas_vegezo="X",
         )
 

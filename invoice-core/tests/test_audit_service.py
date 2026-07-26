@@ -9,8 +9,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from invoice_core.db import (
-    ActivityType, BankTransaction, Base, Invoice, Project, Supplier, TimesheetEntry,
-    _InvoiceDirection, _PaymentStatus,
+    ActivityType,
+    BankTransaction,
+    Base,
+    Invoice,
+    Project,
+    Supplier,
+    TimesheetEntry,
+    _InvoiceDirection,
+    _PaymentStatus,
 )
 from invoice_core.services import audit_service
 
@@ -25,7 +32,9 @@ def db():
     session.close()
 
 
-def _request(method: str, path: str, email: str | None = "user@example.com", label: str | None = None):
+def _request(
+    method: str, path: str, email: str | None = "user@example.com", label: str | None = None
+):
     state = SimpleNamespace(user={"email": email} if email else None)
     url = SimpleNamespace(path=path)
     headers = {audit_service.LABEL_HEADER: quote(label)} if label else {}
@@ -121,8 +130,12 @@ def test_record_resolves_invoice_number(db):
 
 def test_record_resolves_bank_transaction_id(db):
     txn = BankTransaction(
-        bank="erste", transaction_id="ERSTE-REF-77", amount=100.0, currency="HUF",
-        direction="CREDIT", transaction_date=datetime(2026, 5, 1),
+        bank="erste",
+        transaction_id="ERSTE-REF-77",
+        amount=100.0,
+        currency="HUF",
+        direction="CREDIT",
+        transaction_date=datetime(2026, 5, 1),
     )
     db.add(txn)
     db.commit()
@@ -139,8 +152,12 @@ def test_record_resolves_invoice_transaction_link_pair(db):
         direction=_InvoiceDirection.OUTBOUND,
     )
     txn = BankTransaction(
-        bank="erste", transaction_id="ERSTE-REF-88", amount=100.0, currency="HUF",
-        direction="CREDIT", transaction_date=datetime(2026, 5, 1),
+        bank="erste",
+        transaction_id="ERSTE-REF-88",
+        amount=100.0,
+        currency="HUF",
+        direction="CREDIT",
+        transaction_date=datetime(2026, 5, 1),
     )
     db.add_all([inv, txn])
     db.commit()
@@ -184,7 +201,9 @@ def test_record_resolves_project_code(db):
     owner = User(provider="google", sub="u1", email="owner@example.com")
     db.add_all([cust, owner])
     db.commit()
-    proj = Project(customer_id=cust.id, sequence_no=1, short_name="Demo", code="DEMO-01", owner_id=owner.id)
+    proj = Project(
+        customer_id=cust.id, sequence_no=1, short_name="Demo", code="DEMO-01", owner_id=owner.id
+    )
     db.add(proj)
     db.commit()
 
@@ -200,12 +219,17 @@ def test_record_resolves_timesheet_entry_as_project_and_date(db):
     at = ActivityType(name="Fejlesztés", is_active=True)
     db.add_all([cust, owner, at])
     db.commit()
-    proj = Project(customer_id=cust.id, sequence_no=1, short_name="Demo", code="DEMO-02", owner_id=owner.id)
+    proj = Project(
+        customer_id=cust.id, sequence_no=1, short_name="Demo", code="DEMO-02", owner_id=owner.id
+    )
     db.add(proj)
     db.commit()
     entry = TimesheetEntry(
-        user_id=owner.id, project_id=proj.id, activity_type_id=at.id,
-        entry_date=date(2026, 5, 12), hours=2.0,
+        user_id=owner.id,
+        project_id=proj.id,
+        activity_type_id=at.id,
+        entry_date=date(2026, 5, 12),
+        hours=2.0,
     )
     db.add(entry)
     db.commit()

@@ -1,26 +1,26 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Optional
+from dataclasses import dataclass
+from datetime import datetime, time, timedelta
 
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from invoice_core.db import (
     BankTransaction,
     Customer,
     Invoice,
-    InvoiceFile,
     Supplier,
     SyncLog,
+    _enum_str,
     _InvoiceDirection,
     _PaymentStatus,
-    _enum_str,
     invoice_bank_transaction,
     invoice_has_bank_txn,
 )
 from invoice_core.services._helpers import OWN_COMPANY_NAME_FILTER
+from invoice_core.timeutil import utcnow
 
 
 @dataclass
@@ -39,9 +39,10 @@ class DashboardKpis:
 class RecentInvoiceRow:
     id: int
     invoice_number: str
-    invoice_date: Optional[object]
-    supplier_name: Optional[str]
-    amount_total: Optional[float]
+    invoice_date: object | None
+    supplier_id: int | None
+    supplier_name: str | None
+    amount_total: float | None
     payment_status: str
 
 
@@ -52,9 +53,9 @@ class RecentTransactionRow:
     amount: float
     currency: str
     direction: str
-    partner_name: Optional[str]
-    invoice_number: Optional[str]
-    invoice_id: Optional[int]
+    partner_name: str | None
+    invoice_number: str | None
+    invoice_id: int | None
 
 
 @dataclass
@@ -84,15 +85,15 @@ class MonthlyFinanceRow:
 class SyncLogRow:
     id: int
     started_at: datetime
-    finished_at: Optional[datetime]
-    mode: Optional[str]
+    finished_at: datetime | None
+    mode: str | None
     invoice_count: int
     bank_count: int
     error_count: int
-    errors: Optional[str]
+    errors: str | None
     warning_count: int
-    warnings: Optional[str]
-    duration_s: Optional[float]
+    warnings: str | None
+    duration_s: float | None
 
 
 def get_kpis(db: Session) -> DashboardKpis:
@@ -110,13 +111,10 @@ def get_kpis(db: Session) -> DashboardKpis:
         or 0.0
     )
     linked_pdfs = (
-        db.query(func.count(Invoice.id))
-        .filter(Invoice.invoice_file_id.isnot(None))
-        .scalar()
-        or 0
+        db.query(func.count(Invoice.id)).filter(Invoice.invoice_file_id.isnot(None)).scalar() or 0
     )
     unlinked_pdfs = total_invoices - linked_pdfs
-    cutoff = datetime.utcnow() - timedelta(days=30)
+    cutoff = utcnow() - timedelta(days=30)
     recent_bank_count = (
         db.query(func.count(BankTransaction.id))
         .filter(BankTransaction.transaction_date >= cutoff)
@@ -139,26 +137,38 @@ def get_kpis(db: Session) -> DashboardKpis:
 
 def get_recent_invoices(db: Session, limit: int = 10) -> list[RecentInvoiceRow]:
     rows = (
-        db.query(Invoice, Supplier.name)
+        db.query(Invoice, Supplier.id, Supplier.name)
         .outerjoin(Supplier, Invoice.supplier_id == Supplier.id)
         .order_by(Invoice.invoice_date.desc().nullslast(), Invoice.id.desc())
         .limit(limit)
         .all()
     )
-    paid_via_bank = {
-        r[0]
-        for r in db.query(invoice_bank_transaction.c.invoice_id).distinct()
-    }
+    # Only look up bank links for the invoices actually being shown (max
+    # `limit` rows) rather than scanning every invoice_bank_transaction row
+    # in the DB — the dashboard's "recent invoices" panel never needs the
+    # full set.
+    invoice_ids = [inv.id for inv, _, _ in rows]
+    paid_via_bank: set[int] = set()
+    if invoice_ids:
+        paid_via_bank = {
+            r[0]
+            for r in db.query(invoice_bank_transaction.c.invoice_id)
+            .filter(invoice_bank_transaction.c.invoice_id.in_(invoice_ids))
+            .distinct()
+        }
     return [
         RecentInvoiceRow(
             id=inv.id,
             invoice_number=inv.invoice_number,
             invoice_date=inv.invoice_date,
+            supplier_id=supplier_id,
             supplier_name=name,
             amount_total=inv.amount_total,
-            payment_status=_PaymentStatus.PAID.value if inv.id in paid_via_bank else _enum_str(inv.payment_status),
+            payment_status=_PaymentStatus.PAID.value
+            if inv.id in paid_via_bank
+            else _enum_str(inv.payment_status),
         )
-        for inv, name in rows
+        for inv, supplier_id, name in rows
     ]
 
 
@@ -166,7 +176,7 @@ def get_recent_transactions(db: Session, limit: int = 5) -> list[RecentTransacti
     ibt = invoice_bank_transaction
     txns = (
         db.query(BankTransaction)
-        .order_by(BankTransaction.transaction_date.desc())
+        .order_by(BankTransaction.transaction_date.desc(), BankTransaction.id.desc())
         .limit(limit)
         .all()
     )
@@ -202,9 +212,9 @@ def get_monthly_finance(db: Session, months: int = 12) -> list[MonthlyFinanceRow
 
     Aggregated in Python so it works on both PostgreSQL and SQLite.
     """
-    today = datetime.utcnow().date()
-    start = (today.replace(day=1) - timedelta(days=(months - 1) * 31)).replace(day=1)
-    start_dt = datetime(start.year, start.month, start.day)
+    today_date = utcnow().date()
+    start = (today_date.replace(day=1) - timedelta(days=(months - 1) * 31)).replace(day=1)
+    start_dt = datetime.combine(start, time.min)
     bank_rows = (
         db.query(
             BankTransaction.transaction_date,
@@ -221,7 +231,7 @@ def get_monthly_finance(db: Session, months: int = 12) -> list[MonthlyFinanceRow
     )
     buckets: dict[str, list[float]] = {}
     cursor = start
-    while cursor <= today:
+    while cursor <= today_date:
         buckets[cursor.strftime("%Y-%m")] = [0.0, 0.0, 0.0, 0.0]
         cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
     for transaction_date, direction, amount in bank_rows:
@@ -248,22 +258,27 @@ def get_monthly_finance(db: Session, months: int = 12) -> list[MonthlyFinanceRow
     ][-months:]
 
 
-def get_last_sync(db: Session) -> Optional[SyncLogRow]:
+def get_last_sync(db: Session) -> SyncLogRow | None:
     try:
-        log = db.query(SyncLog).order_by(SyncLog.started_at.desc()).first()
+        log = db.query(SyncLog).order_by(SyncLog.started_at.desc(), SyncLog.id.desc()).first()
         if not log:
             return None
         return _to_sync_log_row(log)
-    except Exception:
+    except SQLAlchemyError:
         db.rollback()
         return None
 
 
 def get_sync_logs(db: Session, limit: int = 10) -> list[SyncLogRow]:
     try:
-        logs = db.query(SyncLog).order_by(SyncLog.started_at.desc()).limit(limit).all()
+        logs = (
+            db.query(SyncLog)
+            .order_by(SyncLog.started_at.desc(), SyncLog.id.desc())
+            .limit(limit)
+            .all()
+        )
         return [_to_sync_log_row(log) for log in logs]
-    except Exception:
+    except SQLAlchemyError:
         db.rollback()
         return []
 
@@ -274,7 +289,7 @@ def get_top_suppliers(db: Session, limit: int = 10) -> list[TopSupplierRow]:
         .join(Invoice, Invoice.supplier_id == Supplier.id)
         .filter(~Supplier.name.ilike(OWN_COMPANY_NAME_FILTER))
         .group_by(Supplier.id, Supplier.name)
-        .order_by(func.sum(Invoice.amount_total).desc())
+        .order_by(func.sum(Invoice.amount_total).desc(), Supplier.id.desc())
         .limit(limit)
         .all()
     )
@@ -287,7 +302,7 @@ def get_top_customers(db: Session, limit: int = 10) -> list[TopCustomerRow]:
         .join(Invoice, Invoice.customer_id == Customer.id)
         .filter(~Customer.name.ilike(OWN_COMPANY_NAME_FILTER))
         .group_by(Customer.id, Customer.name)
-        .order_by(func.sum(Invoice.amount_total).desc())
+        .order_by(func.sum(Invoice.amount_total).desc(), Customer.id.desc())
         .limit(limit)
         .all()
     )

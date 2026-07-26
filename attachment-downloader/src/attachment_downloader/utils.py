@@ -2,7 +2,6 @@ import os
 import re
 import unicodedata
 from pathlib import Path
-from typing import Dict, Set, Tuple
 
 # Matches: YYYY-MM-DD_NNNN_<name>.pdf
 NAME_RE = re.compile(r"^((\d{4})-\d{2}-\d{2})_(\d+)_(.+)$")
@@ -15,7 +14,7 @@ def sanitize_filename(name: str) -> str:
     return name or "attachment.pdf"
 
 
-def scan_output(out_path: Path) -> Tuple[Dict[int, int], Set[Tuple[str, int]]]:
+def scan_output(out_path: Path) -> tuple[dict[int, int], set[tuple[str, int]]]:
     max_seq: dict = {}
     identities: set = set()
     if not out_path.is_dir():
@@ -24,7 +23,7 @@ def scan_output(out_path: Path) -> Tuple[Dict[int, int], Set[Tuple[str, int]]]:
         match = NAME_RE.match(entry.name)
         if not match:
             continue
-        date_str, year, seq, name_part = match.groups()
+        _date_str, year, seq, name_part = match.groups()
         year, seq = int(year), int(seq)
         if seq > max_seq.get(year, 0):
             max_seq[year] = seq

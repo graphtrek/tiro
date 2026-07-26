@@ -7,7 +7,6 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from pydantic_settings import SettingsConfigDict
 
-
 # ── Processed invoice file (service output) ─────────────────────────────────
 
 
@@ -43,7 +42,10 @@ class ExtractRequest(BaseModel):
     )
     download: bool = Field(
         True,
-        description="Download via attachment-downloader first; if False, process existing files in output_dir",
+        description=(
+            "Download via attachment-downloader first; if False, "
+            "process existing files in output_dir"
+        ),
     )
 
 

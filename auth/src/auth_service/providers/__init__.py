@@ -8,7 +8,7 @@ providereket az ``ENABLED_PROVIDERS`` env változó sorolja fel; a login oldal a
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from auth_service.config import Settings
 from auth_service.providers.base import AuthProvider

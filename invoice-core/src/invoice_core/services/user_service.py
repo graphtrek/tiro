@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy.orm import Session
 
 from invoice_core.db import User
 from invoice_core.models import UserIn
+from invoice_core.timeutil import utcnow
 
 
 def upsert_user(db: Session, payload: UserIn) -> User:
@@ -21,7 +20,7 @@ def upsert_user(db: Session, payload: UserIn) -> User:
     record.email = payload.email
     record.name = payload.name
     record.picture = payload.picture
-    record.last_login_at = datetime.utcnow()
+    record.last_login_at = utcnow()
     db.commit()
     db.refresh(record)
     return record
@@ -35,6 +34,6 @@ def touch_last_login(db: Session, provider: str, sub: str) -> None:
     """Bump `last_login_at` for an existing user on any authenticated request —
     so "Utolsó belépés" reflects last activity, not just the OAuth login moment."""
     db.query(User).filter(User.provider == provider, User.sub == sub).update(
-        {"last_login_at": datetime.utcnow()}
+        {"last_login_at": utcnow()}
     )
     db.commit()

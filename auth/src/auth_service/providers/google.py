@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import ssl
 from urllib.parse import urlencode
 
+import certifi
 import httpx
 import jwt
 
@@ -18,6 +20,19 @@ JWKS_URI = "https://www.googleapis.com/oauth2/v3/certs"
 VALID_ISSUERS = ("https://accounts.google.com", "accounts.google.com")
 
 
+def build_jwks_ssl_context() -> ssl.SSLContext:
+    """Certifi-alapu TLS trust store a JWKS lekereshez.
+
+    A PyJWKClient a urllib.request modult hasznalja, ami a rendszer CA
+    store-jara tamaszkodik -- ez pl. egy python.org-os macOS telepitesen
+    vagy egy csupasz konteinerben ures/hianyos lehet, mig a httpx (a
+    token-csere hivasokhoz) a certifi csomagot bundle-eli. Explicit
+    certifi-alapu SSLContext-tel a JWKS lekeres ugyanazt a megbizhato
+    store-ot hasznalja, fuggetlenul a gepi/rendszer CA konfiguraciojatol.
+    """
+    return ssl.create_default_context(cafile=certifi.where())
+
+
 class GoogleProvider:
     key = "google"
     label = "Belépés Google-fiókkal"
@@ -28,7 +43,9 @@ class GoogleProvider:
         self.client_secret = client_secret
         self.timeout = timeout
         # A Google JWKS kulcsait a PyJWKClient cache-eli (TTL-lel).
-        self._jwk_client = jwt.PyJWKClient(JWKS_URI, cache_keys=True)
+        self._jwk_client = jwt.PyJWKClient(
+            JWKS_URI, cache_keys=True, ssl_context=build_jwks_ssl_context()
+        )
 
     def authorize_url(self, state: str, code_challenge: str, redirect_uri: str) -> str:
         params = {
@@ -75,6 +92,17 @@ class GoogleProvider:
         """ID token ellenőrzés: aláírás (Google JWKS), `aud`, `iss`, `exp`, `email_verified`."""
         try:
             signing_key = self._jwk_client.get_signing_key_from_jwt(id_token)
+        except jwt.PyJWKClientConnectionError as exc:
+            # A JWKS lekérés hálózati/TLS hibája nem azonos egy érvénytelen
+            # tokennel -- ne keverjük össze a hibaüzenetben.
+            logger.error("Google JWKS lekérés sikertelen (hálózat/TLS): %s", exc)
+            raise ProviderError(
+                f"A Google JWKS kulcsok nem érhetők el (hálózati/TLS hiba): {exc}"
+            ) from exc
+        except jwt.PyJWTError as exc:
+            raise ProviderError(f"Érvénytelen Google ID token: {exc}") from exc
+
+        try:
             claims = jwt.decode(
                 id_token,
                 signing_key.key,

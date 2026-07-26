@@ -1,0 +1,27 @@
+[project]
+name = "moneypenny-e2e"
+version = "0.1.0"
+description = "End-to-end tests for the Moneypenny pipeline and UI, driving the real running services."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pytest>=8.0",
+    "requests>=2.31",
+    "playwright>=1.45",
+    "auth",
+]
+
+[tool.uv.sources]
+auth = { path = "../auth", editable = true }
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: real end-to-end pipeline run against live external services (minutes, needs real creds)",
+]

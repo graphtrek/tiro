@@ -7,13 +7,12 @@ Implements ``queryInvoiceDigest`` (list/search), ``queryInvoiceData``
 import base64
 import gzip
 import logging
-from datetime import date, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from lxml import etree
 
 from nav_invoice import cache as _cache
-from nav_invoice.client import NavClient, NavApiError, _local, findall, findtext
+from nav_invoice.client import NavApiError, NavClient, _local, findall, findtext
 from nav_invoice.config import Settings, get_settings
 from nav_invoice.models import (
     DigestQueryParams,
@@ -25,7 +24,7 @@ from nav_invoice.models import (
 logger = logging.getLogger(__name__)
 
 
-def _to_float(value: str) -> Optional[float]:
+def _to_float(value: str) -> float | None:
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -35,8 +34,8 @@ def _to_float(value: str) -> Optional[float]:
 # ── queryInvoiceDigest ──────────────────────────────────
 
 def query_invoice_digest(
-    params: Optional[DigestQueryParams] = None,
-    settings: Optional[Settings] = None,
+    params: DigestQueryParams | None = None,
+    settings: Settings | None = None,
 ) -> list[InvoiceDigest]:
     """List invoices for a date range (kiállító vagy vevő oldal).
 
@@ -46,8 +45,8 @@ def query_invoice_digest(
         settings = get_settings()
     if params is None:
         params = DigestQueryParams(
-            from_date=date.today() - timedelta(days=30),
-            to_date=date.today(),
+            from_date=datetime.now(tz=UTC).astimezone().date() - timedelta(days=30),
+            to_date=datetime.now(tz=UTC).astimezone().date(),
         )
 
     cache_key = f"digest:{params.from_date}:{params.to_date}:{params.direction.value}:{params.page}"
@@ -109,8 +108,8 @@ def query_invoice_data(
     invoice_number: str,
     direction: InvoiceDirection = InvoiceDirection.OUTBOUND,
     supplier_tax_number: str = "",
-    settings: Optional[Settings] = None,
-) -> Optional[str]:
+    settings: Settings | None = None,
+) -> str | None:
     """Fetch a single invoice and return the decoded business XML string.
 
     Returns ``None`` if the invoice was not found.
@@ -159,7 +158,7 @@ def query_invoice_data(
 
 def query_taxpayer(
     tax_number: str,
-    settings: Optional[Settings] = None,
+    settings: Settings | None = None,
 ) -> dict[str, object]:
     """Validate a Hungarian tax number and return basic taxpayer data."""
     if settings is None:
@@ -190,8 +189,8 @@ def query_taxpayer(
 # ── Backwards-compatible wrappers (legacy CLI/API) ──────
 
 def list_invoices(
-    params: Optional[InvoiceQueryParams] = None,
-    settings: Optional[Settings] = None,
+    params: InvoiceQueryParams | None = None,
+    settings: Settings | None = None,
 ) -> list[InvoiceDigest]:
     """Legacy wrapper around :func:`query_invoice_digest`.
 
@@ -200,8 +199,10 @@ def list_invoices(
     if settings is None:
         settings = get_settings()
 
-    from_date = getattr(params, "from_date", None) or (date.today() - timedelta(days=30))
-    to_date = getattr(params, "to_date", None) or date.today()
+    from_date = getattr(params, "from_date", None) or (
+        datetime.now(tz=UTC).astimezone().date() - timedelta(days=30)
+    )
+    to_date = getattr(params, "to_date", None) or datetime.now(tz=UTC).astimezone().date()
 
     digest_params = DigestQueryParams(
         from_date=from_date,
@@ -216,7 +217,7 @@ def list_invoices(
         return []
 
 
-def get_single_invoice(szamlaszam: str, settings: Optional[Settings] = None):
+def get_single_invoice(szamlaszam: str, settings: Settings | None = None):
     """Legacy wrapper returning the decoded invoice XML string (or ``None``)."""
     try:
         return query_invoice_data(szamlaszam, settings=settings)

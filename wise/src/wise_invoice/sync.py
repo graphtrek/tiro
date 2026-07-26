@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from .client import WiseClient
 from .config import Settings, get_settings
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def _default_dates(start: str | None, end: str | None) -> tuple[str, str]:
-    end_obj = date.fromisoformat(end) if end else date.today()
+    end_obj = date.fromisoformat(end) if end else datetime.now(UTC).date()
     start_obj = date.fromisoformat(start) if start else end_obj - timedelta(days=30)
     return start_obj.isoformat(), end_obj.isoformat()
 

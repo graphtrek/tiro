@@ -2,13 +2,13 @@
 
 import time
 from threading import Lock
-from typing import Any, Optional
+from typing import Any
 
 _store: dict[str, tuple[Any, float]] = {}
 _lock = Lock()
 
 
-def get(key: str) -> Optional[Any]:
+def get(key: str) -> Any | None:
     with _lock:
         entry = _store.get(key)
         if entry is None:
@@ -20,7 +20,7 @@ def get(key: str) -> Optional[Any]:
         return value
 
 
-def set(key: str, value: Any, ttl: int) -> None:  # noqa: A001
+def set(key: str, value: Any, ttl: int) -> None:
     with _lock:
         _store[key] = (value, time.monotonic() + ttl)
 

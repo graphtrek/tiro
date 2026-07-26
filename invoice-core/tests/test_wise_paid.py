@@ -11,8 +11,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from invoice_core.db import (
-    Base,
     BankTransaction,
+    Base,
     Customer,
     Invoice,
     Supplier,
@@ -39,21 +39,32 @@ def _seed(db) -> tuple[Invoice, Invoice]:
 
     # paid_inv stays stored UNPAID but gets a bank transaction → derived PAID.
     paid_inv = Invoice(
-        invoice_number="INV-1", invoice_date=date(2026, 6, 1),
-        supplier_id=sup.id, customer_id=cust.id, amount_total=1000.0,
-        payment_status=_PaymentStatus.UNPAID, direction=_InvoiceDirection.INBOUND,
+        invoice_number="INV-1",
+        invoice_date=date(2026, 6, 1),
+        supplier_id=sup.id,
+        customer_id=cust.id,
+        amount_total=1000.0,
+        payment_status=_PaymentStatus.UNPAID,
+        direction=_InvoiceDirection.INBOUND,
     )
     unpaid_inv = Invoice(
-        invoice_number="INV-2", invoice_date=date(2026, 6, 2),
-        supplier_id=sup.id, customer_id=cust.id, amount_total=500.0,
-        payment_status=_PaymentStatus.UNPAID, direction=_InvoiceDirection.INBOUND,
+        invoice_number="INV-2",
+        invoice_date=date(2026, 6, 2),
+        supplier_id=sup.id,
+        customer_id=cust.id,
+        amount_total=500.0,
+        payment_status=_PaymentStatus.UNPAID,
+        direction=_InvoiceDirection.INBOUND,
     )
     db.add_all([paid_inv, unpaid_inv])
     db.flush()
 
     btxn = BankTransaction(
-        transaction_id="B-1", bank="wise", direction="CREDIT",
-        amount=1000.0, currency="HUF",
+        transaction_id="B-1",
+        bank="wise",
+        direction="CREDIT",
+        amount=1000.0,
+        currency="HUF",
         transaction_date=datetime(2026, 6, 3),
     )
     db.add(btxn)
@@ -64,7 +75,7 @@ def _seed(db) -> tuple[Invoice, Invoice]:
 
 
 def test_list_invoices_marks_bank_linked_as_paid(wdb):
-    paid_inv, unpaid_inv = _seed(wdb)
+    _seed(wdb)
     rows = {r.invoice_number: r for r in invoice_service.list_invoices(wdb)}
     assert rows["INV-1"].payment_status == "PAID"
     assert rows["INV-1"].bank_count == 1
@@ -108,16 +119,23 @@ def test_partial_payment_status(wdb):
     wdb.add_all([sup, cust])
     wdb.flush()
     inv = Invoice(
-        invoice_number="INV-P1", invoice_date=date(2026, 6, 1),
-        supplier_id=sup.id, customer_id=cust.id, amount_total=1000.0,
-        payment_status=_PaymentStatus.UNPAID, direction=_InvoiceDirection.INBOUND,
+        invoice_number="INV-P1",
+        invoice_date=date(2026, 6, 1),
+        supplier_id=sup.id,
+        customer_id=cust.id,
+        amount_total=1000.0,
+        payment_status=_PaymentStatus.UNPAID,
+        direction=_InvoiceDirection.INBOUND,
         currency="HUF",
     )
     wdb.add(inv)
     wdb.flush()
     btxn = BankTransaction(
-        transaction_id="B-P1", bank="wise", direction="CREDIT",
-        amount=400.0, currency="HUF",
+        transaction_id="B-P1",
+        bank="wise",
+        direction="CREDIT",
+        amount=400.0,
+        currency="HUF",
         transaction_date=datetime(2026, 6, 3),
     )
     wdb.add(btxn)
@@ -125,6 +143,7 @@ def test_partial_payment_status(wdb):
     inv.bank_transactions.append(btxn)
 
     from invoice_core.service import _recompute_payment_status
+
     _recompute_payment_status(wdb, inv)
     wdb.commit()
 
@@ -142,22 +161,39 @@ def test_split_payment_full_coverage(wdb):
     wdb.add_all([sup, cust])
     wdb.flush()
     inv = Invoice(
-        invoice_number="INV-S1", invoice_date=date(2026, 6, 1),
-        supplier_id=sup.id, customer_id=cust.id, amount_total=1000.0,
-        payment_status=_PaymentStatus.UNPAID, direction=_InvoiceDirection.INBOUND,
+        invoice_number="INV-S1",
+        invoice_date=date(2026, 6, 1),
+        supplier_id=sup.id,
+        customer_id=cust.id,
+        amount_total=1000.0,
+        payment_status=_PaymentStatus.UNPAID,
+        direction=_InvoiceDirection.INBOUND,
         currency="HUF",
     )
     wdb.add(inv)
     wdb.flush()
-    b1 = BankTransaction(transaction_id="B-S1", bank="wise", direction="CREDIT",
-                         amount=600.0, currency="HUF", transaction_date=datetime(2026, 6, 3))
-    b2 = BankTransaction(transaction_id="B-S2", bank="wise", direction="CREDIT",
-                         amount=400.0, currency="HUF", transaction_date=datetime(2026, 6, 4))
+    b1 = BankTransaction(
+        transaction_id="B-S1",
+        bank="wise",
+        direction="CREDIT",
+        amount=600.0,
+        currency="HUF",
+        transaction_date=datetime(2026, 6, 3),
+    )
+    b2 = BankTransaction(
+        transaction_id="B-S2",
+        bank="wise",
+        direction="CREDIT",
+        amount=400.0,
+        currency="HUF",
+        transaction_date=datetime(2026, 6, 4),
+    )
     wdb.add_all([b1, b2])
     wdb.flush()
     inv.bank_transactions.extend([b1, b2])
 
     from invoice_core.service import _recompute_payment_status
+
     _recompute_payment_status(wdb, inv)
     wdb.commit()
 

@@ -4,16 +4,15 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, computed_field, field_serializer
 
-
 # ── Wise API válasz modellek ─────────────────────────────────────────────────
 
 
-class TransactionType(str, Enum):
+class TransactionType(StrEnum):
     CREDIT = "CREDIT"
     DEBIT = "DEBIT"
 

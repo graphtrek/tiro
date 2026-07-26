@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import csv
 import logging
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -52,7 +52,8 @@ def _parse_date(raw: str) -> date | None:
         return None
     for fmt in _DATE_FORMATS:
         try:
-            return datetime.strptime(raw.strip(), fmt).date()
+            # Local bank-statement date: aware-then-normalized to keep the date value.
+            return datetime.strptime(raw.strip(), fmt).replace(tzinfo=UTC).date()
         except ValueError:
             continue
     return None
@@ -63,7 +64,8 @@ def _parse_datetime(raw: str) -> datetime | None:
         return None
     for fmt in _DATE_FORMATS:
         try:
-            return datetime.strptime(raw.strip(), fmt)
+            # Local bank-statement time: normalize to aware UTC, value preserved.
+            return datetime.strptime(raw.strip(), fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
     return None

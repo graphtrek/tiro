@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
@@ -29,7 +29,7 @@ configure_logging(_settings.log_level)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Auth – Központi Authentication Mikroszerviz",
+    title="Auth - Központi Authentication Mikroszerviz",
     description=(
         "Google OAuth 2.0 / OpenID Connect belépés; saját kiállítású RS256 JWT "
         "(access + refresh). A védett mikroszervizek a /.well-known/jwks.json "
@@ -61,7 +61,9 @@ def get_service() -> AuthService:
 security = HTTPBearer(auto_error=False)
 
 
-def _extract_token(request: Request, credentials: HTTPAuthorizationCredentials | None) -> str | None:
+def _extract_token(
+    request: Request, credentials: HTTPAuthorizationCredentials | None
+) -> str | None:
     if credentials:
         return credentials.credentials
     return request.cookies.get(get_settings().access_cookie_name)
@@ -98,7 +100,7 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(UTC).isoformat()}
 
 
 @app.get("/.well-known/jwks.json")

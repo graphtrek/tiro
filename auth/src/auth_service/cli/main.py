@@ -16,7 +16,7 @@ from auth_service.models import AuthError
 from auth_service.service import AuthService, Denylist
 
 app = typer.Typer(
-    help="Auth – Központi Authentication Mikroszerviz (Google OAuth 2.0 + JWT).",
+    help="Auth - Központi Authentication Mikroszerviz (Google OAuth 2.0 + JWT).",
     no_args_is_help=True,
 )
 console = Console()
@@ -49,16 +49,26 @@ def status():
 
     console.print("\n[bold]JWT[/bold]")
     console.print(f"  issuer: {settings.jwt_issuer} · audience: {settings.jwt_audience}")
-    console.print(f"  access TTL: {settings.access_token_ttl}s · refresh TTL: {settings.refresh_token_ttl}s")
+    console.print(f"  access TTL: {settings.access_token_ttl}s · "
+                  f"refresh TTL: {settings.refresh_token_ttl}s")
 
     console.print("\n[bold]Google OAuth[/bold]")
     client_ok = bool(settings.google_client_id and settings.google_client_secret)
-    console.print(f"  client: {'[green]✓ konfigurálva[/green]' if client_ok else '[red]✗ hiányzó GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET[/red]'}")
+    client_state = (
+        "[green]✓ konfigurálva[/green]"
+        if client_ok
+        else "[red]✗ hiányzó GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET[/red]"
+    )
+    console.print(f"  client: {client_state}")
     console.print(f"  redirect: {settings.oauth_redirect_url}")
 
     console.print("\n[bold]Whitelist[/bold]")
-    console.print(f"  e-mailek: {', '.join(settings.allowed_emails_list) or '[dim]–[/dim]'}")
-    console.print(f"  domainek: {', '.join(settings.allowed_domains_list) or '[dim]–[/dim]'}")
+    console.print(
+        f"  e-mailek: {', '.join(settings.allowed_emails_list) or '[dim]–[/dim]'}"  # noqa: RUF001
+    )
+    console.print(
+        f"  domainek: {', '.join(settings.allowed_domains_list) or '[dim]–[/dim]'}"  # noqa: RUF001
+    )
 
     denylist = Denylist(settings.denylist_path)
     console.print(f"\n[bold]Visszavont refresh tokenek:[/bold] {len(denylist)}")
@@ -74,8 +84,12 @@ def keygen(
     out_dir = Path(out)
     private_path = out_dir / "jwt_private.pem"
     if private_path.exists() and not force:
-        console.print(f"[red]✗ Már létezik: {private_path} — használd a --force opciót a felülíráshoz.[/red]")
-        console.print("[yellow]Figyelem: új kulcs után minden kiadott token érvénytelenné válik![/yellow]")
+        console.print(
+            f"[red]✗ Már létezik: {private_path} — használd a --force opciót a felülíráshoz.[/red]"
+        )
+        console.print(
+            "[yellow]Figyelem: új kulcs után minden kiadott token érvénytelenné válik![/yellow]"
+        )
         raise typer.Exit(code=1)
     private_path, public_path = generate_keypair(out_dir)
     console.print(f"[green]✓[/green] Privát kulcs:   {private_path}")

@@ -142,9 +142,10 @@ class WiseClient:
 
     def _sign_sca(self, otp: str) -> str:
         """RSA-SHA256 aláírás a Wise SCA OTP-hez."""
+        import base64
+
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import padding
-        import base64
 
         key_path = self.settings.wise_sca_private_key_path
         if not key_path:

@@ -5,10 +5,9 @@ from __future__ import annotations
 import dataclasses
 import logging
 import time
+from datetime import UTC, datetime
 from datetime import date as _date
-from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -60,7 +59,12 @@ from invoice_core.models import (
     UserIn,
     UserOut,
 )
-from invoice_core.service import _recompute_payment_status, get_pending_sync_counts, sync_all
+from invoice_core.service import (
+    SyncInProgressError,
+    _recompute_payment_status,
+    get_pending_sync_counts,
+    sync_all,
+)
 from invoice_core.services import (
     activity_type_service,
     audit_service,
@@ -76,6 +80,7 @@ from invoice_core.services import (
     transaction_service,
     user_service,
 )
+from invoice_core.timeutil import today, utcnow
 
 _settings = get_settings()
 configure_logging(_settings.log_level)
@@ -129,7 +134,7 @@ async def touch_last_login(request: Request, call_next):
                 db = SessionLocal()
                 try:
                     user_service.touch_last_login(db, provider, sub)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - best-effort, must never break the request
                     logger.warning("Nem sikerült frissíteni a last_login_at mezőt: %s", exc)
                 finally:
                     db.close()
@@ -143,7 +148,7 @@ async def record_audit_log(request: Request, call_next):
     db = SessionLocal()
     try:
         prepared = audit_service.prepare_record(db, request)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort audit, must never break the request
         logger.warning("Nem sikerült előkészíteni az audit bejegyzést: %s", exc)
         prepared = None
     finally:
@@ -155,7 +160,7 @@ async def record_audit_log(request: Request, call_next):
         db = SessionLocal()
         try:
             audit_service.finalize_record(db, request, response, prepared)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort audit, must never break the request
             logger.warning("Nem sikerült audit logot rögzíteni: %s", exc)
         finally:
             db.close()
@@ -164,44 +169,60 @@ async def record_audit_log(request: Request, call_next):
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(UTC).isoformat()}
 
 
 # ── Sync endpoints ────────────────────────────────────────────────────────────
 
+
+def _run_guarded_sync(request: SyncRequest, db: Session) -> SyncResponse:
+    """Shared wrapper: sync_all raises SyncInProgressError (DEF-012) when
+    another sync already holds the DB-backed lock -- surface that as a clean
+    409 with a Hungarian message rather than letting a second concurrent sync
+    contend for the same rows.
+    """
+    try:
+        return sync_all(request, db)
+    except SyncInProgressError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @app.post("/api/v1/sync", response_model=SyncResponse)
 def full_sync(request: SyncRequest, db: Session = Depends(get_db)):
-    return sync_all(request, db)
+    return _run_guarded_sync(request, db)
 
 
 @app.post("/api/v1/sync/nav", response_model=SyncResponse)
 def nav_sync(request: SyncRequest, db: Session = Depends(get_db)):
     request.sync_mode = SyncMode.nav_only
-    return sync_all(request, db)
+    return _run_guarded_sync(request, db)
 
 
 @app.post("/api/v1/sync/pdf", response_model=SyncResponse)
 def pdf_sync(request: SyncRequest, db: Session = Depends(get_db)):
     request.sync_mode = SyncMode.pdf_only
-    return sync_all(request, db)
+    return _run_guarded_sync(request, db)
 
 
 @app.post("/api/v1/sync/bank", response_model=SyncResponse)
 def bank_sync(request: SyncRequest, db: Session = Depends(get_db)):
     request.sync_mode = SyncMode.bank_only
-    return sync_all(request, db)
+    return _run_guarded_sync(request, db)
 
 
 @app.post("/api/v1/sync/match", response_model=SyncResponse)
 def match_sync(request: SyncRequest, db: Session = Depends(get_db)):
     request.sync_mode = SyncMode.match_only
-    return sync_all(request, db)
+    return _run_guarded_sync(request, db)
 
 
 @app.get("/api/v1/sync/pending")
 def sync_pending(db: Session = Depends(get_db)):
     unmatched_invoices, unmatched_transactions = get_pending_sync_counts(db)
-    return {"unmatched_invoices": unmatched_invoices, "unmatched_transactions": unmatched_transactions}
+    return {
+        "unmatched_invoices": unmatched_invoices,
+        "unmatched_transactions": unmatched_transactions,
+    }
 
 
 @app.get("/api/v1/sync/logs")
@@ -215,12 +236,13 @@ def sync_logs(
 
 # ── Audit log endpoint ───────────────────────────────────────────────────────
 
-@app.get("/api/v1/audit-log", response_model=List[AuditLogOut])
+
+@app.get("/api/v1/audit-log", response_model=list[AuditLogOut])
 def audit_log(
-    user_email: Optional[str] = None,
-    page: Optional[str] = None,
-    date_from: Optional[_date] = None,
-    date_to: Optional[_date] = None,
+    user_email: str | None = None,
+    page: str | None = None,
+    date_from: _date | None = None,
+    date_to: _date | None = None,
     limit: int = Query(200, ge=1, le=1000),
     db: Session = Depends(get_db),
 ):
@@ -229,22 +251,30 @@ def audit_log(
 
 # ── Dashboard endpoint ────────────────────────────────────────────────────────
 
+
 @app.get("/api/v1/dashboard")
 def dashboard(db: Session = Depends(get_db)):
     """Aggregate the KPI cards, recent lists, and last-sync info shown on the dashboard page."""
     last_sync = dashboard_service.get_last_sync(db)
     return {
         "kpis": dataclasses.asdict(dashboard_service.get_kpis(db)),
-        "recent_invoices": [dataclasses.asdict(r) for r in dashboard_service.get_recent_invoices(db)],
-        "recent_transactions": [dataclasses.asdict(r) for r in dashboard_service.get_recent_transactions(db)],
+        "recent_invoices": [
+            dataclasses.asdict(r) for r in dashboard_service.get_recent_invoices(db)
+        ],
+        "recent_transactions": [
+            dataclasses.asdict(r) for r in dashboard_service.get_recent_transactions(db)
+        ],
         "last_sync": dataclasses.asdict(last_sync) if last_sync else None,
         "top_suppliers": [dataclasses.asdict(r) for r in dashboard_service.get_top_suppliers(db)],
         "top_customers": [dataclasses.asdict(r) for r in dashboard_service.get_top_customers(db)],
-        "monthly_finance": [dataclasses.asdict(r) for r in dashboard_service.get_monthly_finance(db)],
+        "monthly_finance": [
+            dataclasses.asdict(r) for r in dashboard_service.get_monthly_finance(db)
+        ],
     }
 
 
 # ── Invoice endpoints ─────────────────────────────────────────────────────────
+
 
 @app.get("/api/v1/invoices/count")
 def invoice_count(db: Session = Depends(get_db)):
@@ -254,12 +284,14 @@ def invoice_count(db: Session = Depends(get_db)):
 
 @app.get("/api/v1/invoices")
 def list_invoices(
-    date_from: Optional[_date] = Query(None, description="YYYY-MM-DD"),
-    date_to: Optional[_date] = Query(None, description="YYYY-MM-DD"),
-    status: Optional[str] = Query(None, description="PAID | UNPAID | PARTIAL"),
-    direction: Optional[str] = Query(None, description="INBOUND | OUTBOUND"),
-    has_pdf: Optional[str] = Query(None, description="true | false"),
-    supplier_name: Optional[str] = Query(None),
+    date_from: _date | None = Query(None, description="YYYY-MM-DD"),
+    date_to: _date | None = Query(None, description="YYYY-MM-DD"),
+    status: str | None = Query(None, description="PAID | UNPAID | PARTIAL"),
+    direction: str | None = Query(None, description="INBOUND | OUTBOUND"),
+    has_pdf: str | None = Query(None, description="true | false"),
+    supplier_name: str | None = Query(None),
+    limit: int = Query(1000, ge=1, le=5000, description="Max rows to return"),
+    offset: int = Query(0, ge=0, description="Rows to skip"),
     db: Session = Depends(get_db),
 ):
     rows = invoice_service.list_invoices(
@@ -269,6 +301,8 @@ def list_invoices(
         payment_status=status,
         has_pdf=has_pdf,
         supplier_name=supplier_name,
+        limit=limit,
+        offset=offset,
     )
     if direction:
         rows = [r for r in rows if r.direction == direction]
@@ -317,21 +351,28 @@ def patch_invoice(invoice_id: int, req: PatchInvoiceRequest, db: Session = Depen
         try:
             inv.payment_status = _PaymentStatus[req.payment_status]
         except KeyError:
-            raise HTTPException(status_code=422, detail=f"Invalid payment_status: {req.payment_status}")
-    inv.updated_at = datetime.utcnow()
+            raise HTTPException(
+                status_code=422, detail=f"Invalid payment_status: {req.payment_status}"
+            ) from None
+    inv.updated_at = utcnow()
     db.commit()
     return {"ok": True}
 
 
 # ── Invoice file endpoints ────────────────────────────────────────────────────
 
+
 @app.get("/api/v1/invoice-files")
 def list_invoice_files(
-    linked: Optional[str] = Query(None, description="yes | no"),
-    filename: Optional[str] = Query(None, description="filename substring filter"),
+    linked: str | None = Query(None, description="yes | no"),
+    filename: str | None = Query(None, description="filename substring filter"),
+    limit: int = Query(1000, ge=1, le=5000, description="Max rows to return"),
+    offset: int = Query(0, ge=0, description="Rows to skip"),
     db: Session = Depends(get_db),
 ):
-    rows = invoice_file_service.list_invoice_files(db, linked=linked, filename=filename)
+    rows = invoice_file_service.list_invoice_files(
+        db, linked=linked, filename=filename, limit=limit, offset=offset
+    )
     return [dataclasses.asdict(r) for r in rows]
 
 
@@ -366,12 +407,13 @@ def delete_invoice_file(file_id: int, db: Session = Depends(get_db)):
     if invoice_file.is_deleted:
         raise HTTPException(status_code=409, detail="This invoice file is already deleted")
     invoice_file.is_deleted = True
-    invoice_file.updated_at = datetime.utcnow()
+    invoice_file.updated_at = utcnow()
     db.commit()
     return {"ok": True, "id": file_id, "filename": invoice_file.filename}
 
 
 # ── Partner endpoints ─────────────────────────────────────────────────────────
+
 
 @app.get("/api/v1/partners/suppliers/summary")
 def supplier_summary(db: Session = Depends(get_db)):
@@ -409,7 +451,7 @@ def create_supplier(payload: SupplierIn, db: Session = Depends(get_db)):
     try:
         return partner_service.create_supplier(db, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.put("/api/v1/partners/suppliers/{supplier_id:int}", response_model=SupplierOut)
@@ -417,7 +459,7 @@ def update_supplier(supplier_id: int, payload: SupplierUpdate, db: Session = Dep
     try:
         record = partner_service.update_supplier(db, supplier_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if record is None:
         raise HTTPException(status_code=404, detail="Supplier not found")
     return record
@@ -428,7 +470,7 @@ def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
     try:
         deleted = partner_service.delete_supplier(db, supplier_id)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not deleted:
         raise HTTPException(status_code=404, detail="Supplier not found")
     return {"status": "deleted"}
@@ -439,7 +481,7 @@ def create_customer(payload: CustomerIn, db: Session = Depends(get_db)):
     try:
         return partner_service.create_customer(db, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.put("/api/v1/partners/customers/{customer_id:int}", response_model=CustomerOut)
@@ -447,7 +489,7 @@ def update_customer(customer_id: int, payload: CustomerUpdate, db: Session = Dep
     try:
         record = partner_service.update_customer(db, customer_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if record is None:
         raise HTTPException(status_code=404, detail="Customer not found")
     return record
@@ -458,7 +500,7 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db)):
     try:
         deleted = partner_service.delete_customer(db, customer_id)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not deleted:
         raise HTTPException(status_code=404, detail="Customer not found")
     return {"status": "deleted"}
@@ -467,27 +509,29 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db)):
 # ── User endpoints ────────────────────────────────────────────────────────────
 # Called by the auth service on every successful login to persist a login record.
 
+
 @app.post("/api/v1/users", response_model=UserOut)
 def upsert_user(payload: UserIn, db: Session = Depends(get_db)):
     return user_service.upsert_user(db, payload)
 
 
-@app.get("/api/v1/users", response_model=List[UserOut])
+@app.get("/api/v1/users", response_model=list[UserOut])
 def list_users(db: Session = Depends(get_db)):
     return user_service.list_users(db)
 
 
 # ── Activity type endpoints ───────────────────────────────────────────────────
 
+
 @app.post("/api/v1/activity-types", response_model=ActivityTypeOut)
 def create_activity_type(payload: ActivityTypeIn, db: Session = Depends(get_db)):
     try:
         return activity_type_service.create_activity_type(db, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@app.get("/api/v1/activity-types", response_model=List[ActivityTypeOut])
+@app.get("/api/v1/activity-types", response_model=list[ActivityTypeOut])
 def list_activity_types(db: Session = Depends(get_db)):
     return activity_type_service.list_activity_types(db)
 
@@ -499,7 +543,7 @@ def update_activity_type(
     try:
         record = activity_type_service.update_activity_type(db, activity_type_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if record is None:
         raise HTTPException(status_code=404, detail="Activity type not found")
     return record
@@ -514,15 +558,16 @@ def delete_activity_type(activity_type_id: int, db: Session = Depends(get_db)):
 
 # ── Project endpoints ──────────────────────────────────────────────────────────
 
+
 @app.post("/api/v1/projects", response_model=ProjectOut)
 def create_project(payload: ProjectIn, db: Session = Depends(get_db)):
     try:
         return project_service.create_project(db, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@app.get("/api/v1/projects", response_model=List[ProjectOut])
+@app.get("/api/v1/projects", response_model=list[ProjectOut])
 def list_projects(db: Session = Depends(get_db)):
     return project_service.list_projects(db)
 
@@ -532,7 +577,7 @@ def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depend
     try:
         record = project_service.update_project(db, project_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if record is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return record
@@ -547,15 +592,16 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
 
 # ── Timesheet endpoints ────────────────────────────────────────────────────────
 
+
 @app.post("/api/v1/timesheet-entries", response_model=TimesheetEntryOut)
 def create_timesheet_entry(payload: TimesheetEntryIn, db: Session = Depends(get_db)):
     try:
         return timesheet_service.create_timesheet_entry(db, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@app.get("/api/v1/timesheet-entries", response_model=List[TimesheetEntryOut])
+@app.get("/api/v1/timesheet-entries", response_model=list[TimesheetEntryOut])
 def list_timesheet_entries(user_id: int = Query(...), db: Session = Depends(get_db)):
     return timesheet_service.list_timesheet_entries(db, user_id)
 
@@ -570,7 +616,7 @@ def update_timesheet_entry(
     try:
         record = timesheet_service.update_timesheet_entry(db, entry_id, user_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if record is None:
         raise HTTPException(status_code=404, detail="Timesheet rekord nem található")
     return record
@@ -585,6 +631,7 @@ def delete_timesheet_entry(entry_id: int, user_id: int = Query(...), db: Session
 
 # ── Transaction endpoints ─────────────────────────────────────────────────────
 
+
 @app.get("/api/v1/transactions/balances")
 def transaction_balances(db: Session = Depends(get_db)):
     balances = transaction_service.get_bank_balances(db)
@@ -593,12 +640,12 @@ def transaction_balances(db: Session = Depends(get_db)):
 
 @app.get("/api/v1/transactions")
 def list_transactions(
-    date_from: Optional[_date] = Query(None, description="YYYY-MM-DD"),
-    date_to: Optional[_date] = Query(None, description="YYYY-MM-DD"),
-    linked: Optional[str] = Query(None, description="yes | no"),
-    partner_name: Optional[str] = Query(None),
-    amount_min: Optional[float] = Query(None),
-    amount_max: Optional[float] = Query(None),
+    date_from: _date | None = Query(None, description="YYYY-MM-DD"),
+    date_to: _date | None = Query(None, description="YYYY-MM-DD"),
+    linked: str | None = Query(None, description="yes | no"),
+    partner_name: str | None = Query(None),
+    amount_min: float | None = Query(None),
+    amount_max: float | None = Query(None),
     db: Session = Depends(get_db),
 ):
     rows = transaction_service.list_transactions(
@@ -622,6 +669,7 @@ def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
 
 
 # ── Manual link / unlink endpoints ───────────────────────────────────────────
+
 
 @app.put("/api/v1/invoices/{invoice_id}/invoice-file")
 def link_invoice_to_file(invoice_id: int, req: LinkFileRequest, db: Session = Depends(get_db)):
@@ -649,7 +697,9 @@ def unlink_invoice_from_file(invoice_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/api/v1/invoices/{invoice_id}/supplier")
-def link_invoice_to_supplier(invoice_id: int, req: LinkSupplierRequest, db: Session = Depends(get_db)):
+def link_invoice_to_supplier(
+    invoice_id: int, req: LinkSupplierRequest, db: Session = Depends(get_db)
+):
     inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -657,7 +707,7 @@ def link_invoice_to_supplier(invoice_id: int, req: LinkSupplierRequest, db: Sess
         raise HTTPException(status_code=404, detail="Supplier not found")
     inv.supplier_id = req.supplier_id
     inv.supplier_locked = True
-    inv.updated_at = datetime.utcnow()
+    inv.updated_at = utcnow()
     db.commit()
     return {"ok": True}
 
@@ -669,13 +719,15 @@ def unlink_invoice_from_supplier(invoice_id: int, db: Session = Depends(get_db))
         raise HTTPException(status_code=404, detail="Invoice not found")
     inv.supplier_id = None
     inv.supplier_locked = True
-    inv.updated_at = datetime.utcnow()
+    inv.updated_at = utcnow()
     db.commit()
     return {"ok": True}
 
 
 @app.put("/api/v1/invoices/{invoice_id}/customer")
-def link_invoice_to_customer(invoice_id: int, req: LinkCustomerRequest, db: Session = Depends(get_db)):
+def link_invoice_to_customer(
+    invoice_id: int, req: LinkCustomerRequest, db: Session = Depends(get_db)
+):
     inv = db.get(Invoice, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
@@ -683,7 +735,7 @@ def link_invoice_to_customer(invoice_id: int, req: LinkCustomerRequest, db: Sess
         raise HTTPException(status_code=404, detail="Customer not found")
     inv.customer_id = req.customer_id
     inv.customer_locked = True
-    inv.updated_at = datetime.utcnow()
+    inv.updated_at = utcnow()
     db.commit()
     return {"ok": True}
 
@@ -695,7 +747,7 @@ def unlink_invoice_from_customer(invoice_id: int, db: Session = Depends(get_db))
         raise HTTPException(status_code=404, detail="Invoice not found")
     inv.customer_id = None
     inv.customer_locked = True
-    inv.updated_at = datetime.utcnow()
+    inv.updated_at = utcnow()
     db.commit()
     return {"ok": True}
 
@@ -726,7 +778,9 @@ def unlink_transaction_from_file(txn_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/api/v1/transactions/{txn_id}/supplier")
-def link_transaction_to_supplier(txn_id: int, req: LinkSupplierRequest, db: Session = Depends(get_db)):
+def link_transaction_to_supplier(
+    txn_id: int, req: LinkSupplierRequest, db: Session = Depends(get_db)
+):
     txn = db.get(BankTransaction, txn_id)
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -750,7 +804,9 @@ def unlink_transaction_from_supplier(txn_id: int, db: Session = Depends(get_db))
 
 
 @app.put("/api/v1/transactions/{txn_id}/customer")
-def link_transaction_to_customer(txn_id: int, req: LinkCustomerRequest, db: Session = Depends(get_db)):
+def link_transaction_to_customer(
+    txn_id: int, req: LinkCustomerRequest, db: Session = Depends(get_db)
+):
     txn = db.get(BankTransaction, txn_id)
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -786,9 +842,13 @@ def link_invoice_to_transaction(invoice_id: int, txn_id: int, db: Session = Depe
         )
     ).first()
     if not existing:
-        db.execute(sa_insert(invoice_bank_transaction).values(
-            invoice_id=invoice_id, bank_transaction_id=txn_id, manual=True,
-        ))
+        db.execute(
+            sa_insert(invoice_bank_transaction).values(
+                invoice_id=invoice_id,
+                bank_transaction_id=txn_id,
+                manual=True,
+            )
+        )
     inv = db.get(Invoice, invoice_id)
     _recompute_payment_status(db, inv)
     db.commit()
@@ -813,9 +873,10 @@ def unlink_invoice_from_transaction(invoice_id: int, txn_id: int, db: Session = 
 
 # ── Report endpoints ──────────────────────────────────────────────────────────
 
+
 @app.get("/api/v1/reports/dividend")
 def dividend_report(
-    year: Optional[int] = Query(None, description="Year (default: current year)"),
+    year: int | None = Query(None, description="Year (default: current year)"),
     kiva_rate: float = Query(0.10, description="KIVA tax rate (default 0.10)"),
     hipa_rate: float = Query(0.02, description="HIPA (local business tax) rate (default 0.02)"),
     db: Session = Depends(get_db),
@@ -828,46 +889,51 @@ def dividend_report(
     alternative), never both, so this lets a KIVA-taxed company get an
     accurate estimate using their own rate instead of the TAO default.
     """
-    effective_year = year or _date.today().year
+    effective_year = year or today().year
     report = dividend_service.calculate_dividend(db, effective_year, kiva_rate, hipa_rate=hipa_rate)
     return dataclasses.asdict(report)
 
 
 @app.get("/api/v1/reports/tax")
 def tax_report(
-    year: Optional[int] = Query(None, description="Year (default: current year)"),
+    year: int | None = Query(None, description="Year (default: current year)"),
     db: Session = Depends(get_db),
 ):
     """Summarize *year*'s payments to tax-authority accounts, defaulting to the current year."""
-    effective_year = year or _date.today().year
+    effective_year = year or today().year
     report = tax_service.get_tax_report(db, effective_year)
     return dataclasses.asdict(report)
 
 
 @app.get("/api/v1/reports/tax-estimate")
 def tax_estimate_report(
-    year: Optional[int] = Query(None, description="Year (default: current year)"),
+    year: int | None = Query(None, description="Year (default: current year)"),
     tao_rate: float = Query(0.10, description="TAO/KIVA rate (default 0.10)"),
     hipa_rate: float = Query(0.02, description="HIPA rate (default 0.02)"),
     szja_rate: float = Query(0.15, description="SZJA rate on dividend (default 0.15)"),
     szocho_rate: float = Query(0.13, description="SZOCHÓ rate on dividend (default 0.13)"),
     db: Session = Depends(get_db),
 ):
-    """Estimate monthly tax liability for *year*, projecting remaining months of the current year from a trailing average."""
-    effective_year = year or _date.today().year
-    report = tax_service.get_tax_estimate(db, effective_year, tao_rate, hipa_rate, szja_rate, szocho_rate)
+    """Estimate monthly tax liability for *year*.
+
+    Projects remaining months of the current year from a trailing average.
+    """
+    effective_year = year or today().year
+    report = tax_service.get_tax_estimate(
+        db, effective_year, tao_rate, hipa_rate, szja_rate, szocho_rate
+    )
     return dataclasses.asdict(report)
 
 
 @app.get("/api/v1/reports/timesheet")
 def timesheet_report(
     report_type: str = Query(..., description="project | person | customer | activity_type"),
-    date_from: Optional[_date] = Query(None, description="YYYY-MM-DD"),
-    date_to: Optional[_date] = Query(None, description="YYYY-MM-DD"),
-    customer_id: Optional[int] = Query(None),
-    project_id: Optional[int] = Query(None),
-    user_id: Optional[int] = Query(None),
-    activity_type_id: Optional[int] = Query(None),
+    date_from: _date | None = Query(None, description="YYYY-MM-DD"),
+    date_to: _date | None = Query(None, description="YYYY-MM-DD"),
+    customer_id: int | None = Query(None),
+    project_id: int | None = Query(None),
+    user_id: int | None = Query(None),
+    activity_type_id: int | None = Query(None),
     db: Session = Depends(get_db),
 ):
     if report_type == "project":
@@ -901,6 +967,7 @@ def timesheet_report(
 
 def run_server():
     import uvicorn
+
     settings = get_settings()
     uvicorn.run(
         "invoice_core.api.main:app",

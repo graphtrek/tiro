@@ -1,9 +1,10 @@
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+
 from attachment_downloader.auth import require_auth
 from attachment_downloader.config import configure_logging, get_settings
 from attachment_downloader.models import CacheInfo, DownloadRequest, DownloadResult
@@ -34,7 +35,7 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(UTC).isoformat()}
 
 
 @app.get("/api/v1/cache", response_model=CacheInfo)
@@ -68,7 +69,7 @@ async def create_download_job(
         )
     except ValueError as e:
         logger.warning("download_pdf_attachments bad input: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.exception("download_pdf_attachments failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

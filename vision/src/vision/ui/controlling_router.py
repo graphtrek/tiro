@@ -10,6 +10,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.invoice_core import InvoiceCoreClient
+from vision.ui.utils import local_today
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -134,7 +135,7 @@ def _timesheet_page(request: Request, error: str | None = None):
     for row in rows:
         entry_date = date.fromisoformat(row["entry_date"])
         row["weekday_hu"] = _HU_WEEKDAYS[entry_date.weekday()]
-        row["hours_label"] = ("%g" % row["hours"]).replace(".", ",")
+        row["hours_label"] = f"{row['hours']:g}".replace(".", ",")
 
     return templates.TemplateResponse(
         request,
@@ -239,7 +240,11 @@ def _resolve_date_range(
         return monday, monday + timedelta(days=6)
     # current_month (also the fallback for an unrecognized value)
     first = today.replace(day=1)
-    next_first = first.replace(year=first.year + 1, month=1) if first.month == 12 else first.replace(month=first.month + 1)
+    next_first = (
+        first.replace(year=first.year + 1, month=1)
+        if first.month == 12
+        else first.replace(month=first.month + 1)
+    )
     return first, next_first - timedelta(days=1)
 
 
@@ -249,7 +254,7 @@ def _parse_id(v: str | None) -> int | None:
 
 
 def _fmt_hours(v: float) -> str:
-    return ("%g" % v).replace(".", ",")
+    return f"{v:g}".replace(".", ",")
 
 
 def _format_report_hours(report: dict) -> None:
@@ -268,12 +273,14 @@ def _format_report_hours(report: dict) -> None:
         report["total_hours"] = _fmt_hours(report["total_hours"])
 
 
-def _format_period_label(date_range: str, resolved_from: date | None, resolved_to: date | None) -> str:
+def _format_period_label(
+    date_range: str, resolved_from: date | None, resolved_to: date | None
+) -> str:
     label = _DATE_RANGE_LABELS.get(date_range, date_range)
     if resolved_from and resolved_to:
-        return f"{label} ({resolved_from.isoformat()} – {resolved_to.isoformat()})"
+        return f"{label} ({resolved_from.isoformat()} \N{EN DASH} {resolved_to.isoformat()})"
     if resolved_from:
-        return f"{label} ({resolved_from.isoformat()}–)"
+        return f"{label} ({resolved_from.isoformat()}\N{EN DASH})"
     return label
 
 
@@ -357,7 +364,7 @@ def _reports_page(
         return templates.TemplateResponse(request, "controlling_reports.html", ctx)
 
     resolved_from, resolved_to = _resolve_date_range(
-        date_range, date_from, date_to, selected_project, date.today()
+        date_range, date_from, date_to, selected_project, local_today()
     )
     ctx["header_period_label"] = _format_period_label(date_range, resolved_from, resolved_to)
     report = client.get_timesheet_report(

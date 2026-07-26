@@ -6,7 +6,8 @@ Builds the common request envelope (header / user / software), posts to the
 
 import logging
 import time
-from typing import Any, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any
 from xml.sax.saxutils import escape
 
 import requests
@@ -56,7 +57,7 @@ class NavClient:
         root_name: str,
         body_xml: str = "",
         *,
-        invoices: Optional[Iterable[tuple[str, str]]] = None,
+        invoices: Iterable[tuple[str, str]] | None = None,
     ) -> str:
         """Build a complete request envelope XML string.
 
@@ -115,7 +116,9 @@ class NavClient:
         )
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        logger.info("NAV POST %s → %d in %.0fms", path.lstrip("/"), response.status_code, elapsed_ms)
+        logger.info(
+            "NAV POST %s → %d in %.0fms", path.lstrip("/"), response.status_code, elapsed_ms
+        )
         logger.debug("Response:\n%s", response.text[:4000])
 
         try:

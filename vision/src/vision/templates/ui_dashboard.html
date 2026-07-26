@@ -229,7 +229,17 @@
             <tr>
               <td class="fw-medium"><a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a></td>
               <td>{{ row.invoice_date or '—' }}</td>
-              <td>{{ row.supplier_name }}</td>
+              <td>
+                {% if row.supplier_name %}
+                  {% if row.supplier_id %}
+                    <a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.supplier_name }}</a>
+                  {% else %}
+                    {{ row.supplier_name }}
+                  {% endif %}
+                {% else %}
+                  <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+                {% endif %}
+              </td>
               <td class="text-end fw-medium">{{ amount_fmt(row.amount_total) }}</td>
               <td>{{ payment_badge(row.payment_status) }}</td>
             </tr>

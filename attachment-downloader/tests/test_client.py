@@ -1,14 +1,15 @@
 import base64
-from datetime import datetime
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import MagicMock, patch
+
 from attachment_downloader.providers.gmail.client import GmailClient
 
 
 @pytest.fixture
 def gmail_client():
-    with patch('attachment_downloader.providers.gmail.client.build') as mock_build:
+    with patch("attachment_downloader.providers.gmail.client.build"):
         client = GmailClient()
         client._get_service = MagicMock()
         yield client
@@ -18,11 +19,9 @@ def test_download_pdf_attachments(gmail_client, tmp_path):
     mock_service = MagicMock()
     gmail_client._get_service.return_value = mock_service
 
-    mock_service.users().messages().list().execute.return_value = {
-        "messages": [{"id": "msg1"}]
-    }
+    mock_service.users().messages().list().execute.return_value = {"messages": [{"id": "msg1"}]}
 
-    internal_ms = int(datetime(2026, 5, 12).timestamp() * 1000)
+    internal_ms = int(datetime(2026, 5, 12, tzinfo=UTC).timestamp() * 1000)
     mock_service.users().messages().get().execute.return_value = {
         "id": "msg1",
         "internalDate": str(internal_ms),
@@ -67,10 +66,8 @@ def test_download_counter_resumes_per_year(gmail_client, tmp_path):
 
     mock_service = MagicMock()
     gmail_client._get_service.return_value = mock_service
-    mock_service.users().messages().list().execute.return_value = {
-        "messages": [{"id": "msg1"}]
-    }
-    internal_ms = int(datetime(2026, 5, 12).timestamp() * 1000)
+    mock_service.users().messages().list().execute.return_value = {"messages": [{"id": "msg1"}]}
+    internal_ms = int(datetime(2026, 5, 12, tzinfo=UTC).timestamp() * 1000)
     mock_service.users().messages().get().execute.return_value = {
         "id": "msg1",
         "internalDate": str(internal_ms),
@@ -105,10 +102,8 @@ def test_download_skips_already_present_file(gmail_client, tmp_path):
 
     mock_service = MagicMock()
     gmail_client._get_service.return_value = mock_service
-    mock_service.users().messages().list().execute.return_value = {
-        "messages": [{"id": "msg1"}]
-    }
-    internal_ms = int(datetime(2026, 5, 12).timestamp() * 1000)
+    mock_service.users().messages().list().execute.return_value = {"messages": [{"id": "msg1"}]}
+    internal_ms = int(datetime(2026, 5, 12, tzinfo=UTC).timestamp() * 1000)
     mock_service.users().messages().get().execute.return_value = {
         "id": "msg1",
         "internalDate": str(internal_ms),

@@ -9,8 +9,8 @@ import hashlib
 import logging
 import secrets
 import string
-from datetime import datetime, timezone
-from typing import Iterable, Optional
+from collections.abc import Iterable
+from datetime import UTC, datetime
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
@@ -38,19 +38,19 @@ def password_hash(password: str) -> str:
 
 def utc_now() -> datetime:
     """Current UTC time (timezone-aware)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def format_timestamp(dt: datetime) -> str:
     """Header timestamp: ``YYYY-MM-DDTHH:MM:SS.mmmZ`` in UTC."""
-    dt = dt.astimezone(timezone.utc)
+    dt = dt.astimezone(UTC)
     millis = dt.microsecond // 1000
     return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{millis:03d}Z"
 
 
 def signature_timestamp(dt: datetime) -> str:
     """Signature timestamp: ``YYYYMMDDHHMMSS`` in UTC (no millis)."""
-    return dt.astimezone(timezone.utc).strftime("%Y%m%d%H%M%S")
+    return dt.astimezone(UTC).strftime("%Y%m%d%H%M%S")
 
 
 def generate_request_id() -> str:
@@ -70,7 +70,7 @@ def request_signature(
     request_id: str,
     dt: datetime,
     sign_key: str,
-    invoices: Optional[Iterable[tuple[str, str]]] = None,
+    invoices: Iterable[tuple[str, str]] | None = None,
 ) -> str:
     """Compute the ``requestSignature`` value (SHA3-512, uppercase hex).
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 from fastapi import Query
 from sqlalchemy.orm import Session
@@ -14,36 +13,38 @@ from invoice_core.db import BankTransaction, Invoice, InvoiceFile
 class InvoiceFileRow:
     id: int
     filename: str
-    file_size: Optional[int]
-    linked_invoice_id: Optional[int]
-    linked_invoice_number: Optional[str]
-    supplier_name: Optional[str]
-    amount_total: Optional[float]
+    file_size: int | None
+    linked_invoice_id: int | None
+    linked_invoice_number: str | None
+    supplier_name: str | None
+    amount_total: float | None
     created_at: datetime
     is_linked: bool
-    bank_transaction_id: Optional[str]
-    bank_amount: Optional[float]
-    bank_currency: Optional[str]
-    bank_date: Optional[datetime]
+    bank_transaction_id: str | None
+    bank_amount: float | None
+    bank_currency: str | None
+    bank_date: datetime | None
     bank_count: int
     is_bank_linked: bool
-    words: Optional[str] = None
-    preview_base64: Optional[str] = None
+    words: str | None = None
+    preview_base64: str | None = None
     is_deleted: bool = False
 
 
 class InvoiceFileFilters:
     def __init__(
         self,
-        linked: Optional[str] = Query(None),
+        linked: str | None = Query(None),
     ):
         self.linked = linked  # "yes" | "no" | None
 
 
 def list_invoice_files(
     db: Session,
-    linked: Optional[str] = None,
-    filename: Optional[str] = None,
+    linked: str | None = None,
+    filename: str | None = None,
+    limit: int = 1000,
+    offset: int = 0,
 ) -> list[InvoiceFileRow]:
     from invoice_core.db import Supplier
 
@@ -60,7 +61,8 @@ def list_invoice_files(
         q = q.filter(InvoiceFile.filename.ilike(f"%{filename}%"))
     q = q.filter(InvoiceFile.is_deleted.is_(False))
 
-    q = q.order_by(InvoiceFile.created_at.desc())
+    q = q.order_by(InvoiceFile.created_at.desc(), InvoiceFile.id.desc())
+    q = q.offset(offset).limit(limit)
     results = q.all()
 
     file_ids = [f.id for f, _inv, _sup in results]

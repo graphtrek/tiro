@@ -8,8 +8,10 @@ PyJWKClient tölti le és cache-eli (1 óra TTL, ismeretlen `kid` esetén
 from __future__ import annotations
 
 import logging
+import ssl
 from contextvars import ContextVar
 
+import certifi
 import jwt
 import requests.auth
 from fastapi import Request
@@ -27,12 +29,25 @@ current_token: ContextVar[str | None] = ContextVar("current_token", default=None
 _jwk_clients: dict[str, jwt.PyJWKClient] = {}
 
 
+def _build_ssl_context() -> ssl.SSLContext:
+    """Certifi-alapú TLS trust store a JWKS lekéréshez (ne a rendszer CA store).
+
+    A PyJWKClient a urllib.request modult használja a JWKS letöltéséhez, ami a
+    rendszer CA store-jára támaszkodik -- ez pl. egy python.org-os macOS
+    telepítésen vagy egy csupasz konténerben üres/hiányos lehet, és a JWKS
+    lekérést hamis "invalid token" hibaként buktatja. A többi HTTP hívás
+    (requests/httpx) certifi-t bundle-el; itt explicit certifi-alapú
+    SSLContext-tel ugyanazt a megbízható store-ot használjuk.
+    """
+    return ssl.create_default_context(cafile=certifi.where())
+
+
 def _get_signing_key(token: str, auth_service_url: str):
     url = f"{auth_service_url.rstrip('/')}/.well-known/jwks.json"
     client = _jwk_clients.get(url)
     if client is None:
         client = _jwk_clients[url] = jwt.PyJWKClient(
-            url, cache_keys=True, lifespan=3600
+            url, cache_keys=True, lifespan=3600, ssl_context=_build_ssl_context()
         )
     return client.get_signing_key_from_jwt(token).key
 
@@ -46,7 +61,14 @@ def extract_token(request: Request) -> str | None:
 
 
 def verify_jwt(token: str, settings: Settings) -> dict | None:
-    """RS256 aláírás + exp + aud + iss ellenőrzés; hibánál None."""
+    """RS256 aláírás + exp + aud + iss ellenőrzés; hibánál None.
+
+    A middleware szerződése (böngészőnek redirect a /login-ra, API hívásnak
+    401 JSON) minden hiba esetén None-t vár -- de a JWKS lekérés hálózati/TLS
+    hibáját NEM keverjük össze egy ténylegesen érvénytelen access tokennel a
+    logban: az előbbi szerver oldali (auth infrastruktúra) hiba, nem a
+    felhasználó munkamenetének hibája.
+    """
     try:
         claims = jwt.decode(
             token,
@@ -55,11 +77,18 @@ def verify_jwt(token: str, settings: Settings) -> dict | None:
             audience=settings.jwt_audience,
             issuer=settings.jwt_issuer,
         )
+    except jwt.PyJWKClientConnectionError as exc:
+        # A JWKS lekérés hálózati/TLS hibája nem azonos egy érvénytelen access
+        # tokennel -- ne keverjük össze a logban (ez okozta a "Fail to fetch
+        # data from the url" TLS hibák néma "nincs bejelentkezve"-ként való
+        # megjelenését).
+        logger.error("JWKS lekérés sikertelen (hálózat/TLS, fut az auth szerviz?): %s", exc)
+        return None
     except jwt.PyJWTError as exc:
         logger.debug("Érvénytelen access token: %s", exc)
         return None
-    except Exception as exc:  # pl. a JWKS nem érhető el
-        logger.warning("JWT validálás sikertelen (JWKS?): %s", exc)
+    except (OSError, TypeError, ValueError) as exc:  # pl. a JWKS nem érhető el egyéb okból
+        logger.error("JWT validálás sikertelen (fut az auth szerviz?): %s", exc)
         return None
     if claims.get("typ") != "access":
         return None

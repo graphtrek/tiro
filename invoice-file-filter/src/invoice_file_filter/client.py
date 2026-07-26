@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
 
 import requests
 
@@ -24,7 +23,7 @@ class AttachmentDownloaderClient:
     POSTs to ``/api/v1/jobs`` and receives a ``DownloadResult`` immediately.
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.attachment_downloader_url.rstrip("/")
         self.session = requests.Session()

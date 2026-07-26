@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
+import base64
 import csv
 import io
 import logging
 import os
-import base64
 import re
 import time
 import unicodedata
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pdfplumber
+from pdfminer.pdfexceptions import PDFException
 
 from .config import get_settings
 from .models import ProcessedFile
@@ -60,7 +61,7 @@ def get_page_count(pdf_path: str) -> int:
     try:
         with pdfplumber.open(pdf_path) as pdf:
             count = len(pdf.pages)
-    except Exception as exc:
+    except (OSError, PDFException) as exc:
         logger.warning("Could not read page count from %s: %s", pdf_path, exc)
         count = 0
 
@@ -93,7 +94,7 @@ def extract_words_csv(pdf_path: str) -> str:
             for page in pdf.pages:
                 for word in page.extract_words():
                     raw_words.append(word["text"])
-    except Exception as exc:
+    except (OSError, PDFException) as exc:
         logger.warning("Could not extract words from %s: %s", pdf_path, exc)
 
     if not raw_words and _OCR_AVAILABLE:
@@ -151,7 +152,7 @@ def extract_text(pdf_path: str) -> str:
         with pdfplumber.open(pdf_path) as pdf:
             parts = [page.extract_text() or "" for page in pdf.pages]
         text = "\n".join(parts)
-    except Exception as exc:
+    except (OSError, PDFException) as exc:
         logger.warning("Could not extract text from %s: %s", pdf_path, exc)
         text = ""
 
@@ -179,7 +180,7 @@ def is_invoice(filename: str, text: str, keywords: Sequence[str] | None = None) 
 def describe_file(pdf_path: str) -> ProcessedFile:
     """Return the filename, absolute path, modification date and size of a PDF file."""
     abs_path = os.path.abspath(pdf_path)
-    modified = datetime.fromtimestamp(os.path.getmtime(abs_path))
+    modified = datetime.fromtimestamp(os.path.getmtime(abs_path), tz=UTC).astimezone()
     size = os.path.getsize(abs_path)
     try:
         with pdfplumber.open(abs_path) as pdf:
@@ -190,7 +191,7 @@ def describe_file(pdf_path: str) -> ProcessedFile:
                 buf = io.BytesIO()
                 img.save(buf, format="PNG")
                 preview_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort preview: pdf2image/Pillow/pdfplumber failure surfaces are broad (e.g. PopplerNotInstalledError, which is a plain Exception subclass); swallow any failure and return None
         logger.warning("Could not generate preview for %s: %s", abs_path, e)
         preview_base64 = None
     
@@ -208,7 +209,7 @@ def describe_file(pdf_path: str) -> ProcessedFile:
     )
 
 
-def _iter_pdf_paths(paths_or_dir: 'str | Path | Sequence[str | Path]') -> list[str]:
+def _iter_pdf_paths(paths_or_dir: str | Path | Sequence[str | Path]) -> list[str]:
     """Normalize input (a directory, a single path, or a list) to PDF paths."""
     if isinstance(paths_or_dir, (str, Path)):
         p = Path(paths_or_dir)

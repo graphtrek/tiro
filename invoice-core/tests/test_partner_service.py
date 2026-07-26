@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from invoice_core.db import Base, Customer, Invoice, Supplier
+from invoice_core.db import Base, Invoice
 from invoice_core.models import CustomerIn, CustomerUpdate, SupplierIn, SupplierUpdate
 from invoice_core.services import partner_service
 
@@ -23,7 +23,9 @@ def db():
 
 
 def test_create_supplier(db):
-    record = partner_service.create_supplier(db, SupplierIn(name="ACME Kft", tax_id="12345678-1-42"))
+    record = partner_service.create_supplier(
+        db, SupplierIn(name="ACME Kft", tax_id="12345678-1-42")
+    )
 
     assert record.id is not None
     assert record.name == "ACME Kft"

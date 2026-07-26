@@ -34,6 +34,19 @@ start() {
     printf "  ${GREEN}%-34s${NC} pid %-6s  logs/%s.log\n" "$name" "$pid" "$name"
 }
 
+# Recursively gather a PID and all its descendants into ALL_PIDS.
+# Needed because each `start`ed job is really "subshell -> python -> (maybe)
+# uvicorn --reload worker" and only the subshell PID is captured by $! —
+# signaling just that PID leaves the real python process orphaned.
+collect_tree() {
+    local pid=$1
+    ALL_PIDS+=("$pid")
+    local child
+    for child in $(pgrep -P "$pid" 2>/dev/null); do
+        collect_tree "$child"
+    done
+}
+
 _CLEANED=0
 cleanup() {
     (( _CLEANED )) && return
@@ -41,13 +54,33 @@ cleanup() {
     trap - EXIT INT TERM
     echo ""
     echo -e "${YELLOW}Stopping services...${NC}"
+
+    ALL_PIDS=()
     for i in "${!PIDS[@]}"; do
-        local pid="${PIDS[$i]}"
-        if kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null
-            printf "  stopped %-34s (pid %s)\n" "${NAMES[$i]}" "$pid"
-        fi
+        collect_tree "${PIDS[$i]}"
     done
+
+    for pid in "${ALL_PIDS[@]}"; do
+        kill -TERM "$pid" 2>/dev/null
+    done
+
+    for _ in 1 2 3 4 5; do
+        remaining=0
+        for pid in "${ALL_PIDS[@]}"; do
+            kill -0 "$pid" 2>/dev/null && (( remaining++ ))
+        done
+        (( remaining == 0 )) && break
+        sleep 1
+    done
+
+    for pid in "${ALL_PIDS[@]}"; do
+        kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null
+    done
+
+    for i in "${!PIDS[@]}"; do
+        printf "  stopped %-34s (pid %s)\n" "${NAMES[$i]}" "${PIDS[$i]}"
+    done
+
     wait 2>/dev/null
     echo -e "${GREEN}All services stopped.${NC}"
     exit 0

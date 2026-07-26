@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from contextlib import suppress
 
 import requests
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class UploaderClient:
     """Client for uploader endpoints."""
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.uploader_url.rstrip("/")
         self.timeout = self.settings.request_timeout
@@ -43,10 +43,8 @@ class UploaderClient:
         except requests.HTTPError as exc:
             detail = None
             if exc.response is not None:
-                try:
+                with suppress(ValueError):
                     detail = exc.response.json().get("detail")
-                except ValueError:
-                    pass
             logger.warning("uploader POST /api/v1/upload failed: %s", detail or exc)
             return {"error": detail or str(exc)}
         except requests.RequestException as exc:
@@ -74,7 +72,5 @@ class UploaderClient:
             resp.raise_for_status()
             return True
         except requests.RequestException as exc:
-            logger.warning(
-                "uploader DELETE /api/v1/files/%s/%s failed: %s", bank, filename, exc
-            )
+            logger.warning("uploader DELETE /api/v1/files/%s/%s failed: %s", bank, filename, exc)
             return False

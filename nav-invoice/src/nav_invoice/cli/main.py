@@ -2,13 +2,12 @@
 
 import json
 import logging
-from datetime import date, timedelta
-from typing import Optional
+from datetime import UTC, date, datetime, timedelta
 
 import click
 
 from nav_invoice import cache as _cache
-from nav_invoice.auth import login as nav_login, check_connection
+from nav_invoice.auth import login as nav_login
 from nav_invoice.client import NavApiError
 from nav_invoice.config import get_settings
 from nav_invoice.models import DigestQueryParams, InvoiceDirection, SubmitInvoiceRequest
@@ -61,8 +60,8 @@ def login():
 @click.option("--page", type=int, default=1, help="Lapozás (1-től).")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON.")
 def list(
-    from_date: Optional[str],
-    to_date: Optional[str],
+    from_date: str | None,
+    to_date: str | None,
     direction: str,
     page: int,
     as_json: bool,
@@ -70,8 +69,12 @@ def list(
     """List invoices from NAV (queryInvoiceDigest)."""
     settings = get_settings()
 
-    from_obj = date.fromisoformat(from_date) if from_date else date.today() - timedelta(days=30)
-    to_obj = date.fromisoformat(to_date) if to_date else date.today()
+    from_obj = (
+        date.fromisoformat(from_date)
+        if from_date
+        else datetime.now(tz=UTC).astimezone().date() - timedelta(days=30)
+    )
+    to_obj = date.fromisoformat(to_date) if to_date else datetime.now(tz=UTC).astimezone().date()
 
     params = DigestQueryParams(
         from_date=from_obj,
@@ -84,7 +87,7 @@ def list(
         invoices = query_invoice_digest(params, settings)
     except NavApiError as exc:
         click.echo(click.style(f"✗ Hiba: {exc}", fg="red"))
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     if as_json:
         data = [inv.model_dump() for inv in invoices]
@@ -124,7 +127,7 @@ def show(szamlaszam: str, direction: str) -> None:
         )
     except NavApiError as exc:
         click.echo(click.style(f"✗ Hiba: {exc}", fg="red"))
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     if not invoice_xml:
         click.echo(click.style(f"Számla nem található: {szamlaszam}", fg="red"))
@@ -137,7 +140,7 @@ def show(szamlaszam: str, direction: str) -> None:
 
 @main.command()
 @click.option("--json", "input_json", type=str, default=None, help="Invoice data as JSON string.")
-def report(input_json: Optional[str]) -> None:
+def report(input_json: str | None) -> None:
     """Submit an invoice to NAV (Adatszolgáltatás)."""
     settings = get_settings()
 
@@ -150,7 +153,7 @@ def report(input_json: Optional[str]) -> None:
         request = SubmitInvoiceRequest(**data)
     except (json.JSONDecodeError, ValueError) as exc:
         click.echo(click.style(f"✗ Érvénytelen bemeneti adat: {exc}", fg="red"))
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     result = submit_invoice(request, settings)
 

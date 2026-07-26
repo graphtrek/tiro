@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
 
 import requests
 
@@ -41,7 +40,7 @@ class WiseClient:
         description, counterparty_name, counterparty_account, payment_reference
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.wise_url.rstrip("/")
         self.session = make_http_session()
@@ -56,9 +55,7 @@ class WiseClient:
             )
             resp.raise_for_status()
         except requests.RequestException as exc:
-            raise WiseClientError(
-                f"Failed to reach wise at {self.base_url}: {exc}"
-            ) from exc
+            raise WiseClientError(f"Failed to reach wise at {self.base_url}: {exc}") from exc
 
         data = resp.json()
 
@@ -77,15 +74,15 @@ class WiseClient:
                 )
                 resp2.raise_for_status()
             except requests.RequestException as exc:
-                raise WiseClientError(
-                    f"Failed to fetch statement {filename}: {exc}"
-                ) from exc
+                raise WiseClientError(f"Failed to fetch statement {filename}: {exc}") from exc
             data = resp2.json()
 
         transactions = data.get("transactions", [])
         elapsed_ms = (time.monotonic() - t0) * 1000
         logger.info(
             "GET %s/balance-statements → %d transaction(s) in %.0fms",
-            self.base_url, len(transactions), elapsed_ms,
+            self.base_url,
+            len(transactions),
+            elapsed_ms,
         )
         return transactions

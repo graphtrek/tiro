@@ -1,10 +1,9 @@
-from typing import Optional
-
 import typer
-from attachment_downloader.config import configure_logging, get_settings
-from attachment_downloader.providers import get_client
 from rich.console import Console
 from rich.table import Table
+
+from attachment_downloader.config import configure_logging, get_settings
+from attachment_downloader.providers import get_client
 
 app = typer.Typer(help="Attachment Downloader CLI")
 console = Console()
@@ -19,7 +18,11 @@ def _main() -> None:
 def download(
     start: str = typer.Option(..., "--start", help="Filter start date (YYYY-MM-DD)"),
     end: str = typer.Option(..., "--end", help="Filter end date (YYYY-MM-DD)"),
-    output: Optional[str] = typer.Option(None, "--output", help="Subdirectory under DOWNLOAD_ROOT_DIR (default: DOWNLOAD_ROOT_DIR root)"),
+    output: str | None = typer.Option(
+        None,
+        "--output",
+        help="Subdirectory under DOWNLOAD_ROOT_DIR (default: DOWNLOAD_ROOT_DIR root)",
+    ),
     provider: str = typer.Option("gmail", "--provider", help="Email provider (gmail)"),
 ):
     """Download PDF attachments from an email provider in a date range."""
@@ -31,9 +34,9 @@ def download(
     client = get_client(provider)
     try:
         result = client.download_pdf_attachments(start, end, output, log=log)
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
-        raise typer.Exit(code=1)
+    except Exception as e:  # noqa: BLE001 - top-level CLI handler must print and exit on any failure
+        console.print(f"[red]Error:[/red] {e!s}")
+        raise typer.Exit(code=1) from None
 
     if not result.files:
         if result.skipped_files:
@@ -54,9 +57,7 @@ def download(
         table.add_row(f.filename, f.original_filename, f.email_date, f"{f.size_bytes:,} B")
     console.print(table)
     skipped_note = (
-        f" ({result.skipped_files} already present, skipped)"
-        if result.skipped_files
-        else ""
+        f" ({result.skipped_files} already present, skipped)" if result.skipped_files else ""
     )
     console.print(
         f"[green]Done. {result.total_files} PDF(s) from {result.total_emails} "

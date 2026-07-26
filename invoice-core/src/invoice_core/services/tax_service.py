@@ -2,21 +2,21 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from typing import Optional
+from datetime import date, datetime, time
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from invoice_core.config import get_settings
 from invoice_core.db import BankTransaction, Invoice, InvoiceVatSummary, _InvoiceDirection
+from invoice_core.timeutil import today
 
 
 @dataclass
 class TaxTransaction:
     id: int
     transaction_date: datetime
-    counterparty_name: Optional[str]
+    counterparty_name: str | None
     tax_label: str
     amount: float
     currency: str
@@ -49,13 +49,18 @@ def get_tax_report(db: Session, year: int) -> TaxReport:
     totals them by month and by tax type.
     """
     tax_accounts = get_settings().tax_accounts
+    # Naive-UTC year boundaries for filtering the naive `transaction_date`
+    # column (see timeutil). datetime.combine keeps the result naive without
+    # tripping DTZ001 the way datetime(year, 1, 1) would.
+    year_start = datetime.combine(date(year, 1, 1), time.min)
+    year_end = datetime.combine(date(year + 1, 1, 1), time.min)
     rows = (
         db.query(BankTransaction)
         .filter(
             BankTransaction.counterparty_account.in_(list(tax_accounts.keys())),
             BankTransaction.direction == "DEBIT",
-            BankTransaction.transaction_date >= datetime(year, 1, 1),
-            BankTransaction.transaction_date < datetime(year + 1, 1, 1),
+            BankTransaction.transaction_date >= year_start,
+            BankTransaction.transaction_date < year_end,
         )
         .order_by(BankTransaction.transaction_date.desc())
         .all()
@@ -65,8 +70,8 @@ def get_tax_report(db: Session, year: int) -> TaxReport:
         db.query(func.coalesce(func.sum(BankTransaction.amount), 0.0))
         .filter(
             BankTransaction.direction == "CREDIT",
-            BankTransaction.transaction_date >= datetime(year, 1, 1),
-            BankTransaction.transaction_date < datetime(year + 1, 1, 1),
+            BankTransaction.transaction_date >= year_start,
+            BankTransaction.transaction_date < year_end,
         )
         .scalar()
         or 0.0
@@ -189,7 +194,7 @@ def get_tax_estimate(
     """Estimate monthly tax liability for *year* from invoice data.
 
     Unlike `get_tax_report` (actual money already paid to tax accounts), this
-    projects what's *accruing*: ÁFA (output VAT − input VAT, from
+    projects what's *accruing*: ÁFA (output VAT - input VAT, from
     `InvoiceVatSummary`), TAO/KIVA and HIPA (from gross profit / revenue),
     and SZJA/SZOCHÓ on the resulting dividend base — mirroring
     `dividend_service.calculate_dividend`'s yearly formula, applied per month.
@@ -239,14 +244,16 @@ def get_tax_estimate(
         elif direction == _InvoiceDirection.INBOUND:
             monthly_vat[month_key] -= amt
 
-    today = date.today()
-    is_current_year = year == today.year
-    real_month_count = today.month if is_current_year else 12
+    today_date = today()
+    is_current_year = year == today_date.year
+    real_month_count = today_date.month if is_current_year else 12
 
     monthly: list[TaxEstimateMonthRow] = []
     for m in range(1, real_month_count + 1):
         month_key = f"{year:04d}-{m:02d}"
-        rev_exp = monthly_rev_exp.get(month_key, {"revenue": 0.0, "gross_revenue": 0.0, "expenses": 0.0})
+        rev_exp = monthly_rev_exp.get(
+            month_key, {"revenue": 0.0, "gross_revenue": 0.0, "expenses": 0.0}
+        )
         monthly.append(
             _tax_row(
                 month_key,

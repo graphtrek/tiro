@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 def _import_deps():
     """Lazy import of OCR dependencies so the service starts even without them."""
     try:
-        import pytesseract  # noqa: F401
-        from pdf2image import convert_from_path  # noqa: F401
+        import pytesseract
+        from pdf2image import convert_from_path
         return pytesseract, convert_from_path
     except ImportError as exc:
         raise RuntimeError(
@@ -33,7 +33,7 @@ def ocr_pdf(pdf_path: str, language: str = "hun+eng") -> str:
 
     try:
         images = convert_from_path(pdf_path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort OCR: pdf2image/poppler failure surfaces are broad (PopplerNotInstalledError is a plain Exception subclass) and tests assert swallow-all semantics
         logger.warning("pdf2image failed for %s: %s", pdf_path, exc)
         return ""
 
@@ -42,7 +42,7 @@ def ocr_pdf(pdf_path: str, language: str = "hun+eng") -> str:
         try:
             text = pytesseract.image_to_string(img, lang=language)
             parts.append(text)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort OCR: tests raise plain Exception to assert per-page failures are skipped, not fatal
             logger.warning("Tesseract failed on page %d of %s: %s", i, pdf_path, exc)
 
     result = "\n".join(parts)
@@ -63,7 +63,7 @@ def ocr_extract_words(pdf_path: str, language: str = "hun+eng") -> list[str]:
 
     try:
         images = convert_from_path(pdf_path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort OCR: pdf2image/poppler failure surfaces are broad; swallow any failure and return []
         logger.warning("pdf2image failed for %s: %s", pdf_path, exc)
         return []
 
@@ -77,7 +77,7 @@ def ocr_extract_words(pdf_path: str, language: str = "hun+eng") -> list[str]:
                 if int(data["conf"][i]) == -1 or not text.strip():
                     continue
                 words.append(text.strip())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort word extraction: tesseract/data-shape failures are broad; skip the failing page, keep words collected so far
             logger.warning(
                 "Tesseract word extraction failed on page %d of %s: %s", page_num, pdf_path, exc
             )

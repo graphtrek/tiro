@@ -13,7 +13,16 @@ from sqlalchemy.orm import sessionmaker
 
 from invoice_core.bank_client import BankClient
 from invoice_core.config import Settings
-from invoice_core.db import Base, BankTransaction, Customer, Invoice, InvoiceDetail, InvoiceLine, InvoiceVatSummary, Supplier
+from invoice_core.db import (
+    BankTransaction,
+    Base,
+    Customer,
+    Invoice,
+    InvoiceDetail,
+    InvoiceLine,
+    InvoiceVatSummary,
+    Supplier,
+)
 from invoice_core.nav_client import NavClient
 from invoice_core.service import classify_bank_account, get_pending_sync_counts, sync_bank, sync_nav
 
@@ -35,12 +44,14 @@ def settings():
 class TestClassifyBankAccount:
     def test_iban(self):
         assert classify_bank_account("HU42117730161111101800000000") == (
-            "HU42117730161111101800000000", None
+            "HU42117730161111101800000000",
+            None,
         )
 
     def test_bban(self):
         assert classify_bank_account("11773016-11111018-00000000") == (
-            None, "11773016-11111018-00000000",
+            None,
+            "11773016-11111018-00000000",
         )
 
     def test_empty(self):
@@ -49,13 +60,15 @@ class TestClassifyBankAccount:
 
 
 def test_sync_nav_persists_enriched_fields(sdb, settings, monkeypatch):
-    # Sync no longer auto-creates partners (see test_sync_nav.py), so the
-    # supplier/customer must already exist — as if created manually — for
-    # sync_nav to attach the NAV-enriched fields to them.
-    sdb.add_all([
-        Supplier(name="Supplier Kft.", tax_id="11111111-1-11"),
-        Customer(name="Customer Kft.", tax_id="22222222-2-22"),
-    ])
+    # Pre-seed matching suppliers/customers so this test exercises the
+    # lookup/enrichment half of the upsert (see test_sync_nav_partner_upsert.py
+    # for the create half).
+    sdb.add_all(
+        [
+            Supplier(name="Supplier Kft.", tax_id="11111111-1-11"),
+            Customer(name="Customer Kft.", tax_id="22222222-2-22"),
+        ]
+    )
     sdb.commit()
 
     digest = {
@@ -110,7 +123,8 @@ def test_sync_nav_persists_enriched_fields(sdb, settings, monkeypatch):
 
     monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [digest])
     monkeypatch.setattr(
-        NavClient, "get_invoice_detail",
+        NavClient,
+        "get_invoice_detail",
         lambda self, invoice_number, direction, supplier_tax_number="": detail,
     )
 
@@ -175,8 +189,11 @@ def test_sync_nav_skips_detail_fetch_when_already_enriched(sdb, settings, monkey
     sdb.add_all([sup, cust])
     sdb.flush()
     inv = Invoice(
-        invoice_number="INV-100", supplier_id=sup.id, customer_id=cust.id,
-        payment_method="TRANSFER", direction="OUTBOUND",
+        invoice_number="INV-100",
+        supplier_id=sup.id,
+        customer_id=cust.id,
+        payment_method="TRANSFER",
+        direction="OUTBOUND",
     )
     sdb.add(inv)
     sdb.flush()
@@ -195,7 +212,8 @@ def test_sync_nav_skips_detail_fetch_when_already_enriched(sdb, settings, monkey
     calls = []
     monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [digest])
     monkeypatch.setattr(
-        NavClient, "get_invoice_detail",
+        NavClient,
+        "get_invoice_detail",
         lambda self, *a, **kw: calls.append(1) or None,
     )
 
@@ -203,17 +221,24 @@ def test_sync_nav_skips_detail_fetch_when_already_enriched(sdb, settings, monkey
     assert calls == []
 
 
-def test_sync_nav_backfills_detail_for_previously_enriched_invoice_missing_detail_row(sdb, settings, monkeypatch):
+def test_sync_nav_backfills_detail_for_previously_enriched_invoice_missing_detail_row(
+    sdb, settings, monkeypatch
+):
     """An invoice synced before this feature existed (payment_method set, no
     InvoiceDetail row) must still trigger a detail fetch so it gets backfilled."""
     sup = Supplier(name="Supplier Kft.", tax_id="11111111-1-11")
     cust = Customer(name="Customer Kft.", tax_id="22222222-2-22")
     sdb.add_all([sup, cust])
     sdb.flush()
-    sdb.add(Invoice(
-        invoice_number="INV-100", supplier_id=sup.id, customer_id=cust.id,
-        payment_method="TRANSFER", direction="OUTBOUND",
-    ))
+    sdb.add(
+        Invoice(
+            invoice_number="INV-100",
+            supplier_id=sup.id,
+            customer_id=cust.id,
+            payment_method="TRANSFER",
+            direction="OUTBOUND",
+        )
+    )
     sdb.commit()
 
     digest = {
@@ -229,7 +254,8 @@ def test_sync_nav_backfills_detail_for_previously_enriched_invoice_missing_detai
     calls = []
     monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [digest])
     monkeypatch.setattr(
-        NavClient, "get_invoice_detail",
+        NavClient,
+        "get_invoice_detail",
         lambda self, *a, **kw: calls.append(1) or detail,
     )
 
@@ -252,14 +278,21 @@ def test_sync_nav_backfills_detail_for_row_with_failed_enrichment(sdb, settings,
     sdb.add_all([sup, cust])
     sdb.flush()
     inv = Invoice(
-        invoice_number="INV-100", supplier_id=sup.id, customer_id=cust.id,
-        payment_method="TRANSFER", direction="OUTBOUND",
+        invoice_number="INV-100",
+        supplier_id=sup.id,
+        customer_id=cust.id,
+        payment_method="TRANSFER",
+        direction="OUTBOUND",
     )
     sdb.add(inv)
     sdb.flush()
-    sdb.add(InvoiceDetail(
-        invoice_id=inv.id, supplier_name="Supplier Kft.", supplier_tax_number="11111111-1-11",
-    ))
+    sdb.add(
+        InvoiceDetail(
+            invoice_id=inv.id,
+            supplier_name="Supplier Kft.",
+            supplier_tax_number="11111111-1-11",
+        )
+    )
     sdb.commit()
 
     digest = {
@@ -271,11 +304,16 @@ def test_sync_nav_backfills_detail_for_row_with_failed_enrichment(sdb, settings,
         "customer_name": "Customer Kft.",
         "direction": "OUTBOUND",
     }
-    detail = {"invoice_number": "INV-100", "invoice_xml": "<xml/>", "supplier_address": "1011, Budapest"}
+    detail = {
+        "invoice_number": "INV-100",
+        "invoice_xml": "<xml/>",
+        "supplier_address": "1011, Budapest",
+    }
     calls = []
     monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [digest])
     monkeypatch.setattr(
-        NavClient, "get_invoice_detail",
+        NavClient,
+        "get_invoice_detail",
         lambda self, *a, **kw: calls.append(1) or detail,
     )
 
@@ -307,14 +345,18 @@ def test_sync_nav_replaces_lines_and_vat_summary_on_resync(sdb, settings, monkey
     detail_v1 = {
         "invoice_number": "INV-100",
         "lines": [{"line_number": "1", "line_description": "Old line"}],
-        "vat_summary": [{"vat_rate": 0.27, "vat_rate_net_amount": 100.0, "vat_rate_vat_amount": 27.0}],
+        "vat_summary": [
+            {"vat_rate": 0.27, "vat_rate_net_amount": 100.0, "vat_rate_vat_amount": 27.0}
+        ],
     }
     monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [digest])
     monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: detail_v1)
     sync_nav("2026-05-01", "2026-05-31", sdb, settings)
 
     inv = sdb.query(Invoice).filter_by(invoice_number="INV-100").first()
-    assert [ln.line_description for ln in sdb.query(InvoiceLine).filter_by(invoice_id=inv.id).all()] == ["Old line"]
+    assert [
+        ln.line_description for ln in sdb.query(InvoiceLine).filter_by(invoice_id=inv.id).all()
+    ] == ["Old line"]
 
     # Invoice still lacks a payment_method, so the next sync fetches detail again.
     detail_v2 = {
@@ -323,7 +365,9 @@ def test_sync_nav_replaces_lines_and_vat_summary_on_resync(sdb, settings, monkey
             {"line_number": "1", "line_description": "New line A"},
             {"line_number": "2", "line_description": "New line B"},
         ],
-        "vat_summary": [{"vat_rate": 0.05, "vat_rate_net_amount": 200.0, "vat_rate_vat_amount": 10.0}],
+        "vat_summary": [
+            {"vat_rate": 0.05, "vat_rate_net_amount": 200.0, "vat_rate_vat_amount": 10.0}
+        ],
     }
     monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: detail_v2)
     sync_nav("2026-05-01", "2026-05-31", sdb, settings)
@@ -336,19 +380,27 @@ def test_sync_nav_replaces_lines_and_vat_summary_on_resync(sdb, settings, monkey
     assert vat_rows[0].vat_rate == 0.05
 
 
-def test_sync_nav_stores_partner_snapshot_even_when_unmatched(sdb, settings, monkeypatch):
-    """An invoice whose supplier/customer can't be matched locally must still
-    get an invoice_detail row carrying the NAV-reported name/tax number, so
-    the user knows exactly who to create — even if the full detail call
-    (address/bank account) also fails."""
-    monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()])
+def test_sync_nav_stores_partner_snapshot_and_auto_creates_when_identifying_data_present(
+    sdb, settings, monkeypatch
+):
+    """A digest with usable identifying data (tax number + name) both creates
+    the missing supplier/customer (DEF-004) and gets an invoice_detail row
+    carrying the NAV-reported name/tax number snapshot, even when the full
+    detail call (address/bank account) also fails."""
+    monkeypatch.setattr(
+        NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()]
+    )
     monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: {})
 
     sync_nav("2026-05-01", "2026-05-31", sdb, settings)
 
     inv = sdb.query(Invoice).filter_by(invoice_number="INV-200").first()
-    assert inv.supplier_id is None
-    assert inv.customer_id is None
+    assert inv.supplier_id is not None
+    assert inv.customer_id is not None
+    supplier = sdb.query(Supplier).filter_by(tax_id="33333333-1-11").one()
+    assert supplier.name == "Unknown Supplier Kft."
+    customer = sdb.query(Customer).filter_by(tax_id="44444444-2-22").one()
+    assert customer.name == "Unknown Customer Kft."
 
     detail_row = sdb.query(InvoiceDetail).filter_by(invoice_id=inv.id).first()
     assert detail_row is not None
@@ -380,21 +432,23 @@ def test_sync_bank_persists_new_fields_and_updates_existing(sdb, settings, monke
     }
     monkeypatch.setattr(BankClient, "get_transactions", lambda self: [dict(txn_dict)])
 
-    count, warnings = sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+    count, _ = sync_bank("2026-05-01", "2026-05-31", sdb, settings)
     assert count == 1
     btxn = sdb.query(BankTransaction).filter_by(transaction_id="TX-1").first()
     assert btxn.counterparty_address is None
 
     # Re-sync: the bank service now returns richer data for the same transaction_id
     enriched = dict(txn_dict)
-    enriched.update({
-        "counterparty_address": "Budapest Fő utca 1",
-        "counterparty_bank_code": "117",
-        "note": "late reconciliation",
-    })
+    enriched.update(
+        {
+            "counterparty_address": "Budapest Fő utca 1",
+            "counterparty_bank_code": "117",
+            "note": "late reconciliation",
+        }
+    )
     monkeypatch.setattr(BankClient, "get_transactions", lambda self: [enriched])
 
-    count2, warnings2 = sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+    count2, _ = sync_bank("2026-05-01", "2026-05-31", sdb, settings)
     assert count2 == 0  # no *new* transaction, just an update
     sdb.refresh(btxn)
     assert btxn.counterparty_address == "Budapest Fő utca 1"
@@ -402,7 +456,9 @@ def test_sync_bank_persists_new_fields_and_updates_existing(sdb, settings, monke
     assert btxn.note == "late reconciliation"
 
 
-def test_sync_bank_locked_supplier_not_overwritten_by_counterparty_fallback(sdb, settings, monkeypatch):
+def test_sync_bank_locked_supplier_not_overwritten_by_counterparty_fallback(
+    sdb, settings, monkeypatch
+):
     """A manually cleared (locked) supplier link on an existing transaction must
     stay cleared even though the counterparty-name fallback would otherwise match."""
     sdb.add(Supplier(name="ACME Kft", tax_id="55555555-1-11"))
@@ -447,98 +503,129 @@ def _unknown_partner_digest(**overrides):
     return digest
 
 
-class TestSyncNavDoesNotAutoCreatePartners:
-    """sync_nav must only ever link to an existing Supplier/Customer, never
-    create one — manual creation (partner_service) is now the sole path.
-    An invoice whose supplier/customer isn't found yet is still imported,
-    just left unlinked, with a warning surfaced to the caller."""
+class TestSyncNavPartnerUpsertAndLocking:
+    """sync_nav upserts suppliers/customers referenced by a digest (DEF-004):
+    looks up an existing row first (see _find_supplier/_find_customer), only
+    creating one when NAV gave usable identifying data and no match exists.
+    A manual lock/clear decision always survives a re-sync, whether the
+    partner already existed or gets auto-created."""
 
-    def test_unknown_partners_leave_invoice_unlinked_with_warning(self, sdb, settings, monkeypatch):
-        monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()])
+    def test_unknown_partners_with_no_identifying_data_leave_invoice_unlinked_with_warning(
+        self, sdb, settings, monkeypatch
+    ):
+        monkeypatch.setattr(
+            NavClient,
+            "get_invoices",
+            lambda self, start, end: [
+                _unknown_partner_digest(supplier_tax_number="", supplier_name="")
+            ],
+        )
         monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: {})
 
         count, warnings = sync_nav("2026-05-01", "2026-05-31", sdb, settings)
 
         assert count == 1
         assert sdb.query(Supplier).count() == 0
-        assert sdb.query(Customer).count() == 0
         inv = sdb.query(Invoice).filter_by(invoice_number="INV-200").first()
         assert inv is not None
         assert inv.supplier_id is None
-        assert inv.customer_id is None
-        assert any("Unknown Supplier Kft." in w for w in warnings)
-        assert any("Unknown Customer Kft." in w for w in warnings)
+        assert any("ismeretlen szállító" in w for w in warnings)
 
-    def test_manual_placeholder_gets_tax_id_backfilled_not_duplicated(self, sdb, settings, monkeypatch):
+    def test_manual_placeholder_gets_tax_id_backfilled_not_duplicated(
+        self, sdb, settings, monkeypatch
+    ):
         # Simulate a supplier created by hand before its tax number was known.
         sdb.add(Supplier(name="Unknown Supplier Kft."))
         sdb.commit()
 
-        monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()])
+        monkeypatch.setattr(
+            NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()]
+        )
         monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: {})
 
-        count, warnings = sync_nav("2026-05-01", "2026-05-31", sdb, settings)
+        _count, warnings = sync_nav("2026-05-01", "2026-05-31", sdb, settings)
 
         assert sdb.query(Supplier).count() == 1  # no duplicate created
         supplier = sdb.query(Supplier).filter_by(name="Unknown Supplier Kft.").one()
         assert supplier.tax_id == "33333333-1-11"  # backfilled
         assert not any("Unknown Supplier Kft." in w for w in warnings)  # supplier side resolved
 
-    def test_resync_self_heals_previously_pending_invoice(self, sdb, settings, monkeypatch):
-        monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()])
-        monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: {})
-
-        # First run: nothing exists yet, invoice lands pending.
-        sync_nav("2026-05-01", "2026-05-31", sdb, settings)
-        inv = sdb.query(Invoice).filter_by(invoice_number="INV-200").first()
-        assert inv.supplier_id is None
-        assert inv.customer_id is None
-
-        # User manually creates the missing partners in the meantime.
-        sdb.add_all([
-            Supplier(name="Unknown Supplier Kft.", tax_id="33333333-1-11"),
-            Customer(name="Unknown Customer Kft.", tax_id="44444444-2-22"),
-        ])
+    def test_resync_self_heals_invoice_left_pending_before_partners_existed(
+        self, sdb, settings, monkeypatch
+    ):
+        """A pre-existing invoice row with no partner link (e.g. imported
+        before this fix existed, or from a digest that had no identifying
+        data at the time) picks up the link on the next sync once a matching
+        supplier/customer exists — without duplicating it."""
+        sdb.add(
+            Invoice(
+                invoice_number="INV-200",
+                supplier_id=None,
+                customer_id=None,
+                direction="OUTBOUND",
+            )
+        )
         sdb.commit()
 
-        # Second run over the same date range: self-heals the existing invoice.
+        # The partners now exist (created manually, or by an earlier sync).
+        sdb.add_all(
+            [
+                Supplier(name="Unknown Supplier Kft.", tax_id="33333333-1-11"),
+                Customer(name="Unknown Customer Kft.", tax_id="44444444-2-22"),
+            ]
+        )
+        sdb.commit()
+
+        monkeypatch.setattr(
+            NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()]
+        )
+        monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: {})
+
         count, warnings = sync_nav("2026-05-01", "2026-05-31", sdb, settings)
 
         assert count == 0  # no *new* invoice, just backfilled
         assert warnings == []
-        sdb.refresh(inv)
+        inv = sdb.query(Invoice).filter_by(invoice_number="INV-200").first()
         assert inv.supplier_id is not None
         assert inv.customer_id is not None
-        assert sdb.query(Supplier).count() == 1
+        assert sdb.query(Supplier).count() == 1  # no duplicate created
         assert sdb.query(Customer).count() == 1
 
-    def test_locked_invoice_not_self_healed_even_when_partners_appear(self, sdb, settings, monkeypatch):
-        monkeypatch.setattr(NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()])
+    def test_locked_invoice_not_self_healed_even_when_partners_appear(
+        self, sdb, settings, monkeypatch
+    ):
+        monkeypatch.setattr(
+            NavClient, "get_invoices", lambda self, start, end: [_unknown_partner_digest()]
+        )
         monkeypatch.setattr(NavClient, "get_invoice_detail", lambda self, *a, **kw: {})
 
-        # First run: nothing exists yet, invoice lands pending.
+        # First run: digest has identifying data, so the missing partners get
+        # auto-created (DEF-004) and linked.
         sync_nav("2026-05-01", "2026-05-31", sdb, settings)
         inv = sdb.query(Invoice).filter_by(invoice_number="INV-200").first()
-        # User explicitly decides "no supplier/customer here" — manual clear locks it.
+        assert inv.supplier_id is not None
+        assert inv.customer_id is not None
+
+        # User decides the match is wrong and manually clears + locks it.
+        inv.supplier_id = None
+        inv.customer_id = None
         inv.supplier_locked = True
         inv.customer_locked = True
         sdb.commit()
 
-        # The missing partners show up later (e.g. created for an unrelated invoice).
-        sdb.add_all([
-            Supplier(name="Unknown Supplier Kft.", tax_id="33333333-1-11"),
-            Customer(name="Unknown Customer Kft.", tax_id="44444444-2-22"),
-        ])
-        sdb.commit()
-
+        # Resync over the same digest must not silently re-link the cleared fields.
         sync_nav("2026-05-01", "2026-05-31", sdb, settings)
 
         sdb.refresh(inv)
         assert inv.supplier_id is None
         assert inv.customer_id is None
+        assert sdb.query(Supplier).count() == 1  # no duplicate created on resync
+        assert sdb.query(Customer).count() == 1
 
 
-def test_sync_bank_unmatched_counterparty_warns_without_creating_partner(sdb, settings, monkeypatch):
+def test_sync_bank_unmatched_counterparty_warns_without_creating_partner(
+    sdb, settings, monkeypatch
+):
     txn_dict = {
         "transaction_id": "TX-2",
         "bank": "erste",
@@ -567,19 +654,36 @@ def test_get_pending_sync_counts(sdb, settings):
     sup = Supplier(name="ACME Kft")
     sdb.add(sup)
     sdb.flush()
-    sdb.add_all([
-        Invoice(invoice_number="INV-1", supplier_id=None, customer_id=None, direction="OUTBOUND"),
-        Invoice(invoice_number="INV-2", supplier_id=sup.id, customer_id=None, direction="OUTBOUND"),
-        Invoice(invoice_number="INV-3", supplier_id=sup.id, customer_id=sup.id, direction="OUTBOUND"),
-        BankTransaction(
-            bank="erste", transaction_id="TX-1", amount=100, currency="HUF", direction="CREDIT",
-            transaction_date=datetime(2026, 5, 1),
-        ),
-        BankTransaction(
-            bank="erste", transaction_id="TX-2", amount=100, currency="HUF", direction="CREDIT",
-            transaction_date=datetime(2026, 5, 1), supplier_id=sup.id,
-        ),
-    ])
+    sdb.add_all(
+        [
+            Invoice(
+                invoice_number="INV-1", supplier_id=None, customer_id=None, direction="OUTBOUND"
+            ),
+            Invoice(
+                invoice_number="INV-2", supplier_id=sup.id, customer_id=None, direction="OUTBOUND"
+            ),
+            Invoice(
+                invoice_number="INV-3", supplier_id=sup.id, customer_id=sup.id, direction="OUTBOUND"
+            ),
+            BankTransaction(
+                bank="erste",
+                transaction_id="TX-1",
+                amount=100,
+                currency="HUF",
+                direction="CREDIT",
+                transaction_date=datetime(2026, 5, 1),
+            ),
+            BankTransaction(
+                bank="erste",
+                transaction_id="TX-2",
+                amount=100,
+                currency="HUF",
+                direction="CREDIT",
+                transaction_date=datetime(2026, 5, 1),
+                supplier_id=sup.id,
+            ),
+        ]
+    )
     sdb.commit()
 
     unmatched_invoices, unmatched_transactions = get_pending_sync_counts(sdb, settings)
@@ -591,10 +695,17 @@ def test_get_pending_sync_counts(sdb, settings):
 def test_get_pending_sync_counts_excludes_tax_account_transactions(sdb):
     tax_account = "10032000-00290080-00000000"
     settings = Settings(_env_file=None, tax_accounts={tax_account: "NAV ÁFA"})
-    sdb.add(BankTransaction(
-        bank="erste", transaction_id="TX-TAX", amount=100, currency="HUF", direction="CREDIT",
-        transaction_date=datetime(2026, 5, 1), counterparty_account=tax_account,
-    ))
+    sdb.add(
+        BankTransaction(
+            bank="erste",
+            transaction_id="TX-TAX",
+            amount=100,
+            currency="HUF",
+            direction="CREDIT",
+            transaction_date=datetime(2026, 5, 1),
+            counterparty_account=tax_account,
+        )
+    )
     sdb.commit()
 
     _, unmatched_transactions = get_pending_sync_counts(sdb, settings)

@@ -13,7 +13,7 @@ from __future__ import annotations
 import csv
 import logging
 import re
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -142,7 +142,7 @@ def list_statement_files(
                 from_date=f_from,
                 to_date=f_to,
                 size_bytes=stat.st_size,
-                modified_at=datetime.fromtimestamp(stat.st_mtime),
+                modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
             )
         )
 
@@ -155,7 +155,8 @@ def _parse_date(value: str) -> datetime:
     value = (value or "").strip()
     for fmt in _DATE_FORMATS:
         try:
-            return datetime.strptime(value, fmt)
+            # Local bank-statement time: normalize to aware UTC, value preserved.
+            return datetime.strptime(value, fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
     raise StatementCsvError(f"Ismeretlen dátumformátum: {value!r}")

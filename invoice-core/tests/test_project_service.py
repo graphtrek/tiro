@@ -41,7 +41,9 @@ def other_customer(db):
 
 @pytest.fixture
 def owner(db):
-    record = User(provider="google", sub="owner-sub", email="owner@example.com", name="Kozma Zoltán")
+    record = User(
+        provider="google", sub="owner-sub", email="owner@example.com", name="Kozma Zoltán"
+    )
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -59,7 +61,10 @@ def other_user(db):
 
 def test_create_project(db, customer, owner):
     record = project_service.create_project(
-        db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
 
     assert record.id is not None
@@ -70,15 +75,24 @@ def test_create_project(db, customer, owner):
 
 def test_create_project_increments_sequence_per_customer(db, customer, other_customer, owner):
     first = project_service.create_project(
-        db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
     second = project_service.create_project(
-        db, ProjectIn(customer_id=customer.id, short_name="MUIR", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer.id, short_name="MUIR", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
     other = project_service.create_project(
         db,
         ProjectIn(
-            customer_id=other_customer.id, short_name="Money Penny", owner_id=owner.id, permitted_user_ids=[]
+            customer_id=other_customer.id,
+            short_name="Money Penny",
+            owner_id=owner.id,
+            permitted_user_ids=[],
         ),
     )
 
@@ -106,25 +120,35 @@ def test_create_project_sets_permitted_users(db, customer, owner, other_user):
 def test_create_project_rejects_unknown_customer(db, owner):
     with pytest.raises(ValueError):
         project_service.create_project(
-            db, ProjectIn(customer_id=999, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+            db,
+            ProjectIn(customer_id=999, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]),
         )
 
 
 def test_create_project_rejects_unknown_owner(db, customer):
     with pytest.raises(ValueError):
         project_service.create_project(
-            db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=999, permitted_user_ids=[])
+            db,
+            ProjectIn(
+                customer_id=customer.id, short_name="FVM", owner_id=999, permitted_user_ids=[]
+            ),
         )
 
 
 def test_list_projects_orders_by_code(db, customer, other_customer, owner):
     project_service.create_project(
-        db, ProjectIn(customer_id=customer.id, short_name="MUIR", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer.id, short_name="MUIR", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
     project_service.create_project(
         db,
         ProjectIn(
-            customer_id=other_customer.id, short_name="Money Penny", owner_id=owner.id, permitted_user_ids=[]
+            customer_id=other_customer.id,
+            short_name="Money Penny",
+            owner_id=owner.id,
+            permitted_user_ids=[],
         ),
     )
 
@@ -134,7 +158,10 @@ def test_list_projects_orders_by_code(db, customer, other_customer, owner):
 
 def test_update_project_renames_and_keeps_sequence(db, customer, owner):
     created = project_service.create_project(
-        db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
 
     updated = project_service.update_project(
@@ -155,10 +182,19 @@ def test_update_project_renames_and_keeps_sequence(db, customer, owner):
 
 def test_update_project_changing_customer_reassigns_sequence(db, customer, other_customer, owner):
     project_service.create_project(
-        db, ProjectIn(customer_id=other_customer.id, short_name="Money Penny", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=other_customer.id,
+            short_name="Money Penny",
+            owner_id=owner.id,
+            permitted_user_ids=[],
+        ),
     )
     created = project_service.create_project(
-        db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
 
     updated = project_service.update_project(
@@ -181,7 +217,10 @@ def test_update_project_replaces_permitted_users(db, customer, owner, other_user
     created = project_service.create_project(
         db,
         ProjectIn(
-            customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[owner.id]
+            customer_id=customer.id,
+            short_name="FVM",
+            owner_id=owner.id,
+            permitted_user_ids=[owner.id],
         ),
     )
 
@@ -210,10 +249,16 @@ def test_update_project_rejects_code_collision(db, owner):
     db.commit()
 
     project_service.create_project(
-        db, ProjectIn(customer_id=customer_a.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer_a.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
     second = project_service.create_project(
-        db, ProjectIn(customer_id=customer_b.id, short_name="MUIR", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer_b.id, short_name="MUIR", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
 
     with pytest.raises(ValueError):
@@ -235,7 +280,11 @@ def test_update_project_returns_none_when_not_found(db, customer, owner):
         db,
         999,
         ProjectUpdate(
-            customer_id=customer.id, short_name="X", owner_id=owner.id, is_active=True, permitted_user_ids=[]
+            customer_id=customer.id,
+            short_name="X",
+            owner_id=owner.id,
+            is_active=True,
+            permitted_user_ids=[],
         ),
     )
     assert result is None
@@ -243,7 +292,10 @@ def test_update_project_returns_none_when_not_found(db, customer, owner):
 
 def test_delete_project_removes_row(db, customer, owner):
     created = project_service.create_project(
-        db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
 
     assert project_service.delete_project(db, created.id) is True
@@ -256,7 +308,10 @@ def test_delete_project_returns_false_when_not_found(db):
 
 def test_list_projects_sums_usage_hours_from_timesheet_entries(db, customer, owner):
     created = project_service.create_project(
-        db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
     activity_type = ActivityType(name="Szakértői munka", is_active=True)
     db.add(activity_type)
@@ -289,7 +344,10 @@ def test_list_projects_sums_usage_hours_from_timesheet_entries(db, customer, own
 
 def test_create_project_has_zero_usage_hours(db, customer, owner):
     record = project_service.create_project(
-        db, ProjectIn(customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[])
+        db,
+        ProjectIn(
+            customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
+        ),
     )
 
     assert record.usage_hours == 0

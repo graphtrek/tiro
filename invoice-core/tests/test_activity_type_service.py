@@ -20,7 +20,9 @@ def db():
 
 
 def test_create_activity_type(db):
-    record = activity_type_service.create_activity_type(db, ActivityTypeIn(name="Ügyfél megbeszélés"))
+    record = activity_type_service.create_activity_type(
+        db, ActivityTypeIn(name="Ügyfél megbeszélés")
+    )
 
     assert record.id is not None
     assert record.name == "Ügyfél megbeszélés"
@@ -55,7 +57,7 @@ def test_update_activity_type_renames_and_toggles_status(db):
 
 
 def test_update_rejects_duplicate_name(db):
-    first = activity_type_service.create_activity_type(db, ActivityTypeIn(name="Első"))
+    activity_type_service.create_activity_type(db, ActivityTypeIn(name="Első"))
     second = activity_type_service.create_activity_type(db, ActivityTypeIn(name="Második"))
 
     with pytest.raises(ValueError):

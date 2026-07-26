@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 from datetime import date
 from pathlib import Path
-from typing import Optional
 
 import requests
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -13,7 +12,7 @@ from fastapi.responses import Response
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.invoice_core import InvoiceCoreClient
-from vision.ui.utils import dict_to_ns
+from vision.ui.utils import dict_to_ns, local_today
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -35,12 +34,15 @@ def _resp(request: Request, template: str, client: InvoiceCoreClient, **kwargs):
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
+
 @router.get("/")
 def dashboard(request: Request):
     client = _client()
     data = client.get_dashboard()
     return _resp(
-        request, "ui_dashboard.html", client,
+        request,
+        "ui_dashboard.html",
+        client,
         kpis=dict_to_ns(data.get("kpis", {})),
         recent_invoices=dict_to_ns(data.get("recent_invoices", [])),
         recent_transactions=dict_to_ns(data.get("recent_transactions", [])),
@@ -53,23 +55,26 @@ def dashboard(request: Request):
 
 # ── Invoices ──────────────────────────────────────────────────────────────────
 
+
 @router.get("/invoices")
 def invoices_page(
     request: Request,
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    payment_status: Optional[str] = None,
-    has_pdf: Optional[str] = None,
-    supplier_name: Optional[str] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_status: str | None = None,
+    has_pdf: str | None = None,
+    supplier_name: str | None = None,
 ):
     client = _client()
-    rows = dict_to_ns(client.get_invoices(
-        date_from=str(date_from) if date_from else None,
-        date_to=str(date_to) if date_to else None,
-        status=payment_status,
-        has_pdf=has_pdf,
-        supplier_name=supplier_name,
-    ))
+    rows = dict_to_ns(
+        client.get_invoices(
+            date_from=str(date_from) if date_from else None,
+            date_to=str(date_to) if date_to else None,
+            status=payment_status,
+            has_pdf=has_pdf,
+            supplier_name=supplier_name,
+        )
+    )
     is_partial = request.headers.get("HX-Request") and not request.headers.get("HX-Boosted")
     template = "partials/invoice_table.html" if is_partial else "invoices.html"
     return _resp(request, template, client, rows=rows)
@@ -95,8 +100,9 @@ def invoice_detail_modal(request: Request, invoice_id: int):
 
 # ── Invoice Files ─────────────────────────────────────────────────────────────
 
+
 @router.get("/invoice-files")
-def invoice_files_page(request: Request, linked: Optional[str] = None):
+def invoice_files_page(request: Request, linked: str | None = None):
     client = _client()
     rows = dict_to_ns(client.get_invoice_files(linked=linked))
     return _resp(request, "invoice_files.html", client, rows=rows)
@@ -108,7 +114,7 @@ def invoice_file_pdf(file_id: int):
     try:
         upstream = client.get_invoice_file_pdf(file_id)
     except requests.RequestException:
-        raise HTTPException(status_code=404, detail="PDF nem található")
+        raise HTTPException(status_code=404, detail="PDF nem található") from None
     headers = {}
     content_disposition = upstream.headers.get("content-disposition")
     if content_disposition:
@@ -129,6 +135,7 @@ def invoice_file_delete(request: Request, file_id: int):
 
 
 # ── Suppliers ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/suppliers")
 def suppliers_page(request: Request):
@@ -153,12 +160,19 @@ def create_supplier(
 ):
     client = _client()
     result = client.create_supplier(
-        name=name, tax_id=tax_id or None, address=address or None,
-        email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
+        name=name,
+        tax_id=tax_id or None,
+        address=address or None,
+        email=email or None,
+        phone=phone or None,
+        iban=iban or None,
+        bban=bban or None,
     )
     rows = dict_to_ns(client.get_suppliers())
     summary = dict_to_ns(client.get_supplier_summary())
-    return _resp(request, "suppliers.html", client, rows=rows, summary=summary, error=result.get("error"))
+    return _resp(
+        request, "suppliers.html", client, rows=rows, summary=summary, error=result.get("error")
+    )
 
 
 @router.get("/suppliers/{supplier_id:int}")
@@ -184,13 +198,25 @@ def update_supplier(
 ):
     client = _client()
     result = client.update_supplier(
-        supplier_id, name=name, tax_id=tax_id or None, address=address or None,
-        email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
+        supplier_id,
+        name=name,
+        tax_id=tax_id or None,
+        address=address or None,
+        email=email or None,
+        phone=phone or None,
+        iban=iban or None,
+        bban=bban or None,
     )
     data = client.get_supplier(supplier_id)
     if not data:
         raise HTTPException(status_code=404, detail="Szállító nem található")
-    return _resp(request, "supplier_detail.html", client, supplier=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "supplier_detail.html",
+        client,
+        supplier=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 @router.delete("/suppliers/{supplier_id:int}/delete")
@@ -199,11 +225,18 @@ def delete_supplier(request: Request, supplier_id: int):
     result = client.delete_supplier(supplier_id)
     if result.get("error"):
         data = client.get_supplier(supplier_id)
-        return _resp(request, "supplier_detail.html", client, supplier=dict_to_ns(data), error=result["error"])
+        return _resp(
+            request,
+            "supplier_detail.html",
+            client,
+            supplier=dict_to_ns(data),
+            error=result["error"],
+        )
     return Response(status_code=200, headers={"HX-Redirect": "/ui/suppliers"})
 
 
 # ── Customers ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/customers")
 def customers_page(request: Request):
@@ -226,10 +259,14 @@ def create_customer(
 ):
     client = _client()
     result = client.create_customer(
-        name=name, tax_id=tax_id or None, address=address or None,
-        email=email or None, phone=phone or None,
+        name=name,
+        tax_id=tax_id or None,
+        address=address or None,
+        email=email or None,
+        phone=phone or None,
         payment_terms=int(payment_terms) if payment_terms else None,
-        iban=iban or None, bban=bban or None,
+        iban=iban or None,
+        bban=bban or None,
     )
     rows = dict_to_ns(client.get_customers())
     return _resp(request, "customers.html", client, rows=rows, error=result.get("error"))
@@ -259,15 +296,26 @@ def update_customer(
 ):
     client = _client()
     result = client.update_customer(
-        customer_id, name=name, tax_id=tax_id or None, address=address or None,
-        email=email or None, phone=phone or None,
+        customer_id,
+        name=name,
+        tax_id=tax_id or None,
+        address=address or None,
+        email=email or None,
+        phone=phone or None,
         payment_terms=int(payment_terms) if payment_terms else None,
-        iban=iban or None, bban=bban or None,
+        iban=iban or None,
+        bban=bban or None,
     )
     data = client.get_customer(customer_id)
     if not data:
         raise HTTPException(status_code=404, detail="Vevő nem található")
-    return _resp(request, "customer_detail.html", client, customer=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "customer_detail.html",
+        client,
+        customer=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 @router.delete("/customers/{customer_id:int}/delete")
@@ -276,31 +324,40 @@ def delete_customer(request: Request, customer_id: int):
     result = client.delete_customer(customer_id)
     if result.get("error"):
         data = client.get_customer(customer_id)
-        return _resp(request, "customer_detail.html", client, customer=dict_to_ns(data), error=result["error"])
+        return _resp(
+            request,
+            "customer_detail.html",
+            client,
+            customer=dict_to_ns(data),
+            error=result["error"],
+        )
     return Response(status_code=200, headers={"HX-Redirect": "/ui/customers"})
 
 
 # ── Transactions ──────────────────────────────────────────────────────────────
 
+
 @router.get("/transactions")
 def transactions_page(
     request: Request,
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    linked: Optional[str] = None,
-    partner_name: Optional[str] = None,
-    amount_min: Optional[float] = None,
-    amount_max: Optional[float] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    linked: str | None = None,
+    partner_name: str | None = None,
+    amount_min: float | None = None,
+    amount_max: float | None = None,
 ):
     client = _client()
-    rows = dict_to_ns(client.get_transactions(
-        date_from=str(date_from) if date_from else None,
-        date_to=str(date_to) if date_to else None,
-        linked=linked,
-        partner_name=partner_name,
-        amount_min=amount_min,
-        amount_max=amount_max,
-    ))
+    rows = dict_to_ns(
+        client.get_transactions(
+            date_from=str(date_from) if date_from else None,
+            date_to=str(date_to) if date_to else None,
+            linked=linked,
+            partner_name=partner_name,
+            amount_min=amount_min,
+            amount_max=amount_max,
+        )
+    )
     bank_balances = dict_to_ns(client.get_bank_balances())
     is_partial = request.headers.get("HX-Request") and not request.headers.get("HX-Boosted")
     template = "partials/transaction_table.html" if is_partial else "transactions.html"
@@ -317,6 +374,7 @@ def transaction_detail_partial(request: Request, transaction_id: int):
 
 
 # ── Note and manual Fizetve ───────────────────────────────────────────────────
+
 
 @router.post("/invoices/{invoice_id}/note")
 def invoice_save_note(request: Request, invoice_id: int, note: str = Form("")):
@@ -345,6 +403,7 @@ def invoice_set_fizetve(request: Request, invoice_id: int, locked: str = Form("t
 
 # ── Manual link / unlink (Invoice ↔ InvoiceFile) ─────────────────────────────
 
+
 @router.post("/invoices/{invoice_id}/invoice-file/link")
 def invoice_link_file(request: Request, invoice_id: int, file_id: int = Form(...)):
     client = _client()
@@ -352,7 +411,9 @@ def invoice_link_file(request: Request, invoice_id: int, file_id: int = Form(...
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 @router.post("/invoices/{invoice_id}/invoice-file/unlink")
@@ -362,10 +423,13 @@ def invoice_unlink_file(request: Request, invoice_id: int):
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 # ── Manual link / unlink (Invoice ↔ Supplier / Customer) ─────────────────────
+
 
 @router.post("/invoices/{invoice_id}/supplier/link")
 def invoice_link_supplier(request: Request, invoice_id: int, supplier_id: int = Form(...)):
@@ -374,7 +438,9 @@ def invoice_link_supplier(request: Request, invoice_id: int, supplier_id: int = 
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 @router.post("/invoices/{invoice_id}/supplier/unlink")
@@ -384,7 +450,9 @@ def invoice_unlink_supplier(request: Request, invoice_id: int):
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 @router.post("/invoices/{invoice_id}/customer/link")
@@ -394,7 +462,9 @@ def invoice_link_customer(request: Request, invoice_id: int, customer_id: int = 
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 @router.post("/invoices/{invoice_id}/customer/unlink")
@@ -404,7 +474,9 @@ def invoice_unlink_customer(request: Request, invoice_id: int):
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 @router.post("/invoices/{invoice_id}/supplier/create-and-link")
@@ -421,8 +493,13 @@ def invoice_create_and_link_supplier(
 ):
     client = _client()
     result = client.create_supplier(
-        name=name, tax_id=tax_id or None, address=address or None,
-        email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
+        name=name,
+        tax_id=tax_id or None,
+        address=address or None,
+        email=email or None,
+        phone=phone or None,
+        iban=iban or None,
+        bban=bban or None,
     )
     if not result.get("error"):
         link_result = client.link_invoice_supplier(invoice_id, result["id"])
@@ -430,7 +507,9 @@ def invoice_create_and_link_supplier(
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 @router.post("/invoices/{invoice_id}/customer/create-and-link")
@@ -448,10 +527,14 @@ def invoice_create_and_link_customer(
 ):
     client = _client()
     result = client.create_customer(
-        name=name, tax_id=tax_id or None, address=address or None,
-        email=email or None, phone=phone or None,
+        name=name,
+        tax_id=tax_id or None,
+        address=address or None,
+        email=email or None,
+        phone=phone or None,
         payment_terms=int(payment_terms) if payment_terms else None,
-        iban=iban or None, bban=bban or None,
+        iban=iban or None,
+        bban=bban or None,
     )
     if not result.get("error"):
         link_result = client.link_invoice_customer(invoice_id, result["id"])
@@ -459,10 +542,13 @@ def invoice_create_and_link_customer(
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 # ── Manual link / unlink (BankTransaction ↔ InvoiceFile) ─────────────────────
+
 
 @router.post("/transactions/{txn_id}/invoice-file/link")
 def transaction_link_file(request: Request, txn_id: int, file_id: int = Form(...)):
@@ -471,7 +557,13 @@ def transaction_link_file(request: Request, txn_id: int, file_id: int = Form(...
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 @router.post("/transactions/{txn_id}/invoice-file/unlink")
@@ -481,10 +573,17 @@ def transaction_unlink_file(request: Request, txn_id: int):
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 # ── Manual link / unlink (BankTransaction ↔ Supplier / Customer) ─────────────
+
 
 @router.post("/transactions/{txn_id}/supplier/link")
 def transaction_link_supplier(request: Request, txn_id: int, supplier_id: int = Form(...)):
@@ -493,7 +592,13 @@ def transaction_link_supplier(request: Request, txn_id: int, supplier_id: int = 
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 @router.post("/transactions/{txn_id}/supplier/unlink")
@@ -503,7 +608,13 @@ def transaction_unlink_supplier(request: Request, txn_id: int):
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 @router.post("/transactions/{txn_id}/customer/link")
@@ -513,7 +624,13 @@ def transaction_link_customer(request: Request, txn_id: int, customer_id: int = 
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 @router.post("/transactions/{txn_id}/customer/unlink")
@@ -523,7 +640,13 @@ def transaction_unlink_customer(request: Request, txn_id: int):
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 @router.post("/transactions/{txn_id}/supplier/create-and-link")
@@ -540,8 +663,13 @@ def transaction_create_and_link_supplier(
 ):
     client = _client()
     result = client.create_supplier(
-        name=name, tax_id=tax_id or None, address=address or None,
-        email=email or None, phone=phone or None, iban=iban or None, bban=bban or None,
+        name=name,
+        tax_id=tax_id or None,
+        address=address or None,
+        email=email or None,
+        phone=phone or None,
+        iban=iban or None,
+        bban=bban or None,
     )
     if not result.get("error"):
         link_result = client.link_transaction_supplier(txn_id, result["id"])
@@ -549,7 +677,13 @@ def transaction_create_and_link_supplier(
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 @router.post("/transactions/{txn_id}/customer/create-and-link")
@@ -567,10 +701,14 @@ def transaction_create_and_link_customer(
 ):
     client = _client()
     result = client.create_customer(
-        name=name, tax_id=tax_id or None, address=address or None,
-        email=email or None, phone=phone or None,
+        name=name,
+        tax_id=tax_id or None,
+        address=address or None,
+        email=email or None,
+        phone=phone or None,
         payment_terms=int(payment_terms) if payment_terms else None,
-        iban=iban or None, bban=bban or None,
+        iban=iban or None,
+        bban=bban or None,
     )
     if not result.get("error"):
         link_result = client.link_transaction_customer(txn_id, result["id"])
@@ -578,10 +716,17 @@ def transaction_create_and_link_customer(
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 # ── Manual link / unlink (Invoice ↔ BankTransaction M2M) ─────────────────────
+
 
 @router.post("/invoices/{invoice_id}/transactions/{txn_id}/link")
 def invoice_link_transaction(request: Request, invoice_id: int, txn_id: int):
@@ -590,7 +735,9 @@ def invoice_link_transaction(request: Request, invoice_id: int, txn_id: int):
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 @router.post("/invoices/{invoice_id}/transactions/{txn_id}/unlink")
@@ -600,12 +747,15 @@ def invoice_unlink_transaction(request: Request, invoice_id: int, txn_id: int):
     data = client.get_invoice(invoice_id)
     if not data:
         raise HTTPException(status_code=404, detail="Számla nem található")
-    return _resp(request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request, "invoice_detail.html", client, invoice=dict_to_ns(data), error=result.get("error")
+    )
 
 
 # ── Manual link / unlink (BankTransaction ↔ Invoice, transaction-side) ───────
 # These are the same M2M link/unlink as the invoice-side routes above, but they
 # return the transaction detail partial so they can be used from the tx offcanvas.
+
 
 @router.post("/transactions/{txn_id}/invoices/{invoice_id}/link")
 def transaction_link_invoice(request: Request, txn_id: int, invoice_id: int):
@@ -614,7 +764,13 @@ def transaction_link_invoice(request: Request, txn_id: int, invoice_id: int):
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 @router.post("/transactions/{txn_id}/invoices/{invoice_id}/unlink")
@@ -624,16 +780,23 @@ def transaction_unlink_invoice(request: Request, txn_id: int, invoice_id: int):
     data = client.get_transaction(txn_id)
     if not data:
         raise HTTPException(status_code=404, detail="Tranzakció nem található")
-    return _resp(request, "partials/transaction_detail.html", client, tx=dict_to_ns(data), error=result.get("error"))
+    return _resp(
+        request,
+        "partials/transaction_detail.html",
+        client,
+        tx=dict_to_ns(data),
+        error=result.get("error"),
+    )
 
 
 # ── Picker routes (HTMX-loaded candidate lists for modal) ─────────────────────
 
+
 @router.get("/picker/invoice-files")
 def picker_invoice_files(
     request: Request,
-    source_type: Optional[str] = None,
-    source_id: Optional[int] = None,
+    source_type: str | None = None,
+    source_id: int | None = None,
 ):
     client = _client()
     rows = dict_to_ns(client.get_invoice_files())
@@ -654,7 +817,9 @@ def picker_invoice_files(
             if txn_data:
                 tx = dict_to_ns(txn_data)
     return _resp(
-        request, "partials/picker_invoice_files.html", client,
+        request,
+        "partials/picker_invoice_files.html",
+        client,
         rows=rows,
         link_url_prefix=link_url_prefix,
         hx_target=hx_target,
@@ -666,7 +831,7 @@ def picker_invoice_files(
 @router.get("/picker/transactions")
 def picker_transactions(
     request: Request,
-    invoice_id: Optional[int] = None,
+    invoice_id: int | None = None,
 ):
     client = _client()
     rows = dict_to_ns(client.get_transactions())
@@ -678,7 +843,9 @@ def picker_transactions(
             rows = [r for r in rows if r.id not in already_linked]
             invoice = dict_to_ns(inv_data)
     return _resp(
-        request, "partials/picker_transactions.html", client,
+        request,
+        "partials/picker_transactions.html",
+        client,
         rows=rows,
         invoice_id=invoice_id,
         invoice=invoice,
@@ -688,7 +855,7 @@ def picker_transactions(
 @router.get("/picker/invoices")
 def picker_invoices(
     request: Request,
-    txn_id: Optional[int] = None,
+    txn_id: int | None = None,
 ):
     client = _client()
     rows = dict_to_ns(client.get_invoices())
@@ -700,7 +867,9 @@ def picker_invoices(
             rows = [r for r in rows if r.id not in already_linked]
             tx = dict_to_ns(txn_data)
     return _resp(
-        request, "partials/picker_invoices.html", client,
+        request,
+        "partials/picker_invoices.html",
+        client,
         rows=rows,
         txn_id=txn_id,
         tx=tx,
@@ -711,9 +880,9 @@ def picker_invoices(
 def picker_partners(
     request: Request,
     kind: str,
-    source_type: Optional[str] = None,
-    source_id: Optional[int] = None,
-    invoice_id: Optional[int] = None,
+    source_type: str | None = None,
+    source_id: int | None = None,
+    invoice_id: int | None = None,
 ):
     if kind not in ("supplier", "customer"):
         raise HTTPException(status_code=422, detail="kind must be 'supplier' or 'customer'")
@@ -740,7 +909,9 @@ def picker_partners(
             if inv_data:
                 invoice = dict_to_ns(inv_data)
     return _resp(
-        request, "partials/picker_partners.html", client,
+        request,
+        "partials/picker_partners.html",
+        client,
         rows=rows,
         kind=kind,
         link_url_prefix=link_url_prefix,
@@ -753,29 +924,29 @@ def picker_partners(
 
 # ── Dividend report ───────────────────────────────────────────────────────────
 
+
 @router.get("/dividend")
-def dividend_page(request: Request, year: Optional[int] = None):
-    from datetime import date as _date
+def dividend_page(request: Request, year: int | None = None):
     client = _client()
-    effective_year = year or _date.today().year
+    effective_year = year or local_today().year
     report = dict_to_ns(client.get_dividend_report(year=effective_year))
     return _resp(request, "dividend.html", client, report=report, year=effective_year)
 
 
 # ── Adók (tax payments) ───────────────────────────────────────────────────────
 
+
 @router.get("/adok")
-def adok_page(request: Request, year: Optional[int] = None):
-    from datetime import date as _date
+def adok_page(request: Request, year: int | None = None):
     client = _client()
-    effective_year = year or _date.today().year
+    effective_year = year or local_today().year
     raw = client.get_tax_report(year=effective_year)
     report = dict_to_ns(raw)
     # totals_by_type and row.totals are dicts keyed by tax label strings with spaces/hyphens
     # ("NAV ÁFA", "HIPA - Késedelmi"); the template calls .get() which requires plain dicts.
     # dict_to_ns() converts them to SimpleNamespace, breaking .get() — restore them here.
     report.totals_by_type = raw.get("totals_by_type", {})
-    for m, raw_m in zip(report.monthly or [], raw.get("monthly", [])):
+    for m, raw_m in zip(report.monthly or [], raw.get("monthly", []), strict=False):
         m.totals = raw_m.get("totals", {})
 
     raw_estimate = client.get_tax_estimate_report(year=effective_year)
@@ -784,14 +955,25 @@ def adok_page(request: Request, year: Optional[int] = None):
     # current one (already elapsed, regardless of whether it shows up in
     # "Havi bontás") and any month already shown in "Havi bontás" (actual tax
     # payments) above, so the two tables never repeat a month.
-    current_month_key = _date.today().strftime("%Y-%m")
+    current_month_key = local_today().strftime("%Y-%m")
     paid_months = {m.get("month") for m in raw.get("monthly", [])}
     upcoming = [
-        m for m in raw_estimate.get("monthly", [])
+        m
+        for m in raw_estimate.get("monthly", [])
         if m.get("month") >= current_month_key and m.get("month") not in paid_months
     ]
     raw_estimate["monthly"] = upcoming
-    estimate_fields = ["revenue", "gross_revenue", "expenses", "vat_payable", "tao_tax", "hipa_tax", "szja_tax", "szocho_tax", "total"]
+    estimate_fields = [
+        "revenue",
+        "gross_revenue",
+        "expenses",
+        "vat_payable",
+        "tao_tax",
+        "hipa_tax",
+        "szja_tax",
+        "szocho_tax",
+        "total",
+    ]
     raw_estimate["totals"] = {
         "month": "Összesen",
         "is_projected": False,
@@ -817,22 +999,34 @@ def adok_page(request: Request, year: Optional[int] = None):
         # projection is still useful before any actual payment history exists.
         active_labels = [label for label in report.tax_labels if label in estimate_label_map]
     for m in upcoming:
-        m["label_totals"] = {label: m.get(estimate_label_map[label], 0.0) for label in active_labels if label in estimate_label_map}
+        m["label_totals"] = {
+            label: m.get(estimate_label_map[label], 0.0)
+            for label in active_labels
+            if label in estimate_label_map
+        }
     raw_estimate["totals"]["label_totals"] = {
-        label: raw_estimate["totals"].get(estimate_label_map[label], 0.0) for label in active_labels if label in estimate_label_map
+        label: raw_estimate["totals"].get(estimate_label_map[label], 0.0)
+        for label in active_labels
+        if label in estimate_label_map
     }
 
     estimate = dict_to_ns(raw_estimate)
-    for m, raw_m in zip(estimate.monthly or [], upcoming):
+    for m, raw_m in zip(estimate.monthly or [], upcoming, strict=False):
         m.label_totals = raw_m.get("label_totals", {})
     estimate.totals.label_totals = raw_estimate["totals"].get("label_totals", {})
     return _resp(
-        request, "adok.html", client,
-        report=report, estimate=estimate, estimate_labels=active_labels, year=effective_year,
+        request,
+        "adok.html",
+        client,
+        report=report,
+        estimate=estimate,
+        estimate_labels=active_labels,
+        year=effective_year,
     )
 
 
 # ── Sync ──────────────────────────────────────────────────────────────────────
+
 
 @router.get("/sync")
 def sync_page(request: Request):
@@ -845,9 +1039,9 @@ def sync_page(request: Request):
 @router.post("/sync/trigger")
 def sync_trigger(
     request: Request,
-    date_from: Optional[str] = Form(None),
-    date_to: Optional[str] = Form(None),
-    sync_mode: Optional[str] = Form("full"),
+    date_from: str | None = Form(None),
+    date_to: str | None = Form(None),
+    sync_mode: str | None = Form("full"),
 ):
     client = _client()
     t0 = time.monotonic()

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
 
 import requests
 
-from .config import Settings, get_settings, make_http_session
+from .config import Settings, get_settings, make_http_session, token_hint_for_error
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class BankClient:
         exchange_rate, exchange_to_currency, card_last_four, note
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.bank_url.rstrip("/")
         self.session = make_http_session()
@@ -47,7 +46,7 @@ class BankClient:
             resp.raise_for_status()
         except requests.RequestException as exc:
             raise BankClientError(
-                f"Failed to reach bank service at {self.base_url}: {exc}"
+                f"Failed to reach bank service at {self.base_url}: {exc}{token_hint_for_error(exc)}"
             ) from exc
 
         data = resp.json()
@@ -55,6 +54,8 @@ class BankClient:
         elapsed_ms = (time.monotonic() - t0) * 1000
         logger.info(
             "GET %s/balance-statement/all → %d transaction(s) in %.0fms",
-            self.base_url, len(transactions), elapsed_ms,
+            self.base_url,
+            len(transactions),
+            elapsed_ms,
         )
         return transactions

@@ -144,7 +144,11 @@ class AuthService:
         try:
             self._invoice_core.save_user(user, access_token)
         except InvoiceCoreClientError as exc:
-            logger.warning("Nem sikerült a felhasználót elmenteni invoice-core-ban: %s (%s)", user.email, exc)
+            logger.warning(
+                "Nem sikerült a felhasználót elmenteni invoice-core-ban: %s (%s)",
+                user.email,
+                exc,
+            )
 
     def check_whitelist(self, email: str) -> None:
         """Csak whitelistelt e-mail / domain léphet be."""

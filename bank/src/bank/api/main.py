@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 
@@ -49,7 +49,7 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(UTC).isoformat()}
 
 
 @app.get("/settings")
@@ -74,7 +74,10 @@ def list_balance_statements():
 def list_balance_statements_by_bank(bank: str):
     """Adott bank elérhető fájljai (erste / wise)."""
     if bank not in ("erste", "wise"):
-        raise HTTPException(status_code=400, detail=f"Ismeretlen bank: {bank!r}. Használható: erste, wise")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ismeretlen bank: {bank!r}. Használható: erste, wise",
+        )
     return list_files(bank=bank)
 
 
@@ -92,7 +95,10 @@ def get_consolidated(
 def get_statement_file(bank: str, filename: str):
     """Konkrét fájl beolvasása."""
     if bank not in ("erste", "wise"):
-        raise HTTPException(status_code=400, detail=f"Ismeretlen bank: {bank!r}. Használható: erste, wise")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ismeretlen bank: {bank!r}. Használható: erste, wise",
+        )
     stmt = get_statement_by_filename(bank=bank, filename=filename)
     if stmt is None:
         raise HTTPException(status_code=404, detail=f"Fájl nem található: {filename}")
@@ -108,7 +114,10 @@ def get_statement(
 ):
     """Adott bank tranzakciói. Szűrő nélkül a legfrissebb fájl adatait adja vissza."""
     if bank not in ("erste", "wise"):
-        raise HTTPException(status_code=400, detail=f"Ismeretlen bank: {bank!r}. Használható: erste, wise")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ismeretlen bank: {bank!r}. Használható: erste, wise",
+        )
     stmt = get_bank_statement(bank=bank, from_date=from_, to_date=to, currency=currency)
     if stmt is None:
         raise HTTPException(status_code=404, detail=f"Nincs elérhető kivonat: {bank}")

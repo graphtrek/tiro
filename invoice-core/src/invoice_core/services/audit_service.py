@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from datetime import date, datetime
-from typing import Callable
 from urllib.parse import unquote
 
 from fastapi import Request, Response
@@ -154,7 +154,9 @@ def prepare_record(db: Session, request: Request) -> dict | None:
     return {"action": action, "page": page, "record": _resolve_record(db, request.url.path)}
 
 
-def finalize_record(db: Session, request: Request, response: Response, prepared: dict | None) -> None:
+def finalize_record(
+    db: Session, request: Request, response: Response, prepared: dict | None
+) -> None:
     if prepared is None or not (200 <= response.status_code < 300):
         return
     claims = getattr(request.state, "user", None)
@@ -191,4 +193,4 @@ def list_audit_log(
         query = query.filter(AuditLog.created_at >= date_from)
     if date_to:
         query = query.filter(AuditLog.created_at <= datetime.combine(date_to, datetime.max.time()))
-    return query.order_by(AuditLog.created_at.desc()).limit(limit).all()
+    return query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(limit).all()

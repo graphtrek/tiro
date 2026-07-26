@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
@@ -13,6 +13,11 @@ _ISO_DT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 _LOCAL_TZ = ZoneInfo("Europe/Budapest")
 
 
+def local_today() -> date:
+    """Return the current Budapest business date used by UI filter defaults."""
+    return datetime.now(_LOCAL_TZ).date()
+
+
 def _parse_leaf(v):
     if isinstance(v, str) and _ISO_DT.match(v):
         try:
@@ -20,7 +25,7 @@ def _parse_leaf(v):
         except ValueError:
             return v
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt.astimezone(_LOCAL_TZ)
     return v
 

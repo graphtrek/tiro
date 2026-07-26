@@ -35,9 +35,7 @@ def local_jwks(keypair, monkeypatch):
     # a .env-ben kikapcsolt auth-ot a tesztekhez visszakapcsoljuk
     monkeypatch.setenv("AUTH_ENABLED", "true")
     _, public_pem = keypair
-    monkeypatch.setattr(
-        vision_auth, "_get_signing_key", lambda token, url: public_pem
-    )
+    monkeypatch.setattr(vision_auth, "_get_signing_key", lambda token, url: public_pem)
 
 
 def make_token(private_pem: bytes, **overrides) -> str:

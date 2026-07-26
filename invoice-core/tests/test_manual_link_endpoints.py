@@ -22,10 +22,18 @@ from invoice_core.api.main import (
     unlink_transaction_from_customer,
     unlink_transaction_from_supplier,
 )
-from invoice_core.db import Base, BankTransaction, Customer, Invoice, Supplier, _InvoiceDirection, _PaymentStatus
+from invoice_core.db import (
+    BankTransaction,
+    Base,
+    Customer,
+    Invoice,
+    Supplier,
+    _InvoiceDirection,
+    _PaymentStatus,
+)
 from invoice_core.models import LinkCustomerRequest, LinkSupplierRequest
-from invoice_core.service import sync_nav
 from invoice_core.nav_client import NavClient
+from invoice_core.service import sync_nav
 
 
 @pytest.fixture
@@ -40,6 +48,7 @@ def db():
 @pytest.fixture
 def settings():
     from invoice_core.config import Settings
+
     return Settings(_env_file=None)
 
 

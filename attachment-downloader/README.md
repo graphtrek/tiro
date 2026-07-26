@@ -26,7 +26,7 @@ is designed for additional providers (e.g. Outlook/Microsoft Graph) — see [Add
 
 ```bash
 cd attachment-downloader
-uv sync --extra gmail
+uv sync
 ```
 
 ## Running
@@ -188,7 +188,8 @@ src/attachment_downloader/
 1. Create `src/attachment_downloader/providers/<name>/client.py` with a class that
    implements `download_pdf_attachments(start_date, end_date, output_dir, log) -> DownloadResult`.
 2. Add an `elif provider == "<name>":` branch in `providers/__init__.py`.
-3. Add provider-specific dependencies as a new optional extra in `pyproject.toml`.
+3. Add provider-specific dependencies to the main `[project] dependencies` in
+   `pyproject.toml` (or introduce an extra and document the install step).
 
 The `EmailClient` Protocol in `base.py` defines the required interface.
 

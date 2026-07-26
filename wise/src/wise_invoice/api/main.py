@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse
@@ -64,7 +64,7 @@ _sync_history: deque[SyncResponse] = deque(maxlen=100)
 @app.get("/health")
 def health():
     """Szolgáltatás állapotellenőrző végpont."""
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(UTC).isoformat()}
 
 
 @app.get("/settings")
@@ -93,7 +93,7 @@ def sync_transactions(request: SyncRequest):
     try:
         result = run_sync(request)
     except WiseApiError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     _sync_history.append(result)
     return result
 
@@ -148,7 +148,7 @@ def list_balance_statements(
         try:
             return parse_statement_csv(latest.filename)
         except StatementCsvError as exc:
-            raise HTTPException(status_code=404, detail=str(exc))
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
     return list_statement_files(from_date=from_, to_date=to, currency=currency)
 
 
@@ -169,7 +169,7 @@ def import_balance_statement(
             return FileResponse(path, media_type="text/csv", filename=filename)
         return parse_statement_csv(filename)
     except StatementCsvError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 # ── Wise API kapcsolat ellenőrzés ─────────────────────────────────────────────
@@ -181,7 +181,7 @@ def get_profiles():
     try:
         return WiseClient().get_profiles()
     except WiseApiError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.get("/balances")
@@ -190,7 +190,7 @@ def get_balances():
     try:
         return WiseClient().get_balances()
     except WiseApiError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 def run_server():

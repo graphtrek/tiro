@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -27,7 +27,7 @@ configure_logging(_settings.log_level)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Uploader – Bankkivonat Feltöltő Mikroszerviz",
+    title="Uploader - Bankkivonat Feltöltő Mikroszerviz",
     description=(
         "Erste és Wise CSV bankkivonatok feltöltése a bank szerviz "
         "balance-statements/ tároló mappájába."
@@ -53,7 +53,7 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(UTC).isoformat()}
 
 
 @app.get("/settings")
@@ -128,7 +128,7 @@ async def upload_file(
             overwrite=overwrite,
         )
     except FileExistsError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/v1/files/{bank}/{filename}/download")
@@ -142,7 +142,7 @@ def download_file(bank: str, filename: str):
     try:
         path = get_file_path(bank=bank, filename=filename)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return FileResponse(path, filename=path.name, media_type="text/csv")
 
 
@@ -157,7 +157,7 @@ def delete_bank_file(bank: str, filename: str):
     try:
         delete_file(bank=bank, filename=filename)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 def run_server():

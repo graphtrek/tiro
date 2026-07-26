@@ -6,7 +6,7 @@ import io
 import logging
 import time
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -50,7 +50,7 @@ async def log_requests(request: Request, call_next: Callable):
 @app.get("/health")
 def health_check() -> dict[str, str]:
     """Service health check endpoint."""
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(tz=UTC).isoformat()}
 
 
 @app.post("/api/v1/invoices/extract", response_model=ExtractResponse)
@@ -59,7 +59,7 @@ def extract_invoices(request: ExtractRequest) -> ExtractResponse:
     try:
         result = run_extract(request)
     except AttachmentDownloaderError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     return result
 
 

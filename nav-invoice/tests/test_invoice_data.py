@@ -221,7 +221,8 @@ def test_parse_invoice_data_extracts_simple_address():
               <ns2:countryCode>HU</ns2:countryCode>
               <ns2:postalCode>1082</ns2:postalCode>
               <ns2:city>Budapest</ns2:city>
-              <ns2:additionalAddressDetail>Kisfaludy utca 23-25. fszt 1. ajtó</ns2:additionalAddressDetail>
+              <ns2:additionalAddressDetail>Kisfaludy utca 23-25. fszt 1. ajtó
+              </ns2:additionalAddressDetail>
             </ns2:simpleAddress>
           </customerAddress>
         </customerInfo>

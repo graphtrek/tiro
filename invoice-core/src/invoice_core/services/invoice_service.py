@@ -1,35 +1,48 @@
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Optional
 
 from fastapi import Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from invoice_core.db import BankTransaction, Customer, Invoice, InvoiceDetail as InvoiceDetailRow, InvoiceFile, InvoiceLine, InvoiceVatSummary, Supplier, _PaymentStatus, _enum_str, invoice_bank_transaction, invoice_has_bank_txn
+from invoice_core.db import (
+    BankTransaction,
+    Customer,
+    Invoice,
+    InvoiceFile,
+    InvoiceLine,
+    InvoiceVatSummary,
+    Supplier,
+    _enum_str,
+    _PaymentStatus,
+    invoice_bank_transaction,
+    invoice_has_bank_txn,
+)
+from invoice_core.db import InvoiceDetail as InvoiceDetailRow
 
 
 @dataclass
 class InvoiceRow:
     id: int
     invoice_number: str
-    invoice_date: Optional[date]
-    supplier_id: Optional[int]
-    supplier_name: Optional[str]
-    customer_id: Optional[int]
-    customer_name: Optional[str]
-    amount_net: Optional[float]
-    amount_vat: Optional[float]
-    amount_total: Optional[float]
+    invoice_date: date | None
+    supplier_id: int | None
+    supplier_name: str | None
+    customer_id: int | None
+    customer_name: str | None
+    amount_net: float | None
+    amount_vat: float | None
+    amount_total: float | None
     payment_status: str
     direction: str
-    currency: Optional[str]
-    invoice_file_id: Optional[int]
-    invoice_file_filename: Optional[str]
+    currency: str | None
+    invoice_file_id: int | None
+    invoice_file_filename: str | None
     bank_count: int
-    note: Optional[str] = None
+    note: str | None = None
     payment_status_locked: bool = False
     invoice_file_locked: bool = False
     supplier_locked: bool = False
@@ -37,7 +50,7 @@ class InvoiceRow:
     has_manual_bank_link: bool = False
     bank_transaction_ids: list[str] = field(default_factory=list)
     bank_transaction_db_ids: list[int] = field(default_factory=list)
-    invoice_file_preview_base64: Optional[str] = None
+    invoice_file_preview_base64: str | None = None
 
 
 @dataclass
@@ -49,86 +62,123 @@ class BankTxnRow:
     amount: float
     currency: str
     direction: str
-    description: Optional[str]
-    payment_reference: Optional[str]
-    partner_name: Optional[str]
-    counterparty_account: Optional[str] = None
-    counterparty_iban: Optional[str] = None
-    transaction_type: Optional[str] = None
-    category: Optional[str] = None
-    balance: Optional[float] = None
-    fees: Optional[float] = None
-    counterparty_address: Optional[str] = None
-    sender_address: Optional[str] = None
-    counterparty_bank_code: Optional[str] = None
-    exchange_rate: Optional[float] = None
-    exchange_to_currency: Optional[str] = None
-    card_last_four: Optional[str] = None
-    note: Optional[str] = None
-    invoice_file_id: Optional[int] = None
-    invoice_file_filename: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    description: str | None
+    payment_reference: str | None
+    partner_name: str | None
+    counterparty_account: str | None = None
+    counterparty_iban: str | None = None
+    transaction_type: str | None = None
+    category: str | None = None
+    balance: float | None = None
+    fees: float | None = None
+    counterparty_address: str | None = None
+    sender_address: str | None = None
+    counterparty_bank_code: str | None = None
+    exchange_rate: float | None = None
+    exchange_to_currency: str | None = None
+    card_last_four: str | None = None
+    note: str | None = None
+    invoice_file_id: int | None = None
+    invoice_file_filename: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 @dataclass
 class InvoiceDetail:
     id: int
     invoice_number: str
-    invoice_date: Optional[date]
-    supplier_id: Optional[int]
-    supplier_name: Optional[str]
-    supplier_tax_id: Optional[str]
-    customer_id: Optional[int]
-    customer_name: Optional[str]
-    customer_tax_id: Optional[str]
-    amount_net: Optional[float]
-    amount_vat: Optional[float]
-    amount_total: Optional[float]
+    invoice_date: date | None
+    supplier_id: int | None
+    supplier_name: str | None
+    supplier_tax_id: str | None
+    customer_id: int | None
+    customer_name: str | None
+    customer_tax_id: str | None
+    amount_net: float | None
+    amount_vat: float | None
+    amount_total: float | None
     payment_status: str
     direction: str
-    currency: Optional[str]
-    invoice_operation: Optional[str]
-    invoice_category: Optional[str]
-    nav_ins_date: Optional[str]
-    invoice_file_id: Optional[int]
-    invoice_file_filename: Optional[str]
+    currency: str | None
+    invoice_operation: str | None
+    invoice_category: str | None
+    nav_ins_date: str | None
+    invoice_file_id: int | None
+    invoice_file_filename: str | None
     invoice_file_locked: bool
-    note: Optional[str]
+    note: str | None
     payment_status_locked: bool
     supplier_locked: bool
     customer_locked: bool
     created_at: datetime
     updated_at: datetime
-    payment_method: Optional[str] = None
-    payment_due_date: Optional[date] = None
+    payment_method: str | None = None
+    payment_due_date: date | None = None
     bank_transactions: list[BankTxnRow] = field(default_factory=list)
     # Full NAV detail-call data (excludes raw_xml — large, not needed here;
     # see a dedicated xml endpoint if that's ever required).
-    detail: Optional[dict] = None
+    detail: dict | None = None
     lines: list[dict] = field(default_factory=list)
     vat_summary: list[dict] = field(default_factory=list)
 
 
-def _derive_payment_status(inv: Invoice, bank_txns: list) -> str:
-    if not bank_txns:
-        return _enum_str(inv.payment_status)
-    total = inv.amount_total or 0.0
-    currency = inv.currency
-    paid_sum = sum(abs(t.amount) for t in bank_txns if not currency or t.currency == currency)
+def _bank_derived_status(amount_total: float | None, paid_sum: float) -> str:
+    """Amount-based PAID/PARTIAL derivation from a currency-matched sum of
+    linked bank-transaction amounts. Shared by both \`_derive_payment_status\`
+    (detail view) and \`list_invoices\` so they compute the identical value.
+    """
+    total = amount_total or 0.0
     if total <= 0 or paid_sum >= total:
         return _PaymentStatus.PAID.value
     return _PaymentStatus.PARTIAL.value
 
 
+def _effective_payment_status(
+    stored_status: str,
+    payment_status_locked: bool,
+    derived_status: str,
+) -> str:
+    """Single shared rule for reconciling a stored \`payment_status\` with what
+    linked bank transactions would otherwise imply.
+
+    A manually locked invoice (\`payment_status_locked\`) must never have its
+    displayed status overwritten by anything derived from bank transactions --
+    it stays exactly as the user left it, per REQUIREMENTS.md's "manual paid
+    flag" guarantee. An unlocked invoice is upgrade-only: linked transactions
+    can only move it from UNPAID towards PAID/PARTIAL, never downgrade an
+    already-PAID/PARTIAL stored status.
+
+    Used by both \`list_invoices\` and \`get_invoice\` (via \`_derive_payment_status\`)
+    so the two views can never disagree about the same invoice.
+    """
+    if payment_status_locked:
+        return stored_status
+    if stored_status == _PaymentStatus.UNPAID.value:
+        return derived_status
+    return stored_status
+
+
+def _derive_payment_status(inv: Invoice, bank_txns: list) -> str:
+    stored_status = _enum_str(inv.payment_status)
+    if not bank_txns:
+        return stored_status
+    currency = inv.currency
+    paid_sum = sum(abs(t.amount) for t in bank_txns if not currency or t.currency == currency)
+    derived_status = _bank_derived_status(inv.amount_total, paid_sum)
+    return _effective_payment_status(
+        stored_status, bool(inv.payment_status_locked), derived_status
+    )
+
+
 class InvoiceFilters:
     def __init__(
         self,
-        date_from: Optional[date] = Query(None),
-        date_to: Optional[date] = Query(None),
-        payment_status: Optional[str] = Query(None),
-        has_pdf: Optional[str] = Query(None),
-        supplier_name: Optional[str] = Query(None),
+        date_from: date | None = Query(None),
+        date_to: date | None = Query(None),
+        payment_status: str | None = Query(None),
+        has_pdf: str | None = Query(None),
+        supplier_name: str | None = Query(None),
     ):
         self.date_from = date_from
         self.date_to = date_to
@@ -139,29 +189,65 @@ class InvoiceFilters:
 
 def list_invoices(
     db: Session,
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    payment_status: Optional[str] = None,
-    has_pdf: Optional[str] = None,
-    supplier_name: Optional[str] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_status: str | None = None,
+    has_pdf: str | None = None,
+    supplier_name: str | None = None,
+    limit: int = 1000,
+    offset: int = 0,
 ) -> list[InvoiceRow]:
     """Return invoices matching the given filters, joined with supplier/customer/file info.
 
     Non-obvious rule: an invoice whose stored `payment_status` is still UNPAID
-    is reported as PAID here if it has at least one linked bank transaction
-    (`bank_cnt > 0`) and its status hasn't been manually locked
-    (`payment_status_locked`). This keeps the list in sync with reality even
-    if `_recompute_payment_status()` (in service.py) hasn't run since the
-    transaction was linked, without needing to write to the database on every
-    read. A manually locked invoice is never auto-overridden this way.
+    is derived here (PAID or PARTIAL, via `_bank_derived_status`) from the
+    currency-matched sum of its linked bank transactions, but only if its
+    status hasn't been manually locked (`payment_status_locked`) -- see
+    `_effective_payment_status`. This keeps the list in sync with reality
+    even if `_recompute_payment_status()` (in service.py) hasn't run since
+    the transaction was linked, without needing to write to the database on
+    every read. A manually locked invoice is never auto-overridden this way,
+    and the same rule is shared with `get_invoice`'s `_derive_payment_status`
+    so the two views can never disagree about the same invoice.
     """
     bank_sub = (
-        db.query(invoice_bank_transaction.c.invoice_id, func.count(invoice_bank_transaction.c.bank_transaction_id).label("cnt"))
+        db.query(
+            invoice_bank_transaction.c.invoice_id,
+            func.count(invoice_bank_transaction.c.bank_transaction_id).label("cnt"),
+        )
+        .group_by(invoice_bank_transaction.c.invoice_id)
+        .subquery()
+    )
+    # Currency-matched sum of linked transaction amounts per invoice, used
+    # together with _bank_derived_status/_effective_payment_status so this
+    # list can derive the exact same PAID/PARTIAL status as the detail view
+    # (see invoice_service._derive_payment_status) instead of only ever
+    # upgrading to PAID.
+    paid_sub = (
+        db.query(
+            invoice_bank_transaction.c.invoice_id,
+            func.sum(func.abs(BankTransaction.amount)).label("paid_sum"),
+        )
+        .select_from(invoice_bank_transaction)
+        .join(
+            BankTransaction,
+            BankTransaction.id == invoice_bank_transaction.c.bank_transaction_id,
+        )
+        .join(Invoice, Invoice.id == invoice_bank_transaction.c.invoice_id)
+        .filter(or_(Invoice.currency.is_(None), BankTransaction.currency == Invoice.currency))
         .group_by(invoice_bank_transaction.c.invoice_id)
         .subquery()
     )
     q = (
-        db.query(Invoice, Supplier.name, Customer.name, func.coalesce(bank_sub.c.cnt, 0), InvoiceFile.filename, InvoiceFile.preview_base64)
+        db.query(
+            Invoice,
+            Supplier.name,
+            Customer.name,
+            func.coalesce(bank_sub.c.cnt, 0),
+            InvoiceFile.filename,
+            InvoiceFile.preview_base64,
+            func.coalesce(paid_sub.c.paid_sum, 0.0),
+        )
         # outerjoin: an invoice can now have no matched supplier/customer yet
         # (sync no longer auto-creates one — see service.py's _find_supplier)
         # and must still show up here rather than being silently dropped.
@@ -169,6 +255,7 @@ def list_invoices(
         .outerjoin(Customer, Invoice.customer_id == Customer.id)
         .outerjoin(bank_sub, Invoice.id == bank_sub.c.invoice_id)
         .outerjoin(InvoiceFile, Invoice.invoice_file_id == InvoiceFile.id)
+        .outerjoin(paid_sub, Invoice.id == paid_sub.c.invoice_id)
     )
     if date_from:
         q = q.filter(Invoice.invoice_date >= date_from)
@@ -181,10 +268,8 @@ def list_invoices(
     elif payment_status == "UNPAID":
         q = q.filter(Invoice.payment_status == _PaymentStatus.UNPAID, ~invoice_has_bank_txn())
     elif payment_status:
-        try:
+        with contextlib.suppress(KeyError):
             q = q.filter(Invoice.payment_status == _PaymentStatus[payment_status])
-        except KeyError:
-            pass
     if has_pdf == "true":
         q = q.filter(Invoice.invoice_file_id.isnot(None))
     elif has_pdf == "false":
@@ -193,11 +278,18 @@ def list_invoices(
         q = q.filter(Supplier.name.ilike(f"%{supplier_name}%"))
 
     q = q.order_by(Invoice.invoice_date.desc().nullslast(), Invoice.id.desc())
+    q = q.offset(offset).limit(limit)
     rows = []
-    for inv, sup_name, cust_name, bank_cnt, file_filename, file_preview in q.all():
-        status = _enum_str(inv.payment_status)
-        if (bank_cnt or 0) > 0 and status == _PaymentStatus.UNPAID.value and not inv.payment_status_locked:
-            status = _PaymentStatus.PAID.value
+    for inv, sup_name, cust_name, bank_cnt, file_filename, file_preview, paid_sum in q.all():
+        stored_status = _enum_str(inv.payment_status)
+        derived_status = (
+            _bank_derived_status(inv.amount_total, paid_sum or 0.0)
+            if (bank_cnt or 0) > 0
+            else stored_status
+        )
+        status = _effective_payment_status(
+            stored_status, bool(inv.payment_status_locked), derived_status
+        )
         rows.append(
             InvoiceRow(
                 id=inv.id,
@@ -234,7 +326,10 @@ def list_invoices(
                 BankTransaction.id,
                 invoice_bank_transaction.c.manual,
             )
-            .join(BankTransaction, BankTransaction.id == invoice_bank_transaction.c.bank_transaction_id)
+            .join(
+                BankTransaction,
+                BankTransaction.id == invoice_bank_transaction.c.bank_transaction_id,
+            )
             .filter(invoice_bank_transaction.c.invoice_id.in_(invoice_ids))
             .order_by(BankTransaction.transaction_date.desc())
             .all()
@@ -255,7 +350,7 @@ def list_invoices(
     return rows
 
 
-def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
+def get_invoice(db: Session, invoice_id: int) -> InvoiceDetail | None:
     row = (
         db.query(Invoice, Supplier, Customer)
         # outerjoin: see list_invoices — an invoice's partner may be unmatched.
@@ -275,7 +370,10 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
 
     bank_txns = (
         db.query(BankTransaction)
-        .join(invoice_bank_transaction, BankTransaction.id == invoice_bank_transaction.c.bank_transaction_id)
+        .join(
+            invoice_bank_transaction,
+            BankTransaction.id == invoice_bank_transaction.c.bank_transaction_id,
+        )
         .filter(invoice_bank_transaction.c.invoice_id == invoice_id)
         .order_by(BankTransaction.transaction_date.desc())
         .all()
@@ -306,7 +404,10 @@ def get_invoice(db: Session, invoice_id: int) -> Optional[InvoiceDetail]:
         db.query(InvoiceLine).filter_by(invoice_id=invoice_id).order_by(InvoiceLine.id).all()
     )
     vat_summary_rows = (
-        db.query(InvoiceVatSummary).filter_by(invoice_id=invoice_id).order_by(InvoiceVatSummary.id).all()
+        db.query(InvoiceVatSummary)
+        .filter_by(invoice_id=invoice_id)
+        .order_by(InvoiceVatSummary.id)
+        .all()
     )
 
     return InvoiceDetail(

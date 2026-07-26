@@ -38,9 +38,7 @@ def configure_logging(log_level: str = "INFO") -> None:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore")
 
     google_credentials_file: str = "credentials.json"
     google_token_file: str = "token.json"

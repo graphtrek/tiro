@@ -80,7 +80,9 @@ def test_current_year_projects_remaining_months_from_trailing_average(db):
     _invoice(db, "IN-2026-1", date(2026, 1, 15), _InvoiceDirection.INBOUND, 200.0, 54.0)
     _invoice(db, "OUT-2026-2", date(2026, 2, 10), _InvoiceDirection.OUTBOUND, 2000.0, 540.0)
 
-    report = tax_service.get_tax_estimate(db, 2026, tao_rate=0.10, hipa_rate=0.02, szja_rate=0.15, szocho_rate=0.13)
+    report = tax_service.get_tax_estimate(
+        db, 2026, tao_rate=0.10, hipa_rate=0.02, szja_rate=0.15, szocho_rate=0.13
+    )
 
     assert [row.month for row in report.monthly] == [f"2026-{m:02d}" for m in range(1, 13)]
 

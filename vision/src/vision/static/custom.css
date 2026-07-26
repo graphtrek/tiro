@@ -287,9 +287,9 @@ h1, h2, h3, h4, h5, h6 {
     white-space: nowrap;
 }
 .kpi-card .card-title.kpi-title-compact {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 1.2;
 }
 
 /* Make main content scrollable */

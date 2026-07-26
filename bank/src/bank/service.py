@@ -1,4 +1,4 @@
-"""Bank mikroszerviz – fájlfelfedezés, szűrés, konszolidáció."""
+"""Bank mikroszerviz - fájlfelfedezés, szűrés, konszolidáció."""
 
 from __future__ import annotations
 
@@ -84,9 +84,7 @@ def list_files(
             return False
         if from_date and sf.to_date < from_date:
             return False
-        if to_date and sf.from_date > to_date:
-            return False
-        return True
+        return not (to_date and sf.from_date > to_date)
 
     if bank in ("erste", "all"):
         erste_dir = _erste_dir(settings)
