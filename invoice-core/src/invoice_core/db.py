@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from datetime import date
 from enum import Enum as PyEnum
 
 from sqlalchemy import (
@@ -386,6 +387,11 @@ class Project(Base):
     @property
     def usage_hours(self) -> float:
         return sum(e.hours for e in self.timesheet_entries)
+
+    @property
+    def first_entry_date(self) -> date | None:
+        dates = [e.entry_date for e in self.timesheet_entries]
+        return min(dates) if dates else None
 
 
 class TimesheetEntry(Base):

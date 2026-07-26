@@ -108,10 +108,157 @@
   <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
 </div>
 {% else %}
-{% set show_person_col = report_type != "project" and not user_id %}
-{% set show_activity_type_col = report_type != "project" and not activity_type_id %}
-{% set base_cols = 4 + (1 if show_person_col else 0) + (1 if show_activity_type_col else 0) %}
-{% set summary_label = "Személy" if report_type == "person" else ("Ügyfél" if report_type == "customer" else "Tevékenység típus") %}
+{% set show_person_col = not user_id %}
+{% set show_activity_type_col = not activity_type_id %}
+{% set show_project_col = not project_detail and not project_id %}
+{% set base_cols = 4 + (1 if show_person_col else 0) + (1 if show_activity_type_col else 0) + (1 if show_project_col else 0) %}
+{% set summary_label = "Személy" if report_type == "person" else ("Ügyfél" if report_type == "customer" else ("Projekt" if report_type == "project" else "Tevékenység típus")) %}
+
+{% if report_type == "project" %}
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <strong>Heti alakulás</strong>
+    <div class="btn-group btn-group-sm" role="group" id="chartGranularity" data-default="{{ weekly_stats.default_granularity }}">
+      <button type="button" class="btn btn-outline-secondary" data-granularity="day">Napi</button>
+      <button type="button" class="btn btn-outline-secondary" data-granularity="week">Heti</button>
+      <button type="button" class="btn btn-outline-secondary" data-granularity="month">Havi</button>
+      <button type="button" class="btn btn-outline-secondary" data-granularity="all">Összes</button>
+    </div>
+  </div>
+  <div class="card-body pt-3">
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="text-muted small text-uppercase">Összesen</div>
+        <div class="fs-4 fw-semibold">{{ report.total_hours }} óra</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="text-muted small text-uppercase">Aktív hetek</div>
+        <div class="fs-4 fw-semibold">{{ weekly_stats.active_week_count }}</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="text-muted small text-uppercase">Átlag / aktív hét</div>
+        <div class="fs-4 fw-semibold">{{ weekly_stats.avg_active_week_hours }} óra</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="text-muted small text-uppercase">Leghosszabb hét</div>
+        <div class="fs-4 fw-semibold">{{ weekly_stats.longest_week_hours }} óra</div>
+        {% if weekly_stats.longest_week_no %}<div class="text-muted small">W{{ weekly_stats.longest_week_no }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="projectWeeklyChart"></canvas>
+    </div>
+  </div>
+</div>
+<script type="application/json" id="weekly-entries-data">{{ weekly_stats.entries_data | tojson }}</script>
+<script>
+  (function () {
+    var canvas = document.getElementById('projectWeeklyChart');
+    var group = document.getElementById('chartGranularity');
+    if (!canvas || !group || typeof Chart === 'undefined') return;
+
+    var entries = JSON.parse(document.getElementById('weekly-entries-data').textContent) || [];
+    var css = getComputedStyle(document.documentElement);
+    var accentColor = css.getPropertyValue('--accent-color').trim();
+    var mutedColor = css.getPropertyValue('--muted-color').trim();
+    var borderColor = css.getPropertyValue('--border-color-light').trim();
+
+    var HU_MONTHS = ['jan', 'feb', 'márc', 'ápr', 'máj', 'jún', 'júl', 'aug', 'szept', 'okt', 'nov', 'dec'];
+
+    function bucketKey(entry, granularity) {
+      if (granularity === 'day') return entry.entry_date;
+      if (granularity === 'month') return entry.entry_date.slice(0, 7);
+      if (granularity === 'all') return 'all';
+      return String(entry.project_week).padStart(4, '0');
+    }
+
+    function bucketLabel(key, granularity) {
+      if (granularity === 'day') {
+        var parts = key.split('-');
+        return parts[1] + '.' + parts[2] + '.';
+      }
+      if (granularity === 'month') {
+        var ym = key.split('-');
+        return HU_MONTHS[parseInt(ym[1], 10) - 1] + ' ' + ym[0];
+      }
+      if (granularity === 'all') return 'Összes';
+      return 'W' + parseInt(key, 10);
+    }
+
+    function buildBuckets(granularity) {
+      var totals = {};
+      entries.forEach(function (e) {
+        var key = bucketKey(e, granularity);
+        totals[key] = (totals[key] || 0) + e.hours;
+      });
+      var keys = Object.keys(totals).sort();
+      return {
+        labels: keys.map(function (k) { return bucketLabel(k, granularity); }),
+        data: keys.map(function (k) { return Math.round(totals[k] * 100) / 100; })
+      };
+    }
+
+    var existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+
+    var defaultGranularity = group.dataset.default || 'week';
+    group.querySelectorAll('button[data-granularity]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.granularity === defaultGranularity);
+    });
+
+    var initial = buildBuckets(defaultGranularity);
+    var chart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: initial.labels,
+        datasets: [{
+          label: 'Óra',
+          data: initial.data,
+          backgroundColor: accentColor,
+          borderRadius: 4,
+          maxBarThickness: 40
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) { return ctx.parsed.y + ' óra'; }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: mutedColor }
+          },
+          y: {
+            beginAtZero: true,
+            border: { display: false },
+            grid: { color: borderColor },
+            ticks: { color: mutedColor }
+          }
+        }
+      }
+    });
+
+    group.querySelectorAll('button[data-granularity]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        group.querySelectorAll('button').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var next = buildBuckets(btn.dataset.granularity);
+        chart.data.labels = next.labels;
+        chart.data.datasets[0].data = next.data;
+        chart.update();
+      });
+    });
+  })();
+</script>
+{% endif %}
+
 <div class="card">
   <div class="card-header">
     <div><strong>Eredmény — {{ report_type_labels[report_type] }}</strong></div>
@@ -127,7 +274,7 @@
     <table id="report-table" class="table table-hover table-sm">
       <thead>
         <tr>
-        {% if report_type == "project" %}
+        {% if project_detail %}
           <th>Projekt hét</th>
           <th class="text-end report-hours-col">Heti összesítő (óra)</th>
           <th class="text-end">Kumulált (óra)</th>
@@ -137,6 +284,7 @@
           <th>Dátum</th>
           <th>Nap</th>
           <th>Hét</th>
+          {% if show_project_col %}<th>Projekt</th>{% endif %}
           {% if show_person_col %}<th>Személy</th>{% endif %}
           {% if show_activity_type_col %}<th>Tevékenység típus</th>{% endif %}
           <th>Résztvevők</th>
@@ -145,7 +293,7 @@
         </tr>
       </thead>
       <tbody>
-        {% if report_type == "project" %}
+        {% if project_detail %}
         {% for w in report.weeks %}
         <tr>
           <td>W{{ w.project_week }}</td>
@@ -161,6 +309,7 @@
           <td>{{ e.entry_date }}</td>
           <td>{{ e.weekday }}</td>
           <td>W{{ e.project_week }}</td>
+          {% if show_project_col %}<td>{{ e.project_code }}</td>{% endif %}
           {% if show_person_col %}<td>{{ e.user_name }}</td>{% endif %}
           {% if show_activity_type_col %}<td>{{ e.activity_type_name }}</td>{% endif %}
           <td>{{ e.participants }}</td>
@@ -169,7 +318,7 @@
         {% endfor %}
         {% endif %}
       </tbody>
-      {% if report_type != "project" %}
+      {% if not project_detail %}
       <tfoot>
         <tr class="table-light fw-semibold">
           <td colspan="{{ base_cols }}">Összesen</td>
@@ -180,12 +329,54 @@
     </table>
     <div class="d-flex justify-content-between text-muted small mt-2">
       <span>Órák a szűrt sorokban: <strong id="report-sum">0</strong> óra</span>
-      {% if report_type == "project" %}<span>Heti sor → Timesheet az adott projektre szűrve</span>{% endif %}
+      {% if project_detail %}<span>Heti sor → Timesheet az adott projektre szűrve</span>{% endif %}
     </div>
   </div>
 </div>
 
-{% if report_type != "project" %}
+{% if project_detail %}
+<div class="card mt-4">
+  <div class="card-header"><strong>Bejegyzések</strong> <span class="text-muted small">(napi részletek)</span></div>
+  <div class="card-body pt-3">
+    <div class="table-responsive">
+    <table id="report-detail-table" class="table table-sm mb-0">
+      <thead>
+        <tr>
+          <th>Dátum</th>
+          <th>Nap</th>
+          <th>Hét</th>
+          {% if show_person_col %}<th>Személy</th>{% endif %}
+          {% if show_activity_type_col %}<th>Tevékenység típus</th>{% endif %}
+          <th>Résztvevők</th>
+          <th class="text-end">Óra</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in report.entries %}
+        <tr>
+          <td>{{ e.entry_date }}</td>
+          <td>{{ e.weekday }}</td>
+          <td>W{{ e.project_week }}</td>
+          {% if show_person_col %}<td>{{ e.user_name }}</td>{% endif %}
+          {% if show_activity_type_col %}<td>{{ e.activity_type_name }}</td>{% endif %}
+          <td>{{ e.participants }}</td>
+          <td class="text-end">{{ e.hours }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="fw-semibold">
+          <td colspan="{{ base_cols }}">Összesen</td>
+          <td class="text-end">{{ report.total_hours }}</td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if not project_detail %}
 <div class="card mt-4">
   <div class="card-header">
     <strong>Összesítés</strong>
@@ -267,7 +458,7 @@
       data.body.push(pad(["Összesítés"]));
       readSummaryRows().forEach(function(row) { data.body.push(pad(row)); });
     }
-    var summaryExportOptions = {% if report_type != "project" %}{ customizeData: withSummary }{% else %}undefined{% endif %};
+    var summaryExportOptions = {% if not project_detail %}{ customizeData: withSummary }{% else %}undefined{% endif %};
 
     var BRAND = "#008cba";
     function stylePdf(doc) {
@@ -336,7 +527,7 @@
       columnDefs: [
         { targets: '_all', responsivePriority: 3 },
         { targets: 0, responsivePriority: 1 },
-        {% if report_type == "project" %}
+        {% if project_detail %}
         { targets: -1, searchable: false, orderable: false, responsivePriority: 10001 },
         {% endif %}
       ],

@@ -51,6 +51,7 @@ class ProjectReport:
     customer_name: str
     activity_type_names: list[str]
     weeks: list[ProjectWeekRow]
+    entries: list[DetailRow]
     total_hours: float
 
 
@@ -96,12 +97,29 @@ def get_project_report(
             )
         )
 
+    entries_sorted = sorted(entries, key=lambda e: (e.entry_date, e.id))
+    detail_rows = [
+        DetailRow(
+            entry_date=entry.entry_date.isoformat(),
+            weekday=_HU_WEEKDAYS[entry.entry_date.weekday()],
+            project_week=entry.project_week,
+            project_code=entry.project_code,
+            customer_name=entry.customer_name,
+            user_name=entry.user_name,
+            activity_type_name=entry.activity_type_name,
+            participants=entry.participants or "",
+            hours=entry.hours,
+        )
+        for entry in entries_sorted
+    ]
+
     return ProjectReport(
         project_id=project_id,
         project_code=project.code if project else "",
         customer_name=project.customer_name if project else "",
         activity_type_names=activity_type_names,
         weeks=weeks,
+        entries=detail_rows,
         total_hours=cumulative,
     )
 
@@ -162,6 +180,8 @@ def get_group_report(
             return entry.user_id, entry.user_name
         if group_by == "customer":
             return entry.project.customer_id, entry.customer_name
+        if group_by == "project":
+            return entry.project_id, entry.project_code
         return entry.activity_type_id, entry.activity_type_name
 
     pivot = group_by != "activity_type"

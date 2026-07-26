@@ -243,6 +243,7 @@ class ProjectOut(BaseModel):
     is_active: bool
     permitted_user_ids: list[int]
     usage_hours: float
+    first_entry_date: date | None
     created_at: datetime
     updated_at: datetime
 

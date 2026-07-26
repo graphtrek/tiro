@@ -936,11 +936,7 @@ def timesheet_report(
     activity_type_id: int | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    if report_type == "project":
-        if project_id is None:
-            raise HTTPException(
-                status_code=400, detail="A projekt riporthoz projekt kiválasztása kötelező"
-            )
+    if report_type == "project" and project_id is not None:
         report = report_service.get_project_report(
             db,
             project_id,
@@ -949,7 +945,7 @@ def timesheet_report(
             user_id=user_id,
             activity_type_id=activity_type_id,
         )
-    elif report_type in ("person", "customer", "activity_type"):
+    elif report_type in ("project", "person", "customer", "activity_type"):
         report = report_service.get_group_report(
             db,
             report_type,

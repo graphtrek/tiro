@@ -234,7 +234,8 @@ def _resolve_date_range(
     if date_range == "project_start":
         if project is None:
             return None, None
-        return date.fromisoformat(project["created_at"][:10]), None
+        start = project.get("first_entry_date") or project["created_at"][:10]
+        return date.fromisoformat(start[:10]), None
     if date_range == "current_week":
         monday = today - timedelta(days=today.weekday())
         return monday, monday + timedelta(days=6)
@@ -263,6 +264,8 @@ def _format_report_hours(report: dict) -> None:
             row["week_hours"] = _fmt_hours(row["week_hours"])
             row["cumulative_hours"] = _fmt_hours(row["cumulative_hours"])
             row["by_activity_type"] = {k: _fmt_hours(v) for k, v in row["by_activity_type"].items()}
+        for entry in report.get("entries", []):
+            entry["hours"] = _fmt_hours(entry["hours"])
         report["total_hours"] = _fmt_hours(report["total_hours"])
     elif "rows" in report:
         for row in report["rows"]:
@@ -311,7 +314,12 @@ def _reports_page(
     if date_range not in _DATE_RANGES:
         date_range = "current_month"
 
-    if report_type == "project" and project_id is None and projects:
+    if (
+        report_type == "project"
+        and project_id is None
+        and "project_id" not in request.query_params
+        and projects
+    ):
         project_id = projects[0]["id"]
 
     selected_project = next((p for p in projects if p["id"] == project_id), None)
@@ -359,9 +367,8 @@ def _reports_page(
         "error": None,
     }
 
-    if report_type == "project" and selected_project is None:
-        ctx["error"] = "Válasszon projektet a projekt riporthoz"
-        return templates.TemplateResponse(request, "controlling_reports.html", ctx)
+    project_detail = report_type == "project" and selected_project is not None
+    ctx["project_detail"] = project_detail
 
     resolved_from, resolved_to = _resolve_date_range(
         date_range, date_from, date_to, selected_project, local_today()
@@ -376,13 +383,53 @@ def _reports_page(
         user_id=user_id,
         activity_type_id=activity_type_id,
     )
-    if report_type == "project":
+    if project_detail:
         report.setdefault("weeks", [])
     else:
         report.setdefault("rows", [])
-        report.setdefault("entries", [])
+    report.setdefault("entries", [])
     report.setdefault("activity_type_names", [])
     report.setdefault("total_hours", 0.0)
+
+    if report_type == "project":
+        entries_raw = report.get("entries", [])
+        week_totals: dict[int, float] = {}
+        for e in entries_raw:
+            week_totals[e["project_week"]] = week_totals.get(e["project_week"], 0.0) + e["hours"]
+        active_weeks = [h for h in week_totals.values() if h > 0]
+        longest_week_no = max(week_totals, key=week_totals.get, default=None)
+
+        if entries_raw:
+            entry_dates = [date.fromisoformat(e["entry_date"]) for e in entries_raw]
+            span_days = (max(entry_dates) - min(entry_dates)).days
+        else:
+            span_days = 0
+        if span_days <= 14:
+            default_granularity = "day"
+        elif span_days <= 90:
+            default_granularity = "week"
+        else:
+            default_granularity = "month"
+
+        ctx["weekly_stats"] = {
+            "default_granularity": default_granularity,
+            "entries_data": [
+                {
+                    "entry_date": e["entry_date"],
+                    "project_week": e["project_week"],
+                    "hours": e["hours"],
+                }
+                for e in entries_raw
+            ],
+            "active_week_count": len(active_weeks),
+            "avg_active_week_hours": (
+                _fmt_hours(report["total_hours"] / len(active_weeks)) if active_weeks else "0"
+            ),
+            "longest_week_hours": (
+                _fmt_hours(week_totals[longest_week_no]) if longest_week_no is not None else "0"
+            ),
+            "longest_week_no": longest_week_no,
+        }
 
     _format_report_hours(report)
     ctx["report"] = report

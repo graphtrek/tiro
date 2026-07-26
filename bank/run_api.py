@@ -6,4 +6,6 @@ Run from VS Code (Run & Debug → "bank API") or directly:
 import uvicorn
 
 if __name__ == "__main__":
-    uvicorn.run("bank.api.main:app", host="127.0.0.1", port=8005, reload=True)
+    uvicorn.run(
+        "bank.api.main:app", host="127.0.0.1", port=8005, reload=True, reload_dirs=["src"]
+    )
