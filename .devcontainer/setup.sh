@@ -18,6 +18,19 @@ for pyproject in */pyproject.toml; do
   (cd "$dir" && uv sync)
 done
 
+echo "Installing newer PostgreSQL client tools (PGDG repo)..."
+# The apt "postgresql" package above only gives v15 (Debian bookworm's
+# default) — pg_dump/pg_restore are only forward-compatible one way: an
+# older client can't read a newer archive format. Backups taken from the
+# docker-compose stack's postgres:16-alpine (or anything newer) fail restore
+# here with "unsupported version (x.xx) in file header" otherwise. Installing
+# the latest major from PGDG covers any dump version we will realistically
+# see, since newer pg_restore always reads older archive formats too.
+curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+sudo apt-get update -qq
+sudo apt-get install -y postgresql-client-18
+
 echo "Installing pgAdmin (desktop mode, no login) via pipx..."
 pipx ensurepath >/dev/null 2>&1 || true
 export PATH="$HOME/.local/bin:$PATH"
@@ -39,13 +52,15 @@ cat > "$PGADMIN_SITE_PKG/config_local.py" <<'EOF'
 MASTER_PASSWORD_REQUIRED = False
 USE_OS_SECRET_STORAGE = False
 
-# The apt "postgresql" package (v15 on Debian bookworm) installs pg_dump/
-# pg_restore/psql as /usr/bin symlinks — without this, pgAdmin's backup/
-# restore fails with "Utility file not found" because it has no default
-# Binary Path preference until a user sets one by hand.
+# Without this, pgAdmin's backup/restore fails with "Utility file not
+# found" because it has no default Binary Path preference until a user sets
+# one by hand. Point at the PGDG v18 client (not the apt v15 one at /usr/bin)
+# so restoring dumps taken from the docker-compose postgres:16 stack (or
+# anything newer) doesn't hit "unsupported version in file header" — a
+# newer pg_restore reads older archive formats fine, the reverse doesn't hold.
 DEFAULT_BINARY_PATHS = {
-    "pg": "/usr/bin",
-    "pg-15": "/usr/bin",
+    "pg": "/usr/lib/postgresql/18/bin",
+    "pg-15": "/usr/lib/postgresql/18/bin",
 }
 EOF
 
