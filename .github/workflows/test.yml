@@ -14,8 +14,7 @@ jobs:
           - project: nav-invoice
             python-version: "3.11"
           - project: attachment-downloader
-            python-version: "3.9"
-            extra: gmail
+            python-version: "3.11"
           - project: invoice-file-filter
             python-version: "3.10"
           - project: invoice-core
