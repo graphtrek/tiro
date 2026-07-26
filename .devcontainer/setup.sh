@@ -15,11 +15,7 @@ echo "Syncing each sub-project's isolated .venv..."
 for pyproject in */pyproject.toml; do
   dir="$(dirname "$pyproject")"
   echo "  -> $dir"
-  if [ "$dir" = "attachment-downloader" ]; then
-    (cd "$dir" && uv sync --extra gmail)
-  else
-    (cd "$dir" && uv sync)
-  fi
+  (cd "$dir" && uv sync)
 done
 
 echo "Installing pgAdmin (desktop mode, no login) via pipx..."

@@ -8,6 +8,9 @@
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
   },
   "runArgs": ["--env-file", "${localWorkspaceFolder}/.env"],
+  "mounts": [
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly"
+  ],
   "containerEnv": { "AGENT_BROWSER_EXECUTABLE_PATH": "/usr/bin/chromium" },
   "forwardPorts": [8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8009, 5432, 5050],
   "postCreateCommand": "bash .devcontainer/setup.sh",
