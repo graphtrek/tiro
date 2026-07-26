@@ -108,6 +108,7 @@ def get_project_report(
             user_name=entry.user_name,
             activity_type_name=entry.activity_type_name,
             participants=entry.participants or "",
+            description=entry.description or "",
             hours=entry.hours,
         )
         for entry in entries_sorted
@@ -143,6 +144,7 @@ class DetailRow:
     user_name: str
     activity_type_name: str
     participants: str
+    description: str
     hours: float
 
 
@@ -224,6 +226,7 @@ def get_group_report(
             user_name=entry.user_name,
             activity_type_name=entry.activity_type_name,
             participants=entry.participants or "",
+            description=entry.description or "",
             hours=entry.hours,
         )
         for entry in entries_sorted

@@ -111,7 +111,7 @@
 {% set show_person_col = not user_id %}
 {% set show_activity_type_col = not activity_type_id %}
 {% set show_project_col = not project_detail and not project_id %}
-{% set base_cols = 4 + (1 if show_person_col else 0) + (1 if show_activity_type_col else 0) + (1 if show_project_col else 0) %}
+{% set base_cols = 5 + (1 if show_person_col else 0) + (1 if show_activity_type_col else 0) + (1 if show_project_col else 0) %}
 {% set summary_label = "Személy" if report_type == "person" else ("Ügyfél" if report_type == "customer" else ("Projekt" if report_type == "project" else "Tevékenység típus")) %}
 
 {% if report_type == "project" %}
@@ -288,6 +288,7 @@
           {% if show_person_col %}<th>Személy</th>{% endif %}
           {% if show_activity_type_col %}<th>Tevékenység típus</th>{% endif %}
           <th>Résztvevők</th>
+          <th>Leírás</th>
           <th class="text-end report-hours-col">Óra</th>
         {% endif %}
         </tr>
@@ -313,6 +314,7 @@
           {% if show_person_col %}<td>{{ e.user_name }}</td>{% endif %}
           {% if show_activity_type_col %}<td>{{ e.activity_type_name }}</td>{% endif %}
           <td>{{ e.participants }}</td>
+          <td>{{ e.description }}</td>
           <td class="text-end">{{ e.hours }}</td>
         </tr>
         {% endfor %}
@@ -348,6 +350,7 @@
           {% if show_person_col %}<th>Személy</th>{% endif %}
           {% if show_activity_type_col %}<th>Tevékenység típus</th>{% endif %}
           <th>Résztvevők</th>
+          <th>Leírás</th>
           <th class="text-end">Óra</th>
         </tr>
       </thead>
@@ -360,6 +363,7 @@
           {% if show_person_col %}<td>{{ e.user_name }}</td>{% endif %}
           {% if show_activity_type_col %}<td>{{ e.activity_type_name }}</td>{% endif %}
           <td>{{ e.participants }}</td>
+          <td>{{ e.description }}</td>
           <td class="text-end">{{ e.hours }}</td>
         </tr>
         {% endfor %}
