@@ -532,7 +532,7 @@ History:
 ---
 
 ### DEF-011 — `GET /api/v1/invoice-files` pagination is unstable on PostgreSQL: `ORDER BY created_at DESC` has no tiebreaker, so tied rows repeat across pages and other rows are silently dropped
-Status: OPEN
+Status: CLOSED
 Severity: HIGH
 Found by: adversary (ADV-010)
 Service(s): invoice-core
@@ -604,11 +604,18 @@ History:
   `GET /api/v1/invoices` pagination has no equivalent bug (ids `[9,8],[7,10],[6,5],[4,3]` across
   offsets 0/2/4/6 — all distinct, no repeats); confirmed the unit test fixture's seed data
   structurally avoids the tie condition that trips the real bug.
+- 2026-07-26 qa: CLOSED — retested against the real PostgreSQL-backed service: paged all 102
+  invoice-files via `limit=3` across 34 pages, got 102 unique ids, zero duplicates and zero gaps in
+  the range 1-102, and identical results across 5 repeated calls to the same page (deterministic
+  ordering). Fix confirmed at `invoice_file_service.py:64` (`created_at desc, id desc`).
+  Regression-checked the defensively-added tiebreakers on dashboard recent invoices/transactions,
+  sync logs, top suppliers/customers, and the audit log — all still display correct data.
+  `tests/test_pagination.py` (18 tests) passes.
 
 ---
 
 ### DEF-012 — No concurrency guard around `sync_all`: a second sync started while one is in progress is not rejected or queued, risking DB contention/cascading unresponsiveness across the stack
-Status: OPEN
+Status: CLOSED
 Severity: MEDIUM
 Found by: adversary (ADV-012, reframed)
 Service(s): invoice-core
@@ -657,4 +664,60 @@ History:
   real dataset for the safety reasons above; relying on the adversary's own reproduction plus this
   code-level confirmation, as explicitly permitted when re-running risks the real dataset/a long
   outage.
+- 2026-07-26 qa: CLOSED — retested against the real running stack: two real concurrent
+  `POST /api/v1/sync` calls, the second returned 409 with the Hungarian message while the first ran
+  a genuine ~3 minute full sync to completion. Verified lock release after both a successful sync
+  and via the CLI. Forced a fresh `SyncLock` row and confirmed it produces 409. Forced a
+  >30-minute-stale lock and confirmed it self-heals with no manual DB intervention. A blocked CLI
+  sync printed the Hungarian message and exited code 1. `alembic downgrade -1` cleanly drops
+  `sync_lock` and `upgrade head` recreates it, with the singleton row self-healing on next acquire.
+  `tests/test_sync_lock.py` (6 tests) passes.
+
+---
+
+### DEF-013 — `func.now()`-derived timestamps are stored in local server timezone (Europe/Budapest, +02) not UTC, silently breaking `timeutil.utcnow()`'s naive-UTC-comparability assumption
+Status: OPEN
+Severity: MEDIUM
+Found by: qa
+Service(s): invoice-core
+Steps:
+1. Start `invoice-core` against the real PostgreSQL database (native install, not the
+   docker-compose Postgres) and check the session timezone: the server session runs in
+   `Europe/Budapest` (+02), not UTC.
+2. Compare a `server_default=func.now()` column (e.g. `AuditLog.created_at`,
+   `User.updated_at`) against a Python-side value written via `timeutil.utcnow()`
+   (e.g. `User.last_login_at`) for the same real event.
+3. Inspect `/ui/admin/users` (Felhasználók) and `/ui/admin/audit` for the same rows.
+Expected: per `timeutil.utcnow()`'s documented assumption, every `created_at`/`updated_at`
+column populated via `server_default=func.now()` is directly comparable to Python-side naive-UTC
+`datetime` values (e.g. `last_login_at`) — i.e. both should represent the same instant, just
+expressed as naive datetimes.
+Actual: reproduced against real data — `User.updated_at` reads `10:48:26.295732` while
+`User.last_login_at` (written via `timeutil.utcnow()` for the same login event) reads
+`08:48:26.296114` — same minute/second/microsecond, exactly 2 hours apart. Confirmed with a
+controlled `AuditLog` probe row (insert via `func.now()`, read back immediately, compare to
+`timeutil.utcnow()` at the same instant): consistently ~2 hours ahead. Root cause: `func.now()`
+executes server-side in the PostgreSQL session's timezone setting (`Europe/Budapest`, +02 in this
+deployment) and its result is implicitly cast into `timestamp without time zone` columns, silently
+dropping the offset rather than converting to UTC first — every table's `created_at` populated
+this way is affected. Blast-radius sweep of the four candidate danger zones found all four SAFE:
+sync durations use explicit `utcnow()` + `time.monotonic()` (unaffected); the dashboard's "last 30
+days" window and the tax/dividend report ranges filter on business dates, not `created_at`
+(unaffected); DEF-012's `SyncLock.locked_at` has no `server_default` (unaffected). Live
+user-facing impact is confined to `/ui/admin/users` showing `last_login_at` and `created_at` ~2
+hours apart in the same row, and `/ui/admin/audit` timestamps reading ~2 hours ahead of UTC.
+Portability proof: the docker-compose Postgres container runs in UTC while this native install
+runs in `Europe/Budapest`, so identical code produces different displayed timestamps depending on
+deployment path — a silent, environment-dependent data-correctness trap, not a code bug that
+shows up the same way everywhere.
+Severity rationale: MEDIUM — no functional/business-logic breakage was found (sync durations,
+dashboard windows, and report ranges are all unaffected per the blast-radius sweep above), but
+this is a concretely-proven, currently-manifesting data-correctness bug in user-facing timestamps
+plus a silent deployment-environment trap that would resurface identically in any other
+non-UTC-configured deployment.
+Screenshot: n/a (data/timestamp defect; evidence is the direct DB comparison above).
+History:
+- 2026-07-26 qa: filed at the orchestrator's request after a developer surfaced this while working
+  on DEF-012, with a full blast-radius sweep of the four candidate danger zones (sync durations,
+  dashboard 30-day window, report ranges, `SyncLock.locked_at`) — all four confirmed SAFE.
 
