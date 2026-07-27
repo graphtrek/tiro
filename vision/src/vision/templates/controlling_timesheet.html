@@ -274,7 +274,13 @@
 
     function weekLabel(project, entryDateStr) {
       if (!project || !entryDateStr) return "";
-      const created = new Date(project.created_at);
+      // Week 1 is anchored to the project's first logged entry (matching the
+      // backend's project_week), not the project row's technical created_at —
+      // entries can be backdated before the project record itself was created.
+      // Both operands are parsed as UTC midnight (date-only strings) so time-of-day
+      // and local timezone never skew the day diff.
+      const anchor = (project.first_entry_date || project.created_at.slice(0, 10)).slice(0, 10);
+      const created = new Date(anchor);
       const entryDate = new Date(entryDateStr);
       const days = Math.floor((entryDate - created) / 86400000);
       return "W" + (Math.floor(Math.max(days, 0) / 7) + 1);

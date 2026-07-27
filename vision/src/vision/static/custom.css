@@ -44,6 +44,15 @@
     --tax-hipa-color: #0f766e;
     --tax-hipa-late-color: #b45309;
     --tax-iparkamara-color: #6d28d9;
+    /* Categorical chart series (validated CVD-safe order) + a muted "other" bucket. */
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --series-5: #e87ba4;
+    --series-6: #008300;
+    --series-7: #4a3aa7;
+    --series-other: #898781;
 }
 [data-bs-theme="light"] {
     --bs-body-bg: #f5f7ff;
@@ -87,6 +96,14 @@
     --danger-color-light: rgba(255, 107, 143, 0.2);
     --info-color: #67b7ff;
     --info-color-light: rgba(103, 183, 255, 0.2);
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-other: #898781;
     --tax-hipa-color: #2dd4bf;
     --tax-hipa-late-color: #fbbf24;
     --tax-iparkamara-color: #a78bfa;

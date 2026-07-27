@@ -430,9 +430,12 @@ class TimesheetEntry(Base):
 
     @property
     def project_week(self) -> int:
-        if not self.project or not self.project.created_at:
+        if not self.project:
             return 1
-        delta_days = (self.entry_date - self.project.created_at.date()).days
+        anchor = self.project.first_entry_date or (
+            self.project.created_at.date() if self.project.created_at else self.entry_date
+        )
+        delta_days = (self.entry_date - anchor).days
         return max(delta_days, 0) // 7 + 1
 
 

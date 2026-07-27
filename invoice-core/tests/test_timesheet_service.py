@@ -106,13 +106,22 @@ def test_create_timesheet_entry_success(db, project, owner, activity_type):
 
 
 def test_create_timesheet_entry_computes_project_week(db, project, owner, activity_type):
-    # 2026-01-05 (created_at) -> 2026-01-12 is exactly 7 days later -> W2.
-    record = timesheet_service.create_timesheet_entry(
+    # The project's created_at (2026-01-05) predates any real work — project_week
+    # must anchor to the first *logged entry*, not the project row's creation time,
+    # since entries can be (and typically are) backdated before the project record
+    # itself exists in the system.
+    first = timesheet_service.create_timesheet_entry(
         db,
         _payload(project.id, activity_type.id, user_id=owner.id, entry_date=date(2026, 1, 12)),
     )
+    assert first.project_week == 1
 
-    assert record.project_week == 2
+    # 2026-01-12 (first entry) -> 2026-01-19 is exactly 7 days later -> W2.
+    second = timesheet_service.create_timesheet_entry(
+        db,
+        _payload(project.id, activity_type.id, user_id=owner.id, entry_date=date(2026, 1, 19)),
+    )
+    assert second.project_week == 2
 
 
 def test_create_timesheet_entry_rejects_unknown_project(db, owner, activity_type):

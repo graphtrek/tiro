@@ -114,10 +114,9 @@
 {% set base_cols = 5 + (1 if show_person_col else 0) + (1 if show_activity_type_col else 0) + (1 if show_project_col else 0) %}
 {% set summary_label = "Személy" if report_type == "person" else ("Ügyfél" if report_type == "customer" else ("Projekt" if report_type == "project" else "Tevékenység típus")) %}
 
-{% if report_type == "project" %}
 <div class="card mb-4">
   <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <strong>Heti alakulás</strong>
+    <strong>Heti alakulás</strong> <span class="text-muted small">({{ summary_label }} szerint színezve)</span>
     <div class="btn-group btn-group-sm" role="group" id="chartGranularity" data-default="{{ weekly_stats.default_granularity }}">
       <button type="button" class="btn btn-outline-secondary" data-granularity="day">Napi</button>
       <button type="button" class="btn btn-outline-secondary" data-granularity="week">Heti</button>
@@ -159,9 +158,14 @@
 
     var entries = JSON.parse(document.getElementById('weekly-entries-data').textContent) || [];
     var css = getComputedStyle(document.documentElement);
-    var accentColor = css.getPropertyValue('--accent-color').trim();
     var mutedColor = css.getPropertyValue('--muted-color').trim();
     var borderColor = css.getPropertyValue('--border-color-light').trim();
+    var surfaceColor = css.getPropertyValue('--card-bg').trim();
+    var otherColor = css.getPropertyValue('--series-other').trim();
+    var SERIES_COLORS = [1, 2, 3, 4, 5, 6, 7].map(function (n) {
+      return css.getPropertyValue('--series-' + n).trim();
+    });
+    var OTHER_LABEL = 'Egyéb';
 
     var HU_MONTHS = ['jan', 'feb', 'márc', 'ápr', 'máj', 'jún', 'júl', 'aug', 'szept', 'okt', 'nov', 'dec'];
 
@@ -185,17 +189,57 @@
       return 'W' + parseInt(key, 10);
     }
 
+    // Cap real categories at 7 (the validated palette's slot count) — anything
+    // past that folds into a single muted "Egyéb" series rather than a generated hue.
+    var totalsByCategory = {};
+    entries.forEach(function (e) {
+      totalsByCategory[e.category] = (totalsByCategory[e.category] || 0) + e.hours;
+    });
+    var categoriesByTotal = Object.keys(totalsByCategory).sort(function (a, b) {
+      return totalsByCategory[b] - totalsByCategory[a];
+    });
+    var topCategories = categoriesByTotal.slice(0, 7);
+    var hasOther = categoriesByTotal.length > 7;
+    var categoryToSeries = {};
+    topCategories.forEach(function (cat, i) { categoryToSeries[cat] = i; });
+
     function buildBuckets(granularity) {
       var totals = {};
+      var order = [];
       entries.forEach(function (e) {
         var key = bucketKey(e, granularity);
-        totals[key] = (totals[key] || 0) + e.hours;
+        if (totals[key] === undefined) {
+          totals[key] = new Array(topCategories.length + (hasOther ? 1 : 0)).fill(0);
+          order.push(key);
+        }
+        var seriesIdx = categoryToSeries.hasOwnProperty(e.category)
+          ? categoryToSeries[e.category]
+          : topCategories.length;
+        totals[key][seriesIdx] += e.hours;
       });
-      var keys = Object.keys(totals).sort();
+      var keys = order.sort();
       return {
         labels: keys.map(function (k) { return bucketLabel(k, granularity); }),
-        data: keys.map(function (k) { return Math.round(totals[k] * 100) / 100; })
+        series: keys.map(function (k) {
+          return totals[k].map(function (v) { return Math.round(v * 100) / 100; });
+        })
       };
+    }
+
+    function toDatasets(buckets) {
+      var labels = topCategories.concat(hasOther ? [OTHER_LABEL] : []);
+      var colors = topCategories.map(function (_, i) { return SERIES_COLORS[i]; }).concat(hasOther ? [otherColor] : []);
+      return labels.map(function (label, i) {
+        return {
+          label: label,
+          data: buckets.series.map(function (row) { return row[i]; }),
+          backgroundColor: colors[i],
+          borderColor: surfaceColor,
+          borderWidth: 2,
+          borderRadius: i === labels.length - 1 ? 4 : 0,
+          maxBarThickness: 24
+        };
+      });
     }
 
     var existing = Chart.getChart(canvas);
@@ -207,35 +251,33 @@
     });
 
     var initial = buildBuckets(defaultGranularity);
+    var seriesCount = topCategories.length + (hasOther ? 1 : 0);
     var chart = new Chart(canvas, {
       type: 'bar',
       data: {
         labels: initial.labels,
-        datasets: [{
-          label: 'Óra',
-          data: initial.data,
-          backgroundColor: accentColor,
-          borderRadius: 4,
-          maxBarThickness: 40
-        }]
+        datasets: toDatasets(initial)
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: false },
+          legend: { display: seriesCount > 1, labels: { color: mutedColor, boxWidth: 12 } },
           tooltip: {
             callbacks: {
-              label: function (ctx) { return ctx.parsed.y + ' óra'; }
+              label: function (ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' óra'; }
             }
           }
         },
         scales: {
           x: {
+            stacked: true,
             grid: { display: false },
             ticks: { color: mutedColor }
           },
           y: {
+            stacked: true,
             beginAtZero: true,
             border: { display: false },
             grid: { color: borderColor },
@@ -251,13 +293,12 @@
         btn.classList.add('active');
         var next = buildBuckets(btn.dataset.granularity);
         chart.data.labels = next.labels;
-        chart.data.datasets[0].data = next.data;
+        chart.data.datasets = toDatasets(next);
         chart.update();
       });
     });
   })();
 </script>
-{% endif %}
 
 <div class="card">
   <div class="card-header">

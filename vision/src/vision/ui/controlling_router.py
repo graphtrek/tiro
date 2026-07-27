@@ -26,6 +26,12 @@ _REPORT_TYPE_LABELS = {
     "customer": "Ügyfél riport",
     "activity_type": "Tevékenység típus riport",
 }
+_REPORT_TYPE_CATEGORY_FIELD = {
+    "project": "project_code",
+    "person": "user_name",
+    "customer": "customer_name",
+    "activity_type": "activity_type_name",
+}
 _DATE_RANGES = ["project_start", "current_month", "current_week", "custom"]
 _DATE_RANGE_LABELS = {
     "project_start": "Projekt kezdete óta",
@@ -314,14 +320,6 @@ def _reports_page(
     if date_range not in _DATE_RANGES:
         date_range = "current_month"
 
-    if (
-        report_type == "project"
-        and project_id is None
-        and "project_id" not in request.query_params
-        and projects
-    ):
-        project_id = projects[0]["id"]
-
     selected_project = next((p for p in projects if p["id"] == project_id), None)
     selected_customer = next((c for c in customers if c["id"] == customer_id), None)
     selected_user = next((u for u in users if u["id"] == user_id), None)
@@ -391,45 +389,46 @@ def _reports_page(
     report.setdefault("activity_type_names", [])
     report.setdefault("total_hours", 0.0)
 
-    if report_type == "project":
-        entries_raw = report.get("entries", [])
-        week_totals: dict[int, float] = {}
-        for e in entries_raw:
-            week_totals[e["project_week"]] = week_totals.get(e["project_week"], 0.0) + e["hours"]
-        active_weeks = [h for h in week_totals.values() if h > 0]
-        longest_week_no = max(week_totals, key=week_totals.get, default=None)
+    category_field = _REPORT_TYPE_CATEGORY_FIELD[report_type]
+    entries_raw = report.get("entries", [])
+    week_totals: dict[int, float] = {}
+    for e in entries_raw:
+        week_totals[e["project_week"]] = week_totals.get(e["project_week"], 0.0) + e["hours"]
+    active_weeks = [h for h in week_totals.values() if h > 0]
+    longest_week_no = max(week_totals, key=week_totals.get, default=None)
 
-        if entries_raw:
-            entry_dates = [date.fromisoformat(e["entry_date"]) for e in entries_raw]
-            span_days = (max(entry_dates) - min(entry_dates)).days
-        else:
-            span_days = 0
-        if span_days <= 14:
-            default_granularity = "day"
-        elif span_days <= 90:
-            default_granularity = "week"
-        else:
-            default_granularity = "month"
+    if entries_raw:
+        entry_dates = [date.fromisoformat(e["entry_date"]) for e in entries_raw]
+        span_days = (max(entry_dates) - min(entry_dates)).days
+    else:
+        span_days = 0
+    if span_days <= 14:
+        default_granularity = "day"
+    elif span_days <= 90:
+        default_granularity = "week"
+    else:
+        default_granularity = "month"
 
-        ctx["weekly_stats"] = {
-            "default_granularity": default_granularity,
-            "entries_data": [
-                {
-                    "entry_date": e["entry_date"],
-                    "project_week": e["project_week"],
-                    "hours": e["hours"],
-                }
-                for e in entries_raw
-            ],
-            "active_week_count": len(active_weeks),
-            "avg_active_week_hours": (
-                _fmt_hours(report["total_hours"] / len(active_weeks)) if active_weeks else "0"
-            ),
-            "longest_week_hours": (
-                _fmt_hours(week_totals[longest_week_no]) if longest_week_no is not None else "0"
-            ),
-            "longest_week_no": longest_week_no,
-        }
+    ctx["weekly_stats"] = {
+        "default_granularity": default_granularity,
+        "entries_data": [
+            {
+                "entry_date": e["entry_date"],
+                "project_week": e["project_week"],
+                "hours": e["hours"],
+                "category": e[category_field] or "N/A",
+            }
+            for e in entries_raw
+        ],
+        "active_week_count": len(active_weeks),
+        "avg_active_week_hours": (
+            _fmt_hours(report["total_hours"] / len(active_weeks)) if active_weeks else "0"
+        ),
+        "longest_week_hours": (
+            _fmt_hours(week_totals[longest_week_no]) if longest_week_no is not None else "0"
+        ),
+        "longest_week_no": longest_week_no,
+    }
 
     _format_report_hours(report)
     ctx["report"] = report
