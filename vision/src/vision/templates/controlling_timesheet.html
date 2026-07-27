@@ -272,18 +272,26 @@
   (function() {
     const projects = {{ projects | tojson }};
 
+    function mondayOf(d) {
+      // d is parsed as UTC midnight; rebase JS's Sunday=0 weekday to Monday=0.
+      const dow = (d.getUTCDay() + 6) % 7;
+      return new Date(d.getTime() - dow * 86400000);
+    }
+
     function weekLabel(project, entryDateStr) {
       if (!project || !entryDateStr) return "";
       // Week 1 is anchored to the project's first logged entry (matching the
       // backend's project_week), not the project row's technical created_at —
       // entries can be backdated before the project record itself was created.
-      // Both operands are parsed as UTC midnight (date-only strings) so time-of-day
-      // and local timezone never skew the day diff.
+      // Weeks are calendar weeks (Mon-Sun), not a rolling 7-day window from the
+      // anchor, so e.g. a Friday anchor and the following Monday land in
+      // different weeks. Both dates parsed as UTC midnight so time-of-day and
+      // local timezone never skew the calculation.
       const anchor = (project.first_entry_date || project.created_at.slice(0, 10)).slice(0, 10);
-      const created = new Date(anchor);
-      const entryDate = new Date(entryDateStr);
-      const days = Math.floor((entryDate - created) / 86400000);
-      return "W" + (Math.floor(Math.max(days, 0) / 7) + 1);
+      const anchorMonday = mondayOf(new Date(anchor));
+      const entryMonday = mondayOf(new Date(entryDateStr));
+      const weeksBetween = Math.floor((entryMonday - anchorMonday) / (7 * 86400000));
+      return "W" + (Math.max(weeksBetween, 0) + 1);
     }
 
     document.querySelectorAll(".ts-form").forEach(function(form) {

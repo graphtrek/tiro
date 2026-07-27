@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from datetime import date
+from datetime import date, timedelta
 from enum import Enum as PyEnum
 
 from sqlalchemy import (
@@ -435,8 +435,12 @@ class TimesheetEntry(Base):
         anchor = self.project.first_entry_date or (
             self.project.created_at.date() if self.project.created_at else self.entry_date
         )
-        delta_days = (self.entry_date - anchor).days
-        return max(delta_days, 0) // 7 + 1
+        # Calendar weeks (Mon-Sun), not a rolling 7-day window from the anchor —
+        # so e.g. a Friday anchor and the following Monday land in different weeks.
+        anchor_monday = anchor - timedelta(days=anchor.weekday())
+        entry_monday = self.entry_date - timedelta(days=self.entry_date.weekday())
+        weeks_between = (entry_monday - anchor_monday).days // 7
+        return max(weeks_between, 0) + 1
 
 
 class SyncLog(Base):

@@ -124,6 +124,31 @@ def test_create_timesheet_entry_computes_project_week(db, project, owner, activi
     assert second.project_week == 2
 
 
+def test_project_week_uses_calendar_weeks_not_rolling_window(db, project, owner, activity_type):
+    # First entry on a Friday (2026-01-16) -> anchors W1 to that calendar week
+    # (Mon 2026-01-12 - Sun 2026-01-18).
+    first = timesheet_service.create_timesheet_entry(
+        db,
+        _payload(project.id, activity_type.id, user_id=owner.id, entry_date=date(2026, 1, 16)),
+    )
+    assert first.project_week == 1
+
+    # The very next Monday (2026-01-19) is only 3 days later, but it falls in the
+    # next calendar week -> W2, not W1 (a rolling 7-day window would say W1).
+    monday_after = timesheet_service.create_timesheet_entry(
+        db,
+        _payload(project.id, activity_type.id, user_id=owner.id, entry_date=date(2026, 1, 19)),
+    )
+    assert monday_after.project_week == 2
+
+    # 2026-01-26 is a further calendar week later -> W3.
+    week_three = timesheet_service.create_timesheet_entry(
+        db,
+        _payload(project.id, activity_type.id, user_id=owner.id, entry_date=date(2026, 1, 26)),
+    )
+    assert week_three.project_week == 3
+
+
 def test_create_timesheet_entry_rejects_unknown_project(db, owner, activity_type):
     with pytest.raises(ValueError):
         timesheet_service.create_timesheet_entry(
