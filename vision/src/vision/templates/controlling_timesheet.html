@@ -111,7 +111,7 @@
         { targets: [3, 4], responsivePriority: 2 },
         { targets: 9, className: "text-end", responsivePriority: 3 },
         { targets: -1, searchable: false, orderable: false, responsivePriority: 1 },
-        { targets: [1, 7], responsivePriority: 10001 },
+        { targets: [1, 7], className: "none", responsivePriority: 10001 },
       ],
       drawCallback: function() {
         var sum = this.api().column(9, { search: "applied" }).data().toArray()
