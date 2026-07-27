@@ -238,6 +238,23 @@ def test_list_timesheet_entries_scoped_to_user(db, project, owner, other_user, a
     assert rows[0].user_id == owner.id
 
 
+def test_list_timesheet_entries_without_user_id_returns_all_users(
+    db, project, owner, other_user, activity_type
+):
+    project.permitted_users = [other_user]
+    db.commit()
+
+    timesheet_service.create_timesheet_entry(
+        db, _payload(project.id, activity_type.id, user_id=owner.id)
+    )
+    timesheet_service.create_timesheet_entry(
+        db, _payload(project.id, activity_type.id, user_id=other_user.id)
+    )
+
+    rows = timesheet_service.list_timesheet_entries(db)
+    assert {row.user_id for row in rows} == {owner.id, other_user.id}
+
+
 def test_update_timesheet_entry_changes_fields(db, project, owner, activity_type):
     created = timesheet_service.create_timesheet_entry(
         db, _payload(project.id, activity_type.id, user_id=owner.id, hours=2.0)

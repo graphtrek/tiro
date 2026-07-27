@@ -19,6 +19,18 @@ router = APIRouter(prefix="/ui/controlling", tags=["controlling-ui"])
 
 _HU_WEEKDAYS = ["hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap"]
 
+_PROJECT_SCOPES = ["permitted", "my", "all"]
+_PROJECT_SCOPE_LABELS = {
+    "permitted": "Engedélyezett projektek",
+    "my": "Saját projektek",
+    "all": "Összes projekt",
+}
+_PROJECT_SCOPE_COLORS = {
+    "permitted": "info",
+    "my": "success",
+    "all": "warning",
+}
+
 _REPORT_TYPES = ["project", "person", "customer", "activity_type"]
 _REPORT_TYPE_LABELS = {
     "project": "Projekt riport (heti + kumulált)",
@@ -129,7 +141,10 @@ def delete_project(request: Request, project_id: int):
     return _projects_page(request, error=result.get("error"))
 
 
-def _timesheet_page(request: Request, error: str | None = None):
+def _timesheet_page(request: Request, error: str | None = None, project_scope: str = "permitted"):
+    if project_scope not in _PROJECT_SCOPES:
+        project_scope = "permitted"
+
     client = _client()
     user = _current_user(client, request)
     if user is None:
@@ -142,6 +157,11 @@ def _timesheet_page(request: Request, error: str | None = None):
                 "activity_types": [],
                 "current_user": None,
                 "error": error or "Felhasználó azonosítása sikertelen",
+                "project_scope": project_scope,
+                "project_scopes": _PROJECT_SCOPES,
+                "project_scope_labels": _PROJECT_SCOPE_LABELS,
+                "project_scope_colors": _PROJECT_SCOPE_COLORS,
+                "today": local_today().isoformat(),
             },
         )
 
@@ -153,11 +173,26 @@ def _timesheet_page(request: Request, error: str | None = None):
         and (p["owner_id"] == user["id"] or user["id"] in p["permitted_user_ids"])
     ]
 
-    rows = client.get_timesheet_entries(user["id"])
+    if project_scope == "my":
+        visible_project_ids = {p["id"] for p in all_projects if p["owner_id"] == user["id"]}
+    elif project_scope == "all":
+        visible_project_ids = None
+    else:  # "permitted" — owner or explicitly permitted, any status (not just OPEN)
+        visible_project_ids = {
+            p["id"]
+            for p in all_projects
+            if p["owner_id"] == user["id"] or user["id"] in p["permitted_user_ids"]
+        }
+
+    rows = client.get_timesheet_entries()
+    if visible_project_ids is not None:
+        rows = [r for r in rows if r["project_id"] in visible_project_ids]
+
     for row in rows:
         entry_date = date.fromisoformat(row["entry_date"])
         row["weekday_hu"] = _HU_WEEKDAYS[entry_date.weekday()]
         row["hours_label"] = f"{row['hours']:g}".replace(".", ",")
+        row["is_own"] = row["user_id"] == user["id"]
 
     return templates.TemplateResponse(
         request,
@@ -168,13 +203,18 @@ def _timesheet_page(request: Request, error: str | None = None):
             "activity_types": [a for a in client.get_activity_types() if a["is_active"]],
             "current_user": user,
             "error": error,
+            "project_scope": project_scope,
+            "project_scopes": _PROJECT_SCOPES,
+            "project_scope_labels": _PROJECT_SCOPE_LABELS,
+            "project_scope_colors": _PROJECT_SCOPE_COLORS,
+            "today": local_today().isoformat(),
         },
     )
 
 
 @router.get("/timesheet")
-def timesheet_page(request: Request):
-    return _timesheet_page(request)
+def timesheet_page(request: Request, project_scope: str = "permitted"):
+    return _timesheet_page(request, project_scope=project_scope)
 
 
 @router.post("/timesheet")
@@ -186,11 +226,14 @@ def create_timesheet_entry(
     hours: float = Form(...),
     participants: str = Form(""),
     description: str = Form(""),
+    project_scope: str = "permitted",
 ):
     client = _client()
     user = _current_user(client, request)
     if user is None:
-        return _timesheet_page(request, error="Felhasználó azonosítása sikertelen")
+        return _timesheet_page(
+            request, error="Felhasználó azonosítása sikertelen", project_scope=project_scope
+        )
     result = client.create_timesheet_entry(
         user["id"],
         project_id,
@@ -200,7 +243,7 @@ def create_timesheet_entry(
         participants or None,
         description or None,
     )
-    return _timesheet_page(request, error=result.get("error"))
+    return _timesheet_page(request, error=result.get("error"), project_scope=project_scope)
 
 
 @router.post("/timesheet/{entry_id}")
@@ -213,11 +256,14 @@ def update_timesheet_entry(
     hours: float = Form(...),
     participants: str = Form(""),
     description: str = Form(""),
+    project_scope: str = "permitted",
 ):
     client = _client()
     user = _current_user(client, request)
     if user is None:
-        return _timesheet_page(request, error="Felhasználó azonosítása sikertelen")
+        return _timesheet_page(
+            request, error="Felhasználó azonosítása sikertelen", project_scope=project_scope
+        )
     result = client.update_timesheet_entry(
         entry_id,
         user["id"],
@@ -228,17 +274,19 @@ def update_timesheet_entry(
         participants or None,
         description or None,
     )
-    return _timesheet_page(request, error=result.get("error"))
+    return _timesheet_page(request, error=result.get("error"), project_scope=project_scope)
 
 
 @router.delete("/timesheet/{entry_id}")
-def delete_timesheet_entry(request: Request, entry_id: int):
+def delete_timesheet_entry(request: Request, entry_id: int, project_scope: str = "permitted"):
     client = _client()
     user = _current_user(client, request)
     if user is None:
-        return _timesheet_page(request, error="Felhasználó azonosítása sikertelen")
+        return _timesheet_page(
+            request, error="Felhasználó azonosítása sikertelen", project_scope=project_scope
+        )
     result = client.delete_timesheet_entry(entry_id, user["id"])
-    return _timesheet_page(request, error=result.get("error"))
+    return _timesheet_page(request, error=result.get("error"), project_scope=project_scope)
 
 
 def _resolve_date_range(

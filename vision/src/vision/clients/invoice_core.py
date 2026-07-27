@@ -550,8 +550,9 @@ class InvoiceCoreClient:
 
     # ── Timesheet entries ─────────────────────────────────────────────────────
 
-    def get_timesheet_entries(self, user_id: int) -> list[dict]:
-        return self._get("/api/v1/timesheet-entries", {"user_id": user_id})
+    def get_timesheet_entries(self, user_id: int | None = None) -> list[dict]:
+        params = {"user_id": user_id} if user_id is not None else {}
+        return self._get("/api/v1/timesheet-entries", params)
 
     def create_timesheet_entry(
         self,

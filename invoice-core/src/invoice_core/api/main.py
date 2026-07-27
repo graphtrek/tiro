@@ -602,7 +602,7 @@ def create_timesheet_entry(payload: TimesheetEntryIn, db: Session = Depends(get_
 
 
 @app.get("/api/v1/timesheet-entries", response_model=list[TimesheetEntryOut])
-def list_timesheet_entries(user_id: int = Query(...), db: Session = Depends(get_db)):
+def list_timesheet_entries(user_id: int | None = Query(None), db: Session = Depends(get_db)):
     return timesheet_service.list_timesheet_entries(db, user_id)
 
 

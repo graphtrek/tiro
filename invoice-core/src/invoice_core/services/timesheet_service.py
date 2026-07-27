@@ -26,13 +26,11 @@ def with_joins(db: Session):
     )
 
 
-def list_timesheet_entries(db: Session, user_id: int) -> list[TimesheetEntry]:
-    return (
-        with_joins(db)
-        .filter(TimesheetEntry.user_id == user_id)
-        .order_by(TimesheetEntry.entry_date, TimesheetEntry.id)
-        .all()
-    )
+def list_timesheet_entries(db: Session, user_id: int | None = None) -> list[TimesheetEntry]:
+    query = with_joins(db)
+    if user_id is not None:
+        query = query.filter(TimesheetEntry.user_id == user_id)
+    return query.order_by(TimesheetEntry.entry_date, TimesheetEntry.id).all()
 
 
 def create_timesheet_entry(db: Session, payload: TimesheetEntryIn) -> TimesheetEntry:
