@@ -12,6 +12,10 @@
 {% endblock %}
 
 {% block content %}
+{% set project_type_labels = {"OTLET": "Ötlet", "SZAMLAZHATO": "Számlázható", "PRESALES": "PreSales"} %}
+{% set project_type_badges = {"OTLET": "bg-warning text-dark", "SZAMLAZHATO": "bg-success", "PRESALES": "bg-info text-dark"} %}
+{% set project_status_labels = {"OPEN": "Open", "CLOSED": "Closed", "ONHOLD": "OnHold"} %}
+{% set project_status_badges = {"OPEN": "bg-success", "CLOSED": "bg-secondary", "ONHOLD": "bg-warning text-dark"} %}
 <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
   <h1 class="h3 mb-0"><i class="bi bi-kanban me-2"></i>Projektek</h1>
   <div class="ms-auto d-flex gap-2">
@@ -27,7 +31,7 @@
 </div>
 {% endif %}
 
-<p class="text-muted">Projektek listája és kezelése — lezárt projektre nem rögzíthető új idő.</p>
+<p class="text-muted">Projektek listája és kezelése — csak Open státuszú projektre rögzíthető új idő.</p>
 
 <div class="card">
   <div class="card-body pt-3">
@@ -37,36 +41,56 @@
           <th>Project kód</th>
           <th>Ügyfél</th>
           <th>Project gazda</th>
+          <th>Típus</th>
+          <th>Kezdés dátuma</th>
           <th>Státusz</th>
-          <th class="text-end">Összesített ráfordítás (óra)</th>
+          <th class="text-end">Óra</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for row in rows %}
-        <tr class="{% if not row.is_active %}text-muted{% endif %}">
+        {% set is_owner = current_user and current_user.id == row.owner_id %}
+        <tr class="{% if row.status == 'CLOSED' %}text-muted{% endif %}">
           <td><strong>{{ row.code }}</strong></td>
           <td>{{ row.customer_name }}</td>
           <td>{{ row.owner_name }}</td>
           <td>
-            {% if row.is_active %}
-            <span class="badge bg-success">aktív</span>
-            {% else %}
-            <span class="badge bg-secondary">lezárt</span>
-            {% endif %}
+            <span class="badge {{ project_type_badges.get(row.project_type, 'bg-secondary') }}">
+              {{ project_type_labels.get(row.project_type, row.project_type) }}
+            </span>
+          </td>
+          <td>{{ row.start_date }}</td>
+          <td>
+            <span class="badge {{ project_status_badges.get(row.status, 'bg-secondary') }}">
+              {{ project_status_labels.get(row.status, row.status) }}
+            </span>
           </td>
           <td class="text-end">{{ ("%g" % row.usage_hours)|replace(".", ",") }}</td>
           <td class="text-end text-nowrap">
+            {% if is_owner %}
             <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
                     data-bs-target="#editProjectModal{{ row.id }}">
               <i class="bi bi-pencil"></i>
             </button>
+            {% else %}
+            <button class="btn btn-sm btn-outline-secondary" title="Megtekintés" data-bs-toggle="modal"
+                    data-bs-target="#editProjectModal{{ row.id }}">
+              <i class="bi bi-eye"></i>
+            </button>
+            {% endif %}
+            {% if row.first_entry_date %}
+            <button class="btn btn-sm btn-outline-danger" title="Nem törölhető: a projekthez már vannak rögzített timesheet bejegyzések" disabled>
+              <i class="bi bi-trash"></i>
+            </button>
+            {% else %}
             <button class="btn btn-sm btn-outline-danger" title="Töröl"
                     hx-delete="/ui/controlling/projects/{{ row.id }}"
                     hx-target="body" hx-push-url="true"
                     hx-confirm="Biztosan törli? '{{ row.code }}'">
               <i class="bi bi-trash"></i>
             </button>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -90,8 +114,8 @@
         { targets: 0, responsivePriority: 1 },
         { targets: 1, responsivePriority: 2 },
         { targets: -1, searchable: false, orderable: false, responsivePriority: 1 },
-        { targets: [2, 3], responsivePriority: 10001 },
-        { targets: 4, className: "text-end", responsivePriority: 10001 },
+        { targets: [2, 3, 4, 5], responsivePriority: 10001 },
+        { targets: 6, className: "text-end", responsivePriority: 10001 },
       ],
     });
   })();
@@ -118,18 +142,8 @@
               <div class="form-text">Ügyfelenként külön sorszámozás (Ügyfelek törzsadat)</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Sorszám</label>
-              <input class="form-control pr-seq" disabled>
-              <div class="form-text">Automatikusan javasolt, ügyfelenként növekvő</div>
-            </div>
-            <div class="col-md-6">
               <label class="form-label">Azonosító / rövid név <span class="text-danger">*</span></label>
               <input name="short_name" class="form-control pr-short-name" placeholder="pl. FVM" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Project kód</label>
-              <input class="form-control pr-code" disabled>
-              <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Project gazda <span class="text-danger">*</span></label>
@@ -138,6 +152,38 @@
                 {% for u in users %}<option value="{{ u.id }}">{{ u.name or u.email }}</option>{% endfor %}
               </select>
               <div class="form-text">A jövőben a költséghely-felelős</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Státusz</label>
+              <select name="status" class="form-select">
+                <option value="OPEN" selected>Open</option>
+                <option value="ONHOLD">OnHold</option>
+                <option value="CLOSED">Closed</option>
+              </select>
+              <div class="form-text">Csak Open státuszú projektre rögzíthető új idő</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Kezdés dátuma <span class="text-danger">*</span></label>
+              <input type="date" name="start_date" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Típus <span class="text-danger">*</span></label>
+              <select name="project_type" class="form-select" required>
+                <option value="" disabled selected>Válasszon…</option>
+                <option value="OTLET">Ötlet</option>
+                <option value="SZAMLAZHATO">Számlázható</option>
+                <option value="PRESALES">PreSales</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Sorszám</label>
+              <input class="form-control pr-seq" disabled>
+              <div class="form-text">Automatikusan javasolt, ügyfelenként növekvő</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Project kód</label>
+              <input class="form-control pr-code" disabled>
+              <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
             </div>
             <div class="col-12">
               <label class="form-label">Rögzítésre jogosultak (permitted_users)</label>
@@ -164,43 +210,38 @@
 
 <!-- Projekt módosítása modalok -->
 {% for row in rows %}
+{% set is_owner = current_user and current_user.id == row.owner_id %}
 <div class="modal fade" id="editProjectModal{{ row.id }}" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <form class="project-form" hx-post="/ui/controlling/projects/{{ row.id }}" hx-target="body" hx-push-url="true">
         <div class="modal-header py-2">
+          {% if is_owner %}
           <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Projekt módosítása</h5>
+          {% else %}
+          <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Projekt megtekintése</h5>
+          {% endif %}
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
         </div>
         <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Ügyfél <span class="text-danger">*</span></label>
-              <input class="form-control pr-client-input" list="pr-clients-edit{{ row.id }}" value="{{ row.customer_name }}" autocomplete="off" required>
+              <input class="form-control pr-client-input" list="pr-clients-edit{{ row.id }}" value="{{ row.customer_name }}" autocomplete="off" required {% if not is_owner %}disabled{% endif %}>
               <input type="hidden" name="customer_id" class="pr-client-id" value="{{ row.customer_id }}"
-                     data-initial-customer-id="{{ row.customer_id }}" required>
+                     data-initial-customer-id="{{ row.customer_id }}" required {% if not is_owner %}disabled{% endif %}>
               <datalist id="pr-clients-edit{{ row.id }}">
                 {% for c in customers %}<option value="{{ c.name }}" data-id="{{ c.id }}">{% endfor %}
               </datalist>
               <div class="form-text">Ügyfelenként külön sorszámozás (Ügyfelek törzsadat)</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Sorszám</label>
-              <input class="form-control pr-seq" value="{{ '%03d' % row.sequence_no }}" data-initial-seq="{{ row.sequence_no }}" disabled>
-              <div class="form-text">Ügyfélváltáskor újra kiosztásra kerül</div>
-            </div>
-            <div class="col-md-6">
               <label class="form-label">Azonosító / rövid név <span class="text-danger">*</span></label>
-              <input name="short_name" class="form-control pr-short-name" value="{{ row.short_name }}" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Project kód</label>
-              <input class="form-control pr-code" value="{{ row.code }}" disabled>
-              <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
+              <input name="short_name" class="form-control pr-short-name" value="{{ row.short_name }}" required {% if not is_owner %}disabled{% endif %}>
             </div>
             <div class="col-md-6">
               <label class="form-label">Project gazda <span class="text-danger">*</span></label>
-              <select name="owner_id" class="form-select" required>
+              <select name="owner_id" class="form-select" required {% if not is_owner %}disabled{% endif %}>
                 {% for u in users %}
                 <option value="{{ u.id }}" {% if u.id == row.owner_id %}selected{% endif %}>{{ u.name or u.email }}</option>
                 {% endfor %}
@@ -208,11 +249,34 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Státusz</label>
-              <select name="is_active" class="form-select">
-                <option value="true" {% if row.is_active %}selected{% endif %}>aktív</option>
-                <option value="false" {% if not row.is_active %}selected{% endif %}>lezárt</option>
+              <select name="status" class="form-select" {% if not is_owner %}disabled{% endif %}>
+                <option value="OPEN" {% if row.status == "OPEN" %}selected{% endif %}>Open</option>
+                <option value="ONHOLD" {% if row.status == "ONHOLD" %}selected{% endif %}>OnHold</option>
+                <option value="CLOSED" {% if row.status == "CLOSED" %}selected{% endif %}>Closed</option>
               </select>
-              <div class="form-text">Lezárt projektre nem rögzíthető új idő</div>
+              <div class="form-text">Csak Open státuszú projektre rögzíthető új idő</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Kezdés dátuma <span class="text-danger">*</span></label>
+              <input type="date" name="start_date" class="form-control" value="{{ row.start_date }}" required {% if not is_owner %}disabled{% endif %}>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Típus <span class="text-danger">*</span></label>
+              <select name="project_type" class="form-select" required {% if not is_owner %}disabled{% endif %}>
+                <option value="OTLET" {% if row.project_type == "OTLET" %}selected{% endif %}>Ötlet</option>
+                <option value="SZAMLAZHATO" {% if row.project_type == "SZAMLAZHATO" %}selected{% endif %}>Számlázható</option>
+                <option value="PRESALES" {% if row.project_type == "PRESALES" %}selected{% endif %}>PreSales</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Sorszám</label>
+              <input class="form-control pr-seq" value="{{ '%03d' % row.sequence_no }}" data-initial-seq="{{ row.sequence_no }}" disabled>
+              <div class="form-text">Ügyfélváltáskor újra kiosztásra kerül</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Project kód</label>
+              <input class="form-control pr-code" value="{{ row.code }}" disabled>
+              <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
             </div>
             <div class="col-12">
               <label class="form-label">Rögzítésre jogosultak (permitted_users)</label>
@@ -220,7 +284,7 @@
                 {% for u in users %}
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" name="permitted_user_ids" value="{{ u.id }}"
-                         id="epu{{ row.id }}-{{ u.id }}" {% if u.id in row.permitted_user_ids %}checked{% endif %}>
+                         id="epu{{ row.id }}-{{ u.id }}" {% if u.id in row.permitted_user_ids %}checked{% endif %} {% if not is_owner %}disabled{% endif %}>
                   <label class="form-check-label" for="epu{{ row.id }}-{{ u.id }}">{{ u.name or u.email }}</label>
                 </div>
                 {% endfor %}
@@ -230,8 +294,12 @@
           </div>
         </div>
         <div class="modal-footer py-2">
+          {% if is_owner %}
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
           <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+          {% else %}
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Bezár</button>
+          {% endif %}
         </div>
       </form>
     </div>

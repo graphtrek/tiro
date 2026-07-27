@@ -69,7 +69,9 @@ def create_project(db: Session, payload: ProjectIn) -> Project:
         short_name=payload.short_name,
         code=code,
         owner_id=payload.owner_id,
-        is_active=True,
+        status=payload.status,
+        start_date=payload.start_date,
+        project_type=payload.project_type,
         permitted_users=_permitted_users(db, payload.permitted_user_ids),
     )
     db.add(record)
@@ -106,7 +108,9 @@ def update_project(db: Session, project_id: int, payload: ProjectUpdate) -> Proj
     record.short_name = payload.short_name
     record.code = code
     record.owner_id = payload.owner_id
-    record.is_active = payload.is_active
+    record.status = payload.status
+    record.start_date = payload.start_date
+    record.project_type = payload.project_type
     record.permitted_users = _permitted_users(db, payload.permitted_user_ids)
 
     db.commit()

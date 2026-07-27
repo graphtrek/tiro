@@ -202,7 +202,12 @@ def test_record_resolves_project_code(db):
     db.add_all([cust, owner])
     db.commit()
     proj = Project(
-        customer_id=cust.id, sequence_no=1, short_name="Demo", code="DEMO-01", owner_id=owner.id
+        customer_id=cust.id,
+        sequence_no=1,
+        short_name="Demo",
+        code="DEMO-01",
+        owner_id=owner.id,
+        start_date=date(2026, 1, 1),
     )
     db.add(proj)
     db.commit()
@@ -220,7 +225,12 @@ def test_record_resolves_timesheet_entry_as_project_and_date(db):
     db.add_all([cust, owner, at])
     db.commit()
     proj = Project(
-        customer_id=cust.id, sequence_no=1, short_name="Demo", code="DEMO-02", owner_id=owner.id
+        customer_id=cust.id,
+        sequence_no=1,
+        short_name="Demo",
+        code="DEMO-02",
+        owner_id=owner.id,
+        start_date=date(2026, 1, 1),
     )
     db.add(proj)
     db.commit()

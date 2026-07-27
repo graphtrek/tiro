@@ -74,6 +74,18 @@ class _InvoiceDirection(PyEnum):
     OUTBOUND = "OUTBOUND"
 
 
+class _ProjectType(PyEnum):
+    OTLET = "OTLET"
+    SZAMLAZHATO = "SZAMLAZHATO"
+    PRESALES = "PRESALES"
+
+
+class _ProjectStatus(PyEnum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    ONHOLD = "ONHOLD"
+
+
 def _enum_str(value) -> str:
     """Return the string value of a SQLAlchemy enum column (may be Enum or str)."""
     return value.value if isinstance(value, PyEnum) else str(value)
@@ -363,7 +375,18 @@ class Project(Base):
     short_name = Column(String, nullable=False)
     code = Column(String, nullable=False, unique=True, index=True)
     owner_id = Column(Integer, ForeignKey("user.id"), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
+    start_date = Column(Date, nullable=False)
+    # native_enum=False: VARCHAR in both PostgreSQL and SQLite (test-compat)
+    project_type = Column(
+        SAEnum(_ProjectType, native_enum=False),
+        nullable=False,
+        default=_ProjectType.SZAMLAZHATO,
+    )
+    status = Column(
+        SAEnum(_ProjectStatus, native_enum=False),
+        nullable=False,
+        default=_ProjectStatus.OPEN,
+    )
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

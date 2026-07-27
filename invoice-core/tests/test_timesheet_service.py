@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from invoice_core.db import ActivityType, Base, Customer, Project, User
+from invoice_core.db import ActivityType, Base, Customer, Project, User, _ProjectStatus
 from invoice_core.models import TimesheetEntryIn, TimesheetEntryUpdate
 from invoice_core.services import timesheet_service
 
@@ -58,7 +58,7 @@ def project(db, customer, owner):
         short_name="FVM",
         code="IFUA - 001 - FVM",
         owner_id=owner.id,
-        is_active=True,
+        start_date=date(2026, 1, 1),
     )
     db.add(record)
     db.commit()
@@ -163,8 +163,8 @@ def test_create_timesheet_entry_rejects_unknown_user(db, project, activity_type)
         )
 
 
-def test_create_timesheet_entry_rejects_inactive_project(db, project, owner, activity_type):
-    project.is_active = False
+def test_create_timesheet_entry_rejects_closed_project(db, project, owner, activity_type):
+    project.status = _ProjectStatus.CLOSED
     db.commit()
 
     with pytest.raises(ValueError):

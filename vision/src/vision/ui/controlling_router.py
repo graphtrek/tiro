@@ -70,6 +70,7 @@ def _projects_page(request: Request, error: str | None = None):
             "rows": client.get_projects(),
             "customers": client.get_customers(),
             "users": client.get_users(),
+            "current_user": _current_user(client, request),
             "error": error,
         },
     )
@@ -86,9 +87,14 @@ def create_project(
     customer_id: int = Form(...),
     short_name: str = Form(...),
     owner_id: int = Form(...),
+    status: str = Form("OPEN"),
+    start_date: str = Form(...),
+    project_type: str = Form(...),
     permitted_user_ids: list[int] = Form([]),
 ):
-    result = _client().create_project(customer_id, short_name, owner_id, permitted_user_ids)
+    result = _client().create_project(
+        customer_id, short_name, owner_id, status, start_date, project_type, permitted_user_ids
+    )
     return _projects_page(request, error=result.get("error"))
 
 
@@ -99,11 +105,20 @@ def update_project(
     customer_id: int = Form(...),
     short_name: str = Form(...),
     owner_id: int = Form(...),
-    is_active: bool = Form(False),
+    status: str = Form(...),
+    start_date: str = Form(...),
+    project_type: str = Form(...),
     permitted_user_ids: list[int] = Form([]),
 ):
     result = _client().update_project(
-        project_id, customer_id, short_name, owner_id, is_active, permitted_user_ids
+        project_id,
+        customer_id,
+        short_name,
+        owner_id,
+        status,
+        start_date,
+        project_type,
+        permitted_user_ids,
     )
     return _projects_page(request, error=result.get("error"))
 
@@ -134,7 +149,8 @@ def _timesheet_page(request: Request, error: str | None = None):
     permitted_projects = [
         p
         for p in all_projects
-        if p["is_active"] and (p["owner_id"] == user["id"] or user["id"] in p["permitted_user_ids"])
+        if p["status"] == "OPEN"
+        and (p["owner_id"] == user["id"] or user["id"] in p["permitted_user_ids"])
     ]
 
     rows = client.get_timesheet_entries(user["id"])

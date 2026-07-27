@@ -67,7 +67,7 @@ def project(db, customer, owner):
         short_name="FVM",
         code="IFUA - 001 - FVM",
         owner_id=owner.id,
-        is_active=True,
+        start_date=date(2026, 1, 1),
     )
     db.add(record)
     db.commit()
@@ -87,7 +87,7 @@ def other_project(db, other_customer, owner):
         short_name="MP",
         code="Graphtrek - 001 - MP",
         owner_id=owner.id,
-        is_active=True,
+        start_date=date(2026, 1, 1),
     )
     db.add(record)
     db.commit()

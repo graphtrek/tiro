@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from invoice_core.db import ActivityType, Base, Customer, TimesheetEntry, User
-from invoice_core.models import ProjectIn, ProjectUpdate
+from invoice_core.db import ActivityType, Base, Customer, TimesheetEntry, User, _ProjectStatus
+from invoice_core.models import ProjectIn, ProjectStatus, ProjectType, ProjectUpdate
 from invoice_core.services import project_service
 
 
@@ -62,7 +62,7 @@ def other_user(db):
 def test_create_project(db, customer, owner):
     record = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
@@ -70,25 +70,25 @@ def test_create_project(db, customer, owner):
     assert record.id is not None
     assert record.sequence_no == 1
     assert record.code == "FVM-001"
-    assert record.is_active is True
+    assert record.status == _ProjectStatus.OPEN
 
 
 def test_create_project_increments_sequence_per_customer(db, customer, other_customer, owner):
     first = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
     second = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id, short_name="MUIR", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
     other = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=other_customer.id,
             short_name="Money Penny",
             owner_id=owner.id,
@@ -106,7 +106,7 @@ def test_create_project_increments_sequence_per_customer(db, customer, other_cus
 def test_create_project_sets_permitted_users(db, customer, owner, other_user):
     record = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id,
             short_name="FVM",
             owner_id=owner.id,
@@ -121,7 +121,7 @@ def test_create_project_rejects_unknown_customer(db, owner):
     with pytest.raises(ValueError):
         project_service.create_project(
             db,
-            ProjectIn(customer_id=999, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]),
+            ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, customer_id=999, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]),
         )
 
 
@@ -129,7 +129,7 @@ def test_create_project_rejects_unknown_owner(db, customer):
     with pytest.raises(ValueError):
         project_service.create_project(
             db,
-            ProjectIn(
+            ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
                 customer_id=customer.id, short_name="FVM", owner_id=999, permitted_user_ids=[]
             ),
         )
@@ -138,13 +138,13 @@ def test_create_project_rejects_unknown_owner(db, customer):
 def test_list_projects_orders_by_code(db, customer, other_customer, owner):
     project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id, short_name="MUIR", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
     project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=other_customer.id,
             short_name="Money Penny",
             owner_id=owner.id,
@@ -159,7 +159,7 @@ def test_list_projects_orders_by_code(db, customer, other_customer, owner):
 def test_update_project_renames_and_keeps_sequence(db, customer, owner):
     created = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
@@ -167,11 +167,11 @@ def test_update_project_renames_and_keeps_sequence(db, customer, owner):
     updated = project_service.update_project(
         db,
         created.id,
-        ProjectUpdate(
+        ProjectUpdate(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id,
             short_name="FVM2",
             owner_id=owner.id,
-            is_active=True,
+            status=ProjectStatus.OPEN,
             permitted_user_ids=[],
         ),
     )
@@ -183,7 +183,7 @@ def test_update_project_renames_and_keeps_sequence(db, customer, owner):
 def test_update_project_changing_customer_reassigns_sequence(db, customer, other_customer, owner):
     project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=other_customer.id,
             short_name="Money Penny",
             owner_id=owner.id,
@@ -192,7 +192,7 @@ def test_update_project_changing_customer_reassigns_sequence(db, customer, other
     )
     created = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
@@ -200,11 +200,11 @@ def test_update_project_changing_customer_reassigns_sequence(db, customer, other
     updated = project_service.update_project(
         db,
         created.id,
-        ProjectUpdate(
+        ProjectUpdate(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=other_customer.id,
             short_name="FVM",
             owner_id=owner.id,
-            is_active=True,
+            status=ProjectStatus.OPEN,
             permitted_user_ids=[],
         ),
     )
@@ -216,7 +216,7 @@ def test_update_project_changing_customer_reassigns_sequence(db, customer, other
 def test_update_project_replaces_permitted_users(db, customer, owner, other_user):
     created = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id,
             short_name="FVM",
             owner_id=owner.id,
@@ -227,11 +227,11 @@ def test_update_project_replaces_permitted_users(db, customer, owner, other_user
     updated = project_service.update_project(
         db,
         created.id,
-        ProjectUpdate(
+        ProjectUpdate(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id,
             short_name="FVM",
             owner_id=owner.id,
-            is_active=True,
+            status=ProjectStatus.OPEN,
             permitted_user_ids=[other_user.id],
         ),
     )
@@ -250,13 +250,13 @@ def test_update_project_rejects_code_collision(db, owner):
 
     project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer_a.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
     second = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer_b.id, short_name="MUIR", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
@@ -265,11 +265,11 @@ def test_update_project_rejects_code_collision(db, owner):
         project_service.update_project(
             db,
             second.id,
-            ProjectUpdate(
+            ProjectUpdate(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
                 customer_id=customer_b.id,
                 short_name="FVM",
                 owner_id=owner.id,
-                is_active=True,
+                status=ProjectStatus.OPEN,
                 permitted_user_ids=[],
             ),
         )
@@ -279,11 +279,11 @@ def test_update_project_returns_none_when_not_found(db, customer, owner):
     result = project_service.update_project(
         db,
         999,
-        ProjectUpdate(
+        ProjectUpdate(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id,
             short_name="X",
             owner_id=owner.id,
-            is_active=True,
+            status=ProjectStatus.OPEN,
             permitted_user_ids=[],
         ),
     )
@@ -293,7 +293,7 @@ def test_update_project_returns_none_when_not_found(db, customer, owner):
 def test_delete_project_removes_row(db, customer, owner):
     created = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
@@ -309,7 +309,7 @@ def test_delete_project_returns_false_when_not_found(db):
 def test_list_projects_sums_usage_hours_from_timesheet_entries(db, customer, owner):
     created = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
         ),
     )
@@ -345,7 +345,7 @@ def test_list_projects_sums_usage_hours_from_timesheet_entries(db, customer, own
 def test_create_project_has_zero_usage_hours(db, customer, owner):
     record = project_service.create_project(
         db,
-        ProjectIn(
+        ProjectIn(start_date=date(2026, 1, 1), project_type=ProjectType.SZAMLAZHATO, 
             customer_id=customer.id, short_name="FVM", owner_id=owner.id, permitted_user_ids=[]
         ),
     )

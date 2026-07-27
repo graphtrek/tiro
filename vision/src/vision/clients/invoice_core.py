@@ -487,7 +487,14 @@ class InvoiceCoreClient:
         return self._get("/api/v1/projects")
 
     def create_project(
-        self, customer_id: int, short_name: str, owner_id: int, permitted_user_ids: list[int]
+        self,
+        customer_id: int,
+        short_name: str,
+        owner_id: int,
+        status: str,
+        start_date: str,
+        project_type: str,
+        permitted_user_ids: list[int],
     ) -> dict:
         return self._write_json(
             "POST",
@@ -496,6 +503,9 @@ class InvoiceCoreClient:
                 "customer_id": customer_id,
                 "short_name": short_name,
                 "owner_id": owner_id,
+                "status": status,
+                "start_date": start_date,
+                "project_type": project_type,
                 "permitted_user_ids": permitted_user_ids,
             },
             "Nem sikerült menteni a projektet",
@@ -508,7 +518,9 @@ class InvoiceCoreClient:
         customer_id: int,
         short_name: str,
         owner_id: int,
-        is_active: bool,
+        status: str,
+        start_date: str,
+        project_type: str,
         permitted_user_ids: list[int],
     ) -> dict:
         return self._write_json(
@@ -518,7 +530,9 @@ class InvoiceCoreClient:
                 "customer_id": customer_id,
                 "short_name": short_name,
                 "owner_id": owner_id,
-                "is_active": is_active,
+                "status": status,
+                "start_date": start_date,
+                "project_type": project_type,
                 "permitted_user_ids": permitted_user_ids,
             },
             "Nem sikerült menteni a projektet",

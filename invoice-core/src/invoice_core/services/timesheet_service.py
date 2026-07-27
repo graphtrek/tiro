@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session, joinedload
 
-from invoice_core.db import ActivityType, Project, TimesheetEntry, User
+from invoice_core.db import ActivityType, Project, TimesheetEntry, User, _ProjectStatus
 from invoice_core.models import TimesheetEntryIn, TimesheetEntryUpdate
 
 
@@ -12,8 +12,8 @@ def _validate_hours(hours: float) -> None:
 
 
 def _assert_project_permitted(project: Project, user_id: int) -> None:
-    if not project.is_active:
-        raise ValueError("A projekt lezárva, nem rögzíthető rá idő")
+    if project.status != _ProjectStatus.OPEN:
+        raise ValueError("A projekt nincs nyitva, nem rögzíthető rá idő")
     if project.owner_id != user_id and user_id not in project.permitted_user_ids:
         raise ValueError("Nincs jogosultsága ehhez a projekthez időt rögzíteni")
 

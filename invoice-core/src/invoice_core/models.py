@@ -131,6 +131,20 @@ class InvoiceDirection(StrEnum):
     OUTBOUND = "OUTBOUND"
 
 
+# Mirrors `db.py`'s `_ProjectType` SQLAlchemy enum (same member names/values).
+class ProjectType(StrEnum):
+    OTLET = "OTLET"
+    SZAMLAZHATO = "SZAMLAZHATO"
+    PRESALES = "PRESALES"
+
+
+# Mirrors `db.py`'s `_ProjectStatus` SQLAlchemy enum (same member names/values).
+class ProjectStatus(StrEnum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    ONHOLD = "ONHOLD"
+
+
 class InvoiceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -218,6 +232,9 @@ class ProjectIn(BaseModel):
     customer_id: int
     short_name: str
     owner_id: int
+    status: ProjectStatus = ProjectStatus.OPEN
+    start_date: date
+    project_type: ProjectType
     permitted_user_ids: list[int] = Field(default_factory=list)
 
 
@@ -225,7 +242,9 @@ class ProjectUpdate(BaseModel):
     customer_id: int
     short_name: str
     owner_id: int
-    is_active: bool
+    status: ProjectStatus
+    start_date: date
+    project_type: ProjectType
     permitted_user_ids: list[int] = Field(default_factory=list)
 
 
@@ -240,7 +259,9 @@ class ProjectOut(BaseModel):
     code: str
     owner_id: int
     owner_name: str
-    is_active: bool
+    status: ProjectStatus
+    start_date: date
+    project_type: ProjectType
     permitted_user_ids: list[int]
     usage_hours: float
     first_entry_date: date | None
