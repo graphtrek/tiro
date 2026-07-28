@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Form, Request
+import requests
+from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from vision.auth import current_token
 from vision.clients.invoice_core import InvoiceCoreClient
+from vision.config import get_settings
 from vision.ui.utils import dict_to_ns
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -20,11 +24,51 @@ def _client() -> InvoiceCoreClient:
     return InvoiceCoreClient()
 
 
+def _is_admin(request: Request) -> bool:
+    user_email = (getattr(request.state, "user", None) or {}).get("email", "")
+    return user_email.strip().lower() in get_settings().admin_emails_list
+
+
 @router.get("/users")
 def users_page(request: Request):
     client = _client()
     rows = dict_to_ns(client.get_users())
-    return templates.TemplateResponse(request, "admin_users.html", {"rows": rows})
+    return templates.TemplateResponse(
+        request, "admin_users.html", {"rows": rows, "is_admin": _is_admin(request)}
+    )
+
+
+@router.post("/users/impersonate")
+def impersonate_user(request: Request, email: str = Form(...)):
+    """Admin belép egy másik felhasználóként — proxyzza az auth szerviz
+    `/auth/impersonate` végpontját, majd beállítja a kapott access cookie-t."""
+    if not _is_admin(request):
+        raise HTTPException(status_code=403, detail="Nincs jogosultság")
+    settings = get_settings()
+    token = current_token.get()
+    try:
+        resp = requests.post(
+            f"{settings.auth_service_url}/auth/impersonate",
+            json={"email": email},
+            headers={"Authorization": f"Bearer {token}"} if token else {},
+            timeout=settings.request_timeout,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"Auth szerviz hiba: {exc}") from exc
+
+    tokens = resp.json()
+    response = RedirectResponse("/ui/", status_code=302)
+    response.set_cookie(
+        "mp_access_token",
+        tokens["access_token"],
+        max_age=tokens["expires_in"],
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+    return response
 
 
 @router.get("/audit")

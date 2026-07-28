@@ -32,7 +32,14 @@
         {% for row in rows %}
         <tr>
           <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') if row.created_at else '—' }}</td>
-          <td>{{ row.user_email or '—' }}</td>
+          <td>
+            {{ row.user_email or '—' }}
+            {% if row.impersonator_email %}
+            <span class="badge text-bg-warning" title="Megszemélyesítve">
+              <i class="bi bi-person-badge"></i> admin: {{ row.impersonator_email }}
+            </span>
+            {% endif %}
+          </td>
           <td>{{ row.page }}</td>
           <td>{{ row.record or '—' }}</td>
           <td>

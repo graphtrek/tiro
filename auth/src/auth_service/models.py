@@ -17,7 +17,7 @@ class UserInfo(BaseModel):
 
 class TokenPair(BaseModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str | None = None  # megszemélyesítésnél nincs refresh token
     token_type: str = "bearer"
     expires_in: int  # access token TTL másodpercben
 
@@ -43,6 +43,8 @@ class JWTClaims(BaseModel):
     picture: str | None = None
     provider: str | None = None
     jti: str | None = None  # refresh tokennél, visszavonáshoz
+    impersonator_sub: str | None = None  # megszemélyesítésnél: az admin sub-ja
+    impersonator_email: str | None = None  # megszemélyesítésnél: az admin e-mailje
 
 
 class AuthError(Exception):
@@ -51,6 +53,10 @@ class AuthError(Exception):
 
 class NotAllowedError(AuthError):
     """A felhasználó e-mail címe nincs a whitelisten."""
+
+
+class ForbiddenError(AuthError):
+    """A felhasználó nincs az admin whitelisten (megszemélyesítéshez)."""
 
 
 class ProviderError(AuthError):

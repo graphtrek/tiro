@@ -46,14 +46,23 @@ class FakeProvider:
 class FakeInvoiceCoreClient:
     """invoice-core kliens helyettesítője — nem hív hálózatot."""
 
-    def __init__(self, error: str | None = None):
+    def __init__(self, error: str | None = None, users: list[UserInfo] | None = None):
         self.error = error
         self.save_calls: list[dict] = []
+        self.find_calls: list[dict] = []
+        self.users = users or []
 
     def save_user(self, user: UserInfo, access_token: str) -> None:
         self.save_calls.append({"user": user, "access_token": access_token})
         if self.error:
             raise InvoiceCoreClientError(self.error)
+
+    def find_user_by_email(self, email: str, access_token: str) -> UserInfo | None:
+        self.find_calls.append({"email": email, "access_token": access_token})
+        if self.error:
+            raise InvoiceCoreClientError(self.error)
+        email = email.strip().lower()
+        return next((u for u in self.users if u.email.strip().lower() == email), None)
 
 
 @pytest.fixture(scope="session")
@@ -72,6 +81,7 @@ def settings(keys_dir, tmp_path) -> Settings:
         denylist_path=str(tmp_path / "revoked_jti.txt"),
         allowed_emails="imre.tatai@graphtrek.co",
         allowed_domains="graphtrek.co",
+        admin_emails="imre.tatai@graphtrek.co",
         google_client_id="test-client",
         google_client_secret="test-secret",
         vision_url="http://localhost:8009",

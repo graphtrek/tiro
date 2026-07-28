@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from auth_service.models import AuthError, NotAllowedError, UserInfo
+from auth_service.models import AuthError, ForbiddenError, NotAllowedError, UserInfo
 from auth_service.service import AuthService, Denylist
 from tests.conftest import FakeInvoiceCoreClient, FakeProvider
 
@@ -171,3 +171,40 @@ def test_denylist_persists_to_file(settings, jwt_service, provider):
 
 def test_revoke_invalid_token_is_noop(service: AuthService):
     assert service.revoke_refresh_token("nem.jwt.token") is None
+
+
+def test_impersonate_rejects_non_admin(service: AuthService, invoice_core: FakeInvoiceCoreClient):
+    invoice_core.users = [UserInfo(sub="target-1", email="kozma@graphtrek.co", provider="google")]
+    admin_claims = service.verify_access_token(
+        service.issue_tokens(
+            UserInfo(sub="x", email="nem.admin@graphtrek.co", provider="google")
+        ).access_token
+    )
+    with pytest.raises(ForbiddenError):
+        service.impersonate(admin_claims, "kozma@graphtrek.co", access_token="tok")
+
+
+def test_impersonate_rejects_unknown_target(service: AuthService, provider: FakeProvider):
+    admin_claims = service.verify_access_token(service.issue_tokens(provider.user).access_token)
+    with pytest.raises(AuthError, match="Nincs ilyen"):
+        service.impersonate(admin_claims, "ismeretlen@graphtrek.co", access_token="tok")
+
+
+def test_impersonate_issues_token_with_target_identity_and_impersonator_claims(
+    service: AuthService, provider: FakeProvider, invoice_core: FakeInvoiceCoreClient
+):
+    target = UserInfo(
+        sub="target-1", email="kozma@graphtrek.co", name="Kozma Zoltán", provider="google"
+    )
+    invoice_core.users = [target]
+    admin_claims = service.verify_access_token(service.issue_tokens(provider.user).access_token)
+
+    tokens = service.impersonate(admin_claims, "kozma@graphtrek.co", access_token="admin-tok")
+
+    assert tokens.refresh_token is None
+    claims = service.verify_access_token(tokens.access_token)
+    assert claims.email == "kozma@graphtrek.co"
+    assert claims.sub == "target-1"
+    assert claims.impersonator_email == provider.user.email
+    assert claims.impersonator_sub == provider.user.sub
+    assert invoice_core.find_calls[0]["access_token"] == "admin-tok"

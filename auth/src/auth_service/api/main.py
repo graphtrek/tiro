@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from auth_service.config import configure_logging, get_settings
 from auth_service.models import (
     AuthError,
+    ForbiddenError,
     JWTClaims,
     NotAllowedError,
     ProviderInfo,
@@ -264,6 +265,42 @@ def logout(
     response.delete_cookie(settings.refresh_cookie_name, path="/")
     if revoked_jti:
         logger.info("Refresh token visszavonva: jti=%s", revoked_jti)
+    return response
+
+
+class ImpersonateRequest(BaseModel):
+    email: str
+
+
+@app.post("/auth/impersonate", response_model=TokenPair)
+def impersonate(
+    body: ImpersonateRequest,
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    claims: JWTClaims = Depends(require_auth),
+    service: AuthService = Depends(get_service),
+):
+    """Admin belép egy másik felhasználóként — csak `ADMIN_EMAILS` tagoknak."""
+    admin_token = _extract_token(request, credentials)
+    try:
+        tokens = service.impersonate(claims, body.email, admin_token)
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except AuthError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    settings = get_settings()
+    response = Response(content=tokens.model_dump_json(), media_type="application/json")
+    # csak az access cookie-t írjuk felül — az admin refresh cookie-ja érintetlen marad
+    response.set_cookie(
+        settings.access_cookie_name,
+        tokens.access_token,
+        max_age=tokens.expires_in,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path="/",
+    )
     return response
 
 

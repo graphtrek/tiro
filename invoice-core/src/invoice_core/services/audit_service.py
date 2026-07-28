@@ -164,6 +164,7 @@ def finalize_record(
     db.add(
         AuditLog(
             user_email=claims.get("email") if claims else None,
+            impersonator_email=claims.get("impersonator_email") if claims else None,
             method=request.method,
             path=request.url.path,
             page=prepared["page"],

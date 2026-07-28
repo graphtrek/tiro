@@ -25,6 +25,7 @@
           <th>Provider</th>
           <th>Utolsó belépés</th>
           <th>Regisztrálva</th>
+          {% if is_admin %}<th></th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -42,6 +43,16 @@
           <td><span class="badge bg-secondary">{{ row.provider }}</span></td>
           <td>{{ row.last_login_at.strftime('%Y-%m-%d %H:%M') if row.last_login_at else '—' }}</td>
           <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—' }}</td>
+          {% if is_admin %}
+          <td>
+            <form method="post" action="/ui/admin/users/impersonate" hx-boost="false" class="m-0">
+              <input type="hidden" name="email" value="{{ row.email }}">
+              <button type="submit" class="btn btn-sm btn-outline-warning">
+                <i class="bi bi-person-badge me-1"></i>Belépés e felhasználóként
+              </button>
+            </form>
+          </td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>
@@ -64,6 +75,7 @@
         { targets: 1, responsivePriority: 1 },
         { targets: 2, responsivePriority: 2 },
         { targets: [3, 5], responsivePriority: 10001 },
+        {% if is_admin %}{ targets: 6, searchable: false, orderable: false, responsivePriority: 3 },{% endif %}
       ],
     });
   });

@@ -12,6 +12,7 @@ from auth_service.invoice_core_client import InvoiceCoreClient, InvoiceCoreClien
 from auth_service.jwt_service import JWTService, make_pkce_pair, make_state
 from auth_service.models import (
     AuthError,
+    ForbiddenError,
     JWTClaims,
     NotAllowedError,
     ProviderInfo,
@@ -215,3 +216,36 @@ class AuthService:
         if claims.jti:
             self.denylist.add(claims.jti)
         return claims.jti
+
+    # -- megszemélyesítés (support impersonation) ---------------------------
+
+    def impersonate(
+        self, admin_claims: JWTClaims, target_email: str, access_token: str
+    ) -> TokenPair:
+        """Admin belép egy másik felhasználóként — rövid élettartamú access token,
+        refresh token nélkül (az admin saját refresh cookie-ja érintetlen marad,
+        így a `/auth/refresh` automatikusan visszaállítja az admin identitást)."""
+        admin_email = (admin_claims.email or "").strip().lower()
+        if admin_email not in self.settings.admin_emails_list:
+            logger.warning("Elutasított megszemélyesítési kísérlet: %s", admin_email)
+            raise ForbiddenError(f"{admin_email} nem admin — megszemélyesítés nem engedélyezett")
+
+        try:
+            target = self._invoice_core.find_user_by_email(target_email, access_token)
+        except InvoiceCoreClientError as exc:
+            raise AuthError(f"invoice-core nem érhető el: {exc}") from exc
+        if target is None:
+            raise AuthError(f"Nincs ilyen felhasználó: {target_email}")
+
+        admin_user = UserInfo(
+            sub=admin_claims.sub,
+            email=admin_email,
+            name=admin_claims.name,
+            picture=admin_claims.picture,
+            provider=admin_claims.provider or "unknown",
+        )
+        access = self.jwt.issue_access_token(target, impersonator=admin_user)
+        logger.info("Megszemélyesítés: %s → %s", admin_email, target.email)
+        return TokenPair(
+            access_token=access, refresh_token=None, expires_in=self.settings.access_token_ttl
+        )

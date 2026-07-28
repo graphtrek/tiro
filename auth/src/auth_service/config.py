@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     allowed_emails: str = ""  # vesszővel elválasztva
     allowed_domains: str = ""  # vesszővel elválasztva
 
+    # Admin — ezek az e-mailek indíthatnak megszemélyesítést (POST /auth/impersonate)
+    admin_emails: str = ""  # vesszővel elválasztva
+
     # Providerek
     enabled_providers: str = "google"
 
@@ -91,6 +94,10 @@ class Settings(BaseSettings):
     @property
     def allowed_domains_list(self) -> list[str]:
         return [d.strip().lower() for d in self.allowed_domains.split(",") if d.strip()]
+
+    @property
+    def admin_emails_list(self) -> list[str]:
+        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
 
     @property
     def enabled_providers_list(self) -> list[str]:

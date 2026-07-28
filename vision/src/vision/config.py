@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     jwt_audience: str = "moneypenny"
     jwt_issuer: str = "auth-service"
 
+    # Admin — csak ezek látják a "Belépés e felhasználóként" gombot (UX, nem
+    # biztonsági határ — azt az auth szerviz `/auth/impersonate` végpontja adja)
+    admin_emails: str = ""  # vesszővel elválasztva
+    # Megszemélyesítéskor kapott access cookie beállításához (auth szerviz mintája)
+    cookie_secure: bool = False
+
     # Upstream services
     auth_service_url: str = "http://localhost:8007"
     # Browser-reachable auth URL (login links, silent-refresh fetch). Falls back to
@@ -75,6 +81,10 @@ class Settings(BaseSettings):
     @property
     def auth_public_url_or_default(self) -> str:
         return self.auth_public_url or self.auth_service_url
+
+    @property
+    def admin_emails_list(self) -> list[str]:
+        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
 
 
 def get_settings() -> Settings:

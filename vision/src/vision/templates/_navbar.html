@@ -10,6 +10,15 @@
   </a>
   <div class="ms-auto d-flex align-items-center gap-2">
     {% if request.state.user %}
+    {% if request.state.user.impersonator_email %}
+    <span class="badge text-bg-warning d-none d-md-inline-flex align-items-center gap-1">
+      <i class="bi bi-person-badge"></i>
+      Megszemélyesítve — admin: {{ request.state.user.impersonator_email }}
+    </span>
+    <a class="btn btn-sm btn-warning" href="/stop-impersonation" hx-boost="false" title="Vissza a saját fiókomba">
+      Vissza a saját fiókomba
+    </a>
+    {% endif %}
     <span class="text-muted small d-none d-sm-flex align-items-center">
       {% if request.state.user.picture %}
       <img src="{{ request.state.user.picture }}" alt="" class="rounded-circle me-2" width="24" height="24" referrerpolicy="no-referrer">

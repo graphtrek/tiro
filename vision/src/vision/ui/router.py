@@ -91,3 +91,40 @@ def logout(request: Request):
     response.delete_cookie("mp_access_token", path="/")
     response.delete_cookie("mp_refresh_token", path="/")
     return response
+
+
+@router.get("/stop-impersonation")
+def stop_impersonation(request: Request):
+    """Vissza az admin saját identitására.
+
+    Megszemélyesítéskor csak az access cookie-t írjuk felül — a refresh cookie
+    végig az admin sajátja marad, így itt egy sima `/auth/refresh` az admin
+    identitására állítja vissza az access tokent, új admin/kezdeményezés nélkül.
+    """
+    settings = get_settings()
+    refresh = request.cookies.get("mp_refresh_token")
+    if not refresh:
+        return RedirectResponse("/login", status_code=302)
+    try:
+        resp = requests.post(
+            f"{settings.auth_service_url}/auth/refresh",
+            cookies={"mp_refresh_token": refresh},
+            timeout=settings.request_timeout,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("Auth szerviz refresh nem érhető el: %s", exc)
+        return RedirectResponse("/ui/", status_code=302)
+
+    tokens = resp.json()
+    response = RedirectResponse("/ui/", status_code=302)
+    response.set_cookie(
+        "mp_access_token",
+        tokens["access_token"],
+        max_age=tokens["expires_in"],
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+    return response

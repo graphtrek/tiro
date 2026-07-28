@@ -33,9 +33,18 @@ def db():
 
 
 def _request(
-    method: str, path: str, email: str | None = "user@example.com", label: str | None = None
+    method: str,
+    path: str,
+    email: str | None = "user@example.com",
+    label: str | None = None,
+    impersonator_email: str | None = None,
 ):
-    state = SimpleNamespace(user={"email": email} if email else None)
+    user = None
+    if email:
+        user = {"email": email}
+        if impersonator_email:
+            user["impersonator_email"] = impersonator_email
+    state = SimpleNamespace(user=user)
     url = SimpleNamespace(path=path)
     headers = {audit_service.LABEL_HEADER: quote(label)} if label else {}
     return SimpleNamespace(method=method, url=url, state=state, headers=headers)
@@ -101,6 +110,25 @@ def test_record_without_authenticated_user_leaves_email_blank(db):
     assert rows[0].user_email is None
     assert rows[0].page == "Szállítók"
     assert rows[0].action == "delete"
+
+
+def test_record_captures_impersonator_email_when_present(db):
+    _run(
+        db,
+        "PATCH",
+        "/api/v1/invoices/12",
+        email="kozma.zoltan@graphtrek.co",
+        impersonator_email="imre.tatai@graphtrek.co",
+    )
+
+    row = audit_service.list_audit_log(db)[0]
+    assert row.user_email == "kozma.zoltan@graphtrek.co"
+    assert row.impersonator_email == "imre.tatai@graphtrek.co"
+
+
+def test_record_without_impersonation_leaves_impersonator_email_blank(db):
+    _run(db, "PATCH", "/api/v1/invoices/12")
+    assert audit_service.list_audit_log(db)[0].impersonator_email is None
 
 
 def test_list_audit_log_filters_by_user_and_page(db):

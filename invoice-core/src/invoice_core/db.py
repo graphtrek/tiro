@@ -512,6 +512,9 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_email = Column(String, nullable=True, index=True)
+    impersonator_email = Column(
+        String, nullable=True
+    )  # set when the mutation happened during support impersonation
     method = Column(String, nullable=False)
     path = Column(String, nullable=False)
     page = Column(String, nullable=False, index=True)  # menu the mutation belongs to

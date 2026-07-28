@@ -218,6 +218,7 @@ class AuditLogOut(BaseModel):
 
     id: int
     user_email: str | None = None
+    impersonator_email: str | None = None
     method: str
     path: str
     page: str

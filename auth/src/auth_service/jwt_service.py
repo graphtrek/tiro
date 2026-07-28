@@ -75,7 +75,9 @@ class JWTService:
 
     # -- kiállítás ---------------------------------------------------------
 
-    def issue_access_token(self, user: UserInfo, now: int | None = None) -> str:
+    def issue_access_token(
+        self, user: UserInfo, now: int | None = None, impersonator: UserInfo | None = None
+    ) -> str:
         now = now or int(time.time())
         payload = {
             "sub": user.sub,
@@ -89,6 +91,9 @@ class JWTService:
             "iss": self.settings.jwt_issuer,
             "aud": self.settings.jwt_audience,
         }
+        if impersonator is not None:
+            payload["impersonator_sub"] = impersonator.sub
+            payload["impersonator_email"] = impersonator.email
         return jwt.encode(
             payload, self._private_pem, algorithm="RS256", headers={"kid": self.kid}
         )
