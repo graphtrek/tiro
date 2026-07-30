@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable
 from datetime import date, datetime
@@ -7,6 +8,7 @@ from urllib.parse import unquote
 
 from fastapi import Request, Response
 from sqlalchemy.orm import Session
+from starlette.concurrency import iterate_in_threadpool
 
 from invoice_core.db import (
     ActivityType,
@@ -154,11 +156,40 @@ def prepare_record(db: Session, request: Request) -> dict | None:
     return {"action": action, "page": page, "record": _resolve_record(db, request.url.path)}
 
 
+async def extract_created_id(response: Response) -> int | None:
+    """Best-effort: pull the new row's id out of a create endpoint's JSON body.
+
+    Only called for POSTs whose path had no id to resolve a record from (see
+    finalize_record). BaseHTTPMiddleware wraps the downstream response as a
+    one-shot async stream, so the body is buffered and replayed onto the
+    response for the actual client to still receive it.
+    """
+    if not hasattr(response, "body_iterator"):
+        return None
+    chunks = [section async for section in response.body_iterator]
+    response.body_iterator = iterate_in_threadpool(iter(chunks))
+    try:
+        data = json.loads(b"".join(chunks))
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return data.get("id") if isinstance(data, dict) else None
+
+
 def finalize_record(
-    db: Session, request: Request, response: Response, prepared: dict | None
+    db: Session,
+    request: Request,
+    response: Response,
+    prepared: dict | None,
+    created_id: int | None = None,
 ) -> None:
     if prepared is None or not (200 <= response.status_code < 300):
         return
+    record = prepared["record"]
+    if record is None and created_id is not None:
+        # A create endpoint's path has no id (e.g. POST /api/v1/projects) so
+        # prepare_record couldn't resolve it before the mutation ran; now that
+        # the row exists, reuse the normal id-based rules via a synthetic path.
+        record = _resolve_record(db, f"{request.url.path.rstrip('/')}/{created_id}")
     claims = getattr(request.state, "user", None)
     raw_label = request.headers.get(LABEL_HEADER)
     db.add(
@@ -168,7 +199,7 @@ def finalize_record(
             method=request.method,
             path=request.url.path,
             page=prepared["page"],
-            record=prepared["record"],
+            record=record,
             label=unquote(raw_label) if raw_label else None,
             action=prepared["action"],
             status_code=response.status_code,

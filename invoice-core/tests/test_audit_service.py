@@ -244,6 +244,22 @@ def test_record_resolves_project_code(db):
     assert audit_service.list_audit_log(db)[-1].record == "DEMO-01"
 
 
+def test_record_resolves_created_supplier_name_via_response_id(db):
+    """POST /api/v1/partners/suppliers has no id in the path to resolve from
+    up front; the middleware must fall back to the id in the response body."""
+    request = _request("POST", "/api/v1/partners/suppliers")
+    prepared = audit_service.prepare_record(db, request)
+    assert prepared["record"] is None
+
+    sup = Supplier(name="Új Beszállító Kft")
+    db.add(sup)
+    db.commit()
+
+    audit_service.finalize_record(db, request, _response(201), prepared, created_id=sup.id)
+
+    assert audit_service.list_audit_log(db)[-1].record == "Új Beszállító Kft"
+
+
 def test_record_resolves_timesheet_entry_as_project_and_date(db):
     from invoice_core.db import Customer, User
 

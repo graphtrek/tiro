@@ -157,9 +157,15 @@ async def record_audit_log(request: Request, call_next):
     response = await call_next(request)
 
     if prepared is not None:
+        created_id = None
+        if prepared["action"] == "create" and prepared["record"] is None:
+            try:
+                created_id = await audit_service.extract_created_id(response)
+            except Exception as exc:  # noqa: BLE001 - best-effort audit, must never break the request
+                logger.warning("Nem sikerült az új rekord id-jét kiolvasni: %s", exc)
         db = SessionLocal()
         try:
-            audit_service.finalize_record(db, request, response, prepared)
+            audit_service.finalize_record(db, request, response, prepared, created_id)
         except Exception as exc:  # noqa: BLE001 - best-effort audit, must never break the request
             logger.warning("Nem sikerült audit logot rögzíteni: %s", exc)
         finally:
