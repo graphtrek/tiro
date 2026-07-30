@@ -559,28 +559,13 @@
     }
     function withSummary(data) { appendSection(data, "Összesítés", readTableRows("report-summary-table")); }
     function withEntries(data) { appendSection(data, "Bejegyzések", readTableRows("report-detail-table")); }
-    // PDF wants the Összesítés summary to read first, so the entries table
-    // (the button's own source, #report-table) is demoted: its header/body
-    // become an appended "Eredmény" section, while the summary table's rows
-    // take over as the exported header/body. The source table's own tfoot
-    // ("Összesen") still flows through as data.footer untouched, so it lands
-    // after the appended entries — same relative position as before.
-    function summaryFirst(data) {
-      var entryHeader = data.header;
-      var entryBody = data.body;
-      var summaryRows = readTableRows("report-summary-table");
-      data.header = summaryRows[0];
-      data.body = summaryRows.slice(1);
-      appendSection(data, "Eredmény", [entryHeader].concat(entryBody));
-    }
-    // PDF is excluded from the widening trick: pdfMake's table renderer derives
-    // its column count from the header row it builds internally (independent of
-    // this appendSection padding) and silently drops any body cell beyond that
-    // count, so appending the wider "Bejegyzések" rows into the same table would
-    // just make the extra columns (Leírás, Óra — the whole point) vanish.
-    // stylePdf() below appends it as its own separate table instead.
     var excelPrintExportOptions = {% if project_detail %}{ customizeData: withEntries }{% else %}{ customizeData: withSummary }{% endif %};
-    var pdfExportOptions = {% if project_detail %}undefined{% else %}{ customizeData: summaryFirst }{% endif %};
+    // PDF handles the extra section entirely in stylePdf() below, as its own
+    // table block, rather than through customizeData: pdfMake derives a table's
+    // column count from the header row it builds internally, so merging rows
+    // with a different column count into the same body just silently drops
+    // whichever cells fall past that count.
+    var pdfExportOptions = undefined;
 
     var BRAND = "#008cba";
     function stylePdf(doc) {
@@ -596,23 +581,6 @@
         doc.styles.message = { fontSize: 9, italics: true, color: "#6c757d", margin: [0, 0, 0, 10] };
         doc.styles.tableHeader = { bold: true, fontSize: 8, color: "white" };
 
-        // Locate the table block by shape rather than position — the index of the
-        // table within doc.content shifts depending on which of title/messageTop/
-        // messageBottom the library actually included.
-        var tableBlock = (doc.content || []).filter(function (item) { return item && item.table; })[0];
-        if (!tableBlock) return;
-
-        (tableBlock.table.body || []).forEach(function (row) {
-          var first = row[0];
-          var label = typeof first === "string" ? first : (first && first.text);
-          if (label === "Összesítés" || label === "Mindösszesen" || label === "Összesen") {
-            row.forEach(function (cell, idx) {
-              var text = typeof cell === "string" ? cell : ((cell && cell.text) || "");
-              row[idx] = { text: text, bold: true, color: BRAND };
-            });
-          }
-        });
-
         var tableLayout = {
           hLineWidth: function (i, node) { return (i === 0 || i === node.table.body.length) ? 1 : 0.5; },
           vLineWidth: function () { return 0; },
@@ -626,21 +594,16 @@
             return rowIndex % 2 === 0 ? "#eef6f9" : null;
           },
         };
-        tableBlock.layout = tableLayout;
 
-        {% if project_detail %}
-        // The itemized "Bejegyzések" rows have more columns than the weekly
-        // summary table above (see the comment on pdfExportOptions), so they're
-        // rendered as their own table block — reusing the same header/zebra
-        // layout — rather than appended into tableBlock's body.
-        var entryRows = readTableRows("report-detail-table");
-        if (entryRows.length > 1) {
-          doc.content.push({ text: "Bejegyzések", style: "title", fontSize: 12, margin: [0, 16, 0, 6] });
-          doc.content.push({
+        // Builds a standalone pdfMake table block (own header + zebra styling)
+        // from plain string rows, for sections that can't share tableBlock's
+        // body because they have a different column count (see pdfExportOptions).
+        function buildTable(rows) {
+          return {
             table: {
               headerRows: 1,
-              body: entryRows.map(function (row, i) {
-                var isTotal = row[0] === "Összesen";
+              body: rows.map(function (row, i) {
+                var isTotal = row[0] === "Összesen" || row[0] === "Mindösszesen";
                 return row.map(function (cell) {
                   return {
                     text: cell,
@@ -652,8 +615,45 @@
               }),
             },
             layout: tableLayout,
-          });
+          };
         }
+
+        // Locate the entries table block by shape rather than position — the
+        // index within doc.content shifts depending on which of title/messageTop/
+        // messageBottom the library actually included.
+        var tableBlock = (doc.content || []).filter(function (item) { return item && item.table; })[0];
+        if (!tableBlock) return;
+        tableBlock.layout = tableLayout;
+
+        (tableBlock.table.body || []).forEach(function (row) {
+          var first = row[0];
+          var label = typeof first === "string" ? first : (first && first.text);
+          if (label === "Összesen") {
+            row.forEach(function (cell, idx) {
+              var text = typeof cell === "string" ? cell : ((cell && cell.text) || "");
+              row[idx] = { text: text, bold: true, color: BRAND };
+            });
+          }
+        });
+
+        {% if project_detail %}
+        // The itemized "Bejegyzések" rows have more columns than the weekly
+        // rollup table above, so they're appended as their own table block.
+        var entryRows = readTableRows("report-detail-table");
+        if (entryRows.length > 1) {
+          doc.content.push({ text: "Bejegyzések", style: "title", fontSize: 12, margin: [0, 16, 0, 6] });
+          doc.content.push(buildTable(entryRows));
+        }
+        {% else %}
+        // Összesítés should read first in the PDF, ahead of the raw entries —
+        // but it has a different column count than tableBlock, so it's inserted
+        // as its own table block right before it instead of merged in.
+        var summaryRows = readTableRows("report-summary-table");
+        doc.content.splice(doc.content.indexOf(tableBlock), 0,
+          { text: "Összesítés", style: "title", fontSize: 12, margin: [0, 0, 0, 6] },
+          buildTable(summaryRows),
+          { text: "Eredmény", style: "title", fontSize: 12, margin: [0, 16, 0, 6] }
+        );
         {% endif %}
 
         doc.footer = function (currentPage, pageCount) {
