@@ -59,25 +59,25 @@
           <label class="form-label">Egyéni dátumig</label>
           <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}">
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Ügyfél</label>
-          <select class="form-select" name="customer_id">
+          <select class="form-select" name="customer_id" id="report-filter-customer">
             <option value="" {% if not customer_id %}selected{% endif %}>mind</option>
             {% for c in customers %}
             <option value="{{ c.id }}" {% if customer_id == c.id %}selected{% endif %}>{{ c.name }}</option>
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Projekt</label>
-          <select class="form-select" name="project_id">
+          <select class="form-select" name="project_id" id="report-filter-project">
             <option value="" {% if not project_id %}selected{% endif %}>mind</option>
             {% for p in projects %}
-            <option value="{{ p.id }}" {% if project_id == p.id %}selected{% endif %}>{{ p.code }}</option>
+            <option value="{{ p.id }}" data-customer-id="{{ p.customer_id }}" {% if project_id == p.id %}selected{% endif %}>{{ p.code }}</option>
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Személy</label>
           <select class="form-select" name="user_id">
             <option value="" {% if not user_id %}selected{% endif %}>mind</option>
@@ -86,7 +86,7 @@
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Tevékenység típus</label>
           <select class="form-select" name="activity_type_id">
             <option value="" {% if not activity_type_id %}selected{% endif %}>mind</option>
@@ -102,6 +102,38 @@
     </form>
   </div>
 </div>
+
+<script>
+  (function() {
+    var customerSel = document.getElementById("report-filter-customer");
+    var projectSel = document.getElementById("report-filter-project");
+    if (!customerSel || !projectSel) return;
+
+    function filterProjectsByCustomer() {
+      var customerId = customerSel.value;
+      var currentProject = projectSel.value;
+      var stillValid = false;
+      Array.prototype.forEach.call(projectSel.options, function(opt) {
+        if (!opt.value) { opt.hidden = false; return; }
+        var match = !customerId || opt.dataset.customerId === customerId;
+        opt.hidden = !match;
+        if (match && opt.value === currentProject) stillValid = true;
+      });
+      if (currentProject && !stillValid) projectSel.value = "";
+    }
+
+    customerSel.addEventListener("change", filterProjectsByCustomer);
+    projectSel.addEventListener("change", function() {
+      var opt = projectSel.options[projectSel.selectedIndex];
+      if (opt && opt.value && opt.dataset.customerId) {
+        customerSel.value = opt.dataset.customerId;
+      }
+      filterProjectsByCustomer();
+    });
+
+    filterProjectsByCustomer();
+  })();
+</script>
 
 {% if error %}
 <div class="alert alert-danger py-2" role="alert">
