@@ -146,17 +146,116 @@
       // A boosted nav (Bank submenu, a partner link inside the offcanvas, ...)
       // replaces <body>'s innerHTML wholesale, so a still-open offcanvas/modal
       // is yanked out without ever running Bootstrap's own hide() cleanup.
-      // Bootstrap's scroll-lock styles (overflow/padding-right), which it sets
-      // directly on the <body> ELEMENT — surviving the swap just like the
-      // element's classList does — are then stuck forever, leaving the page
-      // narrower and unable to scroll (DataTables columns end up cramped).
-      // A freshly boosted page never legitimately has one open, so clear them.
+      // Bootstrap's scroll-lock class+styles, which it sets directly on the
+      // <body> ELEMENT — surviving the swap just like the rest of the
+      // element's attributes do — are then stuck forever (the leftover
+      // "modal-open" class alone still forces overflow:hidden via Bootstrap's
+      // CSS even once the inline overflow/padding-right props are cleared). A
+      // freshly boosted page never legitimately has one open, so clear them
+      // whenever nothing is actually shown — not gated to a body-level swap:
+      // controlling/timesheet's modals now submit against a scoped
+      // "#timesheet-content" target (see the explicit modal .hide() below),
+      // and that scoped swap still yanks the modal's DOM out the same way,
+      // still leaving these stuck on <body>.
       if (!window._boostScrollLockFixBound) {
         window._boostScrollLockFixBound = true;
-        document.body.addEventListener('htmx:afterSwap', function (evt) {
-          if (evt.detail.target !== document.body) return;
+        document.body.addEventListener('htmx:afterSwap', function () {
+          if (document.querySelector('.modal.show')) return;
+          document.body.classList.remove('modal-open');
           document.body.style.removeProperty('overflow');
           document.body.style.removeProperty('padding-right');
+        });
+      }
+
+      // A modal form's hx-post (e.g. controlling/timesheet's "Új"/edit
+      // records) swaps its own container out from under the still-open
+      // Bootstrap modal it was submitted from, without ever running
+      // Bootstrap's own hide() — same class of problem as the boosted-nav
+      // case above, just via a scoped target instead of body. Close it
+      // properly, before htmx swaps anything, so Bootstrap's real cleanup
+      // (backdrop, focus trap, the body scroll-lock cleared above) runs.
+      if (!window._modalHideBeforeSwapBound) {
+        window._modalHideBeforeSwapBound = true;
+        document.body.addEventListener('htmx:beforeSwap', function (evt) {
+          var elt = evt.detail.requestConfig && evt.detail.requestConfig.elt;
+          var modal = elt && elt.closest && elt.closest('.modal.show');
+          if (modal) {
+            bootstrap.Modal.getInstance(modal)?.hide();
+          }
+        });
+      }
+
+      // Every DataTable-driven page reinitializes its table from a page-local
+      // <script> after its hx-post/hx-delete swap (e.g. saving a record on
+      // controlling/timesheet or controlling/projects) by checking
+      // $.fn.DataTable.isDataTable("#id") and destroying first. That check is
+      // always a no-op here: htmx has already inserted the NEW <table id="…">
+      // node into the DOM (detaching the old one) by the time that script
+      // runs, so the selector resolves to the fresh node — never to the old
+      // one — and the real live instance never gets destroy()ed. 'htmx:beforeSwap'
+      // fires earlier, while the old content (and its live DataTable instance)
+      // is still attached, so destroy any live DataTable there instead, before
+      // htmx gets a chance to detach it — avoids leaking the old instance
+      // ('htmx:beforeCleanupElement' looked like the right hook too, firing once
+      // per discarded element, but by then the old subtree is already detached
+      // and isDataTable() requires the node to still be document-connected, so
+      // it silently reports false and skips destroy — confirmed by
+      // instrumenting it live). Looks at the whole document rather than
+      // scoping to evt.detail.target: that target is now often a nested
+      // container (e.g. "#timesheet-content"), not body, but a stale
+      // not-yet-destroyed instance is a problem regardless of which element
+      // is about to be swapped.
+      if (!window._dataTableSwapCleanupBound) {
+        window._dataTableSwapCleanupBound = true;
+        document.body.addEventListener('htmx:beforeSwap', function () {
+          document.querySelectorAll('table.dataTable').forEach(function (el) {
+            if ($.fn.DataTable.isDataTable(el)) {
+              $(el).DataTable().destroy();
+            }
+          });
+        });
+      }
+
+      // Even with the old instance properly destroyed above, the brand new
+      // DataTable created synchronously by the swapped-in page script still
+      // comes out missing its "dataTable dtr-inline collapsed" classes — the
+      // Responsive extension's one-time, init-time column/width calculation
+      // doesn't come out right when run synchronously mid-swap (confirmed live:
+      // right after such a swap the table permanently lacks these classes no
+      // matter how long you wait — it's not a transient timing race that
+      // settles on its own). What DOES fix it, confirmed live: dispatching a
+      // real 'resize' event afterwards, which drives Responsive's normal,
+      // well-exercised resize-recalculation path and reproduces byte-for-byte
+      // the same classes/hidden-columns a fresh full page load would produce.
+      // (The more "proper"-looking `api.responsive.recalc()` call does NOT —
+      // it takes a different internal path meant for columns being added or
+      // removed, and left this app's tables showing extra columns a fresh load
+      // would have collapsed.) Centralized here, once, rather than duplicated
+      // in every DataTable-using page's own reinit script.
+      // Tried 'htmx:afterSwap' first: racy, since it fired inconsistently
+      // before vs. after the swapped-in page's own <script> had actually run
+      // "new DataTable(...)" — the resize kick sometimes preceded, and so
+      // missed, the table it was meant to fix. Tried 'htmx:afterSettle' next:
+      // reliable across repeated *automated* clicks, but a real user clicking
+      // through at native speed still hit the same race — automation's
+      // request/response round-trips between actions apparently added enough
+      // incidental delay to mask it. Neither hangs a fix off htmx's internal
+      // (undocumented, and evidently not fully deterministic) script-execution
+      // timing at all: DataTables itself fires 'init.dt' on the table the
+      // moment a "new DataTable(...)" call actually finishes constructing it,
+      // so listen for that instead — it can only ever fire once the table
+      // genuinely exists, regardless of how htmx got there or how fast the
+      // user clicks. Deferred one macrotask out via setTimeout(…, 0): 'init.dt'
+      // fires as the last step *inside* the "new DataTable(...)" call, so
+      // dispatching 'resize' straight from the handler would re-enter
+      // DataTables' own resize/Responsive code while that constructor call is
+      // still on the stack — let it finish and return first.
+      if (!window._dataTableResizeKickBound) {
+        window._dataTableResizeKickBound = true;
+        $(document).on('init.dt', function () {
+          setTimeout(function () {
+            window.dispatchEvent(new Event('resize'));
+          }, 0);
         });
       }
     })();

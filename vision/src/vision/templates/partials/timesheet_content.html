@@ -1,0 +1,298 @@
+{% if error %}
+<div class="alert alert-danger py-2" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+</div>
+{% endif %}
+
+<p class="text-muted">{{ project_scope_labels[project_scope] }} timesheet rekordjai.</p>
+
+<div class="card">
+  <div class="card-body pt-3">
+    <table id="timesheet-table" class="table table-hover table-sm nowrap" style="width:100%">
+      <thead>
+        <tr>
+          <th>Dátum</th>
+          <th>Nap</th>
+          <th>Felhasználó</th>
+          <th>Ügyfél</th>
+          <th>Projekt</th>
+          <th>Projekt hét</th>
+          <th>Tevékenység típus</th>
+          <th>Tevékenység</th>
+          <th>Résztvevők</th>
+          <th class="text-end">Óra</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.entry_date }}</td>
+          <td>{{ row.weekday_hu }}</td>
+          <td>{{ row.user_name }}</td>
+          <td>{{ row.customer_name }}</td>
+          <td>{{ row.project_code }}</td>
+          <td>W{{ row.project_week }}</td>
+          <td>{{ row.activity_type_name }}</td>
+          <td>{{ row.description }}</td>
+          <td>{{ row.participants }}</td>
+          <td class="text-end">{{ row.hours_label }}</td>
+          <td class="text-end text-nowrap">
+            {% if row.is_own %}
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
+                    data-bs-target="#editEntryModal{{ row.id }}">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"
+                    hx-delete="/ui/controlling/timesheet/{{ row.id }}?project_scope={{ project_scope }}"
+                    hx-target="#timesheet-content" hx-push-url="true"
+                    hx-confirm="Biztosan törli ezt a rekordot?">
+              <i class="bi bi-trash"></i>
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="d-flex justify-content-between text-muted small mt-2">
+      <span>Összesítő (szűrt): <strong id="ts-sum">0</strong> óra</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable("#timesheet-table")) {
+      $("#timesheet-table").DataTable().destroy();
+    }
+    function hours(s) { return parseFloat(String(s).replace(",", ".")) || 0; }
+    new DataTable("#timesheet-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50],
+      order: [[0, "desc"]],
+      responsive: true,
+      autoWidth: false,
+      columnDefs: [
+        { targets: 0, responsivePriority: 1 },
+        { targets: [3, 4], responsivePriority: 2 },
+        { targets: 9, className: "text-end", responsivePriority: 3 },
+        { targets: -1, searchable: false, orderable: false, responsivePriority: 1 },
+        { targets: [1, 7], className: "none", responsivePriority: 10001 },
+      ],
+      drawCallback: function() {
+        var sum = this.api().column(9, { search: "applied" }).data().toArray()
+          .reduce(function(a, b) { return a + hours(b); }, 0);
+        var el = document.getElementById("ts-sum");
+        if (el) el.textContent = sum.toLocaleString("hu-HU");
+      },
+    });
+  })();
+</script>
+
+<!-- Új rekord modal -->
+<div class="modal fade" id="newRecordModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form class="ts-form" hx-post="/ui/controlling/timesheet?project_scope={{ project_scope }}" hx-target="#timesheet-content" hx-push-url="true">
+        <div class="modal-header py-2">
+          <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új timesheet rekord</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Dátum <span class="text-danger">*</span></label>
+              <input type="date" name="entry_date" class="form-control ts-date" value="{{ today }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Projekt <span class="text-danger">*</span></label>
+              <select name="project_id" class="form-select ts-project-select" required>
+                <option value="" disabled selected>Válasszon…</option>
+                {% for p in projects %}<option value="{{ p.id }}">{{ p.code }}</option>{% endfor %}
+              </select>
+              <div class="form-text">Csak az Ön számára engedélyezett projektek választhatók</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tevékenység típus <span class="text-danger">*</span></label>
+              <select name="activity_type_id" class="form-select" required>
+                <option value="" disabled selected>Válasszon…</option>
+                {% for a in activity_types %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Időráfordítás (óra) <span class="text-danger">*</span></label>
+              <select name="hours" class="form-select" required>
+                <option value="0.5">0,5</option><option value="1">1</option><option value="1.5">1,5</option>
+                <option value="2" selected>2</option><option value="2.5">2,5</option><option value="3">3</option>
+                <option value="3.5">3,5</option><option value="4">4</option><option value="4.5">4,5</option>
+                <option value="5">5</option><option value="5.5">5,5</option><option value="6">6</option>
+                <option value="6.5">6,5</option><option value="7">7</option><option value="7.5">7,5</option>
+                <option value="8">8</option>
+              </select>
+              <div class="form-text">0,5 órás lépésekben</div>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Résztvevők</label>
+              <input name="participants" class="form-control" placeholder="pl. Kozma Zoltán, Erős Péter">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Tevékenység (szabad szöveges leírás)</label>
+              <textarea name="description" class="form-control" rows="2" placeholder="A konkrét rekord leírása…"></textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Ügyfél</label>
+              <input class="form-control ts-customer" disabled>
+              <div class="form-text">A projektből automatikusan adódik</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Project gazda</label>
+              <input class="form-control ts-owner" disabled>
+              <div class="form-text">A projektből automatikusan adódik</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Projekt hét</label>
+              <input class="form-control ts-week" disabled>
+              <div class="form-text">Automatikusan számolt (W1-től)</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Rekord módosítása modalok -->
+{% for row in rows if row.is_own %}
+<div class="modal fade" id="editEntryModal{{ row.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form class="ts-form" hx-post="/ui/controlling/timesheet/{{ row.id }}?project_scope={{ project_scope }}" hx-target="#timesheet-content" hx-push-url="true">
+        <div class="modal-header py-2">
+          <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Timesheet rekord módosítása</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Dátum <span class="text-danger">*</span></label>
+              <input type="date" name="entry_date" class="form-control ts-date" value="{{ row.entry_date }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Projekt <span class="text-danger">*</span></label>
+              {% set project_ids = projects | map(attribute='id') | list %}
+              <select name="project_id" class="form-select ts-project-select" required>
+                {% if row.project_id not in project_ids %}
+                <option value="{{ row.project_id }}" selected>{{ row.project_code }} (nem elérhető)</option>
+                {% endif %}
+                {% for p in projects %}
+                <option value="{{ p.id }}" {% if p.id == row.project_id %}selected{% endif %}>{{ p.code }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">Csak az Ön számára engedélyezett projektek választhatók</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tevékenység típus <span class="text-danger">*</span></label>
+              <select name="activity_type_id" class="form-select" required>
+                {% for a in activity_types %}
+                <option value="{{ a.id }}" {% if a.id == row.activity_type_id %}selected{% endif %}>{{ a.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Időráfordítás (óra) <span class="text-danger">*</span></label>
+              {% set hours_options = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8] %}
+              <select name="hours" class="form-select" required>
+                {% for h in hours_options %}
+                <option value="{{ h }}" {% if h == row.hours %}selected{% endif %}>{{ ("%g" % h)|replace(".", ",") }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">0,5 órás lépésekben</div>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Résztvevők</label>
+              <input name="participants" class="form-control" value="{{ row.participants or '' }}" placeholder="pl. Kozma Zoltán, Erős Péter">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Tevékenység (szabad szöveges leírás)</label>
+              <textarea name="description" class="form-control" rows="2" placeholder="A konkrét rekord leírása…">{{ row.description or '' }}</textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Ügyfél</label>
+              <input class="form-control ts-customer" value="{{ row.customer_name }}" disabled>
+              <div class="form-text">A projektből automatikusan adódik</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Project gazda</label>
+              <input class="form-control ts-owner" disabled>
+              <div class="form-text">A projektből automatikusan adódik</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Projekt hét</label>
+              <input class="form-control ts-week" disabled>
+              <div class="form-text">Automatikusan számolt (W1-től)</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<script>
+  (function() {
+    const projects = {{ projects | tojson }};
+
+    function mondayOf(d) {
+      // d is parsed as UTC midnight; rebase JS's Sunday=0 weekday to Monday=0.
+      const dow = (d.getUTCDay() + 6) % 7;
+      return new Date(d.getTime() - dow * 86400000);
+    }
+
+    function weekLabel(project, entryDateStr) {
+      if (!project || !entryDateStr) return "";
+      // Week 1 is anchored to the project's first logged entry (matching the
+      // backend's project_week), not the project row's technical created_at —
+      // entries can be backdated before the project record itself was created.
+      // Weeks are calendar weeks (Mon-Sun), not a rolling 7-day window from the
+      // anchor, so e.g. a Friday anchor and the following Monday land in
+      // different weeks. Both dates parsed as UTC midnight so time-of-day and
+      // local timezone never skew the calculation.
+      const anchor = (project.first_entry_date || project.created_at.slice(0, 10)).slice(0, 10);
+      const anchorMonday = mondayOf(new Date(anchor));
+      const entryMonday = mondayOf(new Date(entryDateStr));
+      const weeksBetween = Math.floor((entryMonday - anchorMonday) / (7 * 86400000));
+      return "W" + (Math.max(weeksBetween, 0) + 1);
+    }
+
+    document.querySelectorAll(".ts-form").forEach(function(form) {
+      const projectSelect = form.querySelector(".ts-project-select");
+      const customerPreview = form.querySelector(".ts-customer");
+      const ownerPreview = form.querySelector(".ts-owner");
+      const weekPreview = form.querySelector(".ts-week");
+      const dateInput = form.querySelector(".ts-date");
+
+      function refreshPreview() {
+        const projectId = projectSelect.value ? parseInt(projectSelect.value, 10) : null;
+        const project = projects.find(function(p) { return p.id === projectId; });
+        customerPreview.value = project ? project.customer_name : "";
+        ownerPreview.value = project ? project.owner_name : "";
+        weekPreview.value = weekLabel(project, dateInput.value);
+      }
+
+      projectSelect.addEventListener("change", refreshPreview);
+      dateInput.addEventListener("input", refreshPreview);
+      refreshPreview();
+    });
+  })();
+</script>

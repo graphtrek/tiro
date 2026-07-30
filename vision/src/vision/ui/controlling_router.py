@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from pathlib import Path
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, Request, Response
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.invoice_core import InvoiceCoreClient
@@ -145,12 +145,15 @@ def _timesheet_page(request: Request, error: str | None = None, project_scope: s
     if project_scope not in _PROJECT_SCOPES:
         project_scope = "permitted"
 
+    is_partial = bool(request.headers.get("HX-Request")) and not request.headers.get("HX-Boosted")
+    template = "partials/timesheet_content.html" if is_partial else "controlling_timesheet.html"
+
     client = _client()
     user = _current_user(client, request)
     if user is None:
         return templates.TemplateResponse(
             request,
-            "controlling_timesheet.html",
+            template,
             {
                 "rows": [],
                 "projects": [],
@@ -196,7 +199,7 @@ def _timesheet_page(request: Request, error: str | None = None, project_scope: s
 
     return templates.TemplateResponse(
         request,
-        "controlling_timesheet.html",
+        template,
         {
             "rows": rows,
             "projects": permitted_projects,
@@ -209,6 +212,30 @@ def _timesheet_page(request: Request, error: str | None = None, project_scope: s
             "project_scope_colors": _PROJECT_SCOPE_COLORS,
             "today": local_today().isoformat(),
         },
+    )
+
+
+def _timesheet_redirect_or_error(request: Request, error: str | None, project_scope: str):
+    """On success, tell htmx to do a real browser navigation back to the list page
+    instead of swapping the response in.
+
+    A plain htmx swap here recreates the <table id="timesheet-table"> node, and
+    DataTables' Responsive extension reliably comes out of that re-init missing
+    its "dtr-inline collapsed" classes — the "▶" collapsed-column control then
+    never appears until the user manually refreshes. That held true even after
+    narrowing the swap target and several DataTables-internals-timing fixes
+    (see base.html's htmx:beforeSwap/init.dt handlers) — none of it reproduced
+    what a real page load does reliably. HX-Redirect sidesteps the whole
+    category: it makes the browser actually reload the list page fresh, which
+    is exactly the "manual refresh" a user could always do to fix this.
+    On a validation error, fall through to the normal in-place re-render instead,
+    so the error message shows without discarding the user's form input.
+    """
+    if error:
+        return _timesheet_page(request, error=error, project_scope=project_scope)
+    return Response(
+        status_code=204,
+        headers={"HX-Redirect": f"/ui/controlling/timesheet?project_scope={project_scope}"},
     )
 
 
@@ -243,7 +270,7 @@ def create_timesheet_entry(
         participants or None,
         description or None,
     )
-    return _timesheet_page(request, error=result.get("error"), project_scope=project_scope)
+    return _timesheet_redirect_or_error(request, result.get("error"), project_scope)
 
 
 @router.post("/timesheet/{entry_id}")
@@ -274,7 +301,7 @@ def update_timesheet_entry(
         participants or None,
         description or None,
     )
-    return _timesheet_page(request, error=result.get("error"), project_scope=project_scope)
+    return _timesheet_redirect_or_error(request, result.get("error"), project_scope)
 
 
 @router.delete("/timesheet/{entry_id}")
@@ -286,7 +313,7 @@ def delete_timesheet_entry(request: Request, entry_id: int, project_scope: str =
             request, error="Felhasználó azonosítása sikertelen", project_scope=project_scope
         )
     result = client.delete_timesheet_entry(entry_id, user["id"])
-    return _timesheet_page(request, error=result.get("error"), project_scope=project_scope)
+    return _timesheet_redirect_or_error(request, result.get("error"), project_scope)
 
 
 def _resolve_date_range(

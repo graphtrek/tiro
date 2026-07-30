@@ -478,32 +478,63 @@
       + "  |  Tevékenység típus: " + {{ header_activity_type_label | tojson }}
       + "  |  Időszak: " + {{ header_period_label | tojson }};
 
-    // Read the on-screen Összesítés (summary) table so exports carry it too — single
-    // source of truth is the rendered DOM, not a duplicate Jinja-side data structure.
-    function readSummaryRows() {
-      var table = document.getElementById("report-summary-table");
+    // Read an on-screen table (Összesítés summary / Bejegyzések entry detail) so
+    // exports carry it too — single source of truth is the rendered DOM, not a
+    // duplicate Jinja-side data structure.
+    function readTableRows(tableId) {
+      var table = document.getElementById(tableId);
       if (!table) return [];
       var cellText = function(el) { return el.textContent.replace(/\s+/g, " ").trim(); };
-      var rows = [Array.prototype.map.call(table.querySelectorAll("thead th"), cellText)];
-      Array.prototype.forEach.call(table.querySelectorAll("tbody tr"), function(tr) {
-        rows.push(Array.prototype.map.call(tr.querySelectorAll("td"), cellText));
-      });
-      var footRow = Array.prototype.map.call(table.querySelectorAll("tfoot td"), cellText);
-      if (footRow.length) rows.push(footRow);
-      return rows;
-    }
-    function withSummary(data) {
-      var headerLen = data.header.length;
-      function pad(row) {
-        var out = row.slice(0, headerLen);
-        while (out.length < headerLen) out.push("");
+      // Expand colspan cells (e.g. the "Összesen" totals row's label cell)
+      // into one entry per spanned column, padding with blanks, so every row
+      // ends up the same width as the table's real column count instead of
+      // collapsing to however many <td>/<th> elements happen to be present.
+      function expandRow(cells) {
+        var out = [];
+        Array.prototype.forEach.call(cells, function(el) {
+          var span = parseInt(el.getAttribute("colspan"), 10) || 1;
+          out.push(cellText(el));
+          for (var i = 1; i < span; i++) out.push("");
+        });
         return out;
       }
-      data.body.push(pad([""]));
-      data.body.push(pad(["Összesítés"]));
-      readSummaryRows().forEach(function(row) { data.body.push(pad(row)); });
+      var rows = [expandRow(table.querySelectorAll("thead th"))];
+      Array.prototype.forEach.call(table.querySelectorAll("tbody tr"), function(tr) {
+        rows.push(expandRow(tr.querySelectorAll("td")));
+      });
+      var footCells = table.querySelectorAll("tfoot td");
+      if (footCells.length) rows.push(expandRow(footCells));
+      return rows;
     }
-    var summaryExportOptions = {% if not project_detail %}{ customizeData: withSummary }{% else %}undefined{% endif %};
+    // Appends a titled section of extra rows below the main exported table.
+    // The appended rows can be wider than the main table's own header (e.g. the
+    // per-entry "Bejegyzések" detail has more columns than the weekly summary),
+    // so the whole table — header and all existing rows too — is padded out to
+    // the widest row rather than truncating the new section to fit.
+    function appendSection(data, title, rows) {
+      var width = data.header.length;
+      rows.forEach(function(row) { width = Math.max(width, row.length); });
+      function pad(row) {
+        var out = row.slice(0, width);
+        while (out.length < width) out.push("");
+        return out;
+      }
+      data.header = pad(data.header);
+      data.body = data.body.map(pad);
+      data.body.push(pad([""]));
+      data.body.push(pad([title]));
+      rows.forEach(function(row) { data.body.push(pad(row)); });
+    }
+    function withSummary(data) { appendSection(data, "Összesítés", readTableRows("report-summary-table")); }
+    function withEntries(data) { appendSection(data, "Bejegyzések", readTableRows("report-detail-table")); }
+    // PDF is excluded from the widening trick: pdfMake's table renderer derives
+    // its column count from the header row it builds internally (independent of
+    // this appendSection padding) and silently drops any body cell beyond that
+    // count, so appending the wider "Bejegyzések" rows into the same table would
+    // just make the extra columns (Leírás, Óra — the whole point) vanish.
+    // stylePdf() below appends it as its own separate table instead.
+    var excelPrintExportOptions = {% if project_detail %}{ customizeData: withEntries }{% else %}{ customizeData: withSummary }{% endif %};
+    var pdfExportOptions = {% if project_detail %}undefined{% else %}{ customizeData: withSummary }{% endif %};
 
     var BRAND = "#008cba";
     function stylePdf(doc) {
@@ -536,7 +567,7 @@
           }
         });
 
-        tableBlock.layout = {
+        var tableLayout = {
           hLineWidth: function (i, node) { return (i === 0 || i === node.table.body.length) ? 1 : 0.5; },
           vLineWidth: function () { return 0; },
           hLineColor: function () { return "#c7ccd6"; },
@@ -549,6 +580,36 @@
             return rowIndex % 2 === 0 ? "#eef6f9" : null;
           },
         };
+        tableBlock.layout = tableLayout;
+
+        {% if project_detail %}
+        // The itemized "Bejegyzések" rows have more columns than the weekly
+        // summary table above (see the comment on pdfExportOptions), so they're
+        // rendered as their own table block — reusing the same header/zebra
+        // layout — rather than appended into tableBlock's body.
+        var entryRows = readTableRows("report-detail-table");
+        if (entryRows.length > 1) {
+          doc.content.push({ text: "Bejegyzések", style: "title", fontSize: 12, margin: [0, 16, 0, 6] });
+          doc.content.push({
+            table: {
+              headerRows: 1,
+              body: entryRows.map(function (row, i) {
+                var isTotal = row[0] === "Összesen";
+                return row.map(function (cell) {
+                  return {
+                    text: cell,
+                    style: i === 0 ? "tableHeader" : undefined,
+                    bold: isTotal || undefined,
+                    color: isTotal ? BRAND : undefined,
+                  };
+                });
+              }),
+            },
+            layout: tableLayout,
+          });
+        }
+        {% endif %}
+
         doc.footer = function (currentPage, pageCount) {
           return {
             margin: [24, 12, 24, 0],
@@ -577,9 +638,9 @@
         {% endif %}
       ],
       buttons: [
-        { extend: "excelHtml5", title: reportTitle, messageTop: reportMeta, exportOptions: summaryExportOptions },
-        { extend: "pdfHtml5", title: reportTitle, messageTop: reportMeta, orientation: "landscape", exportOptions: summaryExportOptions, customize: stylePdf },
-        { extend: "print", title: reportTitle, messageTop: reportMeta, exportOptions: summaryExportOptions },
+        { extend: "excelHtml5", title: reportTitle, messageTop: reportMeta, exportOptions: excelPrintExportOptions },
+        { extend: "pdfHtml5", title: reportTitle, messageTop: reportMeta, orientation: "landscape", exportOptions: pdfExportOptions, customize: stylePdf },
+        { extend: "print", title: reportTitle, messageTop: reportMeta, exportOptions: excelPrintExportOptions },
       ],
       drawCallback: function() {
         var sum = this.api().column(hoursColIdx, { search: "applied" }).data().toArray()
