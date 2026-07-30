@@ -4,9 +4,11 @@ import json
 import re
 from collections.abc import Callable
 from datetime import date, datetime
+from enum import Enum as PyEnum
 from urllib.parse import unquote
 
 from fastapi import Request, Response
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 from starlette.concurrency import iterate_in_threadpool
 
@@ -66,86 +68,124 @@ def _invoice_transaction_link(db: Session, m: re.Match) -> str | None:
     return f"{inv.invoice_number if inv else '?'} ↔ {txn.transaction_id if txn else '?'}"
 
 
-def _timesheet_entry_record(db: Session, m: re.Match) -> str | None:
-    entry = db.query(TimesheetEntry).filter(TimesheetEntry.id == int(m.group(1))).one_or_none()
-    if entry is None:
-        return None
-    project_code = entry.project.code if entry.project else "?"
-    return f"{project_code} {entry.entry_date}"
-
+# Anchored to the full path — checked before _OBJECT_RULES below, which would
+# otherwise match its "/api/v1/invoices/(\d+)" prefix too. Not resolved via
+# _OBJECT_RULES because it identifies a many-to-many link row (invoice ↔
+# transaction), not a single entity, so there's nothing to field-diff.
+_INVOICE_TRANSACTION_RE = re.compile(r"^/api/v1/invoices/(\d+)/transactions/(\d+)$")
 
 # Ordered (regex, resolver) pairs — first match wins. Each resolver looks the
-# record up in the DB *before* the mutation runs (see prepare_record), so a
+# row up in the DB *before* the mutation runs (see prepare_record), so a
 # DELETE can still show what was deleted instead of a stale/missing lookup.
-_RECORD_RULES: list[tuple[re.Pattern, Callable[[Session, re.Match], str | None]]] = [
-    (
-        re.compile(r"^/api/v1/invoices/(\d+)/transactions/(\d+)$"),
-        _invoice_transaction_link,
-    ),
+# Resolving to the actual ORM object (rather than straight to a display
+# string) lets the same lookup feed both the "record" label (_record_label)
+# and the before/after field snapshot for update actions (_snapshot).
+_OBJECT_RULES: list[tuple[re.Pattern, Callable[[Session, re.Match], object | None]]] = [
     (
         re.compile(r"^/api/v1/invoices/(\d+)"),
-        lambda db, m: (lambda r: r.invoice_number if r else None)(
-            db.query(Invoice).filter(Invoice.id == int(m.group(1))).one_or_none()
-        ),
+        lambda db, m: db.query(Invoice).filter(Invoice.id == int(m.group(1))).one_or_none(),
     ),
     (
         re.compile(r"^/api/v1/invoice-files/(\d+)"),
-        lambda db, m: (lambda r: r.filename if r else None)(
-            db.query(InvoiceFile).filter(InvoiceFile.id == int(m.group(1))).one_or_none()
-        ),
+        lambda db, m: db.query(InvoiceFile).filter(InvoiceFile.id == int(m.group(1))).one_or_none(),
     ),
     (
         re.compile(r"^/api/v1/transactions/(\d+)"),
-        lambda db, m: (lambda r: r.transaction_id if r else None)(
-            db.query(BankTransaction).filter(BankTransaction.id == int(m.group(1))).one_or_none()
-        ),
+        lambda db, m: db.query(BankTransaction)
+        .filter(BankTransaction.id == int(m.group(1)))
+        .one_or_none(),
     ),
     (
         re.compile(r"^/api/v1/partners/suppliers/(\d+)"),
-        lambda db, m: (lambda r: r.name if r else None)(
-            db.query(Supplier).filter(Supplier.id == int(m.group(1))).one_or_none()
-        ),
+        lambda db, m: db.query(Supplier).filter(Supplier.id == int(m.group(1))).one_or_none(),
     ),
     (
         re.compile(r"^/api/v1/partners/customers/(\d+)"),
-        lambda db, m: (lambda r: r.name if r else None)(
-            db.query(Customer).filter(Customer.id == int(m.group(1))).one_or_none()
-        ),
+        lambda db, m: db.query(Customer).filter(Customer.id == int(m.group(1))).one_or_none(),
     ),
     (
         re.compile(r"^/api/v1/activity-types/(\d+)"),
-        lambda db, m: (lambda r: r.name if r else None)(
-            db.query(ActivityType).filter(ActivityType.id == int(m.group(1))).one_or_none()
-        ),
+        lambda db, m: db.query(ActivityType).filter(ActivityType.id == int(m.group(1))).one_or_none(),
     ),
     (
         re.compile(r"^/api/v1/projects/(\d+)"),
-        lambda db, m: (lambda r: r.code if r else None)(
-            db.query(Project).filter(Project.id == int(m.group(1))).one_or_none()
-        ),
+        lambda db, m: db.query(Project).filter(Project.id == int(m.group(1))).one_or_none(),
     ),
     (
         re.compile(r"^/api/v1/timesheet-entries/(\d+)"),
-        _timesheet_entry_record,
+        lambda db, m: db.query(TimesheetEntry)
+        .filter(TimesheetEntry.id == int(m.group(1)))
+        .one_or_none(),
     ),
 ]
 
 
-def _resolve_record(db: Session, path: str) -> str | None:
-    for pattern, resolver in _RECORD_RULES:
+def _resolve_object(db: Session, path: str) -> object | None:
+    for pattern, resolver in _OBJECT_RULES:
         m = pattern.match(path)
         if m:
             return resolver(db, m)
     return None
 
 
+def _record_label(obj: object | None) -> str | None:
+    if obj is None:
+        return None
+    if isinstance(obj, Invoice):
+        return obj.invoice_number
+    if isinstance(obj, InvoiceFile):
+        return obj.filename
+    if isinstance(obj, BankTransaction):
+        return obj.transaction_id
+    if isinstance(obj, (Supplier, Customer, ActivityType)):
+        return obj.name
+    if isinstance(obj, Project):
+        return obj.code
+    if isinstance(obj, TimesheetEntry):
+        project_code = obj.project.code if obj.project else "?"
+        return f"{project_code} {obj.entry_date}"
+    return None
+
+
+def _resolve_record(db: Session, path: str) -> str | None:
+    m = _INVOICE_TRANSACTION_RE.match(path)
+    if m:
+        return _invoice_transaction_link(db, m)
+    return _record_label(_resolve_object(db, path))
+
+
+def _jsonable(value: object) -> object:
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, PyEnum):
+        return value.value
+    return value
+
+
+# Never useful in a field-change diff: id never changes, and the timestamps
+# just reflect the mutation itself.
+_SNAPSHOT_EXCLUDED_FIELDS = {"id", "created_at", "updated_at"}
+
+
+def _snapshot(obj: object) -> dict[str, object]:
+    """Plain-column field values, JSON-safe, for before/after diffing."""
+    mapper = sa_inspect(obj).mapper
+    return {
+        col.key: _jsonable(getattr(obj, col.key))
+        for col in mapper.column_attrs
+        if col.key not in _SNAPSHOT_EXCLUDED_FIELDS
+    }
+
+
 def prepare_record(db: Session, request: Request) -> dict | None:
-    """Resolve page + record identifier *before* the mutation runs.
+    """Resolve page + record identifier (+ pre-mutation field snapshot for
+    updates) *before* the mutation runs.
 
     Must run pre-mutation: a DELETE removes the row, so looking the record up
-    afterwards (e.g. for its name/number) would find nothing. Returns None for
-    requests that won't be audited (GET, unmapped path) so the caller can skip
-    the second DB round-trip entirely.
+    afterwards (e.g. for its name/number) would find nothing, and an UPDATE's
+    old field values are gone the instant the mutation commits. Returns None
+    for requests that won't be audited (GET, unmapped path) so the caller can
+    skip the second DB round-trip entirely.
     """
     action = _ACTIONS.get(request.method)
     if action is None:
@@ -153,7 +193,17 @@ def prepare_record(db: Session, request: Request) -> dict | None:
     page = _match_page(request.url.path)
     if page is None:
         return None
-    return {"action": action, "page": page, "record": _resolve_record(db, request.url.path)}
+
+    path = request.url.path
+    m = _INVOICE_TRANSACTION_RE.match(path)
+    if m:
+        record, before = _invoice_transaction_link(db, m), None
+    else:
+        obj = _resolve_object(db, path)
+        record = _record_label(obj)
+        before = _snapshot(obj) if obj is not None and action == "update" else None
+
+    return {"action": action, "page": page, "record": record, "before": before}
 
 
 async def extract_created_id(response: Response) -> int | None:
@@ -190,6 +240,22 @@ def finalize_record(
         # prepare_record couldn't resolve it before the mutation ran; now that
         # the row exists, reuse the normal id-based rules via a synthetic path.
         record = _resolve_record(db, f"{request.url.path.rstrip('/')}/{created_id}")
+
+    changes = None
+    before = prepared.get("before")
+    if before is not None:
+        # Re-resolve post-mutation (fresh query — the endpoint's own db
+        # session already committed by the time this middleware step runs)
+        # and diff against the pre-mutation snapshot prepare_record took.
+        obj = _resolve_object(db, request.url.path)
+        after = _snapshot(obj) if obj is not None else None
+        if after is not None:
+            changes = [
+                {"field": key, "old": before.get(key), "new": after[key]}
+                for key in after
+                if after[key] != before.get(key)
+            ] or None
+
     claims = getattr(request.state, "user", None)
     raw_label = request.headers.get(LABEL_HEADER)
     db.add(
@@ -202,6 +268,7 @@ def finalize_record(
             record=record,
             label=unquote(raw_label) if raw_label else None,
             action=prepared["action"],
+            changes=changes,
             status_code=response.status_code,
         )
     )

@@ -55,7 +55,16 @@
             <span class="badge bg-primary">módosítás</span>
             {% endif %}
           </td>
-          <td class="text-muted"><code>{{ row.method }} {{ row.path }}</code></td>
+          <td class="text-muted">
+            <code>{{ row.method }} {{ row.path }}</code>
+            {% if row.changes %}
+            <ul class="list-unstyled mb-0 mt-1">
+              {% for c in row.changes %}
+              <li><strong>{{ c.field }}</strong>: <span class="text-danger">{{ c.old if c.old is not none else '—' }}</span> → <span class="text-success">{{ c.new if c.new is not none else '—' }}</span></li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -66,7 +75,10 @@
 
 {% block scripts %}
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
+  // Runs as a plain IIFE, not on DOMContentLoaded: this block re-executes on every hx-boost
+  // revisit of this page, and DOMContentLoaded only ever fires once per document — a listener
+  // bound to it here would silently never run again after the first visit (see supplier_detail.html).
+  (function () {
     new DataTable("#audit-table", {
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
       pageLength: 25,
@@ -80,6 +92,6 @@
         { targets: 5, className: "none" },
       ],
     });
-  });
+  })();
 </script>
 {% endblock %}

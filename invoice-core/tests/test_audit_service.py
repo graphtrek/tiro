@@ -244,6 +244,56 @@ def test_record_resolves_project_code(db):
     assert audit_service.list_audit_log(db)[-1].record == "DEMO-01"
 
 
+def test_record_captures_changed_fields_on_update(db):
+    sup = Supplier(name="ACME Kft", email="old@acme.hu")
+    db.add(sup)
+    db.commit()
+
+    request = _request("PUT", f"/api/v1/partners/suppliers/{sup.id}")
+    prepared = audit_service.prepare_record(db, request)
+
+    sup.email = "new@acme.hu"
+    db.commit()
+
+    audit_service.finalize_record(db, request, _response(200), prepared)
+
+    changes = audit_service.list_audit_log(db)[0].changes
+    assert changes == [{"field": "email", "old": "old@acme.hu", "new": "new@acme.hu"}]
+
+
+def test_record_changes_is_none_when_update_leaves_fields_unchanged(db):
+    sup = Supplier(name="ACME Kft")
+    db.add(sup)
+    db.commit()
+
+    _run(db, "PUT", f"/api/v1/partners/suppliers/{sup.id}")
+
+    assert audit_service.list_audit_log(db)[0].changes is None
+
+
+def test_record_changes_is_none_for_create(db):
+    request = _request("POST", "/api/v1/partners/suppliers")
+    prepared = audit_service.prepare_record(db, request)
+
+    sup = Supplier(name="Új Kft")
+    db.add(sup)
+    db.commit()
+
+    audit_service.finalize_record(db, request, _response(201), prepared, created_id=sup.id)
+
+    assert audit_service.list_audit_log(db)[0].changes is None
+
+
+def test_record_changes_is_none_for_delete(db):
+    sup = Supplier(name="ACME Kft")
+    db.add(sup)
+    db.commit()
+
+    _run(db, "DELETE", f"/api/v1/partners/suppliers/{sup.id}", status_code=204)
+
+    assert audit_service.list_audit_log(db)[0].changes is None
+
+
 def test_record_resolves_created_supplier_name_via_response_id(db):
     """POST /api/v1/partners/suppliers has no id in the path to resolve from
     up front; the middleware must fall back to the id in the response body."""

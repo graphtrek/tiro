@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from enum import Enum as PyEnum
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     Date,
@@ -523,6 +524,9 @@ class AuditLog(Base):
     )  # human-readable record identifier (invoice number, partner name, ...)
     label = Column(String, nullable=True)  # button/action name the user clicked, if sent
     action = Column(String, nullable=False)  # create | update | delete
+    # [{"field": ..., "old": ..., "new": ...}, ...] for update mutations whose
+    # resolved record is a single ORM row — see audit_service._snapshot.
+    changes = Column(JSON, nullable=True)
     status_code = Column(Integer, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False, index=True)
 

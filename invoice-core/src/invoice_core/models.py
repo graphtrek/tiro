@@ -225,6 +225,7 @@ class AuditLogOut(BaseModel):
     record: str | None = None
     label: str | None = None
     action: str
+    changes: list[dict] | None = None
     status_code: int
     created_at: datetime
 
