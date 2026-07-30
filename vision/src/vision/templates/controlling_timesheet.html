@@ -18,7 +18,14 @@
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newRecordModal">
       <i class="bi bi-plus-lg me-1"></i>Új
     </button>
-    <div class="btn-group btn-group-sm" role="group" aria-label="Projekt szűrő">
+    <!-- hx-boost="false": these links must do a real browser navigation, not an
+         htmx-boosted swap. Same DataTables Responsive re-init problem the CRUD
+         forms below route around via HX-Redirect (see controlling_router.py's
+         _timesheet_redirect_or_error) — a boosted swap into #timesheet-content
+         reliably left the table un-collapsed at narrow widths (missing its
+         "▶" control column) until a manual page refresh, even with base.html's
+         init.dt resize-kick in place. -->
+    <div class="btn-group btn-group-sm" role="group" aria-label="Projekt szűrő" hx-boost="false">
       {% for scope in project_scopes %}
       {% set color = project_scope_colors[scope] %}
       <a href="/ui/controlling/timesheet?project_scope={{ scope }}"
