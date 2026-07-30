@@ -559,6 +559,20 @@
     }
     function withSummary(data) { appendSection(data, "Összesítés", readTableRows("report-summary-table")); }
     function withEntries(data) { appendSection(data, "Bejegyzések", readTableRows("report-detail-table")); }
+    // PDF wants the Összesítés summary to read first, so the entries table
+    // (the button's own source, #report-table) is demoted: its header/body
+    // become an appended "Eredmény" section, while the summary table's rows
+    // take over as the exported header/body. The source table's own tfoot
+    // ("Összesen") still flows through as data.footer untouched, so it lands
+    // after the appended entries — same relative position as before.
+    function summaryFirst(data) {
+      var entryHeader = data.header;
+      var entryBody = data.body;
+      var summaryRows = readTableRows("report-summary-table");
+      data.header = summaryRows[0];
+      data.body = summaryRows.slice(1);
+      appendSection(data, "Eredmény", [entryHeader].concat(entryBody));
+    }
     // PDF is excluded from the widening trick: pdfMake's table renderer derives
     // its column count from the header row it builds internally (independent of
     // this appendSection padding) and silently drops any body cell beyond that
@@ -566,7 +580,7 @@
     // just make the extra columns (Leírás, Óra — the whole point) vanish.
     // stylePdf() below appends it as its own separate table instead.
     var excelPrintExportOptions = {% if project_detail %}{ customizeData: withEntries }{% else %}{ customizeData: withSummary }{% endif %};
-    var pdfExportOptions = {% if project_detail %}undefined{% else %}{ customizeData: withSummary }{% endif %};
+    var pdfExportOptions = {% if project_detail %}undefined{% else %}{ customizeData: summaryFirst }{% endif %};
 
     var BRAND = "#008cba";
     function stylePdf(doc) {
