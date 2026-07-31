@@ -168,18 +168,23 @@
       }
 
       // A modal form's hx-post (e.g. controlling/timesheet's "Új"/edit
-      // records) swaps its own container out from under the still-open
+      // records) used to swap its own container out from under the still-open
       // Bootstrap modal it was submitted from, without ever running
       // Bootstrap's own hide() — same class of problem as the boosted-nav
       // case above, just via a scoped target instead of body. Close it
       // properly, before htmx swaps anything, so Bootstrap's real cleanup
       // (backdrop, focus trap, the body scroll-lock cleared above) runs.
+      // BUT: skip that close when the swap target is itself nested inside the
+      // still-open modal (e.g. timesheet's "#ts-error-new"/"#ts-error-edit-*"
+      // slots) — that kind of swap only updates an inline error message and
+      // never detaches the modal's DOM node, so auto-closing it on a
+      // validation error would just discard the user's input for nothing.
       if (!window._modalHideBeforeSwapBound) {
         window._modalHideBeforeSwapBound = true;
         document.body.addEventListener('htmx:beforeSwap', function (evt) {
           var elt = evt.detail.requestConfig && evt.detail.requestConfig.elt;
           var modal = elt && elt.closest && elt.closest('.modal.show');
-          if (modal) {
+          if (modal && !modal.contains(evt.detail.target)) {
             bootstrap.Modal.getInstance(modal)?.hide();
           }
         });

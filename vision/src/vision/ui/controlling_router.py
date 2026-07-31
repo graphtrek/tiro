@@ -215,6 +215,22 @@ def _timesheet_page(request: Request, error: str | None = None, project_scope: s
     )
 
 
+def _timesheet_form_result(request: Request, error: str | None, project_scope: str):
+    """Create/update responses: on error, swap just the alert into the modal's own
+    error slot (see hx-target="#ts-error-new"/"#ts-error-edit-{id}" in
+    timesheet_content.html) so the message shows where the user is typing instead
+    of closing the modal and banner-ing it at the top of the page.
+    """
+    if error:
+        return templates.TemplateResponse(
+            request, "partials/timesheet_form_error.html", {"error": error}
+        )
+    return Response(
+        status_code=204,
+        headers={"HX-Redirect": f"/ui/controlling/timesheet?project_scope={project_scope}"},
+    )
+
+
 def _timesheet_redirect_or_error(request: Request, error: str | None, project_scope: str):
     """On success, tell htmx to do a real browser navigation back to the list page
     instead of swapping the response in.
@@ -258,8 +274,8 @@ def create_timesheet_entry(
     client = _client()
     user = _current_user(client, request)
     if user is None:
-        return _timesheet_page(
-            request, error="Felhasználó azonosítása sikertelen", project_scope=project_scope
+        return _timesheet_form_result(
+            request, "Felhasználó azonosítása sikertelen", project_scope
         )
     result = client.create_timesheet_entry(
         user["id"],
@@ -270,7 +286,7 @@ def create_timesheet_entry(
         participants or None,
         description or None,
     )
-    return _timesheet_redirect_or_error(request, result.get("error"), project_scope)
+    return _timesheet_form_result(request, result.get("error"), project_scope)
 
 
 @router.post("/timesheet/{entry_id}")
@@ -288,8 +304,8 @@ def update_timesheet_entry(
     client = _client()
     user = _current_user(client, request)
     if user is None:
-        return _timesheet_page(
-            request, error="Felhasználó azonosítása sikertelen", project_scope=project_scope
+        return _timesheet_form_result(
+            request, "Felhasználó azonosítása sikertelen", project_scope
         )
     result = client.update_timesheet_entry(
         entry_id,
@@ -301,7 +317,7 @@ def update_timesheet_entry(
         participants or None,
         description or None,
     )
-    return _timesheet_redirect_or_error(request, result.get("error"), project_scope)
+    return _timesheet_form_result(request, result.get("error"), project_scope)
 
 
 @router.delete("/timesheet/{entry_id}")

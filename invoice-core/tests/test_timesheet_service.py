@@ -208,6 +208,26 @@ def test_create_timesheet_entry_rejects_inactive_activity_type(db, project, owne
         )
 
 
+def test_create_timesheet_entry_rejects_date_before_project_start(
+    db, project, owner, activity_type
+):
+    with pytest.raises(ValueError):
+        timesheet_service.create_timesheet_entry(
+            db,
+            _payload(
+                project.id, activity_type.id, user_id=owner.id, entry_date=date(2025, 12, 31)
+            ),
+        )
+
+
+def test_create_timesheet_entry_allows_date_on_project_start(db, project, owner, activity_type):
+    record = timesheet_service.create_timesheet_entry(
+        db,
+        _payload(project.id, activity_type.id, user_id=owner.id, entry_date=project.start_date),
+    )
+    assert record.entry_date == project.start_date
+
+
 def test_create_timesheet_entry_rejects_non_half_hour_step(db, project, owner, activity_type):
     with pytest.raises(ValueError):
         timesheet_service.create_timesheet_entry(
@@ -303,6 +323,20 @@ def test_update_timesheet_entry_rejects_hours_step_violation(db, project, owner,
     with pytest.raises(ValueError):
         timesheet_service.update_timesheet_entry(
             db, created.id, owner.id, _payload(project.id, activity_type.id, hours=1.1)
+        )
+
+
+def test_update_timesheet_entry_rejects_date_before_project_start(db, project, owner, activity_type):
+    created = timesheet_service.create_timesheet_entry(
+        db, _payload(project.id, activity_type.id, user_id=owner.id)
+    )
+
+    with pytest.raises(ValueError):
+        timesheet_service.update_timesheet_entry(
+            db,
+            created.id,
+            owner.id,
+            _payload(project.id, activity_type.id, entry_date=date(2025, 12, 31)),
         )
 
 

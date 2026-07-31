@@ -95,12 +95,13 @@
 <div class="modal fade" id="newRecordModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form class="ts-form" hx-post="/ui/controlling/timesheet?project_scope={{ project_scope }}" hx-target="#timesheet-content" hx-push-url="true">
+      <form class="ts-form" hx-post="/ui/controlling/timesheet?project_scope={{ project_scope }}" hx-target="#ts-error-new" hx-swap="innerHTML">
         <div class="modal-header py-2">
           <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új timesheet rekord</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
         </div>
         <div class="modal-body">
+          <div id="ts-error-new"></div>
           <div class="row g-3">
             <div class="col-md-4">
               <label class="form-label">Dátum <span class="text-danger">*</span></label>
@@ -172,12 +173,13 @@
 <div class="modal fade" id="editEntryModal{{ row.id }}" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form class="ts-form" hx-post="/ui/controlling/timesheet/{{ row.id }}?project_scope={{ project_scope }}" hx-target="#timesheet-content" hx-push-url="true">
+      <form class="ts-form" hx-post="/ui/controlling/timesheet/{{ row.id }}?project_scope={{ project_scope }}" hx-target="#ts-error-edit-{{ row.id }}" hx-swap="innerHTML">
         <div class="modal-header py-2">
           <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Timesheet rekord módosítása</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
         </div>
         <div class="modal-body">
+          <div id="ts-error-edit-{{ row.id }}"></div>
           <div class="row g-3">
             <div class="col-md-4">
               <label class="form-label">Dátum <span class="text-danger">*</span></label>
@@ -293,6 +295,20 @@
       projectSelect.addEventListener("change", refreshPreview);
       dateInput.addEventListener("input", refreshPreview);
       refreshPreview();
+    });
+
+    // A validation error keeps the modal open (see hx-target="#ts-error-new"/
+    // "#ts-error-edit-*" above and base.html's htmx:beforeSwap guard) instead
+    // of swapping #timesheet-content, so DataTable's Responsive extension
+    // never gets a fresh init pass out of that flow. Rather than chase another
+    // in-place re-init fix (see _timesheet_redirect_or_error's docstring for
+    // the history of that rabbit hole), do a real full-page reload once the
+    // user actually dismisses the modal (Cancel/X/Escape/backdrop) — the same
+    // reliable path a successful save already takes via HX-Redirect.
+    document.querySelectorAll('#newRecordModal, [id^="editEntryModal"]').forEach(function(modal) {
+      modal.addEventListener('hidden.bs.modal', function() {
+        window.location.reload();
+      });
     });
   })();
 </script>

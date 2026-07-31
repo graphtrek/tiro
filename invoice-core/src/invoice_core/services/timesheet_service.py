@@ -18,6 +18,11 @@ def _assert_project_permitted(project: Project, user_id: int) -> None:
         raise ValueError("Nincs jogosultsága ehhez a projekthez időt rögzíteni")
 
 
+def _assert_entry_date_valid(project: Project, entry_date) -> None:
+    if entry_date < project.start_date:
+        raise ValueError("A rögzítés dátuma nem lehet korábbi a projekt kezdő dátumánál")
+
+
 def with_joins(db: Session):
     return db.query(TimesheetEntry).options(
         joinedload(TimesheetEntry.user),
@@ -47,6 +52,7 @@ def create_timesheet_entry(db: Session, payload: TimesheetEntryIn) -> TimesheetE
         raise ValueError("Tevékenység típus nem található vagy nem aktív")
 
     _assert_project_permitted(project, payload.user_id)
+    _assert_entry_date_valid(project, payload.entry_date)
     _validate_hours(payload.hours)
 
     record = TimesheetEntry(
@@ -85,6 +91,7 @@ def update_timesheet_entry(
         raise ValueError("Tevékenység típus nem található vagy nem aktív")
 
     _assert_project_permitted(project, user_id)
+    _assert_entry_date_valid(project, payload.entry_date)
     _validate_hours(payload.hours)
 
     record.project_id = payload.project_id
