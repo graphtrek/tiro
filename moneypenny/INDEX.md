@@ -19,7 +19,7 @@ A **Moneypenny** egy nyolc Python mikroszervizből álló pénzügyi automatizá
 | 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                                            |
 | 4   | `bank`                  | 8005 | Erste + Wise CSV konszolidáció – egységes bankkivonat API                  |
 | 7   | `uploader`              | 8006 | CSV bankkivonat feltöltés a bank storage mappájába; UI a vision-ben        |
-| 6   | `vision`                | 8009 | Frontend – teljes webes UI + SrcProfit (IBKR) aggregáció                  |
+| 6   | `vision`                | 8009 | Frontend – teljes webes UI + SrcProfit (IBKR) aggregáció                   |
 | 8   | `auth`                  | 8007 | Központi authentication – Google OAuth 2.0 / OIDC belépés, JWT kiállítás   |
 
 Belépési pont (szinkron): `POST /api/v1/sync` → `invoice-core` (8004). Az 1–5. mikroszerviznek FastAPI REST interfésze és Typer/Click CLI-je is van. A `vision` (6.) a frontend szerviz: fogyasztja az invoice-core REST API-t, és kiszolgálja az összes UI oldalt (`/ui/*`). CLI nélkül. Az `auth` (8.) a központi belépési szerviz: **minden mikroszerviz-végpont JWT-vel védett** — kivéve a vision pitch oldalát (`/`), a `/login` oldalt és a technikai végpontokat; a szervizek a JWT-t lokálisan validálják (JWKS).
