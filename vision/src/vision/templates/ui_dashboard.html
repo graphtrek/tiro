@@ -252,9 +252,73 @@
     </div>
   </div>
 
+  <!-- Timesheet -->
+  <div class="d-flex justify-content-between align-items-center mb-3 mt-4">
+    <h2 class="h5 mb-0"><i class="bi bi-clock-history me-2"></i>Timesheet</h2>
+    <a href="/ui/controlling/timesheet" class="text-muted small">Mind</a>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="card-title">Timesheet összesítő</h5>
+      <div class="card-actions">
+        <select class="form-select form-select-sm" style="width: auto;" id="timesheetLevel">
+          <option value="daily" selected>Napi</option>
+          <option value="monthly">Havi</option>
+          <option value="yearly">Éves</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="chart-container">
+        <canvas id="timesheetChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title">Legutóbbi timesheet bejegyzések</h5>
+      <div class="card-actions">
+        <a href="/ui/controlling/timesheet" class="btn btn-sm btn-outline-primary">Mind</a>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Dátum</th>
+              <th>Felhasználó</th>
+              <th>Projekt</th>
+              <th>Ügyfél</th>
+              <th>Tevékenység</th>
+              <th class="text-end">Óra</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in timesheet_recent %}
+            <tr>
+              <td class="fw-medium">{{ row.entry_date }}</td>
+              <td>{{ row.user_name }}</td>
+              <td>{{ row.project_code }}</td>
+              <td>{{ row.customer_name }}</td>
+              <td>{{ row.activity_type_name }}</td>
+              <td class="text-end">{{ row.hours_label }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Nincs adat</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script type="application/json" id="finance-data">{{ monthly_finance | tojson }}</script>
+<script type="application/json" id="timesheet-data">{{ timesheet_series | tojson }}</script>
 <script>
   (function () {
     var canvas = document.getElementById('financeChart');
@@ -366,6 +430,91 @@
     document.getElementById('financePeriod').addEventListener('change', function () {
       var n = parseInt(this.value, 10);
       chart.data = buildData(rows.slice(-n));
+      chart.update();
+    });
+  })();
+</script>
+<script>
+  (function () {
+    var canvas = document.getElementById('timesheetChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    var data = JSON.parse(document.getElementById('timesheet-data').textContent) || {};
+    var css = getComputedStyle(document.documentElement);
+    var mutedColor = css.getPropertyValue('--muted-color').trim();
+    var borderColor = css.getPropertyValue('--border-color-light').trim();
+    var surfaceColor = css.getPropertyValue('--card-bg').trim();
+    var otherColor = css.getPropertyValue('--series-other').trim();
+    var SERIES_COLORS = [1, 2, 3, 4, 5, 6, 7].map(function (n) {
+      return css.getPropertyValue('--series-' + n).trim();
+    });
+
+    // Projects → series-slot assignment (ranked by all-time hours, "Egyéb" last)
+    // comes pre-computed from the backend so it's stable across daily/monthly/yearly.
+    var projectLabels = data.project_labels || [];
+    var colors = projectLabels.map(function (_, i) {
+      return i < SERIES_COLORS.length ? SERIES_COLORS[i] : otherColor;
+    });
+
+    function toDatasets(level) {
+      var rows = data[level] || { series: [] };
+      return projectLabels.map(function (label, i) {
+        return {
+          label: label,
+          data: rows.series.map(function (row) { return row[i]; }),
+          backgroundColor: colors[i],
+          borderColor: surfaceColor,
+          borderWidth: 2,
+          borderRadius: i === projectLabels.length - 1 ? 4 : 0,
+          maxBarThickness: 24
+        };
+      });
+    }
+
+    function buildData(level) {
+      var rows = data[level] || { labels: [] };
+      return { labels: rows.labels, datasets: toDatasets(level) };
+    }
+
+    var existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+
+    var chart = new Chart(canvas, {
+      type: 'bar',
+      data: buildData('daily'),
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: projectLabels.length > 1, labels: { color: mutedColor, boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function (ctx) {
+                return ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('hu-HU') + ' óra';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { display: false },
+            ticks: { color: mutedColor, maxRotation: 60, minRotation: 0 }
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            border: { display: false },
+            grid: { color: borderColor },
+            ticks: { color: mutedColor }
+          }
+        }
+      }
+    });
+
+    document.getElementById('timesheetLevel').addEventListener('change', function () {
+      chart.data = buildData(this.value);
       chart.update();
     });
   })();

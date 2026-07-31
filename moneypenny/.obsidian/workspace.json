@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "invoice-core-spec.md",
+                "file": "INDEX.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "invoice-core-spec"
+              "title": "INDEX"
             }
           }
         ],

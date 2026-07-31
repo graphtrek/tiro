@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import requests
@@ -35,10 +35,107 @@ def _resp(request: Request, template: str, client: InvoiceCoreClient, **kwargs):
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 
+def _fmt_hours(v: float) -> str:
+    return f"{v:g}".replace(".", ",")
+
+
+def _month_key(d: date) -> str:
+    return d.strftime("%Y-%m")
+
+
+def _next_month(d: date) -> date:
+    return date(d.year + 1, 1, 1) if d.month == 12 else date(d.year, d.month + 1, 1)
+
+
+# Matches the validated 7-slot categorical palette (--series-1..7 in custom.css,
+# already used the same way by controlling_reports.html's weekly chart) — projects
+# beyond that fold into a single muted "Egyéb" series rather than a generated hue.
+_MAX_PROJECT_SERIES = 7
+_OTHER_PROJECT_LABEL = "Egyéb"
+
+
+def _timesheet_series(entries: list[dict]) -> dict:
+    """Company-wide hours per timeline bucket, broken down by project — daily,
+    monthly, and yearly, each running from the very first timesheet entry ever
+    recorded (no rolling window) through today. Project→series-slot assignment
+    is ranked by all-time total hours and shared across all three levels, so a
+    project keeps the same color everywhere."""
+    today = local_today()
+    entry_dates = [date.fromisoformat(e["entry_date"]) for e in entries]
+    first_date = min(entry_dates) if entry_dates else today
+
+    project_totals: dict[str, float] = {}
+    for e in entries:
+        project_totals[e["project_code"]] = project_totals.get(e["project_code"], 0.0) + e["hours"]
+    ranked_projects = sorted(project_totals, key=lambda p: project_totals[p], reverse=True)
+    top_projects = ranked_projects[:_MAX_PROJECT_SERIES]
+    has_other = len(ranked_projects) > _MAX_PROJECT_SERIES
+    project_labels = top_projects + ([_OTHER_PROJECT_LABEL] if has_other else [])
+
+    def _series_index(project_code: str) -> int:
+        if project_code in top_projects:
+            return top_projects.index(project_code)
+        return len(top_projects)
+
+    def _empty_row() -> list[float]:
+        return [0.0] * len(project_labels)
+
+    daily_buckets: dict[str, list[float]] = {}
+    d = first_date
+    while d <= today:
+        daily_buckets[d.isoformat()] = _empty_row()
+        d += timedelta(days=1)
+
+    monthly_buckets: dict[str, list[float]] = {}
+    m = first_date.replace(day=1)
+    this_month = today.replace(day=1)
+    while m <= this_month:
+        monthly_buckets[_month_key(m)] = _empty_row()
+        m = _next_month(m)
+
+    yearly_buckets: dict[str, list[float]] = {
+        str(y): _empty_row() for y in range(first_date.year, today.year + 1)
+    }
+
+    for e in entries:
+        entry_date = e["entry_date"]
+        idx = _series_index(e["project_code"])
+        if entry_date in daily_buckets:
+            daily_buckets[entry_date][idx] += e["hours"]
+        month_key = entry_date[:7]
+        if month_key in monthly_buckets:
+            monthly_buckets[month_key][idx] += e["hours"]
+        year_key = entry_date[:4]
+        if year_key in yearly_buckets:
+            yearly_buckets[year_key][idx] += e["hours"]
+
+    def _rows(buckets: dict[str, list[float]]) -> dict:
+        keys = sorted(buckets)
+        return {
+            "labels": keys,
+            "series": [[round(v, 2) for v in buckets[k]] for k in keys],
+        }
+
+    return {
+        "project_labels": project_labels,
+        "daily": _rows(daily_buckets),
+        "monthly": _rows(monthly_buckets),
+        "yearly": _rows(yearly_buckets),
+    }
+
+
 @router.get("/")
 def dashboard(request: Request):
     client = _client()
     data = client.get_dashboard()
+
+    timesheet_entries = client.get_timesheet_entries()
+    timesheet_recent = sorted(
+        timesheet_entries, key=lambda e: (e["entry_date"], e["id"]), reverse=True
+    )[:8]
+    for row in timesheet_recent:
+        row["hours_label"] = _fmt_hours(row["hours"])
+
     return _resp(
         request,
         "ui_dashboard.html",
@@ -50,6 +147,8 @@ def dashboard(request: Request):
         top_suppliers=dict_to_ns(data.get("top_suppliers", [])),
         top_customers=dict_to_ns(data.get("top_customers", [])),
         monthly_finance=data.get("monthly_finance", []),
+        timesheet_series=_timesheet_series(timesheet_entries),
+        timesheet_recent=dict_to_ns(timesheet_recent),
     )
 
 

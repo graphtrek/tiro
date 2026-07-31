@@ -10,6 +10,7 @@ from fastapi import APIRouter, Form, Request, Response
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.invoice_core import InvoiceCoreClient
+from vision.ui.utils import current_user as _resolve_current_user
 from vision.ui.utils import local_today
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
@@ -58,19 +59,7 @@ def _client() -> InvoiceCoreClient:
 
 
 def _current_user(client: InvoiceCoreClient, request: Request) -> dict | None:
-    """Resolve the invoice-core User row for the logged-in vision session.
-
-    Vision only holds JWT claims (email/name/sub); invoice-core's `user` table
-    is the source of truth for `User.id`, upserted by the auth service on
-    every login. Reuses the existing get_users() list-fetch (already called
-    for the Projects owner/permitted-user dropdowns) instead of adding a new
-    filtered endpoint, given low user counts.
-    """
-    claims = getattr(request.state, "user", None)
-    if claims is None:
-        return None
-    email = claims.get("email")
-    return next((u for u in client.get_users() if u["email"] == email), None)
+    return _resolve_current_user(client, request)
 
 
 def _projects_page(request: Request, error: str | None = None):

@@ -5,7 +5,13 @@ from __future__ import annotations
 import re
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
+
+if TYPE_CHECKING:
+    from fastapi import Request
+
+    from vision.clients.invoice_core import InvoiceCoreClient
 
 _ISO_DT = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 # invoice-core stores/serializes timestamps as naive UTC (datetime.utcnow()) — convert
@@ -16,6 +22,20 @@ _LOCAL_TZ = ZoneInfo("Europe/Budapest")
 def local_today() -> date:
     """Return the current Budapest business date used by UI filter defaults."""
     return datetime.now(_LOCAL_TZ).date()
+
+
+def current_user(client: InvoiceCoreClient, request: Request) -> dict | None:
+    """Resolve the invoice-core User row for the logged-in vision session.
+
+    Vision only holds JWT claims (email/name/sub); invoice-core's `user` table
+    is the source of truth for `User.id`, upserted by the auth service on
+    every login.
+    """
+    claims = getattr(request.state, "user", None)
+    if claims is None:
+        return None
+    email = claims.get("email")
+    return next((u for u in client.get_users() if u["email"] == email), None)
 
 
 def _parse_leaf(v):
