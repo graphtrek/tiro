@@ -195,7 +195,7 @@
                 </div>
                 {% endfor %}
               </div>
-              <div class="form-text">Csak a kijelölt felhasználók adhatnak timesheet rekordot a projekthez</div>
+              <div class="form-text">A project gazda mindig jogosult (ezért nincs a listában). Csak a kijelölt felhasználók adhatnak timesheet rekordot a projekthez</div>
             </div>
           </div>
         </div>
@@ -350,6 +350,29 @@
         refreshPreview();
       });
       shortNameInput.addEventListener("input", refreshPreview);
+
+      // A project gazda mindig jogosult a projektre — az Új projekt modalban
+      // ne legyen felsorolva a Rögzítésre jogosultak között, és ne kerüljön a
+      // permitted_user_ids-be sem (a timesheet_service a gazdát egyébként is
+      // mindig elfogadja).
+      const ownerSelect = form.querySelector('select[name="owner_id"]');
+      const permittedInputs = Array.from(form.querySelectorAll('input[name="permitted_user_ids"]'));
+      if (form.closest("#newProjectModal") && ownerSelect && permittedInputs.length) {
+        const refreshOwnerPermitted = function() {
+          const ownerId = ownerSelect.value;
+          permittedInputs.forEach(function(input) {
+            const wrapper = input.closest(".form-check");
+            if (input.value === ownerId) {
+              input.checked = false;
+              wrapper.style.display = "none";
+            } else {
+              wrapper.style.display = "";
+            }
+          });
+        };
+        ownerSelect.addEventListener("change", refreshOwnerPermitted);
+        refreshOwnerPermitted();
+      }
     });
   })();
 </script>
