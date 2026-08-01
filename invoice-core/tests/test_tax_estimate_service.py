@@ -22,18 +22,12 @@ def db():
     session.close()
 
 
-class _FixedDate(date):
-    """A `date` subclass whose `.today()` is pinned, so month-based projection
-    logic in `get_tax_estimate` is deterministic in tests."""
-
-    @classmethod
-    def today(cls):
-        return date(2026, 7, 15)
-
-
 @pytest.fixture(autouse=True)
 def fixed_today(monkeypatch):
-    monkeypatch.setattr(tax_service, "date", _FixedDate)
+    # `get_tax_estimate` calls the `timeutil.today()` imported into this module
+    # (UTC-aware), not `date.today()` — pin that seam so month-based projection
+    # logic is deterministic in tests.
+    monkeypatch.setattr(tax_service, "today", lambda: date(2026, 7, 15))
 
 
 def _invoice(db, number, invoice_date, direction, amount_net, vat_amount=None, vat_rate=0.27):
