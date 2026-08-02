@@ -7,7 +7,13 @@ import time
 
 import requests
 
-from .config import Settings, get_settings, make_http_session, token_hint_for_error
+from .config import (
+    Settings,
+    error_detail_from_response,
+    get_settings,
+    make_http_session,
+    token_hint_for_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +52,8 @@ class BankClient:
             resp.raise_for_status()
         except requests.RequestException as exc:
             raise BankClientError(
-                f"Failed to reach bank service at {self.base_url}: {exc}{token_hint_for_error(exc)}"
+                f"Failed to reach bank service at {self.base_url}: "
+                f"{exc}{token_hint_for_error(exc)}{error_detail_from_response(exc)}"
             ) from exc
 
         data = resp.json()

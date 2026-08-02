@@ -9,7 +9,13 @@ import time
 
 import requests
 
-from .config import Settings, get_settings, make_http_session, token_hint_for_error
+from .config import (
+    Settings,
+    error_detail_from_response,
+    get_settings,
+    make_http_session,
+    token_hint_for_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +48,7 @@ class PdfClient:
         except requests.RequestException as exc:
             raise PdfClientError(
                 f"Failed to reach invoice-file-filter at {self.base_url}: "
-                f"{exc}{token_hint_for_error(exc)}"
+                f"{exc}{token_hint_for_error(exc)}{error_detail_from_response(exc)}"
             ) from exc
         data = resp.json()
         files = data.get("files", [])
@@ -69,7 +75,11 @@ class PdfClient:
             logger.info("invoice-file-filter cache cleared: %d entry(s)", removed)
             return removed
         except requests.RequestException as exc:
-            logger.warning("Could not clear invoice-file-filter cache: %s", exc)
+            logger.warning(
+                "Could not clear invoice-file-filter cache: %s%s",
+                exc,
+                error_detail_from_response(exc),
+            )
             return 0
 
     def get_words_text(self, pdf_path: str) -> str:
@@ -86,7 +96,12 @@ class PdfClient:
             )
             resp.raise_for_status()
         except requests.RequestException as exc:
-            logger.warning("Could not get words for %s: %s", pdf_path, exc)
+            logger.warning(
+                "Could not get words for %s: %s%s",
+                pdf_path,
+                exc,
+                error_detail_from_response(exc),
+            )
             return ""
         reader = csv.reader(io.StringIO(resp.text))
         next(reader, None)  # skip header row

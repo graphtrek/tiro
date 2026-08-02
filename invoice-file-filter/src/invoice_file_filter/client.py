@@ -17,6 +17,22 @@ class AttachmentDownloaderError(RuntimeError):
     """Raised when the attachment-downloader service cannot fulfil a request."""
 
 
+def _error_detail(exc: requests.RequestException) -> str:
+    """Suffix with attachment-downloader's JSON ``detail`` field, if present —
+    without this, invoice-core (which sees only invoice-file-filter's own
+    generic 502) has no way to tell whether attachment-downloader is down,
+    timed out, or failed a Gmail auth/API call.
+    """
+    response = getattr(exc, "response", None)
+    if response is None:
+        return ""
+    try:
+        detail = response.json().get("detail")
+    except (ValueError, AttributeError):
+        return ""
+    return f" — upstream detail: {detail}" if detail else ""
+
+
 class AttachmentDownloaderClient:
     """Thin client over attachment-downloader's synchronous jobs API.
 
@@ -45,7 +61,8 @@ class AttachmentDownloaderClient:
             resp.raise_for_status()
         except requests.RequestException as exc:
             raise AttachmentDownloaderError(
-                f"Failed to reach attachment-downloader at {self.base_url}: {exc}"
+                f"Failed to reach attachment-downloader at {self.base_url}: "
+                f"{exc}{_error_detail(exc)}"
             ) from exc
         result = DownloadResult.model_validate(resp.json())
         elapsed_ms = (time.monotonic() - t0) * 1000

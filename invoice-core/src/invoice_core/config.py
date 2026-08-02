@@ -145,3 +145,25 @@ def token_hint_for_error(exc: Exception) -> str:
             "env var (see invoice-core/README.md)"
         )
     return ""
+
+
+def error_detail_from_response(exc: Exception) -> str:
+    """Suffix appended to an outbound-call error with the downstream service's
+    JSON ``detail`` field, when present — surfaces the *actual* root cause
+    instead of just the generic HTTP status line. This matters most for
+    chained failures: e.g. nav-invoice/invoice-file-filter/bank each proxy a
+    further downstream call and translate any failure there into their own
+    502, so without this the sync-log `errors` column only ever shows
+    "502 Server Error: Bad Gateway" with no indication of which downstream
+    service actually failed or why.
+    """
+    response = getattr(exc, "response", None)
+    if response is None:
+        return ""
+    try:
+        detail = response.json().get("detail")
+    except (ValueError, AttributeError):
+        return ""
+    if not detail:
+        return ""
+    return f" — upstream detail: {detail}"

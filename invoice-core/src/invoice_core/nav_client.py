@@ -7,7 +7,13 @@ import time
 
 import requests
 
-from .config import Settings, get_settings, make_http_session, token_hint_for_error
+from .config import (
+    Settings,
+    error_detail_from_response,
+    get_settings,
+    make_http_session,
+    token_hint_for_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +54,8 @@ class NavClient:
             resp.raise_for_status()
         except requests.RequestException as exc:
             raise NavClientError(
-                f"Failed to reach nav-invoice at {self.base_url}: {exc}{token_hint_for_error(exc)}"
+                f"Failed to reach nav-invoice at {self.base_url}: "
+                f"{exc}{token_hint_for_error(exc)}{error_detail_from_response(exc)}"
             ) from exc
         data = resp.json()
         for item in data:
@@ -72,7 +79,12 @@ class NavClient:
             resp.raise_for_status()
             return resp.json()
         except requests.RequestException as exc:
-            logger.warning("Could not fetch full invoice data for %s: %s", invoice_number, exc)
+            logger.warning(
+                "Could not fetch full invoice data for %s: %s%s",
+                invoice_number,
+                exc,
+                error_detail_from_response(exc),
+            )
             return None
 
     def clear_cache(self) -> int:
@@ -87,7 +99,9 @@ class NavClient:
             logger.info("nav-invoice cache cleared: %d entry(s)", cleared)
             return cleared
         except requests.RequestException as exc:
-            logger.warning("Could not clear nav-invoice cache: %s", exc)
+            logger.warning(
+                "Could not clear nav-invoice cache: %s%s", exc, error_detail_from_response(exc)
+            )
             return 0
 
     def get_invoices(self, start_date: str, end_date: str) -> list[dict]:
