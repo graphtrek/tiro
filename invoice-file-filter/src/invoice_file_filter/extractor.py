@@ -8,9 +8,11 @@ import io
 import logging
 import os
 import re
+import threading
 import time
 import unicodedata
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -28,6 +30,12 @@ _MIN_WORD_LEN = 3
 _words_cache: dict[str, tuple[float, float, str]] = {}
 _text_cache: dict[str, tuple[float, float, str]] = {}
 _page_count_cache: dict[str, tuple[float, float, int]] = {}
+
+# pypdfium2 (pdfplumber's page.to_image() backend) is not safe to call
+# concurrently from multiple threads — process_directory's worker pool can
+# segfault the process without this. Text extraction (pdfminer, used by
+# extract_text/get_page_count) doesn't touch pdfium and needs no lock.
+_pdfium_lock = threading.Lock()
 
 try:
     from .ocr import ocr_extract_words, ocr_pdf
@@ -186,8 +194,8 @@ def describe_file(pdf_path: str) -> ProcessedFile:
         with pdfplumber.open(abs_path) as pdf:
             if len(pdf.pages) > 0:
                 page = pdf.pages[0]
-                img = page.to_image(resolution=72)
-                import io
+                with _pdfium_lock:
+                    img = page.to_image(resolution=72)
                 buf = io.BytesIO()
                 img.save(buf, format="PNG")
                 preview_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
@@ -222,6 +230,20 @@ def _iter_pdf_paths(paths_or_dir: str | Path | Sequence[str | Path]) -> list[str
     return out
 
 
+def _process_one(pdf_path: str, kws: Sequence[str]) -> ProcessedFile | None:
+    """Classify and describe a single PDF; ``None`` if it's not a kept invoice."""
+    filename = os.path.basename(pdf_path)
+    page_count = get_page_count(pdf_path)
+    text = extract_text(pdf_path)
+    if not is_invoice(filename, text, kws):
+        logger.info("Skipping non-invoice file: %s", filename)
+        return None
+    if page_count == 0 or page_count > 5:
+        logger.warning("Skipping file (%d pages): %s", page_count, filename)
+        return None
+    return describe_file(pdf_path)
+
+
 def process_directory(
     paths_or_dir: str | Path | Sequence[str | Path],
     keywords: Sequence[str] | None = None,
@@ -230,18 +252,18 @@ def process_directory(
 
     ``paths_or_dir`` may be a directory, a single PDF path, or an iterable of
     paths (e.g. the ``saved_path`` list returned by attachment-downloader).
+
+    Per-file work (pdfplumber text extraction, Tesseract OCR fallback,
+    preview rendering) is spread across a thread pool — each of those calls
+    is subprocess/IO-bound (tesseract, poppler) and releases the GIL while
+    waiting, so this cuts wall-clock time roughly by ``extract_workers`` on
+    multi-file syncs instead of processing PDFs one at a time.
     """
     kws = list(keywords) if keywords else get_settings().invoice_keywords
-    results: list[ProcessedFile] = []
-    for pdf_path in _iter_pdf_paths(paths_or_dir):
-        filename = os.path.basename(pdf_path)
-        page_count = get_page_count(pdf_path)
-        text = extract_text(pdf_path)
-        if not is_invoice(filename, text, kws):
-            logger.info("Skipping non-invoice file: %s", filename)
-            continue
-        if page_count == 0 or page_count > 5:
-            logger.warning("Skipping file (%d pages): %s", page_count, filename)
-            continue
-        results.append(describe_file(pdf_path))
-    return results
+    pdf_paths = _iter_pdf_paths(paths_or_dir)
+    if not pdf_paths:
+        return []
+    workers = max(1, get_settings().extract_workers)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        processed = pool.map(lambda pdf_path: _process_one(pdf_path, kws), pdf_paths)
+    return [pf for pf in processed if pf is not None]

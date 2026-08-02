@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     # ── Download timeout (seconds) ───────────────────────────
     download_timeout: int = 120
 
+    # ── Concurrent PDF/OCR extraction (process_directory thread pool) ──────
+    extract_workers: int = 4
+
     # ── FastAPI server ──────────────────────────────────────
     api_host: str = "0.0.0.0"
     api_port: int = Field(
