@@ -97,18 +97,20 @@ chmod 600 ~/.pgpass
 echo "Applying invoice-core Alembic migrations..."
 (cd invoice-core && uv run alembic upgrade head)
 
-echo "Installing OpenCode and agent-browser..."
-# Chrome for Testing has no Linux ARM64 builds, so Chromium is installed via
-# apt above (alongside the OCR deps); agent-browser finds it via
-# AGENT_BROWSER_EXECUTABLE_PATH (containerEnv).
-npm install -g opencode-ai agent-browser
-
-echo "Adding the agent-browser skill for OpenCode..."
+echo "Installing Oh My Pi (OMP)..."
+# Download the Linux ARM64 binary for the devcontainer architecture
+curl -LsSf "https://github.com/can1357/oh-my-pi/releases/download/v17.2.4/omp-linux-arm64" -o /tmp/omp
+chmod +x /tmp/omp
+mv /tmp/omp "$HOME/.local/bin/omp"
+export PATH="$HOME/.local/bin:$PATH"
+echo "OMP installed at $(which omp)"
+echo "Installing agent-browser..."
+npm install -g agent-browser
+echo "Adding the agent-browser skill..."
 npx -y skills add vercel-labs/agent-browser -a opencode -y
-
 echo "Verifying the installs..."
 uv --version
-opencode --version
+omp --version
 agent-browser doctor
 mc --version | head -1
 pg_isready
