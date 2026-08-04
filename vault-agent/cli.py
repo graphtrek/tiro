@@ -26,7 +26,9 @@ import atexit
 import os
 import re
 import sys
+import tempfile
 import time
+import webbrowser
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -66,6 +68,7 @@ from rich.table import Table
 from rich.text import Text
 
 from capabilities import AUDIT, VaultCapability, log, log_interaction, setup_logging
+from graph_view import render_graph_html
 from headroom_proxy import (
     HeadroomError,
     ProxyManager,
@@ -124,6 +127,7 @@ HELP = """\
 [bold]Commands[/bold]
   [cyan]/help[/cyan]           show this help (also just [cyan]/[/cyan])
   [cyan]/notes[/cyan]          list the vault's notes and their wikilinks
+  [cyan]/graph[/cyan]          open the vault's link graph in your browser (like Obsidian's Graph View)
   [cyan]/read <id|note>[/cyan] print a note by its /notes number or name (or its outline if it's long)
   [cyan]/save-note <name>[/cyan]  save the last answer to the vault (add [cyan]--full[/cyan] for the whole conversation)
   [cyan]/vault \\[name][/cyan]   list vaults in the base dir, or switch to one (persists to .env)
@@ -329,6 +333,9 @@ def _chat_loop(session: Session) -> None:
         if prompt == "/notes":
             _print_notes(session)
             continue
+        if prompt == "/graph":
+            _open_graph(session)
+            continue
         if prompt == "/read" or prompt.startswith("/read "):
             name = prompt[len("/read") :].strip()
             if not name:
@@ -394,6 +401,21 @@ def _print_notes(session: Session) -> None:
         links = ", ".join(str(l) for l in entry["links_to"]) or "—"
         table.add_row(str(i), str(entry["note"]), str(entry["chars"]), links)
     console.print(table)
+
+
+def _open_graph(session: Session) -> None:
+    """Render the vault's link graph to a temp HTML file and open it in the
+    default browser - the CLI has no server to serve it from, unlike web.py's
+    GET /graph, so a file:// URL is the whole mechanism."""
+    graph = session.vault.graph()
+    html = render_graph_html(graph, session.vault.graph_settings(), session.vault.root.name)
+    path = Path(tempfile.gettempdir()) / f"vault-graph-{session.vault.root.name}.html"
+    path.write_text(html, encoding="utf-8")
+    webbrowser.open(path.as_uri())
+    console.print(
+        f"[dim]opened graph view — {len(graph['nodes'])} notes, "
+        f"{len(graph['links'])} links · {path}[/dim]"
+    )
 
 
 def _handle_save_note(session: Session, args: str) -> None:

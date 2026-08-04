@@ -79,6 +79,72 @@ def unit_tests() -> bool:
             brewing["links_to"] == ["guides/Grinders"],
         )
 
+        g = vault.graph()
+        gnodes = {n["id"]: n for n in g["nodes"]}
+        ok &= check("graph has one node per note", set(gnodes) == {"INDEX", "Coffee Brewing", "guides/Grinders"})
+        ok &= check("graph node label is the basename", gnodes["guides/Grinders"]["label"] == "Grinders")
+        ok &= check("graph nodes for real notes are resolved", all(n["resolved"] for n in gnodes.values()))
+        gedges = {frozenset((l["source"], l["target"])) for l in g["links"]}
+        ok &= check(
+            "graph links alias/heading/plain wikilinks alike",
+            gedges
+            == {
+                frozenset({"INDEX", "Coffee Brewing"}),
+                frozenset({"INDEX", "guides/Grinders"}),
+                frozenset({"Coffee Brewing", "guides/Grinders"}),
+            },
+        )
+        ok &= check("graph drops attachment-only links (pdf/txt)", len(g["links"]) == 3)
+        ok &= check("graph degree counts distinct linked notes", gnodes["INDEX"]["degree"] == 2)
+
+        settings = vault.graph_settings()
+        ok &= check(
+            "graph_settings falls back to defaults with no .obsidian/graph.json",
+            settings["linkDistance"] == 250 and settings["repelStrength"] == 10,
+        )
+        (vault.root / ".obsidian").mkdir(exist_ok=True)
+        (vault.root / ".obsidian" / "graph.json").write_text(
+            '{"linkDistance": 999, "showOrphans": false}', encoding="utf-8"
+        )
+        overridden = vault.graph_settings()
+        ok &= check("graph_settings reads the vault's own graph.json", overridden["linkDistance"] == 999)
+        ok &= check(
+            "graph_settings keeps un-overridden defaults",
+            overridden["repelStrength"] == 10 and overridden["showOrphans"] is False,
+        )
+
+        from graph_view import render_graph_html
+
+        no_link = render_graph_html(g, settings, vault.root.name)
+        ok &= check(
+            "render_graph_html omits the back link by default (cli.py's file:// use)",
+            '<a class="back"' not in no_link,
+        )
+        ok &= check(
+            "render_graph_html hides the read-in-terminal icon with no back_url",
+            "BACK_URL = null" in no_link,
+        )
+        with_link = render_graph_html(g, settings, vault.root.name, back_url="/")
+        ok &= check(
+            "render_graph_html adds a back link when given a back_url (web.py's use)",
+            '<a class="back" href="/"' in with_link,
+        )
+        ok &= check(
+            "render_graph_html embeds back_url for the read-in-terminal icon",
+            'BACK_URL = "/"' in with_link and 'id="pRead"' in with_link,
+        )
+        from graph_view import TERMINAL_TAB_NAME
+
+        ok &= check(
+            "the back link opens a named tab, not the graph's own tab",
+            f'target="{TERMINAL_TAB_NAME}"' in with_link and "noopener" in with_link,
+        )
+        ok &= check(
+            "the read-in-terminal icon opens the same named tab (window.open, not location.href)",
+            f'window.open(url, "{TERMINAL_TAB_NAME}"' in with_link
+            and "window.location.href" not in with_link,
+        )
+
         hits = vault.search_vault("coffee ratio")
         ok &= check("search finds the right note first", hits and hits[0]["note"] == "Coffee Brewing")
         ok &= check("search returns an excerpt with the hit", "1:16" in hits[0]["excerpt"])
@@ -138,6 +204,34 @@ def unit_tests() -> bool:
         ok &= check("vault-local system_prompt.md takes precedence", "Vault-local prompt" in local_cap.get_instructions())
 
     ok &= vault_switching_tests()
+    ok &= graph_tests()
+    return ok
+
+
+def graph_tests() -> bool:
+    """Vault.graph() cases the main fixture doesn't hit: unresolved (phantom)
+    targets, same-file heading self-links, and de-duping a link repeated twice."""
+    ok = True
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "A.md").write_text(
+            "[[B]] [[B]] [[#Some Heading]] [[Missing Note]]\n\n## Some Heading\n\ntext\n",
+            encoding="utf-8",
+        )
+        (root / "B.md").write_text("# B\n\nno outgoing links\n", encoding="utf-8")
+        vault = Vault(root)
+
+        g = vault.graph()
+        gnodes = {n["id"]: n for n in g["nodes"]}
+        ok &= check("graph keeps a phantom node for an unresolved link", "Missing Note" in gnodes)
+        ok &= check("phantom node is marked unresolved", gnodes["Missing Note"]["resolved"] is False)
+        gedges = {frozenset((l["source"], l["target"])) for l in g["links"]}
+        ok &= check(
+            "graph edges: A-B (deduped) and A-Missing Note, no self-edge from #Heading",
+            gedges == {frozenset({"A", "B"}), frozenset({"A", "Missing Note"})},
+        )
+        ok &= check("a link repeated twice still yields one edge", len(g["links"]) == 2)
+        ok &= check("phantom node's degree counts its one link", gnodes["Missing Note"]["degree"] == 1)
     return ok
 
 

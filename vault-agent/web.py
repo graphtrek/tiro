@@ -26,7 +26,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from rich.errors import MarkupError
 from rich.text import Text
@@ -46,6 +46,7 @@ from cli import (
     _update_env,
     _vault_base,
 )
+from graph_view import render_graph_html
 from headroom_proxy import (
     HeadroomError,
     ProxyManager,
@@ -74,6 +75,7 @@ HELP_MD = """\
 |---|---|
 | `/help` | show this help (also just `/`) |
 | `/notes` | list the vault's notes and their wikilinks |
+| `/graph` | open the vault's link graph in a new tab (like Obsidian's Graph View) |
 | `/read <id\\|note>` | print a note by its `/notes` number or name (or its outline if it's long) |
 | `/save-note <name> [--full]` | save the last answer (or the whole conversation with `--full`) to the vault |
 | `/vault [name]` | list vaults in the base dir, or switch to one (persists to .env) |
@@ -132,6 +134,19 @@ def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/graph", include_in_schema=False)
+def graph_page() -> HTMLResponse:
+    """The vault's link graph as its own page - /graph in the terminal opens this
+    in a new tab rather than rendering inline, so the force-directed canvas gets
+    the full viewport instead of fighting the chat panel for space."""
+    session = SESSION
+    graph = session.vault.graph()
+    html = render_graph_html(
+        graph, session.vault.graph_settings(), session.vault.root.name, back_url="/"
+    )
+    return HTMLResponse(html)
+
+
 @app.get("/api/status")
 def status() -> dict:
     session = SESSION
@@ -169,7 +184,8 @@ def message(body: MessageIn):
 # Every handled input returns one of three shapes (the page switches on "kind"):
 #   {"kind": "answer", "markdown", "tools": [{"tool","args","ms"}], "model",
 #    "wall_ms", "requests"}
-#   {"kind": "info", "markdown", "status_changed"}   status_changed → refetch /api/status
+#   {"kind": "info", "markdown", "status_changed", "open_graph"}
+#     status_changed → refetch /api/status; open_graph → window.open("/graph")
 #   {"kind": "error", "error"}
 
 
@@ -180,6 +196,13 @@ def dispatch(session: Session, text: str) -> dict:
         return _info(HELP_MD)
     if text == "/notes":
         return _notes(session)
+    if text == "/graph":
+        graph = session.vault.graph()
+        return _info(
+            f"opened the graph view in a new tab — {len(graph['nodes'])} notes, "
+            f"{len(graph['links'])} links",
+            open_graph=True,
+        )
     if text == "/read" or text.startswith("/read "):
         name = text[len("/read") :].strip()
         if not name:
@@ -207,8 +230,13 @@ def dispatch(session: Session, text: str) -> dict:
     return _turn(session, text)
 
 
-def _info(markdown: str, status_changed: bool = False) -> dict:
-    return {"kind": "info", "markdown": markdown, "status_changed": status_changed}
+def _info(markdown: str, status_changed: bool = False, open_graph: bool = False) -> dict:
+    return {
+        "kind": "info",
+        "markdown": markdown,
+        "status_changed": status_changed,
+        "open_graph": open_graph,
+    }
 
 
 def _error(message: str) -> dict:

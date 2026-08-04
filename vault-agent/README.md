@@ -77,7 +77,11 @@ respawns the proxy subprocess. `static/index.html` is re-read per request, so
 frontend edits need no reload anyway; for backend work under `--reload` set
 `HEADROOM=0`.
 
-REPL commands: `/notes` (the vault's notes + link graph), `/read <note>`,
+REPL commands: `/notes` (the vault's notes + link graph as text), `/graph` (the
+link graph as an interactive force-directed page — the CLI opens it in your
+browser from a temp file, the web terminal opens `/graph` in a new tab; physics
+come from the vault's own `.obsidian/graph.json` when it has one, so it matches
+how the vault actually looks in Obsidian's Graph View), `/read <note>`,
 `/vault [name]` (list the vaults in the base dir, or switch to one — persists to
 `.env`), `/model [name]` (list model providers, or switch between `local` and
 `deepseek` — persists to `.env`), `/prompt`, `/reload`, `/clear`, `/help`, `/exit`.

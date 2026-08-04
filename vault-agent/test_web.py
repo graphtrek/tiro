@@ -75,6 +75,10 @@ def main() -> None:
 
             r = client.get("/")
             ok &= check("GET / serves the page", r.status_code == 200 and "you ›" in r.text)
+            ok &= check(
+                "served page turns [[wikilinks]] in note text into clickable /?read= links",
+                "convertWikilinks" in r.text and "/?read=" in r.text,
+            )
 
             s = client.get("/api/status").json()
             ok &= check("status names the vault", s["vault_name"] == "coffee")
@@ -92,6 +96,23 @@ def main() -> None:
 
             r = post("/notes").json()
             ok &= check("/notes lists the vault's notes", r["kind"] == "info" and "Coffee Brewing" in r["markdown"])
+
+            r = post("/graph").json()
+            ok &= check(
+                "/graph reports counts and signals the frontend to open a tab",
+                r["kind"] == "info" and r["open_graph"] is True and "notes" in r["markdown"],
+            )
+            gr = client.get("/graph")
+            ok &= check("GET /graph serves the graph page", gr.status_code == 200 and "coffee" in gr.text)
+            ok &= check("GET /graph embeds the vault's notes as graph nodes", "Coffee Brewing" in gr.text)
+            ok &= check(
+                "GET /graph links back to the terminal at /",
+                '<a class="back" href="/"' in gr.text,
+            )
+            ok &= check(
+                "the back link targets a named tab so it never replaces the graph's own tab",
+                'target="vault-agent-terminal"' in gr.text,
+            )
 
             r = post("/read Coffee Brewing").json()
             ok &= check("/read returns the note text", r["kind"] == "info" and "1:16" in r["markdown"])

@@ -95,9 +95,47 @@ function esc(s) {
   return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+// [[Target]] / [[Target|alias]] / [[Target#heading]] -> a normal markdown link to
+// /?read=Target, the same URL the graph view's "read in terminal" icon uses. Left
+// as a real <a href> (not a JS-only click handler) so it also works via cmd/ctrl-
+// click-to-open-in-new-tab, or if marked/DOMPurify are ever swapped out. Embeds
+// (![[...]]) are left alone - they're usually attachments, not notes.
+function convertWikilinks(md) {
+  md = md.replace(/(?<!!)\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, (_, target, alias) => {
+    const label = (alias || target).trim().replace(/\]/g, "");
+    return "[" + label + "](/?read=" + encodeURIComponent(target.trim()) + ")";
+  });
+  // Notes also link each other with plain markdown, [label](Some Note.md) - Vault
+  // itself treats both forms the same way (see obsidian_vault.py's _WIKILINK vs.
+  // note that .md relative links are just as common in hand-written indices like
+  // INDEX.md). marked turns these into a real relative <a href="Some Note.md">
+  // that resolves to e.g. http://host/Some%20Note.md - a path nothing serves - so
+  // rewrite the href to /?read=<name> here too, same as the wikilink case above.
+  md = md.replace(/\]\((?!https?:\/\/)([^)]+?)\.md\)/gi, (_, target) => {
+    let name = target;
+    try { name = decodeURIComponent(name); } catch { /* not percent-encoded */ }
+    name = name.replace(/^\.?\//, "");
+    return "](/?read=" + encodeURIComponent(name) + ")";
+  });
+  return md;
+}
+
+// Every link in rendered note/answer text is either one of our own /?read=...
+// links (same tab, handled by the click-delegation below) or a real external URL
+// (http(s), mailto, ...) - those should open in a new tab rather than navigating
+// away from the terminal. Registered once; DOMPurify runs this on every sanitize.
+if (window.DOMPurify) {
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.tagName !== "A" || !node.hasAttribute("href")) return;
+    if (node.getAttribute("href").startsWith("/?read=")) return;
+    node.setAttribute("target", "_blank");
+    node.setAttribute("rel", "noopener noreferrer");
+  });
+}
+
 function renderMarkdown(md) {
   if (window.marked && window.DOMPurify) {
-    return DOMPurify.sanitize(marked.parse(md));
+    return DOMPurify.sanitize(marked.parse(convertWikilinks(md)));
   }
   return "<pre>" + esc(md) + "</pre>";   // CDN unreachable: degrade to plain text
 }
@@ -138,6 +176,7 @@ function addResponse(resp) {
   } else if (resp.kind === "info") {
     addLine('<div class="info md">' + renderMarkdown(resp.markdown || "") + "</div>");
     if (resp.status_changed) refreshStatus();
+    if (resp.open_graph) window.open("/graph", "_blank");
   } else {
     addLine(esc(resp.error || "unknown error"), "error");
   }
@@ -190,6 +229,22 @@ async function send(text) {
   }
 }
 
+// A rendered [[wikilink]] is a real <a href="/?read=..."> (see convertWikilinks),
+// so it works even without this: this just upgrades the click to stay on the page
+// (reads the note inline via /api/message) instead of a full reload.
+scrollEl.addEventListener("click", (ev) => {
+  const a = ev.target.closest("a");
+  if (!a || inputEl.disabled) return;
+  let url;
+  try { url = new URL(a.href, window.location.origin); } catch { return; }
+  if (url.origin !== window.location.origin || url.pathname !== "/" || !url.searchParams.has("read")) return;
+  ev.preventDefault();
+  const name = url.searchParams.get("read");
+  history.push("/read " + name);
+  histIdx = history.length;
+  send("/read " + name);
+});
+
 inputEl.addEventListener("keydown", (ev) => {
   if (ev.key === "Enter") {
     const text = inputEl.value.trim();
@@ -213,8 +268,18 @@ inputEl.addEventListener("keydown", (ev) => {
 
 document.body.addEventListener("click", () => { if (!inputEl.disabled) inputEl.focus(); });
 
+// The graph view's "read in terminal" icon lands here as /?read=<note>; consume it
+// once (window.history, not the `history` input-log array above shadowing it) so a
+// later reload of this same URL doesn't replay the read.
+const readNote = new URLSearchParams(window.location.search).get("read");
+if (readNote) window.history.replaceState(null, "", window.location.pathname);
+
 refreshStatus();
-addLine('<span class="dim">/help for commands — anything else is a question for the vault</span>');
+if (readNote) {
+  send("/read " + readNote);
+} else {
+  addLine('<span class="dim">/help for commands — anything else is a question for the vault</span>');
+}
 </script>
 </body>
 </html>

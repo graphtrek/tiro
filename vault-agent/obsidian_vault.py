@@ -6,14 +6,34 @@ long note). Only markdown files (`.md`) count as notes; attachments (PDFs, image
 ...) are ignored. Notes reference each other with `[[wikilinks]]`; `read_note`
 resolves the same targets Obsidian would (`[[Name]]`, `[[Name|alias]]`,
 `[[Name#Heading]]`, with or without the `.md` extension, case-insensitive).
+
+`graph()`/`graph_settings()` expose the same link network Obsidian's own Graph
+View draws, for `graph_view.py` to render - not an agent tool (an LLM has no use
+for x/y coordinates), just a second read-only view of the vault.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
 from datetime import datetime
 from pathlib import Path
+
+# Physics/display defaults for the force-directed graph render, used whenever a
+# vault has no .obsidian/graph.json (or one missing these keys) - copied from
+# Obsidian's own factory defaults so an unconfigured vault still looks right.
+DEFAULT_GRAPH_SETTINGS: dict[str, object] = {
+    "showOrphans": True,
+    "showArrow": False,
+    "textFadeMultiplier": 0,
+    "nodeSizeMultiplier": 1,
+    "lineSizeMultiplier": 1,
+    "centerStrength": 0.5,
+    "repelStrength": 10,
+    "linkStrength": 1,
+    "linkDistance": 250,
+}
 
 # Only these file types are notes; anything else in the vault is an attachment.
 NOTE_SUFFIXES = (".md",)
@@ -112,6 +132,65 @@ class Vault:
                 }
             )
         return entries
+
+    def graph(self) -> dict[str, list[dict[str, object]]]:
+        """The vault's link graph, the same one Obsidian's Graph View draws: every
+        note is a node, plus one phantom node per wikilink target that resolves to
+        no note (kept, not dropped - Obsidian shows these too unless hideUnresolved
+        is set). Edges are deduplicated and undirected (Obsidian draws no
+        arrowheads), one per unique note pair regardless of link count.
+
+        Returns {"nodes": [{"id", "label", "resolved", "degree"}],
+        "links": [{"source", "target"}]} - "id" is the note's vault-relative path
+        without extension (matches list_notes' "note" field) for real notes, or the
+        raw unresolved target text for phantom nodes.
+        """
+        notes = self._notes()
+        ids = {path: path.relative_to(self.root).with_suffix("").as_posix() for path in notes}
+        nodes: dict[str, dict[str, object]] = {
+            nid: {"id": nid, "label": path.stem, "resolved": True} for path, nid in ids.items()
+        }
+        edges: set[tuple[str, str]] = set()
+        for path in notes:
+            src = ids[path]
+            for m in _WIKILINK.finditer(_read_text(path)):
+                target = m.group(1).strip()
+                if not target or _is_attachment_target(target):
+                    continue
+                resolved = self._resolve(target)
+                if resolved is not None:
+                    dst = ids[resolved]
+                else:
+                    dst = target
+                    nodes.setdefault(dst, {"id": dst, "label": target, "resolved": False})
+                if dst != src:
+                    edges.add(tuple(sorted((src, dst))))
+
+        degree = dict.fromkeys(nodes, 0)
+        for a, b in edges:
+            degree[a] += 1
+            degree[b] += 1
+        for nid, node in nodes.items():
+            node["degree"] = degree[nid]
+
+        return {
+            "nodes": list(nodes.values()),
+            "links": [{"source": a, "target": b} for a, b in sorted(edges)],
+        }
+
+    def graph_settings(self) -> dict[str, object]:
+        """Physics/display settings for the graph render: the vault's own
+        `.obsidian/graph.json` (Obsidian writes this whenever the user tweaks the
+        Graph View sliders) layered over DEFAULT_GRAPH_SETTINGS, so the rendered
+        graph matches how this vault actually looks in Obsidian when it says so,
+        and falls back sanely when it doesn't."""
+        settings = dict(DEFAULT_GRAPH_SETTINGS)
+        path = self.root / ".obsidian" / "graph.json"
+        try:
+            settings.update(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            pass
+        return settings
 
     def search_vault(self, query: str) -> list[dict[str, object]]:
         """Search all notes for the query terms and return the best-matching excerpts.
