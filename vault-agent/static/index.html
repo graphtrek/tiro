@@ -111,7 +111,12 @@ function convertWikilinks(md) {
   // INDEX.md). marked turns these into a real relative <a href="Some Note.md">
   // that resolves to e.g. http://host/Some%20Note.md - a path nothing serves - so
   // rewrite the href to /?read=<name> here too, same as the wikilink case above.
-  md = md.replace(/\]\((?!https?:\/\/)([^)]+?)\.md\)/gi, (_, target) => {
+  // The (?!.../\?read=) arm skips hrefs the wikilink pass above just produced -
+  // [[Note.md|alias]] becomes ](/?read=Note.md), which still ends in .md) and
+  // would otherwise be re-captured here as target "/?read=Note", yielding the
+  // double-nested /?read=%3Fread%3DNote. Same href test the DOMPurify hook below
+  // uses to recognise our own links.
+  md = md.replace(/\]\((?!https?:\/\/|\/\?read=)([^)]+?)\.md\)/gi, (_, target) => {
     let name = target;
     try { name = decodeURIComponent(name); } catch { /* not percent-encoded */ }
     name = name.replace(/^\.?\//, "");

@@ -9,9 +9,14 @@
   },
   "runArgs": ["--env-file", "${localWorkspaceFolder}/.env"],
   "mounts": [
-    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly"
+    "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly",
+    "source=${localWorkspaceFolder}/moneypenny,target=/vaults/moneypenny,type=bind,consistency=cached"
   ],
-  "containerEnv": { "AGENT_BROWSER_EXECUTABLE_PATH": "/usr/bin/chromium" },
+  "containerEnv": {
+    "VAULT_PATH": "/vaults",
+    "VAULT_NAME": "moneypenny",
+    "AGENT_BROWSER_EXECUTABLE_PATH": "/usr/bin/chromium"
+  },
   "forwardPorts": [8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8009, 5432, 5050],
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "postStartCommand": "bash .devcontainer/start-services.sh",
@@ -20,7 +25,6 @@
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
-        "ms-python.debugpy",
         "charliermarsh.ruff",
         "ms-azuretools.vscode-docker"
       ],
