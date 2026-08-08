@@ -62,6 +62,7 @@ from invoice_core.models import (
 from invoice_core.service import (
     SyncInProgressError,
     _recompute_payment_status,
+    _record_partner_known_name,
     get_pending_sync_counts,
     sync_all,
 )
@@ -790,10 +791,12 @@ def link_transaction_to_supplier(
     txn = db.get(BankTransaction, txn_id)
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    if not db.get(Supplier, req.supplier_id):
+    supplier = db.get(Supplier, req.supplier_id)
+    if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
     txn.supplier_id = req.supplier_id
     txn.supplier_locked = True
+    _record_partner_known_name(supplier, txn.counterparty_name)
     db.commit()
     return {"ok": True}
 
@@ -816,10 +819,12 @@ def link_transaction_to_customer(
     txn = db.get(BankTransaction, txn_id)
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    if not db.get(Customer, req.customer_id):
+    customer = db.get(Customer, req.customer_id)
+    if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     txn.customer_id = req.customer_id
     txn.customer_locked = True
+    _record_partner_known_name(customer, txn.counterparty_name)
     db.commit()
     return {"ok": True}
 

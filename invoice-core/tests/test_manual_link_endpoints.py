@@ -144,6 +144,33 @@ def test_put_transaction_supplier_sets_fk_and_locks(db):
     assert txn.supplier_locked is True
 
 
+def test_put_transaction_supplier_records_counterparty_name(db):
+    """Manually linking a transaction whose counterparty name differs from
+    the supplier's own name records that name on the supplier's known_names,
+    so a later sync_bank can recognize it without an exact name match."""
+    sup = Supplier(name="ACME Kft", tax_id="11111111-1-11")
+    db.add(sup)
+    db.commit()
+    txn = _txn(db, counterparty_name="ACME Kft Zrt")
+
+    link_transaction_to_supplier(txn.id, LinkSupplierRequest(supplier_id=sup.id), db=db)
+
+    db.refresh(sup)
+    assert sup.known_names == "ACME Kft Zrt"
+
+
+def test_put_transaction_supplier_no_counterparty_name_leaves_known_names_unset(db):
+    sup = Supplier(name="ACME Kft", tax_id="11111111-1-11")
+    db.add(sup)
+    db.commit()
+    txn = _txn(db)  # no counterparty_name
+
+    link_transaction_to_supplier(txn.id, LinkSupplierRequest(supplier_id=sup.id), db=db)
+
+    db.refresh(sup)
+    assert sup.known_names is None
+
+
 def test_delete_transaction_supplier_clears_fk_but_still_locks(db):
     sup = Supplier(name="ACME Kft", tax_id="11111111-1-11")
     db.add(sup)
@@ -168,6 +195,18 @@ def test_put_transaction_customer_sets_fk_and_locks(db):
     db.refresh(txn)
     assert txn.customer_id == cust.id
     assert txn.customer_locked is True
+
+
+def test_put_transaction_customer_records_counterparty_name(db):
+    cust = Customer(name="ACME Kft", tax_id="22222222-2-22")
+    db.add(cust)
+    db.commit()
+    txn = _txn(db, counterparty_name="ACME Kft Zrt")
+
+    link_transaction_to_customer(txn.id, LinkCustomerRequest(customer_id=cust.id), db=db)
+
+    db.refresh(cust)
+    assert cust.known_names == "ACME Kft Zrt"
 
 
 def test_delete_transaction_customer_clears_fk_but_still_locks(db):

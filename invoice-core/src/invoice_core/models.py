@@ -52,6 +52,8 @@ class SupplierOut(BaseModel):
     phone: str | None = None
     iban: str | None = None
     bban: str | None = None
+    bank_accounts: str | None = None
+    known_names: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -68,6 +70,8 @@ class CustomerOut(BaseModel):
     payment_terms: int | None = None
     iban: str | None = None
     bban: str | None = None
+    bank_accounts: str | None = None
+    known_names: str | None = None
     created_at: datetime
     updated_at: datetime
 

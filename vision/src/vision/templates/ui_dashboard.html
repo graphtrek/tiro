@@ -377,13 +377,18 @@
       }
     });
 
+    function cumulative(arr) {
+      var sum = 0;
+      return arr.map(function (v) { sum += (v || 0); return sum; });
+    }
+
     function buildData(slice) {
       return {
         labels: slice.map(function (r) { return r.month; }),
         datasets: [
           {
-            label: 'Bevétel (bank)',
-            data: slice.map(function (r) { return r.income; }),
+            label: 'Bevétel (bank, halmozott)',
+            data: cumulative(slice.map(function (r) { return r.income; })),
             borderColor: successColor,
             backgroundColor: successColor + '26',
             fill: true,
@@ -392,8 +397,8 @@
             pointRadius: 2
           },
           {
-            label: 'Kiadás (bank)',
-            data: slice.map(function (r) { return r.expense; }),
+            label: 'Kiadás (bank, halmozott)',
+            data: cumulative(slice.map(function (r) { return r.expense; })),
             borderColor: dangerColor,
             backgroundColor: dangerColor + '26',
             fill: true,
@@ -402,8 +407,8 @@
             pointRadius: 2
           },
           {
-            label: 'Kimenő számlák',
-            data: slice.map(function (r) { return r.invoice_income || 0; }),
+            label: 'Kimenő számlák (halmozott)',
+            data: cumulative(slice.map(function (r) { return r.invoice_income || 0; })),
             borderColor: successColor,
             backgroundColor: 'transparent',
             borderDash: [6, 4],
@@ -413,8 +418,8 @@
             pointRadius: 2
           },
           {
-            label: 'Bejövő számlák',
-            data: slice.map(function (r) { return r.invoice_expense || 0; }),
+            label: 'Bejövő számlák (halmozott)',
+            data: cumulative(slice.map(function (r) { return r.invoice_expense || 0; })),
             borderColor: dangerColor,
             backgroundColor: 'transparent',
             borderDash: [6, 4],

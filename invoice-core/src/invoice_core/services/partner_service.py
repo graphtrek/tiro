@@ -74,6 +74,8 @@ class SupplierDetail:
     phone: str | None
     iban: str | None
     bban: str | None
+    bank_accounts: str | None
+    known_names: str | None
     invoices: list[PartnerInvoiceRow] = field(default_factory=list)
     bank_transactions: list[PartnerTxnRow] = field(default_factory=list)
 
@@ -102,6 +104,8 @@ class CustomerDetail:
     payment_terms: int | None
     iban: str | None
     bban: str | None
+    bank_accounts: str | None
+    known_names: str | None
     invoices: list[PartnerInvoiceRow] = field(default_factory=list)
     bank_transactions: list[PartnerTxnRow] = field(default_factory=list)
 
@@ -275,6 +279,8 @@ def get_supplier(db: Session, supplier_id: int) -> SupplierDetail | None:
         phone=sup.phone,
         iban=sup.iban,
         bban=sup.bban,
+        bank_accounts=sup.bank_accounts,
+        known_names=sup.known_names,
         invoices=_partner_invoice_rows(invoices),
         bank_transactions=[
             PartnerTxnRow(
@@ -365,6 +371,8 @@ def get_customer(db: Session, customer_id: int) -> CustomerDetail | None:
         payment_terms=cust.payment_terms,
         iban=cust.iban,
         bban=cust.bban,
+        bank_accounts=cust.bank_accounts,
+        known_names=cust.known_names,
         invoices=_partner_invoice_rows(invoices),
         bank_transactions=[
             PartnerTxnRow(

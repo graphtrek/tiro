@@ -82,6 +82,93 @@ def _is_tax_account(account: str | None, settings: Settings) -> bool:
     return bool(account and account in settings.tax_accounts)
 
 
+def _record_partner_bank_account(partner: Supplier | Customer | None, account: str | None) -> None:
+    """Append *account* to partner.bank_accounts (comma-separated) if not already there.
+
+    A partner can pay from/settle to more than one bank account over time
+    (unlike iban/bban, which hold only the single NAV-reported account) — every
+    distinct counterparty account bank sync observes for a partner accumulates
+    here in one field, per the workspace's single-comma-separated-column
+    convention.
+    """
+    if not partner or not account:
+        return
+    known = [a for a in (partner.bank_accounts or "").split(",") if a]
+    if account not in known:
+        known.append(account)
+        partner.bank_accounts = ",".join(known)
+
+
+def _find_partner_by_account(
+    db: Session,
+    model: type[Supplier] | type[Customer],
+    account: str | None,
+    iban: str | None,
+) -> Supplier | Customer | None:
+    """Look up a Supplier/Customer by a known bank account number or IBAN.
+
+    Checks the single NAV-reported iban/bban columns first, then the
+    accumulated `bank_accounts` list (see `_record_partner_bank_account`) —
+    a partner may have settled from an account NAV never reported.
+    """
+    values = [v for v in (account, iban) if v]
+    if not values:
+        return None
+    match = db.query(model).filter(or_(model.bban.in_(values), model.iban.in_(values))).first()
+    if match:
+        return match
+    for candidate in db.query(model).filter(model.bank_accounts.isnot(None)):
+        if any(v in candidate.bank_accounts.split(",") for v in values):
+            return candidate
+    return None
+
+
+def _find_partner_by_exact_name(
+    db: Session, model: type[Supplier] | type[Customer], name: str
+) -> Supplier | Customer | None:
+    """Look up a Supplier/Customer whose name matches *name* exactly (ignoring case/whitespace)."""
+    name_norm = _normalize_name(name)
+    if not name_norm:
+        return None
+    for candidate in db.query(model):
+        if _normalize_name(candidate.name) == name_norm:
+            return candidate
+    return None
+
+
+def _record_partner_known_name(partner: Supplier | Customer | None, name: str | None) -> None:
+    """Append *name* to partner.known_names (comma-separated) if not already there.
+
+    Recorded whenever a bank transaction's counterparty name is linked to a
+    partner — either automatically by sync_bank or when a user manually links
+    a transaction (see api/main.py's link_transaction_to_supplier/customer) —
+    so a counterparty name that never exactly matches this partner's own
+    `name` (abbreviations, trading names, typos) can still be recognized as
+    this partner on a later sync, once a human has confirmed the link once.
+    """
+    if not partner or not name:
+        return
+    known = [n for n in (partner.known_names or "").split(",") if n]
+    if name not in known:
+        known.append(name)
+        partner.known_names = ",".join(known)
+
+
+def _find_partner_by_known_name(
+    db: Session, model: type[Supplier] | type[Customer], name: str
+) -> Supplier | Customer | None:
+    """Look up a Supplier/Customer whose known_names (see `_record_partner_known_name`)
+    contains *name* verbatim — a counterparty name previously confirmed (by a
+    manual link or an earlier sync) to belong to that partner even though it
+    doesn't match the partner's own `name` field."""
+    if not name:
+        return None
+    for candidate in db.query(model).filter(model.known_names.isnot(None)):
+        if name in candidate.known_names.split(","):
+            return candidate
+    return None
+
+
 def _link_txn_to_invoice(txn: BankTransaction, invoice: Invoice) -> None:
     if invoice not in txn.invoices:
         txn.invoices.append(invoice)
@@ -866,6 +953,23 @@ def _get_or_create_bank_supplier(db: Session, bank_code: str, settings: Settings
     return supplier
 
 
+def _get_or_create_tax_supplier(db: Session, account: str, settings: Settings) -> Supplier:
+    """Return the synthetic Supplier representing a tax-authority account, creating it if needed.
+
+    One per `settings.tax_accounts` entry (e.g. "NAV ÁFA", "NAV TAO", "HIPA")
+    — mirrors `_get_or_create_bank_supplier`, so tax payments show up as a
+    real partner instead of being left unlinked.
+    """
+    name = settings.tax_accounts.get(account, account)
+    supplier = db.query(Supplier).filter_by(name=name).first()
+    if supplier:
+        return supplier
+    supplier = Supplier(name=name)
+    db.add(supplier)
+    db.flush()
+    return supplier
+
+
 def sync_bank(
     start: str, end: str, db: Session, settings: Settings | None = None
 ) -> tuple[int, list[str]]:
@@ -873,28 +977,43 @@ def sync_bank(
 
     Runs through several phases in order, each handling transactions the
     previous one couldn't:
-    1. Ensure every configured bank has its own "supplier" record (for fees/interest).
-    2. Clear stale links on tax-authority transactions (rules can change over time).
+    1. Ensure every configured bank and tax account has its own synthetic
+       "supplier" record (for fees/interest, and NAV/HIPA/... payments).
+    2. Clear stale invoice links on tax-authority transactions (rules can
+       change over time) and (re)point their supplier at the synthetic
+       tax-authority Supplier from step 1.
     3. Insert/update each fetched transaction, then try to link it via:
        a. an exact `payment_reference` match against an invoice number,
        b. the supplier/customer already on the linked invoice (if any),
-       c. the counterparty name, as a fallback partner lookup,
-       d. bank-fee/interest detection, linking the transaction to the bank itself.
+       c. bank-fee/interest detection, linking the transaction to the bank itself,
+       d. direction-based partner matching: CREDIT transactions look for a
+          Customer, everything else a Supplier — first by a known bank
+          account/IBAN, then by an exact counterparty-name match, then by a
+          counterparty name previously confirmed for a partner via a manual
+          link or an earlier sync (`known_names`), creating a new partner as
+          a last resort.
     4. Recompute PAID/PARTIAL/UNPAID for every invoice that gained a new link.
 
-    Never creates a new Supplier/Customer for an unmatched counterparty (only
-    looks one up by name) — an unmatched transaction is left unlinked and
-    reported in the returned warnings list instead.
+    An unmatched transaction (no counterparty name/account to go on at all)
+    is left unlinked and reported in the returned warnings list instead.
     """
     settings = settings or get_settings()
 
-    # Ensure every configured bank has a supplier record, ready to receive
-    # fee/interest transactions even before any such transaction exists.
+    # Ensure every configured bank/tax account has a supplier record, ready
+    # to receive fee/interest or tax-authority transactions even before any
+    # such transaction exists.
     for bank_code in settings.bank_supplier_names:
         _get_or_create_bank_supplier(db, bank_code, settings)
+    for account in settings.tax_accounts:
+        _get_or_create_tax_supplier(db, account, settings)
     db.commit()
 
-    # Clear any previously created links on tax-account transactions.
+    # Tax-account transactions never really belong to an invoice (rules can
+    # change over time, so clear any stale link) — but they do belong to the
+    # synthetic tax-authority Supplier from step 1, so (re)point supplier_id
+    # there instead of leaving/clearing it. Runs over every tax-account row
+    # in the DB (not just ones in this sync's date range) so historical
+    # transactions get backfilled too.
     tax_keys = list(settings.tax_accounts.keys())
     if tax_keys:
         tax_txns = (
@@ -911,14 +1030,20 @@ def sync_bank(
         for btxn in wrongly_linked:
             btxn.invoices.clear()
             btxn.invoice_file_id = None
-            if not btxn.supplier_locked:
-                btxn.supplier_id = None
             if not btxn.customer_locked:
                 btxn.customer_id = None
         for inv in affected_invoices:
             _recompute_payment_status(db, inv)
         if wrongly_linked:
-            logger.info("Cleared links from %d tax-account transaction(s)", len(wrongly_linked))
+            logger.info("Cleared invoice links from %d tax-account transaction(s)", len(wrongly_linked))
+
+        for btxn in tax_txns:
+            if not btxn.supplier_locked and btxn.counterparty_account:
+                tax_supplier = _get_or_create_tax_supplier(
+                    db, btxn.counterparty_account, settings
+                )
+                if btxn.supplier_id != tax_supplier.id:
+                    btxn.supplier_id = tax_supplier.id
 
     transactions = BankClient(settings).get_transactions()
     count = 0
@@ -991,8 +1116,13 @@ def sync_bank(
             db.flush()
             count += 1
 
-        # ── Skip all linking for tax-authority payments ───────────────────────
+        # ── Tax-authority payments: attach the synthetic tax Supplier, skip the rest ──
         if _is_tax_account(btxn.counterparty_account, settings):
+            if not btxn.supplier_id and not btxn.supplier_locked:
+                tax_supplier = _get_or_create_tax_supplier(
+                    db, btxn.counterparty_account, settings
+                )
+                btxn.supplier_id = tax_supplier.id
             continue
 
         # ── Link invoice via payment_reference ────────────────────────────────
@@ -1017,26 +1147,45 @@ def sync_bank(
             if not btxn.customer_id and not btxn.customer_locked:
                 btxn.customer_id = invoice.customer_id
 
-        # ── Link supplier/customer by counterparty name (fallback) ────────────
-        counterparty = txn_dict.get("counterparty_name", "") or ""
-        if counterparty:
-            if not btxn.supplier_id and not btxn.supplier_locked:
-                supplier = (
-                    db.query(Supplier).filter(Supplier.name.ilike(f"%{counterparty}%")).first()
-                )
-                if supplier:
-                    btxn.supplier_id = supplier.id
-            if not btxn.customer_id and not btxn.customer_locked:
-                customer = (
-                    db.query(Customer).filter(Customer.name.ilike(f"%{counterparty}%")).first()
-                )
-                if customer:
-                    btxn.customer_id = customer.id
-
         # ── Link bank fee/interest transactions to the bank's own supplier ────
         if not btxn.supplier_id and not btxn.supplier_locked and _is_bank_fee_or_interest(txn_dict):
             bank_supplier = _get_or_create_bank_supplier(db, btxn.bank, settings)
             btxn.supplier_id = bank_supplier.id
+
+        # ── Direction-based partner match: CREDIT → customer, else → supplier ──
+        # First by a known bank account/IBAN, then by an exact counterparty-name
+        # match, then by a counterparty name previously confirmed for this
+        # partner via `known_names` (see _record_partner_known_name — populated
+        # by manual linking or an earlier sync), creating a new partner as a
+        # last resort if none of those found one.
+        counterparty = txn_dict.get("counterparty_name", "") or ""
+        if btxn.direction == "CREDIT":
+            model, id_attr, locked_attr = Customer, "customer_id", "customer_locked"
+        else:
+            model, id_attr, locked_attr = Supplier, "supplier_id", "supplier_locked"
+        if not getattr(btxn, id_attr) and not getattr(btxn, locked_attr):
+            partner = _find_partner_by_account(
+                db, model, btxn.counterparty_account, btxn.counterparty_iban
+            )
+            if not partner and counterparty:
+                partner = _find_partner_by_exact_name(db, model, counterparty)
+            if not partner and counterparty:
+                partner = _find_partner_by_known_name(db, model, counterparty)
+            if not partner and counterparty:
+                partner = model(name=counterparty, address=btxn.counterparty_address)
+                db.add(partner)
+                db.flush()
+            if partner:
+                setattr(btxn, id_attr, partner.id)
+
+        # ── Record the counterparty account/name on whichever partner matched ─
+        account = btxn.counterparty_account or btxn.counterparty_iban
+        if btxn.supplier_id:
+            _record_partner_bank_account(db.get(Supplier, btxn.supplier_id), account)
+            _record_partner_known_name(db.get(Supplier, btxn.supplier_id), counterparty)
+        if btxn.customer_id:
+            _record_partner_bank_account(db.get(Customer, btxn.customer_id), account)
+            _record_partner_known_name(db.get(Customer, btxn.customer_id), counterparty)
 
         # ── Warn if still unmatched after every attempt above ─────────────────
         if not btxn.supplier_id and not btxn.customer_id:

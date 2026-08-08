@@ -50,6 +50,8 @@
           {% endif %}
           <dt class="col-5">IBAN</dt><dd class="col-7">{{ customer.iban or '—' }}</dd>
           <dt class="col-5">Bankszámlaszám</dt><dd class="col-7">{{ customer.bban or '—' }}</dd>
+          <dt class="col-5">Ismert bankszámlák</dt><dd class="col-7">{{ customer.bank_accounts.replace(',', ', ') if customer.bank_accounts else '—' }}</dd>
+          <dt class="col-5">Ismert nevek</dt><dd class="col-7">{{ customer.known_names.replace(',', ', ') if customer.known_names else '—' }}</dd>
         </dl>
       </div>
     </div>

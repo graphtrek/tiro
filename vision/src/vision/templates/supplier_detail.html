@@ -47,6 +47,8 @@
           <dt class="col-5">Telefon</dt><dd class="col-7">{{ supplier.phone or '—' }}</dd>
           <dt class="col-5">IBAN</dt><dd class="col-7">{{ supplier.iban or '—' }}</dd>
           <dt class="col-5">Bankszámlaszám</dt><dd class="col-7">{{ supplier.bban or '—' }}</dd>
+          <dt class="col-5">Ismert bankszámlák</dt><dd class="col-7">{{ supplier.bank_accounts.replace(',', ', ') if supplier.bank_accounts else '—' }}</dd>
+          <dt class="col-5">Ismert nevek</dt><dd class="col-7">{{ supplier.known_names.replace(',', ', ') if supplier.known_names else '—' }}</dd>
         </dl>
       </div>
     </div>

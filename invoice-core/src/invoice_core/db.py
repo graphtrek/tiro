@@ -106,6 +106,18 @@ class Supplier(Base):
     phone = Column(String, nullable=True)
     iban = Column(String, nullable=True)
     bban = Column(String, nullable=True)
+    # Comma-separated list of every distinct bank account number bank sync
+    # has observed a counterparty paying this supplier from/to (see
+    # service.py's _record_partner_bank_account) — distinct from iban/bban
+    # above, which hold the single NAV-reported account.
+    bank_accounts = Column(Text, nullable=True)
+    # Comma-separated list of every distinct counterparty name a bank
+    # transaction has been linked to this supplier under — either matched
+    # automatically by sync_bank or recorded when a user manually links a
+    # transaction (see service.py's _record_partner_known_name) — so a
+    # counterparty name that doesn't exactly match this supplier's own name
+    # can still be recognized on a later sync.
+    known_names = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -125,6 +137,10 @@ class Customer(Base):
     payment_terms = Column(Integer, nullable=True)
     iban = Column(String, nullable=True)
     bban = Column(String, nullable=True)
+    # See Supplier.bank_accounts.
+    bank_accounts = Column(Text, nullable=True)
+    # See Supplier.known_names.
+    known_names = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

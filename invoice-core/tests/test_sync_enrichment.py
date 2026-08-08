@@ -469,7 +469,7 @@ def test_sync_bank_locked_supplier_not_overwritten_by_counterparty_fallback(
         "bank": "erste",
         "amount": 1000.0,
         "currency": "HUF",
-        "direction": "CREDIT",
+        "direction": "DEBIT",
         "date": "2026-05-12",
         "counterparty_name": "ACME Kft",
     }
@@ -487,6 +487,45 @@ def test_sync_bank_locked_supplier_not_overwritten_by_counterparty_fallback(
     sync_bank("2026-05-01", "2026-05-31", sdb, settings)
     sdb.refresh(btxn)
     assert btxn.supplier_id is None  # stays cleared despite the matching counterparty name
+
+
+def test_sync_bank_accumulates_partner_bank_accounts(sdb, settings, monkeypatch):
+    """A partner paying from more than one account gets every distinct account
+    number accumulated (comma-separated) on its bank_accounts field, and a
+    repeated account number is never duplicated."""
+    sdb.add(Supplier(name="ACME Kft", tax_id="55555555-1-11"))
+    sdb.commit()
+
+    txn1 = {
+        "transaction_id": "TX-MULTI-1",
+        "bank": "erste",
+        "amount": 1000.0,
+        "currency": "HUF",
+        "direction": "DEBIT",
+        "date": "2026-05-12",
+        "counterparty_name": "ACME Kft",
+        "counterparty_account": "11773016-11111018-00000000",
+    }
+    monkeypatch.setattr(BankClient, "get_transactions", lambda self: [dict(txn1)])
+    sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+
+    supplier = sdb.query(Supplier).filter_by(tax_id="55555555-1-11").first()
+    assert supplier.bank_accounts == "11773016-11111018-00000000"
+
+    # Same partner, a second, different account.
+    txn2 = dict(
+        txn1, transaction_id="TX-MULTI-2", counterparty_account="99988877-11111018-00000000"
+    )
+    monkeypatch.setattr(BankClient, "get_transactions", lambda self: [dict(txn2)])
+    sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+    sdb.refresh(supplier)
+    assert supplier.bank_accounts == "11773016-11111018-00000000,99988877-11111018-00000000"
+
+    # Re-syncing a transaction with an already-known account doesn't duplicate it.
+    monkeypatch.setattr(BankClient, "get_transactions", lambda self: [dict(txn1)])
+    sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+    sdb.refresh(supplier)
+    assert supplier.bank_accounts == "11773016-11111018-00000000,99988877-11111018-00000000"
 
 
 def _unknown_partner_digest(**overrides):
@@ -623,10 +662,11 @@ class TestSyncNavPartnerUpsertAndLocking:
         assert sdb.query(Customer).count() == 1
 
 
-def test_sync_bank_unmatched_counterparty_warns_without_creating_partner(
-    sdb, settings, monkeypatch
-):
-    txn_dict = {
+def test_sync_bank_unknown_counterparty_creates_partner_by_direction(sdb, settings, monkeypatch):
+    """An unrecognized counterparty gets a brand-new partner created for it —
+    a Customer for a CREDIT (incoming) transaction, a Supplier otherwise —
+    rather than being left unmatched."""
+    credit_txn = {
         "transaction_id": "TX-2",
         "bank": "erste",
         "amount": 500.0,
@@ -634,20 +674,121 @@ def test_sync_bank_unmatched_counterparty_warns_without_creating_partner(
         "direction": "CREDIT",
         "date": "2026-05-12",
         "counterparty_name": "Nobody Kft",
+        "counterparty_account": "11111111-22222222-33333333",
+    }
+    debit_txn = {
+        "transaction_id": "TX-3",
+        "bank": "erste",
+        "amount": 500.0,
+        "currency": "HUF",
+        "direction": "DEBIT",
+        "date": "2026-05-12",
+        "counterparty_name": "Somebody Bt",
+        "counterparty_account": "44444444-55555555-66666666",
+    }
+    monkeypatch.setattr(
+        BankClient, "get_transactions", lambda self: [dict(credit_txn), dict(debit_txn)]
+    )
+
+    count, warnings = sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+
+    assert count == 2
+    assert warnings == []
+
+    credit_btxn = sdb.query(BankTransaction).filter_by(transaction_id="TX-2").first()
+    customer = sdb.query(Customer).filter_by(name="Nobody Kft").first()
+    assert customer is not None
+    assert credit_btxn.customer_id == customer.id
+    assert credit_btxn.supplier_id is None
+    assert customer.bank_accounts == "11111111-22222222-33333333"
+
+    debit_btxn = sdb.query(BankTransaction).filter_by(transaction_id="TX-3").first()
+    supplier = sdb.query(Supplier).filter_by(name="Somebody Bt").first()
+    assert supplier is not None
+    assert debit_btxn.supplier_id == supplier.id
+    assert debit_btxn.customer_id is None
+    assert supplier.bank_accounts == "44444444-55555555-66666666"
+
+
+def test_sync_bank_matches_partner_by_account_over_name(sdb, settings, monkeypatch):
+    """A known bank account number wins over an exact-name match, and over
+    creating a new partner — even when the counterparty name on the
+    transaction differs from the partner's name on file."""
+    existing = Supplier(name="ACME Kft", bank_accounts="11773016-11111018-00000000")
+    sdb.add(existing)
+    sdb.commit()
+
+    txn_dict = {
+        "transaction_id": "TX-ACC-1",
+        "bank": "erste",
+        "amount": 750.0,
+        "currency": "HUF",
+        "direction": "DEBIT",
+        "date": "2026-05-12",
+        "counterparty_name": "ACME Kft Zrt",  # doesn't exactly match "ACME Kft"
+        "counterparty_account": "11773016-11111018-00000000",
+    }
+    monkeypatch.setattr(BankClient, "get_transactions", lambda self: [dict(txn_dict)])
+
+    sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+
+    btxn = sdb.query(BankTransaction).filter_by(transaction_id="TX-ACC-1").first()
+    assert btxn.supplier_id == existing.id
+    # No duplicate created for "ACME Kft Zrt" (only the pre-existing partner
+    # plus sync_bank's one-per-configured-bank fee/interest suppliers exist).
+    assert sdb.query(Supplier).filter_by(name="ACME Kft Zrt").first() is None
+
+
+def test_sync_bank_matches_partner_by_known_name_when_no_account(sdb, settings, monkeypatch):
+    """A counterparty name previously recorded on a partner's known_names
+    (e.g. from a manual link) is used to match a later transaction that has
+    no account number at all and whose name doesn't exactly match the
+    partner's own name — without creating a duplicate partner."""
+    existing = Supplier(name="ACME Kft", known_names="ACME Kft Zrt")
+    sdb.add(existing)
+    sdb.commit()
+
+    txn_dict = {
+        "transaction_id": "TX-KNOWN-1",
+        "bank": "erste",
+        "amount": 750.0,
+        "currency": "HUF",
+        "direction": "DEBIT",
+        "date": "2026-05-12",
+        "counterparty_name": "ACME Kft Zrt",  # doesn't exactly match "ACME Kft"
+        # no counterparty_account/iban — account-based match can't fire
+    }
+    monkeypatch.setattr(BankClient, "get_transactions", lambda self: [dict(txn_dict)])
+
+    sync_bank("2026-05-01", "2026-05-31", sdb, settings)
+
+    btxn = sdb.query(BankTransaction).filter_by(transaction_id="TX-KNOWN-1").first()
+    assert btxn.supplier_id == existing.id
+    assert sdb.query(Supplier).filter_by(name="ACME Kft Zrt").first() is None
+
+
+def test_sync_bank_no_counterparty_data_still_warns(sdb, settings, monkeypatch):
+    """A transaction with neither a counterparty name nor account number
+    still can't be matched and is reported in warnings."""
+    txn_dict = {
+        "transaction_id": "TX-BLANK-1",
+        "bank": "erste",
+        "amount": 500.0,
+        "currency": "HUF",
+        "direction": "DEBIT",
+        "date": "2026-05-12",
+        "description": "misc payment",
     }
     monkeypatch.setattr(BankClient, "get_transactions", lambda self: [dict(txn_dict)])
 
     count, warnings = sync_bank("2026-05-01", "2026-05-31", sdb, settings)
 
     assert count == 1
-    btxn = sdb.query(BankTransaction).filter_by(transaction_id="TX-2").first()
+    btxn = sdb.query(BankTransaction).filter_by(transaction_id="TX-BLANK-1").first()
     assert btxn.supplier_id is None
     assert btxn.customer_id is None
-    # sync_bank does pre-seed one Supplier row per configured bank (for
-    # fee/interest transactions) — but never one for the counterparty itself.
-    assert sdb.query(Supplier).filter_by(name="Nobody Kft").first() is None
-    assert sdb.query(Customer).count() == 0
-    assert any("Nobody Kft" in w for w in warnings)
+    assert sdb.query(Supplier).filter_by(name=None).count() == 0
+    assert any("misc payment" in w for w in warnings)
 
 
 def test_get_pending_sync_counts(sdb, settings):
