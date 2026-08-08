@@ -2,11 +2,17 @@
 title: "Specifikáció: Wise Banki Mikroszerviz"
 description: "Wise banki kivonatok letöltése és visszaadása strukturált JSON-ként"
 language: "HU"
-last_updated: "2026-06-18"
-related: [INDEX.md, invoice-core-spec.md, wise-prompt.md]
+last_updated: "2026-08-09"
+related: [INDEX.md, invoice-core-spec.md, bank-spec.md, wise-prompt.md]
 ---
 
 # Wise Banki Mikroszerviz - Specifikáció
+
+> ⚠️ **DEPRECATED / ON HOLD (2026-07)**: Ez a szolgáltatás felfüggesztve. A Wise
+> bankkivonatok konszolidált feldolgozását a **[[bank-spec.md|bank]]** szerviz
+> (port 8005) vette át (Erste + Wise CSV konszolidáció). A `wise` szerviz kódja
+> a repóban maradt, de új fejlesztés nem várható rá — a frissítéseket a bank
+> szervizre kell irányítani. Az alábbi specifikáció a jelenlegi kódot írja le.
 
 > 🔗 **Hívási Lánc**: [[invoice-core-spec.md|← MASTER (invoice-core)]]
 
@@ -251,12 +257,13 @@ pl. `statement_25546267_HUF_2026-05-19_2026-06-02.csv`
 A fájlokat a Wise webfelületről kézzel kell letölteni és a `balance-statements/` mappába helyezni.
 
 ## Interface
-- **CLI** (script neve: `wise-szamla`):
-  - `wise-szamla status` — Wise API kapcsolat + profilok ellenőrzése
-  - `wise-szamla balances` — elérhető egyenlegek listázása
-  - `wise-szamla sync [--start DATE] [--end DATE] [--currency TEXT] [--json]` — élő API lekérés
-  - `wise-szamla statements [--from DATE] [--to DATE] [--currency TEXT]` — CSV fájlok listázása
-  - `wise-szamla import <filename> [--json]` — egy CSV beolvasása
+- **CLI** (script neve: `wise-invoice`):
+  - `wise-invoice status` — Wise API kapcsolat + profilok ellenőrzése
+  - `wise-invoice balances` — elérhető egyenlegek listázása
+  - `wise-invoice sync [--start DATE] [--end DATE] [--currency TEXT] [--json]` — élő API lekérés
+  - `wise-invoice statements [--from DATE] [--to DATE] [--currency TEXT]` — CSV fájlok listázása
+  - `wise-invoice balance-statements [--from DATE] [--to DATE] [--currency TEXT] [--json]` — CSV fájlok listázása/beolvasása
+  - `wise-invoice import <filename> [--json]` — egy CSV beolvasása
 - **REST API** (port 8003):
   - `GET /health` — állapotellenőrzés
   - `GET /settings` — aktív konfiguráció

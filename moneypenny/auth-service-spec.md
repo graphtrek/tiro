@@ -1,11 +1,11 @@
 ---
 title: "Specifikáció: Auth – Központi Authentication Mikroszerviz"
-description: "Google OAuth 2.0 / OpenID Connect belépés egy központi FastAPI szervizen keresztül; minden mikroszerviz végpont JWT-vel védett, egyedül a vision pitch oldala publikus"
+description: "Google OAuth 2.0 / OpenID Connect belépés egy központi FastAPI szervizen keresztül; minden mikroszerviz végpont JWT-vel védett — publikus kivétel a vision pitch/login oldala és az auth technikai végpontjai"
 type: "service-spec"
-status: "tervezett"
+status: "megvalósítva"
 port: 8007
 language: "HU"
-last_updated: "2026-07-17"
+last_updated: "2026-08-09"
 related: [INDEX.md, auth-service-prompt.md, vision-spec.md, invoice-core-spec.md, bank-spec.md]
 tags: [auth, google, oauth2, openid-connect, jwt, jwks, fastapi, security]
 ---
@@ -44,6 +44,7 @@ Az egész rendszerben kizárólag az alábbiak érhetők el token nélkül:
 | auth (8007) | `GET /auth/{provider}/login` | belépés indítása (redirect a Google-höz) |
 | auth (8007) | `GET /auth/{provider}/callback` | OAuth callback a Google-től |
 | auth (8007) | `POST /auth/refresh` | access token frissítése refresh tokennel |
+| auth (8007) | `POST /auth/verify` | token introspekció — a token maga a hitelesítés |
 | auth (8007) | `GET /.well-known/jwks.json` | publikus kulcsok a JWT validáláshoz |
 | összes szerviz | `GET /health` | monitoring (nem ad ki üzleti adatot) |
 
@@ -93,12 +94,39 @@ Kulcspontok:
 
 | Token | Élettartam | Tartalom |
 |---|---|---|
-| Access token (JWT, RS256) | 15 perc | `sub` (Google user id), `email`, `name`, `picture`, `provider`, `iat`, `exp`, `iss=auth-service`, `aud=moneypenny` |
-| Refresh token (JWT, RS256) | 30 nap | `sub`, `jti` (visszavonáshoz), `iat`, `exp` |
+| Access token (JWT, RS256) | 15 perc | `sub` (Google user id), `email`, `name`, `picture`, `provider`, `typ: "access"`, `iat`, `exp`, `iss=auth-service`, `aud=moneypenny` — megszemélyesítésnél plusz `impersonator_sub` + `impersonator_email` (az admin sub-ja / e-mailje) |
+| Refresh token (JWT, RS256) | 30 nap | `sub`, `email`, `name`, `picture`, `provider`, `jti` (visszavonáshoz), `typ: "refresh"`, `iat`, `exp` |
 
 - Aláírás: **RS256** — a privát kulcs csak az auth szerviznél van, a publikus kulcsot a `/.well-known/jwks.json` adja ki (`kid`-del, kulcsrotáció támogatott).
 - A védett szervizek a JWKS-t indításkor letöltik és cache-elik (TTL, pl. 1 óra); ismeretlen `kid` esetén újratöltés.
-- Refresh flow: `POST /auth/refresh` a refresh tokennel → új access token. Logout: `POST /auth/logout` → cookie törlés + refresh token `jti` visszavonás (in-memory/fájl denylist — nincs DB).
+- Refresh flow: `POST /auth/refresh` a refresh tokennel → új access token. **A refresh token nem rotálódik** — ugyanaz a token jön vissza a válaszban.
+- Logout: `POST /auth/logout` → cookie törlés + a refresh token `jti`-jének visszavonása. A visszavont `jti`-k **fájl alapú denylistbe** kerülnek (`keys/revoked_jti.txt`, `DENYLIST_PATH` env) — nincs DB.
+- A vision login oldala fetch-csel hívja a `POST /auth/refresh`-et (silent login) — ezért a szerviz CORS middleware-je engedélyezi a vision origin-t (`allow_credentials=True`).
+
+---
+
+## Megszemélyesítés (admin impersonation)
+
+Admin felhasználók egy másik felhasználó identitásában kaphatnak access tokent
+— support / tesztelési forgatókönyvekhez. A célfelhasználónak már léteznie
+kell a rendszerben (az `invoice-core` user táblájában).
+
+- Végpont: `POST /auth/impersonate` — érvényes access token szükséges, és az
+  admin e-mailnek a `ADMIN_EMAILS` listán kell lennie.
+- Kérés (JSON body): `{"email": "<cél felhasználó e-mailje>"}`.
+- Válasz: `TokenPair` — `access_token`, `refresh_token: null`,
+  `token_type: "bearer"`, `expires_in`.
+- Hibák: nem admin → `403 Forbidden`; nincs ilyen felhasználó, vagy az
+  `invoice-core` nem érhető el → `404`.
+- A célfelhasználót az `invoice-core` `GET /api/v1/users` listájából keresi ki
+  a szerviz (az admin saját access tokenjével, `find_user_by_email`).
+- Kiállított token: a cél felhasználó profilja (`sub`, `email`, ...),
+  kiegészítve az `impersonator_sub` / `impersonator_email` claims-szel (az
+  admin sub-ja / e-mailje) — így a védett szervizek és az audit log
+  azonosítani tudja, ki személyesített meg kit.
+- **Nincs refresh token** a válaszban; a szerviz csak az access cookie-t írja
+  felül, az admin refresh cookie-ja érintetlen marad — így a `POST /auth/refresh`
+  automatikusan visszaállítja az admin identitását.
 
 ---
 
@@ -114,7 +142,9 @@ kiállított access tokennel (`Authorization: Bearer`):
 - Ha az `invoice-core` nem érhető el, a hívás hibáját csak logolja (`logger.warning`)
   — **a bejelentkezés emiatt sosem hiúsul meg**, az auth szerviz felelőssége csak
   az authentikáció, a login-rekord tárolása másodlagos mellékhatás.
-- Kliens: `auth_service/invoice_core_client.py` (`InvoiceCoreClient.save_user`), a
+- Kliens: `auth_service/invoice_core_client.py` — `InvoiceCoreClient.save_user` és
+  `find_user_by_email(email, access_token)` (a `GET /api/v1/users` listából szűr e-mail
+  alapján — ezt használja a megszemélyesítés a célfelhasználó felkereséséhez), a
   bázis URL `INVOICE_CORE_URL` env változóból.
 
 ---
@@ -148,7 +178,7 @@ class UserInfo(BaseModel):
 
 class TokenPair(BaseModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str | None = None  # megszemélyesítésnél nincs refresh token
     token_type: str = "bearer"
     expires_in: int          # access token TTL másodpercben
 
@@ -157,6 +187,30 @@ class ProviderInfo(BaseModel):
     label: str               # "Belépés Google-fiókkal"
     icon: str                # "bi-google"
     login_url: str           # "/auth/google/login"
+
+class JWTClaims(BaseModel):
+    sub: str
+    iat: int
+    exp: int
+    iss: str
+    aud: str
+    typ: str                 # "access" | "refresh"
+    email: str | None = None
+    name: str | None = None
+    picture: str | None = None
+    provider: str | None = None
+    jti: str | None = None   # refresh tokennél, visszavonáshoz
+    impersonator_sub: str | None = None    # megszemélyesítésnél: az admin sub-ja
+    impersonator_email: str | None = None  # megszemélyesítésnél: az admin e-mailje
+```
+
+Kivételek (`models.py`):
+
+```python
+class AuthError(Exception): ...          # általános auth hiba (state, token, provider)
+class NotAllowedError(AuthError): ...    # e-mail nincs a whitelisten
+class ForbiddenError(AuthError): ...     # nincs admin jogosultság (megszemélyesítés)
+class ProviderError(AuthError): ...      # Google hívás / ID token ellenőrzés hibája
 ```
 
 ---
@@ -174,6 +228,7 @@ class ProviderInfo(BaseModel):
 | `POST` | `/auth/refresh` | refresh token | új access token |
 | `POST` | `/auth/logout` | ✅ | cookie törlés + refresh token visszavonás |
 | `GET` | `/auth/me` | ✅ | bejelentkezett felhasználó (`UserInfo`) |
+| `POST` | `/auth/impersonate` | ✅ admin (`ADMIN_EMAILS`) | megszemélyesítés: új access token egy másik felhasználóként — 403 nem adminnál, 404 ha nincs ilyen felhasználó |
 | `POST` | `/auth/verify` | – | token introspekció (opcionális; a szervizek normál esetben lokálisan validálnak) |
 
 ---
@@ -219,10 +274,10 @@ async def require_auth(
 ## CLI (script neve: `auth`)
 
 ```bash
-auth status                        # konfiguráció + kulcsok + providerek állapota
-auth keygen [--out keys/]          # RS256 kulcspár generálása (első beüzemelés)
-auth verify <token>                # JWT dekódolás + validálás (debug)
-auth revoke <jti>                  # refresh token visszavonása
+auth status                        # konfiguráció + kulcsok + providerek + visszavont tokenek
+auth keygen [--out keys/] [--force]  # RS256 kulcspár generálása (--force: felülírás)
+auth verify <token>                # JWT dekódolás + validálás (access és refresh típusra is)
+auth revoke <jti>                  # refresh token visszavonása (fájl denylist)
 auth providers                     # engedélyezett providerek listája
 ```
 
@@ -241,7 +296,7 @@ auth/
 │   │   ├── base.py        # AuthProvider Protocol
 │   │   └── google.py      # Google OAuth 2.0 / OIDC (authorization code + PKCE)
 │   ├── invoice_core_client.py  # login rekord POST-olása invoice-core-ba (best-effort)
-│   ├── service.py         # login flow, whitelist, refresh, revoke
+│   ├── service.py         # login flow, whitelist, refresh, revoke, impersonate
 │   ├── api/
 │   │   └── main.py        # FastAPI app
 │   └── cli/
@@ -260,15 +315,18 @@ auth/
 - Python 3.11+
 - FastAPI, Typer, Rich
 - Pydantic v2 + pydantic-settings (`.env`)
-- **Authlib** (OAuth 2.0 / OIDC kliens) vagy httpx + google-auth
-- **PyJWT + cryptography** (RS256, JWKS)
-- Nincs saját adatbázis — leaf szerviz (a revoke-denylist fájl alapú). Sikeres belépéskor a felhasználó profilját és a login providert best-effort elmenti az `invoice-core` `/api/v1/users` végpontján (a friss access tokennel) — az `invoice-core` az egyetlen szerviz a workspace-ben, aminek saját PostgreSQL adatbázisa van.
+- **httpx** (Google token csere) + **PyJWT / PyJWKClient** (Google JWKS + ID token ellenőrzés, certifi TLS trust store)
+- **PyJWT + cryptography** (saját RS256 kiállítás, JWKS)
+- Nincs saját adatbázis — leaf szerviz (a revoke-denylist fájl alapú: `keys/revoked_jti.txt`). Sikeres belépéskor a felhasználó profilját és a login providert best-effort elmenti az `invoice-core` `/api/v1/users` végpontján (a friss access tokennel) — az `invoice-core` az egyetlen szerviz a workspace-ben, aminek saját PostgreSQL adatbázisa van.
 
 ---
 
 ## Environment (`.env`)
 
 ```env
+# A szerviz a workspace gyökerében lévő KÖZÖS .env fájlt tölti (monorepo),
+# nem saját .env-et (lásd config.py: _WORKSPACE_ROOT / ".env").
+
 # Google OAuth (Google Cloud Console → OAuth 2.0 Client ID, Web application)
 GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=<titkos>
@@ -282,18 +340,35 @@ REFRESH_TOKEN_TTL=2592000         # 30 nap
 JWT_AUDIENCE=moneypenny
 JWT_ISSUER=auth-service
 
-# Jogosultság
+# Jogosultság — belépés (whitelist)
 ALLOWED_EMAILS=imre.tatai@graphtrek.co
 ALLOWED_DOMAINS=graphtrek.co
+
+# Admin — ezek az e-mailek indíthatnak megszemélyesítést (POST /auth/impersonate)
+ADMIN_EMAILS=imre.tatai@graphtrek.co
 
 # Providerek
 ENABLED_PROVIDERS=google
 
+# Cookie-k (localhost fejlesztésnél nincs HTTPS → secure kikapcsolva)
+COOKIE_SECURE=false
+ACCESS_COOKIE_NAME=mp_access_token
+REFRESH_COOKIE_NAME=mp_refresh_token
+
+# Refresh token visszavonás — fájl alapú denylist (nincs DB)
+DENYLIST_PATH=./keys/revoked_jti.txt
+
+# OAuth state / PKCE bejegyzések élettartama másodpercben
+LOGIN_STATE_TTL=600
+
 # Szerver
 VISION_URL=http://localhost:8009  # login utáni default redirect
 API_HOST=0.0.0.0
-API_PORT=8007
+API_PORT=8007                     # AUTH_API_PORT alias is működik
 LOG_LEVEL=INFO
+
+# invoice-core — login rekord mentése (best-effort, POST /api/v1/users)
+INVOICE_CORE_URL=http://localhost:8004
 ```
 
 ---

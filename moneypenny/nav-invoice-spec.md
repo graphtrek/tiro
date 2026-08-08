@@ -2,7 +2,7 @@
 title: "Specifikáció: NAV Online Számla Mikorszerviz"
 description: "NAV Online Számla API integrációs mikroszerviz"
 language: "HU"
-last_updated: "2026-06-15"
+last_updated: "2026-08-09"
 related: [INDEX.md, invoice-core-spec.md, invoice-file-filter-spec.md]
 ---
 
@@ -16,13 +16,15 @@ related: [INDEX.md, invoice-core-spec.md, invoice-file-filter-spec.md]
 Te egy Backend API Integrációs Mérnök vagy. A feladatod a NAV Online Számla API hídjét fejleszteni a `invoice-core` orchestrator és a magyar fiskális hatóság között. Ez a szolgáltatás biztosítja, hogy a vállalati számlák naprakészen legyenek a NAV rendszerben regisztrálva, és az adatok konzisztenciája az egész Moneypenny rendszeren keresztül fenntartott legyen.
 
 ## Funkció
-- NAV Online Számla API-tól számlák lekérdezése (query)
+- NAV Online Számla API-tól számlák lekérdezése (query): számlalista (`queryInvoiceDigest`), egyedi számla (`queryInvoiceData`), adószám-ellenőrzés (`queryTaxpayer`)
+- Adatszolgáltatás (`manageInvoice`) — számla beküldése a NAV felé, automatikus `tokenExchange`-szel
 - **Levél szolgáltatás** — más mikroszervízt nem hív meg; eredményt ad vissza a `invoice-core`-nek
 
 ## API Integrációs pontok
-- Számlák lekérdezése (számlaszám alapján)
-- Lekérdezési adatok (keresési paraméterek)
-- Számlastátusz lekérése
+- Számlák lekérdezése (számlaszám alapján) — `queryInvoiceData`
+- Számlalista lekérdezése (dátumtartomány, irány, lapszám) — `queryInvoiceDigest`
+- Adószám ellenőrzése — `queryTaxpayer`
+- Számla beküldése (adatszolgáltatás) — `manageInvoice` + `queryTransactionStatus`
 
 ## Request paraméterek (számlalista lekérdezés)
 - `from_date` (YYYY-MM-DD, optional) - kiállítás dátuma (tól), default: ma − 30 nap
@@ -59,32 +61,33 @@ Egyedi számlalekérdezés:
   - `nav login` — tokenExchange tesztelése
   - `nav list [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--direction INBOUND|OUTBOUND] [--page N] [--json]`
   - `nav show <számlaszám> [--direction INBOUND|OUTBOUND]` — egyedi számla XML
-  - `nav report --json '{...}'` — manageInvoice (adatszolgáltatás)
+  - `nav report --json '{...}'` — manageInvoice (adatszolgáltatás); `--json` nélkül csak placeholder üzenet
   - `nav cache-clear` — memória-cache törlése
-  - `nav --verbose list ...` — DEBUG szintű napló
+  - `nav --verbose list ...` (alias: `-v`) — DEBUG szintű napló
 - **REST API** (port 8002):
-  - `GET /health` — állapotellenőrző
+  - `GET /health` — állapotellenőrző (JWT nélkül is elérhető)
   - `POST /auth/login` — tokenExchange (hitelesítés teszt)
   - `GET /invoices` — számlalista (queryInvoiceDigest)
-  - `GET /invoices/{szamlaszam}` — egyedi számla XML (queryInvoiceData)
+  - `GET /invoices/{szamlaszam}` — egyedi számla: dekódolt XML + feldolgozott részletmezők (queryInvoiceData + `InvoiceDetailData`)
   - `POST /report` — számla beküldése (manageInvoice)
   - `POST /cache/clear` — memória-cache törlése
   - `GET /settings` — aktív konfiguráció
+- **JWT védelem**: minden végpont (kivéve `/health`) érvényes access tokent követel (lásd Auth szekció lentebb)
 
 ## Tech stack
-- Python 3.10+
+- Python 3.14+ (`pyproject.toml`: `requires-python >=3.14`; Docker kép: `python3.14-bookworm-slim`)
 - FastAPI, Click
 - NAV Online Számla API 3.0 REST/XML (`/invoiceService/v3`)
-- pydantic-settings (.env konfiguráció)
-- requests (HTTP kliens)
-- lxml (XML feldolgozás)
+- pydantic-settings (konfiguráció a monorepo gyökeri közös `.env`-ből)
+- requests (HTTP kliens), lxml (XML feldolgozás)
 - cryptography (AES-128 token visszafejtés)
+- pyjwt[crypto] + certifi (JWT validálás a központi auth szerviz JWKS kulcsaival)
 
 ## Auth
 - **Technikai felhasználó** hitelesítés: SHA-512 jelszó hash, SHA3-512 kérés-aláírás, AES-128 token visszafejtés
 - Konfigurálható endpoint (`test` / `production`)
-- Memória-cache (TTL konfigurálható, `CACHE_TTL_SECONDS`)
-- API rate limiting kezelés
+- **JWT védelem (06c9d10)**: a REST API minden végpontja (kivéve `/health`) RS256-os access tokent követel — Bearer fejlécben vagy `mp_access_token` cookie-ban. A tokent a központi auth szerviz (:8007) bocsátja ki (`aud=moneypenny`, `iss=auth-service`); a JWKS publikus kulcsokat a szerviz lokálisan cache-eli (1 óra TTL, ismeretlen `kid` esetén újratöltés), így nincs kérésenkénti hálózati hívás. `AUTH_ENABLED=false` esetén a védelem kikapcsolható (teszt).
+- Memória-cache (TTL konfigurálható, `CACHE_TTL_SECONDS`, default 3600 mp)
 
 ---
 
@@ -107,7 +110,9 @@ Egyedi számlalekérdezés:
 
 ---
 
-### 2. Konfigurációs fájl beállítása (`.env`)
+### 2. Konfigurációs fájl beállítása (közös gyökeri `.env`)
+
+A konfiguráció a **monorepo gyökerében** lévő közös `.env` fájlból töltődik (340075c refactor — nincs külön `nav-invoice/.env.example`).
 
 ```dotenv
 # Technikai felhasználó (NAV portálról)
@@ -121,6 +126,7 @@ TAX_NUMBER=12345678
 
 # Környezet: "test" vagy "production"
 ENVIRONMENT=test
+# ENDPOINT_URL=...  # opcionális teljes base URL felülírás (pl. proxy/teszt szerver)
 
 # Szoftver regisztrációs blokk (minden kérésben szerepel)
 SOFTWARE_ID=HU00000000NAVSZAML0
@@ -130,7 +136,22 @@ SOFTWARE_MAIN_VERSION=0.1.0
 SOFTWARE_DEV_NAME=nav-invoice
 SOFTWARE_DEV_CONTACT=dev@example.com
 SOFTWARE_DEV_COUNTRY_CODE=HU
+# SOFTWARE_DEV_TAX_NUMBER=  # opcionális; hiányában a TAX_NUMBER kerül bele
+
+# FastAPI szerver
+API_HOST=0.0.0.0
+NAV_INVOICE_API_PORT=8002   # alias: API_PORT
+LOG_LEVEL=INFO
+CACHE_TTL_SECONDS=3600      # query cache TTL
+
+# JWT védelem (központi auth szerviz, :8007)
+AUTH_ENABLED=true           # false = teszt, védelem kikapcsolva
+AUTH_SERVICE_URL=http://localhost:8007
+JWT_AUDIENCE=moneypenny
+JWT_ISSUER=auth-service
 ```
+
+> **Megjegyzés**: a régi `certificate_path` / `private_key_path` kulcsok továbbra is léteznek a `Settings`-ben, de a v3 REST API **nem használja** őket (kompatibilitás miatt maradtak); a privát kulcsok nincsenek verziózva (d8a4898).
 
 ---
 
@@ -271,6 +292,39 @@ if compressed:
 invoice_xml = raw.decode("utf-8")
 ```
 
+**Cache:** `data:{számlaszám}:{direction}` kulcson, TTL: `CACHE_TTL_SECONDS`.
+
+**Részletmezők (3f60db6 / 830ccfc):** a dekódolt business XML-t a `invoice_data.py:parse_invoice_data` feldolgozza, és a `GET /invoices/{szamlaszam}` válasz a `szamlaszam` és `invoice_xml` mellett az alábbi `InvoiceDetailData` mezőket is adja (amik a digestből nem érhetők el):
+
+| Mező | Forrás XML elem | Típus |
+|---|---|---|
+| `supplier_address` / `customer_address` | `supplierAddress` / `customerAddress` (detailedAddress összefűzve) | str |
+| `supplier_bank_account` / `customer_bank_account` | `supplierBankAccountNumber` / `customerBankAccountNumber` | str |
+| `payment_method` | `paymentMethod` | str |
+| `payment_due_date` | `paymentDate` | str |
+| `invoice_category` | `invoiceDetail/invoiceCategory` | str |
+| `delivery_date` | `invoiceDeliveryDate` | str |
+| `currency_code` | `currencyCode` | str |
+| `exchange_rate` | `exchangeRate` | float \| None |
+| `invoice_appearance` | `invoiceAppearance` | str |
+| `invoice_net_amount` / `invoice_vat_amount` / `invoice_gross_amount` | `invoiceSummary` | float \| None |
+| `lines` | `invoiceLines/line` → `InvoiceLineData` (lineNumber, lineDescription, quantity, unitOfMeasure, unitPrice, lineNetAmount, lineVatRate, lineVatAmount, lineGrossAmount) | lista |
+| `vat_summary` | `summaryNormal/summaryByVatRate` → `InvoiceVatSummaryData` (vatRate, vatRateNetAmount, vatRateVatAmount) | lista |
+
+**Modell-struktúra (c6167eb):** a `keltes_datuma` mező kikerült az `InvoiceDetail`-ből — a dátum továbbra is az `InvoiceHeader`-ben él, az `InvoiceDetail` = `header` + `line_items` + `status`.
+
+---
+
+### 7b. `queryTaxpayer` — adószám-ellenőrzés (`query.py`)
+
+Magyar adószám érvényességének ellenőrzése a NAV nyilvántartásában (API-n és CLI-n keresztül jelenleg nem érhető el, csak Python API-ból).
+
+**Kérés body:** `<taxNumber>{adószám}</taxNumber>`
+
+**Cache:** `taxpayer:{adószám}` kulcson, TTL: `CACHE_TTL_SECONDS`.
+
+**Válasz:** `{"valid": bool, "name": str, "short_name": str}` (`taxpayerValidity`, `taxpayerName`, `taxpayerShortName`).
+
 ---
 
 ### 8. Hibakezelés (`client.py`)
@@ -288,6 +342,32 @@ A `NavApiError` tárolja: `message`, `func_code`, `error_code`.
 
 HTTP Content-Type: `application/xml;charset=UTF-8` (kérés és válasz is).
 Timeout: 70 mp (NAV API lassú lehet).
+
+---
+
+### 9. `manageInvoice` — adatszolgáltatás (`reporting.py`)
+
+A számla beküldése a `reporting.py` modulban történik, automatikus `tokenExchange`-szel:
+
+1. `request_token()` — exchange token kérése és AES-128 visszafejtése (a 4c pont szerint).
+2. A szakmai XML base64-kódolása; a kérés-aláírás az operációnkénti `SHA3-512(operation + base64_invoiceData)` hash-ekkel bővül.
+3. `POST /manageInvoice` → válaszban `transactionId`; `compressedContent` = `false`.
+
+```xml
+<exchangeToken>...</exchangeToken>
+<invoiceOperations>
+  <compressedContent>false</compressedContent>
+  <invoiceOperation>
+    <index>1</index>
+    <invoiceOperation>CREATE</invoiceOperation>   <!-- CREATE | MODIFY | STORNO -->
+    <invoiceData>{base64 szakmai XML}</invoiceData>
+  </invoiceOperation>
+</invoiceOperations>
+```
+
+**`queryTransactionStatus`** (`transactionId` + `returnOriginalRequest=false`) — a beküldött tranzakció feldolgozási státuszának lekérdezése (`processingResult` → `invoiceStatus`).
+
+A `POST /report` végpont és a `nav report --json` parancs a régi `SubmitInvoiceRequest` modellből (fejléc + tételek) épít fel egy **egykulcsos, minimális** `InvoiceData` XML-t, majd azt küldi be `CREATE` művelettel; bonyolultabb számlákhoz dedikált számlagenerátor + `manage_invoice()` javasolt.
 
 ---
 

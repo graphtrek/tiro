@@ -1,95 +1,106 @@
 # AGENTS.md
 
 ## Core Workspace Principles
-- **Multi-project scope**: This is a `uv`-based Python workspace. Each sub-project has its own `pyproject.toml` and isolated `.venv`.
-- **Isolated virtual environments**: **Every sub-project has its own `.venv` at `<project>/.venv`. There is NO shared/root venv.** Always use the target project's own environment — `cd <project>` then either `source .venv/bin/activate` or prefix with `uv run`. Never cross-use environments.
-- **Context Isolation**: Always `cd` into the specific project directory before running commands or syncing deps.
-- **Dependency management**: `cd <project> && uv sync` installs into that project's `.venv`; `uv run <cmd>` executes inside it.
-- **Shared config**: All services read a single root `.env` (copied from root `.env.example`) via `pydantic-settings` — there is no per-service `.env` anymore. Most keys are shared plain names; a few that genuinely differ per service (`API_PORT` always, plus one-off `AUTH_ENABLED`/`LOG_LEVEL`/`REQUEST_TIMEOUT` exceptions) use a `<SERVICE>_<KEY>` prefixed override, falling back to the shared plain key. See `CLAUDE.md` for the full key list.
-- **Workspace meta**: Root holds `python-for-ai.code-workspace` (VS Code), `.env.example`, and project-wide docs (this file, `CLAUDE.md`).
+- **Multi-project scope**: `uv`-based Python monorepo. Each sub-project has its own `pyproject.toml` and isolated `.venv`.
+- **Isolated environments**: **NO shared venv**. Each project lives at `<project>/.venv`. Always `cd <project>` then `uv sync` and `uv run <cmd>` — never cross-use environments.
+- **Shared config**: Single root `.env` (from `.env.example`) via `pydantic-settings`. Most keys use plain names; per-service exceptions (`API_PORT`, `AUTH_ENABLED`, `LOG_LEVEL`, `REQUEST_TIMEOUT`) use `<SERVICE>_<KEY>` overrides.
+- **Root files**: `python-for-ai.code-workspace` (VS Code), `.env.example`, `AGENTS.md`, `CLAUDE.md` (authoritative), `REQUIREMENTS.md` (QA requirements).
+- **Architecture**: attachment-downloader (:8000) → invoice-file-filter (:8001) → nav-invoice (:8002) → invoice-core (:8004) → vision (:8009). bank (:8005) and uploader (:8006) feed invoice-core; auth (:8007) is the centralized login gateway.
 
-## moneypenny — Design Wiki (Obsidian)
-- **Not code**: an Obsidian vault of `*-spec.md` (specifications) and `*-prompt.md` (generation prompts) plus `INDEX.md` (navigation). Written in Hungarian.
-- **System described**: "Moneypenny" — an invoice-automation pipeline of five Python microservices, each with a FastAPI REST interface and a Typer/Click CLI:
-
-  | # | Service | Port | Role |
-  |---|---|---|---|
-  | 4 | `invoice-core` | 8004 | MASTER orchestrator — DB persistence + reconciliation (pure REST backend) |
-  | 3 | `nav-invoice` | 8002 | NAV Online Számla API query |
-  | 2 | `invoice-file-filter` | 8001 | PDF metadata extraction (OCR/Regex) |
-  | 1 | `attachment-downloader` | 8000 | Gmail PDF attachment download |
-  | 5 | `wise` | 8003 | Wise bank-statement download/sync (independent entry point) |
-  | 6 | `vision` | 8009 | Frontend — all web UI pages + SrcProfit (IBKR) analytics |
-
-- **Call chain**: `POST /api/v1/sync` on `invoice-core` (8004) → `nav-invoice` (8002) → `invoice-file-filter` (8001) → `attachment-downloader` (8000). `wise` (8003) is an independent entry point. `vision` (8009) is the frontend: it consumes invoice-core's REST API and SrcProfit, and renders all UI pages.
-- **Implementation status**: All five microservices are fully implemented in this workspace.
+## Microservices (FastAPI + CLI, each with `uv run`)
+| Project         | Port  | Purpose                                      |
+|-----------------|-------|----------------------------------------------|
+| `auth`          | 8007  | Google OAuth 2.0/OIDC, RS256 JWT issuance    |
+| `attachment-downloader` | 8000 | Gmail PDF attachment download               |
+| `invoice-file-filter`    | 8001 | PDF extraction, OCR, invoice keyword match |
+| `nav-invoice`    | 8002  | NAV Online Számla 3.0 REST/XML client        |
+| `invoice-core`   | 8004  | Master orchestrator — PostgreSQL persistence |
+| `bank`           | 8005  | Consolidated bank statements (Erste + Wise)  |
+| `uploader`       | 8006  | CSV upload endpoint for bank service         |
+| `vision`         | 8009  | Web frontend — consumes invoice-core REST API|
+| `e2e`            | —     | End-to-end QA tests (pytest + Playwright)    |
+|| `vault-agent`    | 8010    | Chat with Obsidian vaults (Pydantic AI)      |
+| `banking`        | —     | Internal banking logic utility library       |
 
 ## nav-invoice — NAV Online Számla 3.0 client
-- **Purpose**: Hungarian tax-authority (NAV) Online Számla 3.0 REST/XML client (`/invoiceService/v3`) using technical-user authentication (SHA-512 password hash, SHA3-512 signature, AES-128 token).
-- **Layout**: core package `src/nav_invoice/` (`config`, `models`, `crypto`, `client`, `auth`, `query`, `reporting`), `api/` (FastAPI, port 8002), `cli/` (Click CLI). `requires-python >=3.11`.
-- **Run**:
-  - API: `cd nav-invoice && python run_api.py` (port 8002).
-  - CLI: `uv run nav login | list [--from DATE --to DATE] [--direction INBOUND] [--json] | show <invoice>`.
-  - Tests: `uv run pytest tests/ -v`. Lint/format: `uv run ruff check|format src/`.
-- **Env** (shared root `.env`): `USERNAME`, `PASSWORD`, `LICENSE_KEY`, `CSERE_KEY`, `TAX_NUMBER`, `SOFTWARE_*`, `ENVIRONMENT` (`test`/`production`), optional `ENDPOINT_URL`, `API_HOST`/`NAV_INVOICE_API_PORT`, `LOG_LEVEL`, `CACHE_TTL_SECONDS`.
+- **Layout**: `src/nav_invoice/` (config, models, crypto, client, auth, query), `api/main.py` (FastAPI), `cli/main.py` (Click), `tests/`. `requires-python >=3.11`.
+- **Run**: `cd nav-invoice && uv run uvicorn nav_invoice.api.main:app --port 8002 --reload`. CLI: `uv run nav list [--from --to] [--direction]`.
+- **Env** (root `.env`): `USERNAME`, `PASSWORD`, `LICENSE_KEY`, `CSERE_KEY`, `TAX_NUMBER`, `SOFTWARE_*`, `ENVIRONMENT` (`test`/`production`).
 
 ## attachment-downloader — Gmail PDF attachment downloader
-- **Purpose**: Downloads PDF attachments from Gmail for a given date range. Leaf service consumed by `invoice-file-filter`. Supports multiple providers (Gmail implemented; Outlook planned).
-- **Layout**: `src/attachment_downloader/` with `api/main.py` (FastAPI: `POST /api/v1/jobs`, `GET/DELETE /api/v1/cache`), `cli/main.py` (Typer), `providers/gmail/client.py` (GmailClient), `base.py` (EmailClient Protocol), `cache.py` (TTL cache). `requires-python >=3.9`.
-- **Run**:
-  - API: `cd attachment-downloader && uv run uvicorn attachment_downloader.api.main:app --port 8000 --reload`.
-  - CLI: `uv run attachment-downloader --start DATE --end DATE [--output subdir] [--provider gmail]`.
-  - Tests: `uv run pytest tests/ -v`.
-- **Auth**: place OAuth2 desktop `credentials.json` in project root; `token.json` generated on first auth. Configurable via `GOOGLE_CREDENTIALS_FILE` / `GOOGLE_TOKEN_FILE` in `.env`. Not committed.
-- **Files**: saved as `YYYY-MM-DD_NNNN_<sanitized>.pdf`; counter resumes from highest existing file.
+- **Layout**: `src/attachment_downloader/` (api/main.py, cli/main.py, providers/gmail/client.py, base.py, cache.py, config.py, models.py), `tests/`. `requires-python >=3.9`.
+- **Run**: `cd attachment-downloader && uv run uvicorn attachment_downloader.api.main:app --port 8000 --reload`. CLI: `uv run attachment-downloader --start --end`.
+- **Auth**: Place OAuth2 `credentials.json` in project root; `token.json` generated on first auth. Override via `GOOGLE_CREDENTIALS_FILE`/`GOOGLE_TOKEN_FILE`.
+- **Files**: `YYYY-MM-DD_NNNN_<sanitized>.pdf`; counter resumes from highest existing file.
 
 ## invoice-file-filter — PDF extraction + invoice filtering
-- **Purpose**: Calls attachment-downloader to get PDFs, detects invoices by keyword matching, extracts text (pdfplumber + Tesseract OCR fallback), and returns file metadata + word list for `invoice-core`.
-- **Layout**: `src/invoice_file_filter/` with `api/main.py` (FastAPI: `POST /api/v1/invoices/extract`, `POST /api/v1/pdf/words`), `cli/main.py` (Typer: `process`, `words`, `cache-info`, `cache-clear`), `service.py`, `client.py`. `requires-python >=3.11`.
-- **Run**:
-  - API: `cd invoice-file-filter && python run_api.py` (port 8001).
-  - CLI: `uv run invoice-file-filter process [--start DATE] [--end DATE] [--local] [--json]`.
-  - System deps for OCR: `brew install poppler tesseract tesseract-lang` (macOS).
-  - Tests: `uv run pytest tests/ -v`.
-- **Env**: `ATTACHMENT_DOWNLOADER_URL`, `OUTPUT_DIR`, `INVOICE_KEYWORDS`, `OCR_ENABLED`, `OCR_LANGUAGE`, `API_HOST`/`API_PORT` (8001), `LOG_LEVEL`.
+- **Layout**: `src/invoice_file_filter/` (api/main.py, cli/main.py, service.py, client.py, config.py, models.py), `tests/`. `requires-python >=3.11`.
+- **Run**: `cd invoice-file-filter && uv run uvicorn invoice_file_filter.api.main:app --port 8001 --reload`. CLI: `uv run invoice-file-filter process [--start --end] [--local]`.
+- **System deps**: `brew install poppler tesseract tesseract-lang` (macOS).
+- **Env**: `ATTACHMENT_DOWNLOADER_URL`, `OUTPUT_DIR`, `INVOICE_KEYWORDS` (JSON array), `OCR_ENABLED`, `OCR_LANGUAGE` (`hun+eng`), `EXTRACT_WORKERS` (default 4).
 
-## invoice-core — master orchestrator
-- **Purpose**: Orchestrates the full pipeline (NAV → PDF → Bank), reconciles results, persists everything to PostgreSQL. Pure **JSON REST backend** — all web UI is served by `vision` (port 8009). `requires-python >=3.11`.
-- **Layout**: `src/invoice_core/` — `api/main.py` (FastAPI REST + CORS for vision), `services/` (dashboard, invoice, partner, transaction, invoice_file, dividend, tax), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`.
-- **REST API** (selected): `/api/v1/dashboard` · `/api/v1/invoices` (filters: date, status, direction, has_pdf, supplier_name) · `/api/v1/invoices/{id:int}` · `/api/v1/invoice-files` + `/pdf` serve · partners (list + summary + detail) · transactions (list + filters + detail + balances) · sync logs · reports (dividend + tax).
-- **Run**:
-  - DB: `cd invoice-core && uv run alembic upgrade head` (PostgreSQL; SQLite in-memory for tests).
-  - API: `python run_api.py` (port 8004).
-  - CLI: `uv run invoice-core sync [--start DATE] [--end DATE]` · `sync-nav` · `sync-pdf` · `sync-bank` · `sync-match` · `report --month YYYY-MM` · `link <invoice> <file>` · `link-bank <txn_id> <file>`.
-  - Tests: `uv run pytest tests/ -v`.
-- **Sync pipeline**:
-  1. `sync_nav` — upsert NAV invoices, suppliers, customers.
-  2. `sync_pdf` — upsert InvoiceFile records; link invoices to files (filename match → word search fallback).
-  3. `sync_bank` — upsert BankTransactions (Erste + Wise CSV via bank service); link to invoices via `payment_reference`; mark PAID.
-  4. `sync_match` — link unmatched transactions to files (transitive → authoritative reference → scored vendor/amount/date); back-link any transaction sharing a file with an invoice to that invoice and mark it PAID.
-- **Tax service**: `tax_service.py` identifies tax payments by matching `bank_transaction.counterparty_account` against known NAV (ÁFA, SZJA, TAO, Szochó, TB, Bírság), HIPA, and Iparkamara account numbers.
-- **Env**: `DB_URL` (JDBC, auto-converted), `DB_USER`, `DB_PWD`, `NAV_INVOICE_URL` (`:8002`), `INVOICE_FILE_FILTER_URL` (`:8001`), `BANK_URL` (`:8005`), `SYNC_TIMEOUT`, `API_HOST`/`API_PORT` (8004), `LOG_LEVEL`.
+## invoice-core — master orchestrator (PostgreSQL)
+- **Layout**: `src/invoice_core/` (api/main.py, services/, service.py, db.py, models.py, config.py, nav_client.py, pdf_client.py, bank_client.py), `tests/`. `requires-python >=3.11`.
+- **Run**: `cd invoice-core && uv run alembic upgrade head`. API: `python run_api.py` (:8004). CLI: `uv run invoice-core sync-nav | sync-pdf | sync-bank | sync-match`.
+- **REST API**: `/api/v1/dashboard`, `/api/v1/invoices` (filters: date, status, direction, has_pdf, supplier_name), `/api/v1/invoice-files` (+ PDF serve), partners, transactions (+ balances), sync/logs, reports (tax + dividend), `/api/v1/users`.
+- **Env**: `DB_URL` (JDBC), `DB_USER`/`DB_PWD`, `NAV_INVOICE_URL` (`:8002`), `INVOICE_FILE_FILTER_URL` (`:8001`), `BANK_URL` (`:8005`), `SYNC_TIMEOUT`, `TAX_ACCOUNTS` (NAV/HIPA/Iparkamara).
 
-## wise — Wise bank-statement service
-- **Purpose**: Fetches Wise balance statements via the Wise API and returns structured transactions as JSON. Leaf service — calls only the Wise API, holds no DB.
-- **Layout**: `src/wise_invoice/` — `api/main.py` (FastAPI: `POST /sync`, `GET /balance-statements`, `GET /balances`, `GET /profiles`, `GET /settings`), `cli/main.py` (Typer: `status`, `balances`, `sync`, `statements`, `balance-statements`, `import`), `client.py` (Bearer auth + retry), `sync.py`, `csv_import.py` (manual CSV fallback). `requires-python >=3.11`.
-- **Run**:
-  - API: `cd wise && python run_api.py` (port 8003).
-  - CLI: `uv run wise-invoice sync [--start DATE] [--end DATE] [--currency HUF] [--json]`.
-  - Tests: `uv run pytest tests/ -v`.
-- **SCA**: balance-statement download requires an RSA keypair registered in Wise. Generate with `openssl genrsa`, upload public key in Wise dashboard, set `WISE_SCA_PRIVATE_KEY_PATH` in `.env`. Manual CSV download to `balance-statements/` is the fallback.
-- **Env**: `WISE_API_KEY`, `WISE_PROFILE_ID`, `WISE_ACCOUNT_CURRENCY`, `WISE_SANDBOX`, `WISE_SCA_PRIVATE_KEY_PATH`, `BALANCE_STATEMENTS_DIR`, `API_HOST`/`API_PORT` (8003), `LOG_LEVEL`, `REQUEST_TIMEOUT`, `MAX_RETRIES`.
+## auth — central authentication (Google OAuth 2.0)
+- **Layout**: `src/auth_service/` (config.py, models.py, jwt_service.py, providers/, service.py, api/main.py, cli/main.py), `tests/`. `requires-python >=3.11`.
+- **Run**: `cd auth && uv run uvicorn auth_service.api.main:app --port 8007 --reload`. CLI: `uv run auth keygen` (once), `uv run auth status | verify <token>`.
+- **JWT**: RS256 pair (access 15min, refresh 30days) via `JWT_PRIVATE_KEY_PATH`/`JWT_PUBLIC_KEY_PATH`. Services validate locally via `JwtAuth` (no per-request network).
+- **Env**: `GOOGLE_CLIENT_ID`/`SECRET`, `OAUTH_REDIRECT_URL`, `JWT_*_PATH`, `ACCESS_TOKEN_TTL`/`REFRESH_TOKEN_TTL`, `ALLOWED_EMAILS`/`DOMAINS`, `COOKIE_SECURE`, `VISION_URL`, `API_HOST`/`AUTH_API_PORT` (8007).
 
-## vision — Frontend
-- **Purpose**: Frontend for the full Moneypenny system. Serves all web UI by consuming `invoice-core` REST API (port 8004) and `SrcProfit` (IBKR). No database, no CLI.
-- **Layout**: `src/vision/` — `config.py`, `models.py`, `clients/` (invoice_core — full REST client, srcprofit), `services/` (dashboard_service — for `/dashboard` portfolio view), `ui/` (router — vision pages, invoice_router — all `/ui/*` routes, utils — `dict_to_ns()`), `api/` (main), `templates/` (all pages including copied invoice-core templates), `static/`.
-- **Web UI pages**: All at `/ui/*` — Dashboard · Számlák · Szla Fájlok · Szállítók · Vevők · Bank · Osztalék · Adók · Sync. Vision-specific: `/dashboard` (Chart.js portfolio) · `/pitch` · `/`.
-- **Run**:
-  - API + UI: `cd vision && python run_api.py` (port 8009). Open `http://localhost:8009/ui/`.
-  - Tests: `uv run pytest tests/ -v`.
-- **Key files**: `ui/invoice_router.py` (15 `/ui/*` routes), `ui/utils.py` (`dict_to_ns()` converts JSON → `SimpleNamespace` with datetime parsing), `clients/invoice_core.py` (all invoice-core API methods).
-- **Env**: `INVOICE_CORE_URL` (`:8004`), `SRCPROFIT_URL`, `SRCPROFIT_USER`, `SRCPROFIT_PASSWORD`, `API_HOST`/`API_PORT` (8009), `LOG_LEVEL`, `REQUEST_TIMEOUT`.
+## bank — consolidated bank statements (Erste + Wise)
+- **Purpose**: Aggregates Erste CSV and Wise balance-statements into a REST API consumed by `invoice-core`. Leaf service — no DB.
+- **Layout**: `src/bank/` (api/main.py, csv_processor.py, models.py, config.py), `tests/`. `requires-python >=3.11`.
+- **Run**: `cd bank && uv run uvicorn bank.api.main:app --port 8005 --reload`.
+- **Env**: `BANK_API_PORT` (8005), `BALANCE_STATEMENTS_DIR` (`../storage/bank/balance-statements`), `ERSTE_SUBDIR`, `WISE_SUBDIR`.
+
+## uploader — CSV upload endpoint
+- **Purpose**: REST endpoint that receives bank CSV files and stores them under `STORAGE_DIR`. Consumed by `bank` service.
+- **Layout**: `src/uploader/` (api/main.py, storage.py, models.py, config.py), `tests/`, `Dockerfile`. `requires-python >=3.11`.
+- **Run**: `cd uploader && uv run uvicorn uploader.api.main:app --port 8006 --reload`.
+- **Env**: `UPLOADER_API_PORT` (8006), `STORAGE_DIR` (`../storage/bank/balance-statements`).
+
+## wise — Wise bank-statement service (deprecated)
+- **Status**: On hold. Use `bank/` instead.
+- **Layout**: `src/wise_invoice/` (api/main.py, cli/main.py, client.py, sync.py, csv_import.py), `tests/`.
+- **SCA**: RSA keypair required for balance-statement downloads (`WISE_SCA_PRIVATE_KEY_PATH`).
+
+## vision — frontend
+- **Layout**: `src/vision/` (api/main.py, ui/router.py + invoice_router.py, utils.py (dict_to_ns()), clients/invoice_core.py + srcprofit.py, templates/ + static/), `tests/`. `requires-python >=3.11`.
+- **Run**: `cd vision && uv run uvicorn vision.api.main:app --port 8009 --reload`. Open `http://localhost:8009/ui/`.
+- **Pages**: `/` (pitch), `/pitch` (redirects to `/`), `/ui/*` (Dashboard, Számlák, Szla Fájlok, Szállítók, Vevők, Bank, Osztalék, Adók, Sync).
+- **Env**: `INVOICE_CORE_URL` (`:8004`), `SRCPROFIT_URL`, `SRCPROFIT_USER`/`PASSWORD`, `REQUEST_TIMEOUT`, `API_HOST`/`VISION_API_PORT` (8009).
+
+## e2e — QA tests
+- **Purpose**: End-to-end tests against real services (pytest + Playwright). Owned by QA (see `REQUIREMENTS.md`).
+- **Run**: `cd e2e && uv run pytest -v`. Slow tests: `uv run pytest -v -m "not slow"`.
+- **Prerequisites**: All services running, `invoice-core` migrated (`alembic upgrade head`), `auth/keys/` populated, Playwright installed (`uv run playwright install chromium`), Gmail OAuth/NAV credentials in `.env`.
+- **Layout**: `conftest.py` (base URLs, auth_token fixture, Playwright browser_context), `test_health.py`, `test_auth_gating.py`, `test_sync_pipeline.py`, `test_read_api.py`, `test_manual_overrides.py`, `test_ui_screenshots.py`.
+
+## vault-agent — Obsidian vault chat CLI
+- **Purpose**: Chat with any Obsidian vault using Pydantic AI. Uses wikilinks for cross-referencing; long notes returned section-by-section.
+- **Run**: `cd vault-agent && uv run python cli.py <path>`. Web: `uv run python web.py` (serves http://127.0.0.1:8010).
+- **Layout**: `cli.py`, `main.py`, `web.py`, `system_prompt.md`, `tests/`. Uses `VAULT_PATH`/`VAULT_NAME` (from `.env`).
+- **Models**: Defaults to local (LM Studio). Cloud: `MODEL=openrouter:anthropic/claude-sonnet-4.6` or `deepseek:deepseek-reasoner`.
+
+## banking — banking utility library
+- **Purpose**: Internal Python library for banking logic (auth validation, transaction categorization). Not a standalone service.
+- **Layout**: `src/banking/`, `tests/`. `requires-python >=3.11`.
 
 ## Conventions
-- New microservices follow the `nav-invoice` / `invoice-core` pattern: a typed core package under `src/` + parallel `api/` (FastAPI) and `cli/` (Click/Typer) entry points, `pydantic-settings` for `.env` config, `uv` for deps, `pytest` under `tests/`.
-- Inference defaults (root `.env.example`): `SCALEWAY_BASE_URL`, `SCALEWAY_API_KEY`.
+- **Naming**: Python modules use snake_case. CLI scripts installed as console_scripts in `pyproject.toml`.
+- **Config**: `pydantic-settings` reading root `.env` (or service-specific override). All services use the same `Settings` class structure.
+- **Testing**: `pytest` under `tests/`. Use `uv run pytest -v`. Coverage and linting via `ruff`.
+- **DB migrations**: `alembic revision -m "desc"` then `alembic upgrade head` (invoice-core only).
+- **OCR deps**: System-level — install once per machine (not in `pyproject.toml`).
+- **Authentication**: JWT-protected services set `AUTH_ENABLED=true` in root `.env`. `auth` posts login records to invoice-core's `/api/v1/users` (best-effort).
+
+## Pitfalls
+- **PORT conflict**: Each service binds to its own port (8000–8009). Check `docker-compose.yml` for service names vs ports.
+- **auth/keys/ missing**: `uv run auth keygen` required once before e2e tests.
+- **Auth toggle**: `AUTH_ENABLED=true` by default for all services except `attachment-downloader` (leaf service). Disable if Google OAuth isn't configured.
+- **Vision redirect**: `/ui/*` routes require auth (redirect to `/login`). Use `uv run auth keygen` first.
+- **CSV storage**: `bank/` and `uploader/` write to `../storage/bank/balance-statements/` relative to project root.

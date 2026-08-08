@@ -2,7 +2,7 @@
 title: "Specifikáció: Számla Adatbázis Mikroszerviz"
 description: "Számlákat és partnereket kezelő adatbázis mikroszerviz (MASTER orchestrator)"
 language: "HU"
-last_updated: "2026-07-23"
+last_updated: "2026-08-09"
 related: [INDEX.md, nav-invoice-spec.md, bank-spec.md]
 ---
 
@@ -35,14 +35,21 @@ Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata 
 ## Táblák
 ### invoice (számlák)
 - id (PK)
-- invoice_number (nav_invoice-tól)
+- invoice_number (nav_invoice-tól, egyedi)
 - invoice_date
 - supplier_id (FK → supplier, **nullable** — lásd "Partner párosítás" lentebb)
 - customer_id (FK → customer, **nullable**)
 - amount_net, amount_vat, amount_total
 - payment_status (PAID|UNPAID|PARTIAL)
-- nav_transaction_id
+- direction (INBOUND|OUTBOUND)
+- currency, invoice_operation, invoice_category
+- nav_ins_date (NAV bejegyzés ideje; a korábbi `nav_transaction_id` átnevezve)
+- payment_method, payment_due_date
 - invoice_file_id (FK → invoice_file, nullable: ha nincs PDF egyezés)
+- invoice_file_locked (bool — kézi PDF link védelme)
+- note (szabad szöveges megjegyzés)
+- payment_status_locked (bool — kézi fizetési státusz védelme)
+- supplier_locked, customer_locked (bool — kézi partner-kapcsolat védelme, lásd "Partner párosítás")
 - created_at, updated_at
 
 ### invoice_detail / invoice_line / invoice_vat_summary (NAV teljes számla-részlet)
@@ -75,18 +82,13 @@ részlet oldala (`/ui/invoices/{id}`) jeleníti meg.
 
 ### invoice_file (invoice-file-filter visszaadott adatok)
 - id (PK)
-- filename
-- invoice_number_raw (PDF-ből kinyert számlaszám)
-- invoice_date_raw
-- supplier_name_raw
-- supplier_tax_id_raw
-- customer_name_raw
-- customer_tax_id_raw
-- amount_total_raw
-- amount_vat_raw
-- currency
-- payment_due_raw
-- confidence (0.0-1.0: OCR/kinyerés biztonsági szintje)
+- filename (egyedi)
+- path (a PDF elérési útja)
+- file_size
+- words (a PDF szövegindexe — `POST /api/v1/pdf/words` hívással töltődik fel
+  linkeléskor, lásd "Logika")
+- preview_base64 (első oldal képelőnézete)
+- is_deleted (bool — soft delete, `PATCH /api/v1/invoice-files/{id}`)
 - created_at, updated_at
 
 ### supplier (szállítók)
@@ -95,15 +97,19 @@ részlet oldala (`/ui/invoices/{id}`) jeleníti meg.
 - tax_id (nullable, egyedi — lásd "Partner párosítás" lentebb)
 - address, email, phone
 - iban, bban
+- bank_accounts (vesszővel elválasztott lista — minden bankszámla, amiről a bank
+  szinkron látta fizetni; lásd "Partner párosítás" lentebb)
+- known_names (vesszővel elválasztott lista — minden counterparty név, amin a
+  partnerhez már kapcsoltak tranzakciót; lásd "Partner párosítás" lentebb)
 - created_at, updated_at
 
 Szállító kétféleképpen keletkezik: **automatikusan** a NAV szinkron során (ha
-`tax_id` vagy név alapján egyezik egy meglévő sorral), vagy **kézzel**, a
+`tax_id` vagy név alapján egyezik egy meglévő sorral, vagy a find-or-create
+létrehozza — lásd "Partner párosítás" lentebb), vagy **kézzel**, a
 `POST /api/v1/partners/suppliers` végponton / a [[vision-spec.md|vision]]
 `/ui/suppliers` "Új szállító" modaljában keresztül — pl. azért, hogy egy
 partnerrel már tervezhessünk, mielőtt bármilyen számla vagy banki tranzakció
-megérkezne róla. A sync **soha nem hoz létre új sort automatikusan** — lásd
-"Partner párosítás (nincs auto-create)" lentebb.
+megérkezne róla.
 
 ### customer (vevők)
 - id (PK)
@@ -112,45 +118,64 @@ megérkezne róla. A sync **soha nem hoz létre új sort automatikusan** — lá
 - address, email, phone
 - payment_terms
 - iban, bban
+- bank_accounts (vesszővel elválasztott lista — lásd supplier)
+- known_names (vesszővel elválasztott lista — lásd supplier)
 - created_at, updated_at
 
 Ugyanaz a kézi létrehozás/módosítás/törlés érvényes rá, mint a szállítóra
 (`POST`/`PUT`/`DELETE /api/v1/partners/customers`).
 
-### Partner párosítás (nincs auto-create)
+### Partner párosítás (auto-create, tanuló matching)
 
-A sync **csak összekapcsol** egy meglévő `supplier`/`customer` sorral — soha
-nem hoz létre újat. Új partner kizárólag kézi létrehozással jön létre (lásd
-fent). Ez azért fontos, mert korábban a NAV szinkron automatikusan létrehozott
-egy új szállító/vevő sort minden egyezés nélküli digest-hez — ha a felhasználó
-már kézzel felvette ugyanazt a partnert (pl. mielőtt ismerte volna az
-adószámát), ez **duplikátumot** eredményezett volna.
+**Fontos változás (2026-07-26)**: a korábbi „nincs auto-create" szabály megszűnt — a
+sync **létrehoz** hiányzó partnert, de csak akkor, ha a NAV/bank adat tényleges
+azonosító adatot adott (adószám vagy név); teljesen azonosítatlan rekordnál továbbra
+is csak figyelmeztet, és link nélkül hagyja a számlát/tranzakciót. A duplikátum-
+védelem mostantól a **többlépcsős keresésben** van (normalizált adószám-mag, kis-
+nagybetűtől független névegyezés, `known_names`/`bank_accounts`), nem pedig a
+létrehozás tiltásában:
 
-- **NAV szinkron (`sync_nav`)**: először `tax_id` szerint keres; ha nincs
-  találat, kis-nagybetűtől független névegyezést próbál minden olyan sorral
-  szemben, amelynek `tax_id`-ja `NULL` (azaz kézzel felvett, adószám nélküli
-  placeholder), és ha talál, visszatölti rá a `tax_id`-t. Ha egyik sem talál
-  egyezést, a számla **akkor is bekerül** az adatbázisba, csak az adott oldal
-  (`supplier_id`/`customer_id`) `NULL` marad, és egy figyelmeztetés kerül a
-  sync futás `errors` listájába (pl. *"Számla INV-100: ismeretlen szállító
-  'ACME Kft' (adószám: 12345678-1-42) — hozza létre a Szállítók oldalon"*).
-- **Bank szinkron (`sync_bank`)**: ez már eddig is csak kereső volt (soha nem
-  hozott létre partnert) — most emellett figyelmeztetést is ad, ha egy
-  tranzakcióhoz a névegyezés sem talál se szállítót, se vevőt.
+- **NAV szinkron (`sync_nav`)** — `_find_or_create_supplier`/`_find_or_create_customer`:
+  először `tax_id` szerint keres (pontos egyezés, majd normalizált 8 jegyű adószám-mag,
+  hogy az eltérő kötőjel-formázás/VAT-kód-utótag ne hozzon duplikátumot); ha nincs
+  találat, kis-nagybetűtől független névegyezést próbál minden olyan sorral szemben,
+  amelynek `tax_id`-ja `NULL` (kézzel felvett placeholder), és visszatölti rá a
+  `tax_id`-t. Ha így sem talál egyezést, **új sort hoz létre**, amennyiben a digest
+  tartalmazott adószámot vagy nevet (egyiket sem tartalmazó digest esetén a számla
+  az adatbázisba **akkor is bekerül**, csak `supplier_id`/`customer_id` marad `NULL`,
+  és figyelmeztetés kerül a sync futás `warnings` listájába — pl. *"Számla INV-100:
+  ismeretlen szállító 'ACME Kft' (adószám: 12345678-1-42) — hozza létre a Szállítók
+  oldalon"*). Meglévő sor esetén a match **csak kiegészít**: a kézzel beállított
+  mezőket nem írja felül, csak az üresen hagyottakat tölti fel a NAV adatból.
+- **Bank szinkron (`sync_bank`)** — irány alapú partner-keresés (CREDIT → vevő,
+  minden más → szállító), ebben a sorrendben:
+  1. ismert bankszámla/IBAN egyezés (`iban`/`bban`, majd a felhalmozott
+     `bank_accounts` lista — a partner akár olyan számláról is fizethet, amit a NAV
+     sosem jelentett),
+  2. pontos `counterparty_name` egyezés,
+  3. korábban **megerősített** név (`known_names` — kézi linkelés vagy korábbi sync
+     által rögzítve),
+  4. utolsó mentsvárként **új partner létrehozása** a `counterparty_name`-ből.
+  Emellett a banki díj/kamat tranzakciókhoz szintetikus „bank" szállítókat
+  (`bank_supplier_names` konfig), az adóhatósági kifizetésekhez pedig szintetikus
+  „NAV ÁFA"/„NAV TAO"/„HIPA" stb. szállítókat (`tax_accounts` konfig) hoz létre
+  automatikusan. A sikeres kapcsolás mindig rögzíti a partnernél a megfigyelt
+  számlaszámot és nevet (`bank_accounts`, `known_names`) — így egy rövidített/
+  elgépelt partner-név is felismerhető a következő sync-en.
 - **Öngyógyulás**: ha a hiányzó partner időközben létrejön (kézzel, vagy egy
-  következő NAV digest visszatölti a `tax_id`-t), a következő sync futás
-  automatikusan összekapcsolja a korábban függőben lévő számlát/tranzakciót —
-  nincs szükség manuális újra-linkelésre. Ez **kimarad**, ha a felhasználó már
-  kézzel beállította vagy törölte az adott mezőt (lásd `supplier_locked`/
+  következő NAV digest/bank tranzakció létrehozza), a következő sync futás
+  automatikusan összekapcsolja a korábban függőben lévő számlát/tranzakciót — nincs
+  szükség manuális újra-linkelésre. Ez **kimarad**, ha a felhasználó már kézzel
+  beállította vagy törölte az adott mezőt (lásd `supplier_locked`/
   `customer_locked` lentebb).
 - **Láthatóság**: `GET /api/v1/sync/pending` visszaadja, hány számla/tranzakció
-  vár még párosításra — ez független az utolsó futás átmeneti
-  figyelmeztetéseitől, és ezt olvassa a [[vision-spec.md|vision]] Sync
-  oldalának állandó "függőben lévő párosítás" kártyája.
+  vár még párosításra — ez független az utolsó futás átmeneti figyelmeztetéseitől,
+  és ezt olvassa a [[vision-spec.md|vision]] Sync oldalának állandó "függőben lévő
+  párosítás" kártyája.
 - **Kézi kapcsolás/leválasztás — zárolással (`supplier_locked` /
   `customer_locked`, 2026-07-23-tól)**: `PUT`/`DELETE /api/v1/invoices/{id}/supplier`
   és `/customer`, valamint `PUT`/`DELETE /api/v1/transactions/{id}/supplier` és
-  `/customer`. Az `invoice` és a `bank_transaction` tábla két új bool mezőt kapott
+  `/customer`. Az `invoice` és a `bank_transaction` tábla két bool mezőt kapott
   (`supplier_locked`, `customer_locked`, alapértelmezett `False`), amelyeket a
   fenti négy végpont **mindkét iránya** (kapcsolás *és* leválasztás) `True`-ra
   állít. A sync minden automatikus lépése (`sync_nav` öngyógyulás, `sync_bank`
@@ -162,20 +187,19 @@ adószámát), ez **duplikátumot** eredményezett volna.
   (`invoice-core link`/`link-bank` CLI, illetve `PUT`/`DELETE
   /api/v1/invoices|transactions/{id}/invoice-file` — részletek:
   `invoice-core/README.md` "Manual linking"), ahol a leválasztás feloldja a
-  zárolást — itt a leválasztás **is** zárol, mert egy
-  explicit "nincs partner" döntést a sync ugyanúgy nem írhat felül, mint egy
-  konkrét partner-választást. A [[vision-spec.md|vision]] számla részlet oldala
-  ezt egy picker modallal (`GET /ui/picker/partners?kind=supplier|customer&invoice_id=`)
-  és egy beágyazott "új partner létrehozása és kapcsolása" mini-formmal
-  érvényesíti, amely az `invoice_detail` partner snapshotjából (fenti) előtölti a
-  név/adószám/cím/bankszámla mezőket — ez a leggyakoribb eset egyenes
-  megoldása, amikor a számla olyan partnerre hivatkozik, ami helyben még nem
-  létezik.
+  zárolást — itt a leválasztás **is** zárol, mert egy explicit "nincs partner"
+  döntést a sync ugyanúgy nem írhat felül, mint egy konkrét partner-választást.
+  A [[vision-spec.md|vision]] számla részlet oldala ezt egy picker modallal
+  (`GET /ui/picker/partners?kind=supplier|customer&invoice_id=`) és egy beágyazott
+  "új partner létrehozása és kapcsolása" mini-formmal érvényesíti, amely az
+  `invoice_detail` partner snapshotjából (fenti) előtölti a név/adószám/cím/
+  bankszámla mezőket — ez a leggyakoribb eset egyenes megoldása, amikor a számla
+  olyan partnerre hivatkozik, ami helyben még nem létezik.
 
 ### bank_transaction (banki tranzakciók — Erste + Wise)
 - id (PK)
 - bank (str: "erste" | "wise")
-- transaction_id (külső azonosító, idempotencia)
+- transaction_id (külső azonosító, idempotencia, egyedi)
 - amount (abszolút érték)
 - currency
 - direction ("CREDIT" | "DEBIT")
@@ -185,22 +209,30 @@ adószámát), ez **duplikátumot** eredményezett volna.
 - counterparty_name
 - counterparty_account
 - counterparty_iban
+- counterparty_address, sender_address, counterparty_bank_code (későbbi re-exportból visszatöltve)
 - transaction_type
 - category
 - balance
 - fees
+- exchange_rate, exchange_to_currency (FX tranzakcióknál)
+- card_last_four (kártyás tranzakcióknál)
+- note (szabad szöveges megjegyzés)
 - supplier_id (FK → supplier, nullable)
 - customer_id (FK → customer, nullable)
-- invoice_id (FK → invoice, nullable)
 - invoice_file_id (FK → invoice_file, nullable)
+- invoice_file_locked, supplier_locked, customer_locked (bool — kézi link védelme)
 - created_at, updated_at
 
-`GET /api/v1/transactions` az irány szerint dönti el, melyik partnert adja
-vissza megjelenítésre: `DEBIT` (kimenő) esetén a kapcsolt `supplier`-t,
-`CREDIT` (bejövő) esetén a kapcsolt `customer`-t — a [[vision-spec.md|vision]]
-tranzakció táblája ez alapján linkel a megfelelő szállító/vevő oldalra, és
-"nincs partner" jelzést ad, ha egyik sincs kapcsolva (a nyers
-`counterparty_name`-re már nem esik vissza).
+A számla-kapcsolat **many-to-many** a `invoice_bank_transaction` junction
+táblán keresztül (`invoice_id`, `bank_transaction_id`, `manual` bool — a kézi
+`PUT`/`DELETE /api/v1/invoices/{id}/transactions/{txn_id}` linkeket jelöli) —
+nem `invoice_id` FK a `bank_transaction`-on, mert egy tranzakció több számlát
+is kiegyenlíthet. A `GET /api/v1/transactions` az irány szerint dönti el, melyik
+partnert adja vissza megjelenítésre: `DEBIT` (kimenő) esetén a kapcsolt
+`supplier`-t, `CREDIT` (bejövő) esetén a kapcsolt `customer`-t — a
+[[vision-spec.md|vision]] tranzakció táblája ez alapján linkel a megfelelő
+szállító/vevő oldalra, és "nincs partner" jelzést ad, ha egyik sincs kapcsolva
+(a nyers `counterparty_name`-re már nem esik vissza).
 
 ### user (login rekordok az auth szervizből)
 - id (PK)
@@ -215,7 +247,39 @@ tranzakció táblája ez alapján linkel a megfelelő szállító/vevő oldalra,
 Az `auth` szerviznek (:8007) nincs saját adatbázisa — minden sikeres bejelentkezéskor
 best-effort POST-olja a felhasználó profilját és a login providert ide (`POST
 /api/v1/users`), a frissen kiállított access tokennel. Ez az egyetlen tábla,
-amit nem a sync pipeline tölt fel, hanem egy másik szerviz push-olja.
+amit nem a sync pipeline tölt fel, hanem egy másik szerviz push-olja. A
+`last_login_at` emellett **minden hitelesített API kérésre** frissül (best-effort,
+60 másodpercenként maximum egyszer felhasználónként — `touch_last_login`), így az
+"Utolsó belépés" az utolsó aktivitást tükrözi, nem csak az OAuth login pillanatát.
+
+### audit_log (admin audit — felhasználói módosítások naplója)
+- id (PK)
+- user_email (a módosítást végző felhasználó)
+- impersonator_email (nullable — támogatói megszemélyesítéskor a rendszergazda,
+  aki a felhasználó nevében járt el; a JWT `impersonator_email` claim-jéből)
+- method (POST|PUT|PATCH|DELETE)
+- path
+- page (magyar menü-címke: Számlák, Bank, Szállítók, Vevők, Tevékenység típusok,
+  Projektek, Timesheet — útvonal-prefix alapján)
+- record (emberi olvasású rekord-azonosító: számlaszám, partner név, projekt kód…)
+- label (nullable — a UI által küldött `X-Audit-Label` fejléc, azaz a kattintott
+  gomb/akció neve, percent-encoded)
+- action (create|update|delete)
+- changes (nullable JSON — update műveleteknél `[{"field", "old", "new"}, ...]`
+  mező-szintű különbséglista, lásd "Audit log" lentebb)
+- status_code
+- created_at
+
+Minden sikeres (2xx) felhasználói módosítást naplóz egy middleware
+(`record_audit_log`): a `record`-ot **a módosítás előtt** oldja fel (DELETE után
+a sor már nem létezne), create műveleteknél a válasz body-jából olvassa ki az új
+rekord id-ját (`extract_created_id`), update-nél pedig előtte/utána snapshotot
+készít és mező-szintű diffet számol a `changes` oszlopba. A GET kérések, a
+`/api/v1/sync*` (amit a SyncLog külön naplóz) és a `/api/v1/users` (rendszer-
+generált login upsert) soha nem kerülnek auditálásra. A megszemélyesítés
+(impersonation) az auth szervizben történik, de az itt tárolt
+`impersonator_email` mutatja, ha egy rendszergazda egy másik felhasználó nevében
+módosított — lásd `GET /api/v1/audit-log` a REST táblában.
 
 ### activity_type (admin törzsadat — timesheet funkcióhoz)
 - id (PK)
@@ -234,9 +298,13 @@ már megköveteli, hogy a hivatkozott `activity_type` létezzen és `is_active` 
 - customer_id (FK → customer)
 - sequence_no (int) — ügyfelenként növekvő, szerver számítja
 - short_name (str)
-- code (egyedi, szerver komponálja: `{ügyfél neve} - {sorszám:03d} - {short_name}`)
+- code (egyedi, szerver komponálja: `{short_name}-{sequence_no:03d}`)
 - owner_id (FK → user) — project gazda
-- is_active (bool, default: true) — lezárt projektre nem rögzíthető új idő
+- status (OPEN|CLOSED|ONHOLD, default: OPEN) — csak nyitott projektre
+  rögzíthető új idő (a korábbi `is_active` bool helyett, 2026-07-27-től)
+- start_date (dátum, kötelező) — a projekt kezdő dátuma; a timesheet
+  `entry_date` nem lehet korábbi nála (lásd lentebb)
+- project_type (OTLET|SZAMLAZHATO|PRESALES, default: SZAMLAZHATO)
 - created_at, updated_at
 
 ### project_permitted_user (junction — projekt ↔ user)
@@ -251,8 +319,9 @@ gazda kiválasztás legördülőből (valós `customer`/`user` adat), sorszám �
 project kód kliens-oldali előnézete van, de a szerver a végső forrás — mindkettő
 `create`/`update` híváskor újraszámolódik. A `sequence_no` csak akkor kap új
 értéket módosításnál, ha az `customer_id` megváltozik. Az "Összesített
-ráfordítás (óra)" oszlop a UI-n egyelőre `0` placeholder — nincs még kötve a
-`timesheet_entry` adatokhoz.
+ráfordítás (óra)" oszlop a `usage_hours` property-ből jön (a projekt
+`timesheet_entry`-jeinek óraösszege), az `first_entry_date` pedig a legelső
+rögzített bejegyzés dátuma — mindkettőt a `ProjectOut` visszaadja.
 
 ### timesheet_entry (Controlling — munkaidő rögzítés)
 - id (PK)
@@ -266,19 +335,25 @@ ráfordítás (óra)" oszlop a UI-n egyelőre `0` placeholder — nincs még kö
 - description (str, opcionális, szabad szöveges leírás)
 - created_at, updated_at
 
-`project_week` nincs tárolva — szerver-számított property:
-`floor((entry_date - project.created_at.date()).days / 7) + 1` (a `project.created_at`
-az implicit "W1" horgony, nincs külön `project.start_date` mező). Létrehozás/módosítás
-előtt a `timesheet_service` ellenőrzi: a projekt létezik és aktív, a `user_id`
-jogosult rá (gazda vagy `permitted_user_ids` tagja), a `activity_type` létezik és
-aktív, és az órák pozitív 0,5-lépésű értékek — mindegyik szabálysértés `409`-et ad.
-Listázás/módosítás/törlés mindig `user_id` szerint szűrt (saját rekordok — más
-felhasználó rekordja "nem található"-ként `404`-et ad, nem `403`-at, hogy ne
-szivárogtasson létezési infót). Admin CRUD a [[vision-spec.md|vision]]
-`/ui/controlling/timesheet` oldalán. A mockupban szereplő "Zárolás" (heti
-zárolás) funkció **egyelőre nincs implementálva** — nincs admin/role fogalom a
-`user` táblán, ezért ez a UI-n látható, de letiltott gomb marad, amíg a
-szerepkör-modell meg nem érkezik.
+`project_week` nincs tárolva — szerver-számított property, amely **naptári
+heteken** (hétfő-vasárnap) számol, és a projekt **első rögzített bejegyzésére**
+horgonyoz (`project.first_entry_date`, vagy ha még nincs bejegyzés, a
+`project.created_at` dátumára; 2026-07-27-től — korábban a `project.created_at`
+volt az implicit "W1" horgony és hetente 7 napot számolt, mostantól a hétfői
+napok különbsége adja a hét sorszámát: `(entry_monday - anchor_monday).days // 7
++ 1`). Létrehozás/módosítás előtt a `timesheet_service` ellenőrzi: a projekt
+létezik és **nyitott** (`status == OPEN`), a `user_id` jogosult rá (gazda vagy
+`permitted_user_ids` tagja), a `activity_type` létezik és aktív, az `entry_date`
+**nem korábbi a projekt `start_date`-jénél** (2026-07-31-től), és az órák pozitív
+0,5-lépésű értékek — mindegyik szabálysértés `409`-et ad. Listázás opcionálisan
+`user_id` szerint szűrhető (2026-07-27-től a paraméter már nem kötelező — a
+riportoldal így kérheti le egy felhasználó adatait is); módosítás/törlés
+továbbra is kötelező `user_id` query paraméterrel megy (más felhasználó rekordja
+"nem található"-ként `404`-et ad, nem `403`-at, hogy ne szivárogtasson létezési
+infót). Admin CRUD a [[vision-spec.md|vision]] `/ui/controlling/timesheet`
+oldalán. A mockupban szereplő "Zárolás" (heti zárolás) funkció **egyelőre nincs
+implementálva** — nincs admin/role fogalom a `user` táblán, ezért ez a UI-n
+látható, de letiltott gomb marad, amíg a szerepkör-modell meg nem érkezik.
 
 A `report_service` a `timesheet_entry` táblát **felhasználói szűrés nélkül**,
 minden felhasználó bejegyzésén olvassa (a `/api/v1/reports/timesheet`
@@ -295,62 +370,88 @@ csoportosított totálok (`rows`: `key_label`, `total_hours`, `entry_count`,
 tevékenység-típusonkénti pivot) mellett egy `entries` listát is visszaad —
 egy sor minden egyes `timesheet_entry`-re (dátum, magyar hét napja,
 `project_week`, projekt kód, ügyfél név, felhasználó név, tevékenység típus
-név, résztvevők, órák), a csoport címke majd dátum szerint rendezve. A
-[[vision-spec.md|vision]] riportoldal ezt használja a részletes soronkénti
-listázáshoz, a `rows`-t pedig az alatta megjelenő Összesítés szekcióhoz.
+név, résztvevők, **leírás** — 2026-07-26-tól —, órák), a csoport címke majd
+dátum szerint rendezve. A [[vision-spec.md|vision]] riportoldal ezt használja a
+részletes soronkénti listázáshoz, a `rows`-t pedig az alatta megjelenő
+Összesítés szekcióhoz.
 
 ## Logika (Orchestration)
 1. **invoice-core iniciál** → sorban:
-   - **nav-invoice** meghívása (GET /invoices?from=...&to=...&direction=...)
+   - **nav-invoice** meghívása (GET /invoices?from_date=...&to_date=...&direction=...)
      - nav-invoice csak a NAV API-t hívja, visszaad: számlalista, supplier/customer adatok
    - **invoice-file-filter** meghívása (POST /api/v1/invoices/extract)
      - invoice-file-filter meghívja attachment-downloadert (Gmail PDF letöltés)
-     - visszaad: letöltött PDF fájlok szövegindexe
-2. **Merge** (words-alapú kereséssel):
-   - Minden nav-invoice számlaszámhoz: `GET /api/v1/invoices/search?words=<számlaszám>`
-     → invoice-file-filter megkeresi, melyik PDF fájl tartalmazza a számlaszám szövegét
-   - Egyezés esetén a PDF metaadatait (összeg, partner, dátum) linkeli a NAV rekordhoz
+     - visszaad: letöltött PDF fájlok listája (filename, path, file_size, preview_base64)
+2. **Merge** (PDF ↔ NAV számla):
+   - Minden link nélküli NAV számlához: előbb **fájlnév-egyezés** (a számlaszám a
+     fájlnévben), ha az nem talál, **word-keresés** (`POST /api/v1/pdf/words` — a
+     PDF szövegindexében szerepel-e a számlaszám); az eredmény az
+     `invoice_file.words` oszlopban cache-elődik
+   - Egyezés esetén az `invoice_file_id` FK-t állítja be a NAV rekordon
 3. **DB mentés**:
    - `invoice_file`: invoice-file-filter nyers visszaadott adatai (minden PDF rekord)
-   - `supplier` / `customer`: partner adatok (nav-invoice alapján)
-   - `invoice`: NAV számlák, `invoice_file_id` FK-val ha volt words-egyezés
-
+   - `supplier` / `customer`: partner adatok (nav-invoice alapján, find-or-create —
+     lásd "Partner párosítás")
+   - `invoice`: NAV számlák, `invoice_file_id` FK-val ha volt PDF-egyezés
 4. **Bank szinkron** (független a NAV/PDF ágaktól):
    - **bank** meghívása: `GET /balance-statement/all` (paraméter nélkül)
      → visszaad: `ConsolidatedStatement` — Erste + Wise CSV tranzakciók
    - `bank_transaction` mentése (idempotens: `transaction_id` duplikátum-ellenőrzés)
-   - `supplier` / `customer` összekapcsolás ha van egyező partner (counterparty_name alapján)
+   - `supplier` / `customer` összekapcsolás irány alapú partner-kereséssel
+     (bankszámla/IBAN → név → `known_names` → új partner; lásd "Partner párosítás")
    - `invoice_id` összekapcsolás `payment_reference` alapján (ha van egyező NAV számla)
+   - adóhatósági/banki díj tranzakciók a szintetikus NAV/bank szállítókhoz kötve
+5. **`sync_match`** (a bank ↔ PDF irány):
+   - tranzitív rövidzár: ha a tranzakcióhoz már van számla, és ahhoz PDF, azt örökli
+   - hivatkozás-alapú: számjegyet tartalmazó `payment_reference`-hez a PDF-nek
+     *tartalmaznia* kell a hivatkozást (különben link nélkül marad)
+   - szállító+összeg egyeztetés hivatkozás nélküli tranzakciókra
+   - pontozott (vendor név + összeg + dátum közelség) greedy hozzárendelés
+   - végső backfill: a közös `invoice_file_id`-n keresztül a tranzakció
+     visszalinkelődik a számlához, és a `supplier_id`/`customer_id` is visszatöltődik
+     a számláról (a lock-olt mezőket kihagyva)
+6. **Konkurencia-védelem**: a `sync_all` egy DB-szintű `sync_lock` soron
+   (compare-and-swap `UPDATE ... WHERE`) szerializálja a futásokat — párhuzamos
+   második sync `409`-et kap ("Szinkronizálás már folyamatban van..."), a lock
+   30 perc után magától lejár (halott folyamat esetén).
 
 ## Interface
 - **CLI**:
-  - `invoice-core sync` - teljes szinkronizálás (NAV + PDF + Bank)
+  - `invoice-core sync` - teljes szinkronizálás (NAV + PDF + Bank + Match);
+    `--start`/`--end` (dátum), `--clear-cache`, `--json`, `--verbose`, `--token`
+    (Bearer token a downstream hívásokhoz — lásd `MP_SERVICE_TOKEN` env var)
   - `invoice-core sync-nav` - NAV adatok szinkronizálása
   - `invoice-core sync-pdf` - PDF adatok szinkronizálása
   - `invoice-core sync-bank` - Bank tranzakciók szinkronizálása
   - `invoice-core sync-match` - Összekapcsolás (PDF ↔ bank tranzakció)
-  - `invoice-core report --month 2026-05` - havi kimutatás
+  - `invoice-core report --month 2026-05` - havi szinkron + kimutatás
+  - `invoice-core dividend [--year 2026] [--kiva-rate 0.10] [--hipa-rate 0.02]` -
+    osztalékelőleg-kalkuláció (a `--kiva-rate` a TAO ráta helyére írható be, mert
+    egy cég vagy TAO-t vagy KIVA-t fizet, sosem mindkettőt)
   - `invoice-core link <invoice_number> <filename>` - manuális számla-PDF összekapcsolás
   - `invoice-core link-bank <transaction_id> <filename>` - manuális bank-PDF összekapcsolás
 - **REST API** (teljes lista — CORS: `http://localhost:8009`):
 
 | Method | Endpoint | Leírás |
 |--------|----------|--------|
-| `GET`  | `/health` | Health check |
-| `GET`  | `/api/v1/dashboard` | KPI-k, utolsó számlák, tranzakciók, top szállítók, szinkron log |
-| `POST` | `/api/v1/sync` | Teljes szinkronizálás (NAV + PDF + Bank) |
+| `GET`  | `/health` | Health check (publikus, auth nélkül) |
+| `GET`  | `/api/v1/dashboard` | KPI-k, utolsó számlák, tranzakciók, top szállítók **és vevők**, havi pénzügyi bontás, utolsó szinkron |
+| `POST` | `/api/v1/sync` | Teljes szinkronizálás (NAV + PDF + Bank + Match); 409 ha már fut egy sync (DB-lock) |
 | `POST` | `/api/v1/sync/nav` | NAV szinkronizálás |
 | `POST` | `/api/v1/sync/pdf` | PDF szinkronizálás |
 | `POST` | `/api/v1/sync/bank` | Bank szinkronizálás |
 | `POST` | `/api/v1/sync/match` | Összekapcsolás (PDF ↔ bank) |
 | `GET`  | `/api/v1/sync/logs` | Szinkron naplóbejegyzések (`limit` param) |
 | `GET`  | `/api/v1/sync/pending` | Hány számla/tranzakció vár még partner-párosításra (`{"unmatched_invoices": n, "unmatched_transactions": n}`) — állandó, nem az utolsó futástól függő érték |
+| `GET`  | `/api/v1/audit-log` | Audit napló (szűrés: `user_email`, `page`, `date_from`, `date_to`; `limit` default 200, max 1000) — a [[vision-spec.md|vision]] `/ui/admin/audit` oldal adatforrása |
 | `GET`  | `/api/v1/invoices/count` | Számlák száma `{"count": n}` — regisztrálva `/{invoice_number}` előtt |
-| `GET`  | `/api/v1/invoices` | Számlalista (szűrés: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`) |
-| `GET`  | `/api/v1/invoices/{invoice_id:int}` | Számla részletei (PK alapján, bank tranzakciókkal) |
+| `GET`  | `/api/v1/invoices` | Számlalista (szűrés: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`; `limit`/`offset` lapozás) |
+| `GET`  | `/api/v1/invoices/{invoice_id:int}` | Számla részletei (PK alapján, bank tranzakciókkal, `detail`/`lines`/`vat_summary` mezőkkel) |
 | `GET`  | `/api/v1/invoices/{invoice_number}` | Számla számlaszám alapján |
-| `GET`  | `/api/v1/invoice-files` | PDF fájl lista (szűrés: `linked=yes/no`) |
+| `PATCH`| `/api/v1/invoices/{invoice_id:int}` | Számla részleges módosítása: `note`, `payment_status_locked`, `payment_status` (mindegyik opcionális, csak a küldött mezők érvényesülnek); 404 ha nem létezik, 422 érvénytelen státusznál |
+| `GET`  | `/api/v1/invoice-files` | PDF fájl lista (szűrés: `linked=yes/no`, `filename` részlet; `limit`/`offset`) |
 | `GET`  | `/api/v1/invoice-files/{file_id:int}/pdf` | PDF fájl kiszolgálása (`FileResponse`) |
+| `PATCH`| `/api/v1/invoice-files/{file_id:int}` | PDF soft delete (`is_deleted=true` — a sor és a fájl megmarad, csak eltűnik a listákból); 404 ha nem létezik, 409 ha már törölt |
 | `GET`  | `/api/v1/partners/suppliers` | Szállítólista |
 | `GET`  | `/api/v1/partners/suppliers/summary` | Szállítói statisztikák — regisztrálva `/{supplier_id:int}` előtt |
 | `GET`  | `/api/v1/partners/suppliers/{supplier_id:int}` | Szállító részletei (számláival, tranzakcióival) |
@@ -365,20 +466,35 @@ listázáshoz, a `rows`-t pedig az alatta megjelenő Összesítés szekcióhoz.
 | `GET`  | `/api/v1/transactions` | Bank tranzakció lista (szűrés: `date_from`, `date_to`, `linked`, `partner_name`, `amount_min`, `amount_max`) |
 | `GET`  | `/api/v1/transactions/balances` | Legutolsó egyenleg bankonként |
 | `GET`  | `/api/v1/transactions/{transaction_id:int}` | Tranzakció részletei |
-| `GET`  | `/api/v1/reports/dividend` | Éves osztalék/adó kalkuláció (`year`, `kiva_rate` paraméterek) |
-| `GET`  | `/api/v1/reports/tax` | Adófizetési kimutatás hónap és típus szerint (`year` param) |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/invoice-file` | Számla ↔ PDF kézi összekapcsolás (`invoice_file_id` body) — `invoice_file_locked=true`; 404 ha a számla/PDF nem létezik |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/invoice-file` | Számla ↔ PDF leválasztás (a lock feloldódik); 404 ha a számla nem létezik |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/supplier` | Számla ↔ szállító kézi kapcsolás (`supplier_id` body) — `supplier_locked=true`; 404 ha a számla/szállító nem létezik |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/supplier` | Számla ↔ szállító leválasztás — **a lock is beáll** (kézi "nincs partner" döntés); 404 ha a számla nem létezik |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/customer` | Számla ↔ vevő kézi kapcsolás (`customer_id` body) — `customer_locked=true`; 404 ha a számla/vevő nem létezik |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/customer` | Számla ↔ vevő leválasztás — **a lock is beáll**; 404 ha a számla nem létezik |
+| `PUT`  | `/api/v1/transactions/{txn_id}/invoice-file` | Tranzakció ↔ PDF kézi összekapcsolás — `invoice_file_locked=true`; 404 ha a tranzakció/PDF nem létezik |
+| `DELETE` | `/api/v1/transactions/{txn_id}/invoice-file` | Tranzakció ↔ PDF leválasztás (a lock feloldódik); 404 ha a tranzakció nem létezik |
+| `PUT`  | `/api/v1/transactions/{txn_id}/supplier` | Tranzakció ↔ szállító kézi kapcsolás — `supplier_locked=true`, a `counterparty_name` bekerül a szállító `known_names`-ébe; 404 ha nem létezik |
+| `DELETE` | `/api/v1/transactions/{txn_id}/supplier` | Tranzakció ↔ szállító leválasztás — **a lock is beáll**; 404 ha a tranzakció nem létezik |
+| `PUT`  | `/api/v1/transactions/{txn_id}/customer` | Tranzakció ↔ vevő kézi kapcsolás — `customer_locked=true`, a `counterparty_name` bekerül a vevő `known_names`-ébe; 404 ha nem létezik |
+| `DELETE` | `/api/v1/transactions/{txn_id}/customer` | Tranzakció ↔ vevő leválasztás — **a lock is beáll**; 404 ha a tranzakció nem létezik |
+| `PUT`  | `/api/v1/invoices/{invoice_id}/transactions/{txn_id}` | Számla ↔ tranzakció M2M kézi kapcsolás (junction `manual=true`), fizetési státusz újraszámolva; 404 ha a számla/tranzakció nem létezik |
+| `DELETE` | `/api/v1/invoices/{invoice_id}/transactions/{txn_id}` | Számla ↔ tranzakció M2M leválasztás, fizetési státusz újraszámolva; 404 ha a számla nem létezik |
+| `GET`  | `/api/v1/reports/dividend` | Éves osztalék/adó kalkuláció (`year`, `kiva_rate` — TAO ráta helyére, `hipa_rate` paraméterek) |
+| `GET`  | `/api/v1/reports/tax` | Adófizetési kimutatás hónap és típus szerint (`year` param; `gross_revenue` = éves beérkező összeg) |
+| `GET`  | `/api/v1/reports/tax-estimate` | Havi adó-becslés (`year`, `tao_rate`, `hipa_rate`, `szja_rate`, `szocho_rate` paraméterek) — az aktuális év hátralévő hónapjait a tényleges hónapok átlagával vetíti előre (`is_projected=true` sorok) |
 | `POST` | `/api/v1/users` | Login rekord upsert (provider+sub alapján) — az auth szerviz hívja minden sikeres bejelentkezéskor |
 | `GET`  | `/api/v1/users` | Bejelentkezett felhasználók listája (utolsó belépés szerint csökkenő) |
 | `POST` | `/api/v1/activity-types` | Új tevékenység típus létrehozása (409, ha a név már foglalt — kis-nagybetűtől függetlenül) |
 | `GET`  | `/api/v1/activity-types` | Tevékenység típusok listája (név szerint) |
 | `PUT`  | `/api/v1/activity-types/{id}` | Tevékenység típus módosítása (név + `is_active`); 404 ha nem létezik, 409 névütközésnél |
 | `DELETE` | `/api/v1/activity-types/{id}` | Tevékenység típus végleges törlése; 404 ha nem létezik |
-| `POST` | `/api/v1/projects` | Új projekt létrehozása — `customer_id`/`owner_id` léteznie kell, `sequence_no`/`code` szerver-számított; 409 ha ismeretlen ügyfél/gazda vagy kódütközés |
-| `GET`  | `/api/v1/projects` | Projektek listája (`code` szerint), `customer_name`/`owner_name`/`permitted_user_ids` kiegészítve |
-| `PUT`  | `/api/v1/projects/{id}` | Projekt módosítása (ügyfél, rövid név, gazda, `is_active`, `permitted_user_ids`); `code` újraszámolva, `sequence_no` csak ügyfélváltáskor; 404 ha nem létezik, 409 kódütközésnél |
-| `DELETE` | `/api/v1/projects/{id}` | Projekt végleges törlése; 404 ha nem létezik |
-| `POST` | `/api/v1/timesheet-entries` | Timesheet rekord létrehozása `user_id`-hez; 409 ha ismeretlen projekt/felhasználó/tevékenység típus, lezárt vagy nem jogosult projekt, inaktív tevékenység típus, vagy az órák nem pozitív 0,5-lépésűek |
-| `GET`  | `/api/v1/timesheet-entries` | Egy felhasználó rekordjai (kötelező `user_id` query), `entry_date` majd `id` szerint; minden sor tartalmazza a `project_code`/`customer_name`/`activity_type_name`/`user_name` mezőket és a szerver-számított `project_week`-et |
+| `POST` | `/api/v1/projects` | Új projekt létrehozása — `customer_id`/`owner_id`/`start_date`/`project_type` megadása kötelező (`status` default OPEN), `sequence_no`/`code` szerver-számított; 409 ha ismeretlen ügyfél/gazda vagy kódütközés |
+| `GET`  | `/api/v1/projects` | Projektek listája (`code` szerint), `customer_name`/`owner_name`/`permitted_user_ids`/`usage_hours`/`first_entry_date` kiegészítve |
+| `PUT`  | `/api/v1/projects/{id}` | Projekt módosítása (ügyfél, rövid név, gazda, `status`, `start_date`, `project_type`, `permitted_user_ids`); `code` újraszámolva, `sequence_no` csak ügyfélváltáskor; 404 ha nem létezik, 409 kódütközésnél |
+| `DELETE` | `/api/v1/projects/{id}` | Projekt végleges törlése; 404 ha nem létezik (meglévő timesheet bejegyzések FK-hibát adnak) |
+| `POST` | `/api/v1/timesheet-entries` | Timesheet rekord létrehozása `user_id`-hez; 409 ha ismeretlen projekt/felhasználó/tevékenység típus, nem nyitott vagy nem jogosult projekt, inaktív tevékenység típus, a dátum korábbi a projekt `start_date`-jénél, vagy az órák nem pozitív 0,5-lépésűek |
+| `GET`  | `/api/v1/timesheet-entries` | Rekordok listája — `user_id` query **opcionális** (2026-07-27-től: elhagyva mindenki rekordjait adja vissza), `entry_date` majd `id` szerint; minden sor tartalmazza a `project_code`/`customer_name`/`activity_type_name`/`user_name` mezőket és a szerver-számított `project_week`-et |
 | `PUT`  | `/api/v1/timesheet-entries/{id}` | Rekord módosítása (kötelező `user_id` query — más felhasználó rekordja 404, nem 403); ugyanaz a validáció mint létrehozásnál |
 | `DELETE` | `/api/v1/timesheet-entries/{id}` | Rekord törlése (kötelező `user_id` query); 404 ha nem létezik/nem a sajátja |
 | `GET`  | `/api/v1/reports/timesheet` | Timesheet riport — `report_type` (`project`\|`person`\|`customer`\|`activity_type`, kötelező), `date_from`, `date_to`, `customer_id`, `project_id`, `user_id`, `activity_type_id` (mind opcionális); `project_id` kötelező, ha `report_type=project`; 400 ha hiányzik vagy ismeretlen a `report_type` |
