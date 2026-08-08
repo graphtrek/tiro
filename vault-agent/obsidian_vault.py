@@ -93,6 +93,27 @@ class Vault:
             self._index.setdefault(_key(rel.with_suffix("").as_posix()), path)
             self._index.setdefault(_key(path.stem), path)
 
+    def _index_is_stale(self) -> bool:
+        """True if a file this vault indexed no longer exists on disk - it was
+        deleted by something other than write_note() (rm, Obsidian, Finder, ...)
+        while the process was running."""
+        return any(not path.exists() for path in set(self._index.values()))
+
+    def _refresh_index(self) -> None:
+        """Rebuild the index from scratch: drops entries for files that vanished
+        and picks up any that appeared. Cheap and idempotent, so it is safe to call
+        before every read/list/search - it only re-walks the tree, it never raises
+        even if the vault is temporarily left with no notes at all."""
+        self._index = {}
+        self._build_index()
+
+    def _ensure_fresh_index(self) -> None:
+        """Refresh the index only when something has actually gone stale, so the
+        common case (nothing changed) stays a cheap existence check instead of a
+        full re-walk on every call."""
+        if self._index_is_stale():
+            self._refresh_index()
+
     def _resolve(self, name: str) -> Path | None:
         """Resolve a note name or wikilink target to a file, like Obsidian would."""
         target = name.strip().strip("[]")
@@ -104,6 +125,7 @@ class Vault:
         return self._index.get(_key(target))
 
     def _notes(self) -> list[Path]:
+        self._ensure_fresh_index()
         return sorted(set(self._index.values()))
 
     # ------------------------------------------------------------------ tools
@@ -113,10 +135,16 @@ class Vault:
 
         Returns one entry per note: its name (use this with read_note), its size in
         characters, and which other notes it links to.
+
+        A note deleted from disk between the index refresh and this read (a race
+        with something other than write_note() - rm, Obsidian, Finder, ...) is
+        silently skipped rather than raising; the next call will no longer index it.
         """
         entries: list[dict[str, object]] = []
         for path in self._notes():
-            text = _read_text(path)
+            text = _read_text_or_none(path)
+            if text is None:
+                continue
             links = sorted(
                 {
                     t
@@ -144,6 +172,10 @@ class Vault:
         "links": [{"source", "target"}]} - "id" is the note's vault-relative path
         without extension (matches list_notes' "note" field) for real notes, or the
         raw unresolved target text for phantom nodes.
+
+        A note deleted from disk between the index refresh and this read (a race
+        with something other than write_note()) is treated as having no outgoing
+        links rather than raising.
         """
         notes = self._notes()
         ids = {path: path.relative_to(self.root).with_suffix("").as_posix() for path in notes}
@@ -153,7 +185,10 @@ class Vault:
         edges: set[tuple[str, str]] = set()
         for path in notes:
             src = ids[path]
-            for m in _WIKILINK.finditer(_read_text(path)):
+            text = _read_text_or_none(path)
+            if text is None:
+                continue
+            for m in _WIKILINK.finditer(text):
                 target = m.group(1).strip()
                 if not target or _is_attachment_target(target):
                     continue
@@ -198,13 +233,18 @@ class Vault:
         Args:
             query: What to look for, as a few keywords (matched case-insensitively
                 against note titles and bodies).
+
+        A note deleted from disk between the index refresh and this read (a race
+        with something other than write_note()) is silently skipped.
         """
         terms = [t for t in _key(query).split() if len(t) > 1]
         if not terms:
             return []
         scored: list[tuple[float, Path, str]] = []
         for path in self._notes():
-            text = _read_text(path)
+            text = _read_text_or_none(path)
+            if text is None:
+                continue
             haystack = _key(f"{path.stem}\n{text}")
             hits = {t: haystack.count(t) for t in terms}
             matched = [t for t, n in hits.items() if n]
@@ -236,6 +276,10 @@ class Vault:
 
         Long notes return a heading outline instead of full text; pass one of the
         listed headings (or 'chunk N') as `section` to read that part.
+
+        A note that has disappeared from disk since it was indexed (deleted by
+        something other than write_note() - rm, Obsidian, Finder, ...) is treated
+        the same as an unknown name instead of raising.
         """
         target = name.strip().strip("[]").split("|")[0].split("#")[0].strip()
         if _is_attachment_target(target):
@@ -243,11 +287,14 @@ class Vault:
                 f"{target!r} is an attachment (PDF/image/...), not a markdown note. "
                 "Only .md notes are part of this knowledge base — ignore links to attachments."
             )
+        self._ensure_fresh_index()
         path = self._resolve(name)
-        if path is None:
+        text = _read_text_or_none(path) if path is not None else None
+        if text is None:
+            if path is not None:  # was indexed but vanished between resolve and read
+                self._refresh_index()
             known = ", ".join(p.stem for p in self._notes()[:40])
             return f"No note named {name!r} in this vault. Notes include: {known}"
-        text = _read_text(path)
         n_chunks = (len(text) + MAX_NOTE_CHARS - 1) // MAX_NOTE_CHARS
 
         if section:
@@ -303,12 +350,22 @@ class Vault:
             body = f"# {stem}\n\n{meta}\n\n{body}"
         path = self.root / f"{stem}.md"
         path.write_text(body.rstrip("\n") + "\n", encoding="utf-8")
-        self._build_index()  # make the new note immediately searchable/readable
+        self._refresh_index()  # make the new note immediately searchable/readable
         return path
 
 
 def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _read_text_or_none(path: Path) -> str | None:
+    """`_read_text`, but tolerant of the file having disappeared from disk since
+    it was indexed (deleted externally by rm/Obsidian/Finder while the app is
+    running) - returns None instead of raising, so callers can drop the entry."""
+    try:
+        return _read_text(path)
+    except OSError:
+        return None
 
 
 def _outline(text: str) -> str:

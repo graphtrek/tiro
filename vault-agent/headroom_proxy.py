@@ -121,21 +121,21 @@ def proxy_base_url() -> str | None:
     return _ACTIVE_BASE_URL
 
 
+def _strip_v1(url: str) -> str:
+    """Remove a trailing /v1 — the proxy re-appends the path itself when forwarding
+    (it POSTs to `{upstream}/v1/chat/completions`)."""
+    url = url.strip()
+    return url[: -len("/v1")] if url.endswith("/v1") else url.rstrip("/")
+
+
 def _local_upstream() -> str:
-    """LOCAL_LLM_URL with a trailing /v1 removed — the proxy re-appends the path
-    itself when forwarding (it POSTs to `{upstream}/v1/chat/completions`)."""
-    url = os.environ.get("LOCAL_LLM_URL", "http://localhost:1234/v1").strip()
-    if url.endswith("/v1"):
-        return url[: -len("/v1")]
-    return url.rstrip("/")
+    """LOCAL_LLM_URL with a trailing /v1 removed."""
+    return _strip_v1(os.environ.get("LOCAL_LLM_URL", "http://localhost:1234/v1"))
 
 
 def _ollama_upstream() -> str:
-    """OLLAMA_LLM_URL with a trailing /v1 removed, same reasoning as `_local_upstream`."""
-    url = os.environ.get("OLLAMA_LLM_URL", "http://localhost:11434/v1").strip()
-    if url.endswith("/v1"):
-        return url[: -len("/v1")]
-    return url.rstrip("/")
+    """OLLAMA_LLM_URL with a trailing /v1 removed."""
+    return _strip_v1(os.environ.get("OLLAMA_LLM_URL", "http://localhost:11434/v1"))
 
 
 # Provider prefix -> how to route it: the env the proxy needs to reach the upstream
@@ -263,6 +263,17 @@ class ProxyManager:
         self._external = False
         _ACTIVE_BASE_URL, _ACTIVE_SPEC = _base_url(), spec
         return ProxyStatus(active=True)
+
+    def ensure_safe(self, spec: str) -> tuple[ProxyStatus | None, str | None]:
+        """Like ensure(), but catches HeadroomError instead of raising it, returning
+        (None, error text) on failure and (status, None) on success. For callers
+        that just want to log or report the failure in their own words rather than
+        handle the exception themselves (cli.py's /model switch, web.py's /model
+        switch and startup)."""
+        try:
+            return self.ensure(spec), None
+        except HeadroomError as exc:
+            return None, str(exc)
 
     def stop(self) -> None:
         """Stop the proxy we started (a reused external one is left running)."""

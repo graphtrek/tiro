@@ -67,10 +67,9 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from capabilities import AUDIT, VaultCapability, log, log_interaction, setup_logging
+from capabilities import AUDIT, VaultCapability, log, log_action, log_interaction, setup_logging
 from graph_view import render_graph_html
 from headroom_proxy import (
-    HeadroomError,
     ProxyManager,
     proxy_base_url,
     proxy_enabled,
@@ -219,13 +218,12 @@ class Session:
 def _apply_proxy(proxy: ProxyManager, spec: str) -> None:
     """Point the proxy at `spec`'s provider (starting/restarting as needed) and
     report the result. On failure the CLI keeps running with a direct connection."""
-    try:
-        status = proxy.ensure(spec)
-    except HeadroomError as exc:
-        log.warning("headroom proxy unavailable for %s: %s", spec, exc)
+    status, error = proxy.ensure_safe(spec)
+    if error is not None:
+        log.warning("headroom proxy unavailable for %s: %s", spec, error)
         console.print(
             Panel(
-                f"{exc}\n\n[dim]continuing without the proxy \u2014 LLM calls go direct[/dim]",
+                f"{error}\n\n[dim]continuing without the proxy \u2014 LLM calls go direct[/dim]",
                 title="[red]Headroom proxy unavailable[/red]",
                 border_style="red",
             )
@@ -323,61 +321,77 @@ def _chat_loop(session: Session) -> None:
 
         if not prompt:
             continue
-        if prompt in {"/exit", "/quit"}:
-            _shutdown(session)
-            console.print("[dim]bye[/dim]")
-            return
-        if prompt in {"/help", "/"}:
-            console.print(Panel(HELP, border_style="cyan", title="help"))
-            continue
-        if prompt == "/notes":
-            _print_notes(session)
-            continue
-        if prompt == "/graph":
-            _open_graph(session)
-            continue
-        if prompt == "/read" or prompt.startswith("/read "):
-            name = prompt[len("/read") :].strip()
-            if not name:
-                console.print("[dim]usage: /read <id | note name>[/dim]")
-                continue
-            name = _note_by_id(session, name)
-            console.print(Panel(Markdown(session.vault.read_note(name)), title=name))
-            continue
-        if prompt == "/save-note" or prompt.startswith("/save-note "):
-            _handle_save_note(session, prompt[len("/save-note") :].strip())
-            continue
-        if prompt == "/prompt":
-            console.print(
-                Panel(
-                    Markdown(session.vault_cap.prompt_file.read_text(encoding="utf-8")),
-                    title=str(session.vault_cap.prompt_file),
-                )
-            )
-            continue
-        if prompt == "/reload":
-            session.reload()
-            console.print("[dim]agent rebuilt — system prompt re-read from disk[/dim]")
-            _print_banner(session)
-            continue
-        if prompt == "/clear":
-            session.history = []
-            console.print("[dim]conversation cleared[/dim]")
-            continue
-        if prompt == "/vault" or prompt.startswith("/vault "):
-            _handle_vault_command(session, prompt[len("/vault") :].strip())
-            continue
-        if prompt == "/model" or prompt.startswith("/model "):
-            _handle_model_command(session, prompt[len("/model") :].strip())
-            continue
-        if prompt.startswith("/"):
-            # A typo like /valut must never reach the model as a question.
-            console.print(
-                f"[red]unknown command: {prompt.split()[0]}[/red] — [dim]/help lists commands[/dim]"
-            )
-            continue
 
-        _handle_turn(session, prompt)
+        try:
+            if prompt in {"/exit", "/quit"}:
+                log_action("exit")
+                _shutdown(session)
+                console.print("[dim]bye[/dim]")
+                return
+            if prompt in {"/help", "/"}:
+                log_action("help")
+                console.print(Panel(HELP, border_style="cyan", title="help"))
+                continue
+            if prompt == "/notes":
+                log_action("list_notes")
+                _print_notes(session)
+                continue
+            if prompt == "/graph":
+                log_action("open_graph")
+                _open_graph(session)
+                continue
+            if prompt == "/read" or prompt.startswith("/read "):
+                name = prompt[len("/read") :].strip()
+                if not name:
+                    console.print("[dim]usage: /read <id | note name>[/dim]")
+                    continue
+                name = _note_by_id(session, name)
+                log_action("read_note", name)
+                console.print(Panel(Markdown(session.vault.read_note(name)), title=name))
+                continue
+            if prompt == "/save-note" or prompt.startswith("/save-note "):
+                log_action("save_note", prompt[len("/save-note") :].strip())
+                _handle_save_note(session, prompt[len("/save-note") :].strip())
+                continue
+            if prompt == "/prompt":
+                log_action("view_prompt")
+                console.print(
+                    Panel(
+                        Markdown(session.vault_cap.prompt_file.read_text(encoding="utf-8")),
+                        title=str(session.vault_cap.prompt_file),
+                    )
+                )
+                continue
+            if prompt == "/reload":
+                log_action("reload_agent")
+                session.reload()
+                console.print("[dim]agent rebuilt — system prompt re-read from disk[/dim]")
+                _print_banner(session)
+                continue
+            if prompt == "/clear":
+                log_action("clear_history")
+                session.history = []
+                console.print("[dim]conversation cleared[/dim]")
+                continue
+            if prompt == "/vault" or prompt.startswith("/vault "):
+                log_action("vault_cmd", prompt[len("/vault") :].strip())
+                _handle_vault_command(session, prompt[len("/vault") :].strip())
+                continue
+            if prompt == "/model" or prompt.startswith("/model "):
+                log_action("model_cmd", prompt[len("/model") :].strip())
+                _handle_model_command(session, prompt[len("/model") :].strip())
+                continue
+            if prompt.startswith("/"):
+                log_action("unknown_cmd", prompt)
+                console.print(
+                    f"[red]unknown command: {prompt.split()[0]}[/red] — [dim]/help lists commands[/dim]"
+                )
+                continue
+
+            _handle_turn(session, prompt)
+        except Exception as exc:
+            log.error("command failed for prompt %r: %s", prompt, exc, exc_info=True)
+            console.print(Panel(_friendly_error(exc), title="[red]error[/red]", border_style="red"))
 
 
 def _note_by_id(session: Session, arg: str) -> str:
@@ -418,9 +432,14 @@ def _open_graph(session: Session) -> None:
     )
 
 
-def _handle_save_note(session: Session, args: str) -> None:
-    """`/save-note <name> [--full]`: write the last answer (or the whole conversation
-    with --full) to the current vault as a formatted note."""
+def _prepare_save_note(session: Session, args: str) -> dict:
+    """Parse `/save-note <name> [--full]`, validate, and (on success) write the
+    note. Shared by cli.py's Rich rendering and web.py's JSON rendering, which
+    each render the outcome in their own format:
+
+        {"ok": False, "kind": "usage" | "empty" | "write_error", "message": str}
+        {"ok": True, "source": str, "note_name": str, "path": Path}
+    """
     tokens = args.split()
     full = False
     name_parts: list[str] = []
@@ -432,30 +451,43 @@ def _handle_save_note(session: Session, args: str) -> None:
     name = " ".join(name_parts).strip()
 
     if not name:
-        console.print("[dim]usage: /save-note <name> [--full][/dim]")
-        return
+        return {"ok": False, "kind": "usage", "message": "usage: /save-note <name> [--full]"}
     if not session.history:
-        console.print("[yellow]nothing to save yet — ask a question first[/yellow]")
-        return
+        return {"ok": False, "kind": "empty", "message": "nothing to save yet — ask a question first"}
 
     content = _full_conversation(session.history) if full else _last_answer(session.history)
     if not content.strip():
         what = "conversation" if full else "answer"
-        console.print(f"[yellow]no {what} text to save[/yellow]")
-        return
+        return {"ok": False, "kind": "empty", "message": f"no {what} text to save"}
 
     try:
         path = session.vault.write_note(name, content, model=session.model)
     except (ValueError, OSError) as exc:
         log.warning("save-note %r failed: %s", name, exc)
-        console.print(Panel(str(exc), title="[red]save failed[/red]", border_style="red"))
-        return
+        return {"ok": False, "kind": "write_error", "message": str(exc)}
 
     note_name = path.relative_to(session.vault.root).as_posix()[:-3]
     source = "whole conversation" if full else "last answer"
+    return {"ok": True, "source": source, "note_name": note_name, "path": path}
+
+
+def _handle_save_note(session: Session, args: str) -> None:
+    """`/save-note <name> [--full]`: write the last answer (or the whole conversation
+    with --full) to the current vault as a formatted note."""
+    result = _prepare_save_note(session, args)
+    if not result["ok"]:
+        if result["kind"] == "usage":
+            console.print(f"[dim]{result['message']}[/dim]")
+        elif result["kind"] == "write_error":
+            console.print(Panel(result["message"], title="[red]save failed[/red]", border_style="red"))
+        else:
+            console.print(f"[yellow]{result['message']}[/yellow]")
+        return
+
     console.print(
         Panel(
-            f"saved the {source} to [bold]{note_name}[/bold]\n[dim]{path}[/dim]",
+            f"saved the {result['source']} to [bold]{result['note_name']}[/bold]\n"
+            f"[dim]{result['path']}[/dim]",
             title="[bold green]note saved[/bold green]",
             border_style="green",
         )
@@ -674,19 +706,21 @@ def _extract_timings(audit_entries: list[str]) -> list[float | None]:
     for entry in audit_entries:
         if entry.startswith("run-complete"):
             continue
-        if "⏱️" in entry:
-            try:
-                ms = float(entry.split("⏱️")[1].strip().split()[0])
-                timings.append(ms)
-            except (ValueError, IndexError):
-                timings.append(None)
-        elif "failed after" in entry:
-            try:
-                ms = float(entry.split("failed after")[1].strip().split()[0])
-                timings.append(ms)
-            except (ValueError, IndexError):
-                timings.append(None)
+        marker = "⏱️" if "⏱️" in entry else "failed after" if "failed after" in entry else None
+        if marker is None:
+            continue
+        try:
+            timings.append(float(entry.split(marker)[1].strip().split()[0]))
+        except (ValueError, IndexError):
+            timings.append(None)
     return timings
+
+
+def _tool_elapsed(tool: str, i: int, timings: list[float | None]) -> float | None:
+    """The elapsed ms for the i-th tool call in `timings`, or None for a "thinking"
+    entry (which has no timing) or when none was recorded. Shared by cli.py's tools
+    panel and web.py's JSON tools list."""
+    return timings[i] if (tool != "thinking" and i < len(timings)) else None
 
 
 def _render_used(
@@ -703,7 +737,7 @@ def _render_used(
     if used:
         for i, (tool, detail) in enumerate(used):
             style = TOOL_STYLE.get(tool, "magenta")
-            elapsed = timings[i] if (tool != "thinking" and i < len(timings)) else None
+            elapsed = _tool_elapsed(tool, i, timings)
             elapsed_str = f"⏱️ {elapsed:.0f} ms" if elapsed is not None else ""
             body.add_row(Text(f"▪ {tool}", style=f"bold {style}"), detail, elapsed_str)
     else:

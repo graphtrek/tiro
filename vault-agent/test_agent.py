@@ -56,6 +56,96 @@ def make_vault(root: Path) -> Vault:
     return Vault(root)
 
 
+def test_log_cleanup() -> bool:
+    """Log file is always deleted at startup, even with LOG_LEVEL=OFF."""
+    import logging
+    import os
+
+    from capabilities import DEFAULT_LOG_FILE, setup_logging
+
+    ok = True
+
+    # Create a log file first.
+    log_file = DEFAULT_LOG_FILE
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    log_file.write_text("old log content\n", encoding="utf-8")
+
+    # Clear any handlers from previous tests so setup_logging() treats this as
+    # the first call of the process (the deletion only happens then).
+    log = logging.getLogger("orbit")
+    for handler in log.handlers[:]:
+        log.removeHandler(handler)
+    log.disabled = False
+
+    old_level = os.environ.get("LOG_LEVEL")
+    try:
+        # With LOG_LEVEL=OFF, the log file should still be deleted.
+        os.environ["LOG_LEVEL"] = "OFF"
+        setup_logging()
+        ok &= check("log file deleted with LOG_LEVEL=OFF", not log_file.exists())
+    finally:
+        if old_level is not None:
+            os.environ["LOG_LEVEL"] = old_level
+        else:
+            os.environ.pop("LOG_LEVEL", None)
+
+    return ok
+
+
+def test_external_delete_recovery() -> bool:
+    """DEF-014 regression: a note removed from disk by something other than
+    Vault.write_note() (rm, Obsidian, Finder, ...) while the process is running
+    must not crash list_notes/read_note/search_vault/graph with an uncaught
+    FileNotFoundError - it should just drop out of the results, and the index
+    should recover (or at least not wedge) on the very next read, with no
+    restart needed."""
+    ok = True
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "Keep.md").write_text("# Keep\n\nStays around.\n", encoding="utf-8")
+        (root / "Gone.md").write_text("# Gone\n\nWill be deleted externally.\n", encoding="utf-8")
+        vault = Vault(root)
+
+        ok &= check(
+            "both notes visible before deletion",
+            {e["note"] for e in vault.list_notes()} == {"Keep", "Gone"},
+        )
+
+        (root / "Gone.md").unlink()  # simulate rm / Obsidian / Finder, not vault.write_note()
+
+        ok &= check("list_notes doesn't raise after an external delete", not _raises(FileNotFoundError, vault.list_notes))
+        ok &= check(
+            "list_notes drops the deleted note",
+            {e["note"] for e in vault.list_notes()} == {"Keep"},
+        )
+
+        ok &= check(
+            "read_note doesn't raise after an external delete",
+            not _raises(FileNotFoundError, lambda: vault.read_note("Gone")),
+        )
+        ok &= check("read_note reports the deleted note as unknown", "No note named" in vault.read_note("Gone"))
+
+        ok &= check(
+            "search_vault doesn't raise after an external delete",
+            not _raises(FileNotFoundError, lambda: vault.search_vault("deleted externally")),
+        )
+        ok &= check(
+            "search_vault no longer surfaces the deleted note",
+            all(hit["note"] != "Gone" for hit in vault.search_vault("deleted externally")),
+        )
+
+        ok &= check("graph doesn't raise after an external delete", not _raises(FileNotFoundError, vault.graph))
+        ok &= check("graph drops the deleted note", "Gone" not in {n["id"] for n in vault.graph()["nodes"]})
+
+        # The index recovered: the surviving note is unaffected and keeps working.
+        ok &= check("index recovers: Keep still reads fine", "Stays around" in vault.read_note("Keep"))
+        ok &= check(
+            "index recovers: it doesn't wedge - Keep still shows up in list_notes",
+            {e["note"] for e in vault.list_notes()} == {"Keep"},
+        )
+    return ok
+
+
 def unit_tests() -> bool:
     print("unit tests (no API):")
     ok = True
@@ -203,6 +293,8 @@ def unit_tests() -> bool:
         local_cap = VaultCapability(Vault(vault.root))
         ok &= check("vault-local system_prompt.md takes precedence", "Vault-local prompt" in local_cap.get_instructions())
 
+    ok &= test_log_cleanup()
+    ok &= test_external_delete_recovery()
     ok &= vault_switching_tests()
     ok &= graph_tests()
     return ok

@@ -85,7 +85,7 @@ const inputEl = document.getElementById("input");
 const spinnerEl = document.getElementById("spinner");
 const statusEl = document.getElementById("status");
 
-const history = [];
+const cmdHistory = [];
 let histIdx = -1;
 let draft = "";
 let spinTimer = null;
@@ -234,6 +234,15 @@ async function send(text) {
   }
 }
 
+// Records a command in the input history (same bookkeeping as pressing Enter)
+// and sends it. Shared by the Enter-key handler below and the wikilink-click
+// handler, so a clicked [[link]] shows up in the history like a typed one.
+function runCommand(text) {
+  cmdHistory.push(text);
+  histIdx = cmdHistory.length;
+  send(text);
+}
+
 // A rendered [[wikilink]] is a real <a href="/?read=..."> (see convertWikilinks),
 // so it works even without this: this just upgrades the click to stay on the page
 // (reads the note inline via /api/message) instead of a full reload.
@@ -244,29 +253,24 @@ scrollEl.addEventListener("click", (ev) => {
   try { url = new URL(a.href, window.location.origin); } catch { return; }
   if (url.origin !== window.location.origin || url.pathname !== "/" || !url.searchParams.has("read")) return;
   ev.preventDefault();
-  const name = url.searchParams.get("read");
-  history.push("/read " + name);
-  histIdx = history.length;
-  send("/read " + name);
+  runCommand("/read " + url.searchParams.get("read"));
 });
 
 inputEl.addEventListener("keydown", (ev) => {
   if (ev.key === "Enter") {
     const text = inputEl.value.trim();
     if (!text || inputEl.disabled) return;
-    history.push(text);
-    histIdx = history.length;
     inputEl.value = "";
-    send(text);
+    runCommand(text);
   } else if (ev.key === "ArrowUp") {
-    if (!history.length) return;
-    if (histIdx === history.length) draft = inputEl.value;
-    if (histIdx > 0) { histIdx--; inputEl.value = history[histIdx]; }
+    if (!cmdHistory.length) return;
+    if (histIdx === cmdHistory.length) draft = inputEl.value;
+    if (histIdx > 0) { histIdx--; inputEl.value = cmdHistory[histIdx]; }
     ev.preventDefault();
   } else if (ev.key === "ArrowDown") {
-    if (histIdx >= history.length) return;
+    if (histIdx >= cmdHistory.length) return;
     histIdx++;
-    inputEl.value = histIdx === history.length ? draft : history[histIdx];
+    inputEl.value = histIdx === cmdHistory.length ? draft : cmdHistory[histIdx];
     ev.preventDefault();
   }
 });
@@ -274,8 +278,8 @@ inputEl.addEventListener("keydown", (ev) => {
 document.body.addEventListener("click", () => { if (!inputEl.disabled) inputEl.focus(); });
 
 // The graph view's "read in terminal" icon lands here as /?read=<note>; consume it
-// once (window.history, not the `history` input-log array above shadowing it) so a
-// later reload of this same URL doesn't replay the read.
+// once (window.history, the browser API - unrelated to the cmdHistory array above)
+// so a later reload of this same URL doesn't replay the read.
 const readNote = new URLSearchParams(window.location.search).get("read");
 if (readNote) window.history.replaceState(null, "", window.location.pathname);
 

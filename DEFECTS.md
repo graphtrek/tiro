@@ -721,3 +721,49 @@ History:
   on DEF-012, with a full blast-radius sweep of the four candidate danger zones (sync durations,
   dashboard 30-day window, report ranges, `SyncLock.locked_at`) — all four confirmed SAFE.
 
+---
+
+### DEF-014 — `vault-agent` web terminal permanently crashes (`/api/status` and `/api/message` both 500) the moment a note is removed from the vault directory while the server is running, with no in-app recovery
+Status: OPEN
+Severity: HIGH
+Found by: qa
+Service(s): vault-agent
+Steps:
+1. Start the web terminal: `cd vault-agent && uv run python web.py` (serves
+   `http://127.0.0.1:8010`, vault from `VAULT_PATH`/`VAULT_NAME` in `.env`).
+2. In the browser, ask a real question and `/save-note some-name` to write a new `.md` file into
+   the vault (this refreshes the in-memory note index, per `obsidian_vault.py`'s `write_note`
+   calling `self._build_index()`).
+3. Outside the app (e.g. `rm` the file directly, or delete/rename it in Obsidian/Finder while the
+   server keeps running — an entirely ordinary thing to do to a live-edited Obsidian vault),
+   remove that same `.md` file from disk.
+4. Reload the web terminal page, or send any command that lists notes (`/notes`, or just the
+   page's own status bar, which calls `GET /api/status` on every load).
+Expected: the app tolerates the vault directory changing underneath it — either it re-scans/
+re-validates the index before use, or at minimum it degrades gracefully (skips the missing file,
+or returns a clear error) rather than taking down the whole server.
+Actual: `GET /api/status` throws an unhandled `FileNotFoundError` and returns HTTP 500; the page
+header shows literally "server unreachable". Every subsequent `POST /api/message` (including
+`/notes` and `/reload`) also returns 500 — `/reload` does NOT fix it, because `Session.reload()`
+only rebuilds the pydantic-ai agent, not the vault's `_index`. The only recovery is killing and
+restarting the `web.py` process. Root cause: `Vault._index` (`obsidian_vault.py`) is built once at
+startup (`_build_index()` in `__init__`) and only ever rebuilt after `write_note()` — never before
+a read — so any path removed from disk by any means other than the app's own `write_note` leaves a
+stale entry that `list_notes()` unconditionally tries to `path.read_text(...)` on, crashing with an
+uncaught exception. Same code path (`obsidian_vault.py`) is shared by the CLI (`cli.py`), so
+`uv run python cli.py <vault>` is very likely equally vulnerable to the same external-deletion
+scenario (not independently re-verified in the CLI for this filing, but the mechanism is
+identical and CLI has no separate index-refresh logic either).
+Reproduced live: server log stack trace ends
+`File ".../obsidian_vault.py", line 311, in _read_text ... FileNotFoundError: [Errno 2] No such
+file or directory: '/Users/Imre/backup/giro/qa-girofix-test.md'`; confirmed `/api/status` and
+`POST /api/message` (`/notes`, `/reload`) all returned 500 afterward until the process was
+restarted, at which point (`notes` re-scanned fresh at startup) everything worked again.
+Screenshot: screenshots/06_reloaded.png (header reading "server unreachable" after the crash).
+History:
+- 2026-08-05 qa: filed. Found while exercising `/save-note` end-to-end per the assigned task
+  (create then clean up a test artifact note) — this is a very plausible real-world trigger, not
+  an edge case, since the whole point of an Obsidian vault is that notes get edited/renamed/deleted
+  live, often by Obsidian itself or the user directly, while a long-running web terminal session
+  stays open against the same directory.
+

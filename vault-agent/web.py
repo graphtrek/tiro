@@ -31,24 +31,23 @@ from pydantic import BaseModel
 from rich.errors import MarkupError
 from rich.text import Text
 
-from capabilities import AUDIT, log, log_interaction, setup_logging
+from capabilities import AUDIT, log, log_action, log_interaction, setup_logging
 from cli import (
     ENV_FILE,
     Session,
     _extract_timings,
     _friendly_error,
-    _full_conversation,
-    _last_answer,
     _list_vaults,
     _note_by_id,
     _persist_vault_choice,
+    _prepare_save_note,
+    _tool_elapsed,
     _tools_used,
     _update_env,
     _vault_base,
 )
 from graph_view import render_graph_html
 from headroom_proxy import (
-    HeadroomError,
     ProxyManager,
     proxy_base_url,
     proxy_enabled,
@@ -99,20 +98,19 @@ async def lifespan(app: FastAPI):
     proxy: ProxyManager | None = None
     if proxy_enabled():
         proxy = ProxyManager()
-        try:
-            status = proxy.ensure(MODEL)
-            if status.active:
-                log.info(
-                    "headroom proxy %s on %s:%s · mode %s",
-                    "reused" if status.external else "started",
-                    proxy_host(),
-                    proxy_port(),
-                    proxy_mode(),
-                )
-            elif status.reason:
-                log.warning("headroom proxy inactive: %s", status.reason)
-        except HeadroomError as exc:
-            log.warning("headroom proxy unavailable for %s: %s — running direct", MODEL, exc)
+        status, error = proxy.ensure_safe(MODEL)
+        if error is not None:
+            log.warning("headroom proxy unavailable for %s: %s — running direct", MODEL, error)
+        elif status.active:
+            log.info(
+                "headroom proxy %s on %s:%s · mode %s",
+                "reused" if status.external else "started",
+                proxy_host(),
+                proxy_port(),
+                proxy_mode(),
+            )
+        elif status.reason:
+            log.warning("headroom proxy inactive: %s", status.reason)
 
     vault, _ = open_vault([])
     SESSION = Session(vault, proxy)
@@ -190,44 +188,59 @@ def message(body: MessageIn):
 
 
 def dispatch(session: Session, text: str) -> dict:
-    if text in {"/exit", "/quit"}:
-        return _error("/exit is CLI-only — close the tab, or /clear to reset the conversation")
-    if text in {"/help", "/"}:
-        return _info(HELP_MD)
-    if text == "/notes":
-        return _notes(session)
-    if text == "/graph":
-        graph = session.vault.graph()
-        return _info(
-            f"opened the graph view in a new tab — {len(graph['nodes'])} notes, "
-            f"{len(graph['links'])} links",
-            open_graph=True,
-        )
-    if text == "/read" or text.startswith("/read "):
-        name = text[len("/read") :].strip()
-        if not name:
-            return _error("usage: /read <id | note name>")
-        name = _note_by_id(session, name)
-        return _info(session.vault.read_note(name))
-    if text == "/save-note" or text.startswith("/save-note "):
-        return _save_note(session, text[len("/save-note") :].strip())
-    if text == "/prompt":
-        prompt_file = session.vault_cap.prompt_file
-        return _info(f"`{prompt_file}`\n\n---\n\n{prompt_file.read_text(encoding='utf-8')}")
-    if text == "/reload":
-        session.reload()
-        return _info("agent rebuilt — system prompt re-read from disk", status_changed=True)
-    if text == "/clear":
-        session.history = []
-        return _info("conversation cleared")
-    if text == "/vault" or text.startswith("/vault "):
-        return _vault_cmd(session, text[len("/vault") :].strip())
-    if text == "/model" or text.startswith("/model "):
-        return _model_cmd(session, text[len("/model") :].strip())
-    if text.startswith("/"):
-        # A typo like /valut must never reach the model as a question.
-        return _error(f"unknown command: {text.split()[0]} — /help lists commands")
-    return _turn(session, text)
+    try:
+        if text in {"/exit", "/quit"}:
+            log_action("exit")
+            return _error("/exit is CLI-only — close the tab, or /clear to reset the conversation")
+        if text in {"/help", "/"}:
+            log_action("help")
+            return _info(HELP_MD)
+        if text == "/notes":
+            log_action("list_notes")
+            return _notes(session)
+        if text == "/graph":
+            log_action("open_graph")
+            graph = session.vault.graph()
+            return _info(
+                f"opened the graph view in a new tab — {len(graph['nodes'])} notes, "
+                f"{len(graph['links'])} links",
+                open_graph=True,
+            )
+        if text == "/read" or text.startswith("/read "):
+            name = text[len("/read") :].strip()
+            if not name:
+                return _error("usage: /read <id | note name>")
+            name = _note_by_id(session, name)
+            log_action("read_note", name)
+            return _info(session.vault.read_note(name))
+        if text == "/save-note" or text.startswith("/save-note "):
+            log_action("save_note", text[len("/save-note") :].strip())
+            return _save_note(session, text[len("/save-note") :].strip())
+        if text == "/prompt":
+            log_action("view_prompt")
+            prompt_file = session.vault_cap.prompt_file
+            return _info(f"`{prompt_file}`\n\n---\n\n{prompt_file.read_text(encoding='utf-8')}")
+        if text == "/reload":
+            log_action("reload_agent")
+            session.reload()
+            return _info("agent rebuilt — system prompt re-read from disk", status_changed=True)
+        if text == "/clear":
+            log_action("clear_history")
+            session.history = []
+            return _info("conversation cleared")
+        if text == "/vault" or text.startswith("/vault "):
+            log_action("vault_cmd", text[len("/vault") :].strip())
+            return _vault_cmd(session, text[len("/vault") :].strip())
+        if text == "/model" or text.startswith("/model "):
+            log_action("model_cmd", text[len("/model") :].strip())
+            return _model_cmd(session, text[len("/model") :].strip())
+        if text.startswith("/"):
+            log_action("unknown_cmd", text)
+            return _error(f"unknown command: {text.split()[0]} — /help lists commands")
+        return _turn(session, text)
+    except Exception as exc:
+        log.error("dispatch failed for text %r: %s", text, exc, exc_info=True)
+        return _error(_plain_error(exc))
 
 
 def _info(markdown: str, status_changed: bool = False, open_graph: bool = False) -> dict:
@@ -256,34 +269,13 @@ def _notes(session: Session) -> dict:
 
 
 def _save_note(session: Session, args: str) -> dict:
-    full = False
-    name_parts: list[str] = []
-    for token in args.split():
-        if token in {"--full", "-f"}:
-            full = True
-        else:
-            name_parts.append(token)
-    name = " ".join(name_parts).strip()
-
-    if not name:
-        return _error("usage: /save-note <name> [--full]")
-    if not session.history:
-        return _error("nothing to save yet — ask a question first")
-
-    content = _full_conversation(session.history) if full else _last_answer(session.history)
-    if not content.strip():
-        what = "conversation" if full else "answer"
-        return _error(f"no {what} text to save")
-
-    try:
-        path = session.vault.write_note(name, content, model=session.model)
-    except (ValueError, OSError) as exc:
-        log.warning("save-note %r failed: %s", name, exc)
-        return _error(f"save failed: {exc}")
-
-    note_name = path.relative_to(session.vault.root).as_posix()[:-3]
-    source = "whole conversation" if full else "last answer"
-    return _info(f"saved the {source} to **{note_name}**\n\n`{path}`")
+    result = _prepare_save_note(session, args)
+    if not result["ok"]:
+        message = result["message"]
+        if result["kind"] == "write_error":
+            message = f"save failed: {message}"
+        return _error(message)
+    return _info(f"saved the {result['source']} to **{result['note_name']}**\n\n`{result['path']}`")
 
 
 def _vault_cmd(session: Session, name: str) -> dict:
@@ -356,11 +348,10 @@ def _model_cmd(session: Session, name: str) -> dict:
 
 def _apply_proxy_note(proxy: ProxyManager, spec: str) -> str:
     """cli._apply_proxy, returning a plain-text note instead of printing panels."""
-    try:
-        status = proxy.ensure(spec)
-    except HeadroomError as exc:
-        log.warning("headroom proxy unavailable for %s: %s", spec, exc)
-        return f"headroom proxy unavailable ({exc}) — continuing without it, LLM calls go direct"
+    status, error = proxy.ensure_safe(spec)
+    if error is not None:
+        log.warning("headroom proxy unavailable for %s: %s", spec, error)
+        return f"headroom proxy unavailable ({error}) — continuing without it, LLM calls go direct"
     if status.active:
         kind = "reusing" if status.external else "started"
         note = f" ({status.reason})" if status.reason else ""
@@ -384,7 +375,7 @@ def _turn(session: Session, prompt: str) -> dict:
     timings = _extract_timings(AUDIT[audit_start:])
     tools = []
     for i, (tool, detail) in enumerate(used):
-        ms = timings[i] if (tool != "thinking" and i < len(timings)) else None
+        ms = _tool_elapsed(tool, i, timings)
         tools.append({"tool": tool, "args": detail, "ms": round(ms, 1) if ms is not None else None})
     requests = result.usage.requests or 0
 

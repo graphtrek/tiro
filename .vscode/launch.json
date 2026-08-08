@@ -65,6 +65,24 @@
       "python": "${workspaceFolder}/vision/.venv/bin/python",
       "cwd": "${workspaceFolder}/vision",
       "console": "integratedTerminal"
+    },
+    {
+      "name": "vault-agent CLI",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/vault-agent/cli.py",
+      "python": "${workspaceFolder}/vault-agent/.venv/bin/python",
+      "cwd": "${workspaceFolder}/vault-agent",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "vault-agent Web",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/vault-agent/web.py",
+      "python": "${workspaceFolder}/vault-agent/.venv/bin/python",
+      "cwd": "${workspaceFolder}/vault-agent",
+      "console": "integratedTerminal"
     }
   ]
 }

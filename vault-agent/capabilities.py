@@ -33,14 +33,36 @@ DEFAULT_PROMPT_FILE = Path(__file__).resolve().parent / "system_prompt.md"
 DEFAULT_LOG_FILE = Path(__file__).resolve().parent / "logs" / "agent.log"
 
 
+class _FlushFileHandler(logging.FileHandler):
+    """FileHandler that flushes after every emit so logs survive process exit."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        super().emit(record)
+        self.flush()
+
+
 def setup_logging() -> logging.Logger:
     """Configure the `orbit` logger from the environment. Idempotent.
 
     LOG_LEVEL (default INFO; set OFF/NONE to disable) sets verbosity; LOG_FILE
     (default logs/agent.log next to the scripts) is where the persistent log is
     written. Logs go to the file only, never stdout, so they never clutter the REPL.
+    The log file is always deleted at startup to ensure a clean log for each session.
     """
     level_name = os.environ.get("LOG_LEVEL", "INFO").strip().upper()
+    log_file = os.environ.get("LOG_FILE", str(DEFAULT_LOG_FILE)).strip()
+
+    # Always delete the log file at startup to ensure a clean log for each session.
+    # Only do this on the first setup call — idempotent re-calls must not erase the
+    # file that the already-installed handler is writing to.
+    if log_file and not log.handlers:
+        try:
+            path = Path(log_file).expanduser()
+            if path.exists():
+                path.unlink()
+        except OSError:
+            pass  # Ignore errors during deletion (e.g., permissions)
+
     if level_name in {"OFF", "NONE", "DISABLED"}:
         log.disabled = True
         return log
@@ -49,14 +71,13 @@ def setup_logging() -> logging.Logger:
     log.propagate = False
     if log.handlers:  # already wired up once this process
         return log
-    log_file = os.environ.get("LOG_FILE", str(DEFAULT_LOG_FILE)).strip()
     if not log_file:
         log.addHandler(logging.NullHandler())
         return log
     try:
         path = Path(log_file).expanduser()
         path.parent.mkdir(parents=True, exist_ok=True)
-        handler = logging.FileHandler(path, encoding="utf-8")
+        handler = _FlushFileHandler(path, encoding="utf-8")
         handler.setFormatter(
             logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%Y-%m-%d %H:%M:%S")
         )
@@ -94,6 +115,14 @@ def log_interaction(question: str, answer: str, tools: list[str] | None = None) 
         ", ".join(tools) if tools else "none",
         (answer or "").replace("\n", " "),
     )
+
+
+def log_action(action: str, details: str | None = None) -> None:
+    """Record a generic user action (e.g. a CLI command)."""
+    if details:
+        log.info("Action: %s | Details: %s", action, details.replace("\n", " "))
+    else:
+        log.info("Action: %s", action)
 
 
 class VaultCapability(AbstractCapability):
