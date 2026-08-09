@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.uploader import UploaderClient
@@ -95,7 +95,25 @@ def upload_files_partial(request: Request):
 def download_file(bank: str, filename: str):
     """Fájl letöltése az uploader szervizről."""
     uc = _uploader_client()
-    return RedirectResponse(f"{uc.base_url}/api/v1/files/{bank}/{filename}/download")
+    url = f"{uc.base_url}/api/v1/files/{bank}/{filename}/download"
+
+    resp = uc.session.get(url, stream=True, timeout=uc.timeout)
+    resp.raise_for_status()
+
+    allowed_headers = ("content-disposition", "content-type")
+    headers = {k: v for k, v in resp.headers.items() if k.lower() in allowed_headers}
+
+    def generator():
+        try:
+            yield from resp.iter_content(chunk_size=8192)
+        finally:
+            resp.close()
+
+    return StreamingResponse(
+        generator(),
+        headers=headers,
+        status_code=resp.status_code
+    )
 
 
 @router.delete("/upload/files/{bank}/{filename}", response_class=HTMLResponse)
