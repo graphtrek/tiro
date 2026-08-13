@@ -116,3 +116,82 @@ def test_current_year_with_no_invoices_has_zero_projection_no_div_by_zero(db):
     assert len(projected) == 5
     assert all(row.revenue == 0.0 and row.total == 0.0 for row in projected)
     assert report.totals.total == 0.0
+
+
+def test_override_substitutes_revenue_inputs_for_projected_month(db):
+    # Real Jan data feeds the trailing average used for non-overridden
+    # projected months (Aug-Dec, "today" pinned to 2026-07-15).
+    _invoice(db, "OUT-2026-1", date(2026, 1, 10), _InvoiceDirection.OUTBOUND, 1000.0, 270.0)
+
+    tax_service.save_estimate_overrides(db, 2026, {9: 3_000_000.0})
+
+    report = tax_service.get_tax_estimate(db, 2026)
+
+    sept = next(row for row in report.monthly if row.month == "2026-09")
+    assert sept.is_override is True
+    assert sept.is_projected is True
+    assert sept.gross_revenue == 3_000_000.0
+    expected_net = 3_000_000.0 / 1.27
+    assert sept.revenue == pytest.approx(expected_net)
+    assert sept.expenses == 0.0
+    assert sept.vat_payable == pytest.approx(3_000_000.0 - expected_net)
+    # tao/hipa/szja/szocho follow the standard _tax_row formula from the
+    # substituted inputs -- assert they were actually computed, not zeroed.
+    assert sept.tao_tax > 0.0
+    assert sept.hipa_tax > 0.0
+
+    # A non-overridden projected month keeps exactly today's behavior: the
+    # trailing average of real (non-override) active months only.
+    aug = next(row for row in report.monthly if row.month == "2026-08")
+    assert aug.is_override is False
+    assert aug.revenue == pytest.approx(1000.0)
+
+
+def test_override_substitutes_revenue_inputs_for_elapsed_month(db):
+    _invoice(db, "OUT-2026-3", date(2026, 3, 10), _InvoiceDirection.OUTBOUND, 5000.0, 1350.0)
+
+    tax_service.save_estimate_overrides(db, 2026, {3: 1_000_000.0})
+
+    report = tax_service.get_tax_estimate(db, 2026)
+
+    march = next(row for row in report.monthly if row.month == "2026-03")
+    assert march.is_override is True
+    assert march.is_projected is False
+    assert march.gross_revenue == 1_000_000.0
+    expected_net = 1_000_000.0 / 1.27
+    assert march.revenue == pytest.approx(expected_net)
+    assert march.vat_payable == pytest.approx(1_000_000.0 - expected_net)
+
+    # An unrelated real month is unaffected.
+    jan = next(row for row in report.monthly if row.month == "2026-01")
+    assert jan.is_override is False
+    assert jan.revenue == 0.0
+
+
+def test_get_estimate_overrides_empty_when_none_saved(db):
+    assert tax_service.get_estimate_overrides(db, 2026) == {}
+
+
+def test_save_estimate_overrides_round_trips(db):
+    saved = tax_service.save_estimate_overrides(db, 2026, {8: 2_500_000.0, 9: 3_000_000.0})
+    assert saved == {8: 2_500_000.0, 9: 3_000_000.0}
+    assert tax_service.get_estimate_overrides(db, 2026) == {8: 2_500_000.0, 9: 3_000_000.0}
+
+
+def test_save_estimate_overrides_upserts_without_duplicating(db):
+    tax_service.save_estimate_overrides(db, 2026, {8: 2_500_000.0})
+    saved = tax_service.save_estimate_overrides(db, 2026, {8: 2_700_000.0})
+
+    assert saved == {8: 2_700_000.0}
+    from invoice_core.db import TaxEstimateOverride
+
+    rows = db.query(TaxEstimateOverride).filter_by(year=2026, month=8).all()
+    assert len(rows) == 1
+    assert rows[0].gross_revenue == 2_700_000.0
+
+
+def test_save_estimate_overrides_leaves_untouched_months_alone(db):
+    tax_service.save_estimate_overrides(db, 2026, {8: 2_500_000.0, 9: 3_000_000.0})
+    saved = tax_service.save_estimate_overrides(db, 2026, {8: 2_700_000.0})
+
+    assert saved == {8: 2_700_000.0, 9: 3_000_000.0}

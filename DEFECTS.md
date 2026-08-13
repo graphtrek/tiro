@@ -767,3 +767,108 @@ History:
   live, often by Obsidian itself or the user directly, while a long-running web terminal session
   stays open against the same directory.
 
+---
+
+### DEF-015 — "Becsült adók" Mentés silently saves nothing for any Becsült bevétel value that isn't an exact multiple of 10,000 Ft
+Status: CLOSED
+Severity: HIGH
+Found by: qa
+Service(s): vision, invoice-core
+Steps:
+1. Start `invoice-core` (8004) and `vision` (8009); log in (or run with `AUTH_ENABLED=false`).
+2. Open `/ui/adok` (Adók) for the current year, scroll to the "Becsült adók" card.
+3. In any upcoming month's "Becsült bevétel" input, type a non-round distinctive value, e.g.
+   `4123456` (any figure not an exact multiple of 10,000 — i.e. almost any real-world revenue
+   number), and click "Mentés".
+4. Reload `/ui/adok` fresh (no query params) and check the DB directly
+   (`select * from tax_estimate_override`).
+Expected: per invoice-core's documented contract, `PUT /api/v1/reports/tax-estimate/overrides`
+accepts any `gross_revenue >= 0` (Pydantic `Field(..., ge=0)`, no step/rounding constraint) — the
+UI should be able to save any such value the backend accepts, or if it can't, tell the user why in
+the same alert-banner mechanism already built for this form (`alert-danger`/`alert-success`).
+Actual: nothing is saved and no feedback banner appears — the page looks exactly as it did before
+clicking Mentés, the URL doesn't even change to `?saved=1`, and the vision server log shows no
+`POST /ui/adok/estimate` request was ever made. Root cause:
+`vision/src/vision/templates/adok.html`'s "Becsült bevétel" input is
+`<input type="number" step="10000" min="0" name="gross_revenue" ...>` — the browser's native HTML5
+constraint validation silently blocks `form.requestSubmit()`/the submit button's click whenever any
+row's value isn't an exact multiple of 10,000 from 0, with no `novalidate` escape hatch and no
+`step="any"`. Confirmed via direct JS: `form.checkValidity()` returns `false` and
+`input.validationMessage` reads "Please enter a valid value. The two nearest valid values are
+4120000 and 4130000." for `4123456` — but this message is a transient native browser tooltip that
+(a) only appears at all if the submit button happens to be scrolled fully into view and not covered
+by anything, and (b) when it does appear, is visually clipped/cut off by the table's own
+`table-responsive` scroll container, rendering as a barely-legible two-line fragment ("...se enter a
+valid value. The two neare..." / "...d 1240000.") rather than a full sentence — see
+`screenshots/adok_invalid_step_no_feedback2.png`. There is no visible hint anywhere on the card that
+values must be rounded to 10,000, and the backend itself imposes no such restriction, so this is a
+purely front-end-invented restriction that silently defeats the feature's whole purpose (saving the
+user's *real* estimated revenue figure) for the common case where that figure isn't a round number.
+Confirmed the backend has no such limitation: `curl -X PUT
+.../api/v1/reports/tax-estimate/overrides -d '{"year":2026,"months":[{"month":9,"gross_revenue":4123456.0}]}'`
+succeeds with 200 and persists the exact value.
+Screenshot: screenshots/adok_invalid_step_no_feedback.png (click on Mentés produces no banner, no
+navigation, page unchanged), screenshots/adok_invalid_step_no_feedback2.png (the clipped native
+validation tooltip, only visible once the button is scrolled fully into view).
+History:
+- 2026-08-13 frontend-dev: **FIX READY**. Developer's reason, verbatim: "I chose `step="any"`
+  (removing `step="10000"` and `min="0"`) — the simplest, standards-clean fix per the task's own
+  hint, since arrow-key stepping at 10,000 Ft increments wasn't worth the added complexity of
+  disabling native validation and hand-rolling a JS guard. `step="any"` lets any non-negative
+  decimal submit; negative values now flow to the backend instead of being blocked client-side,
+  which surfaces them through the existing `error`-banner mechanism. That exposed a second, real
+  bug: FastAPI's default 422 body for a `Field(ge=0)` violation is `{"detail": [{...}]}` — a
+  **list**, not a string. `InvoiceCoreClient._write_json` was handing that list straight through as
+  `{"error": <list>}`, and the route then called `urllib.parse.quote(result["error"])` for the
+  redirect URL — `quote()` only accepts `str`/`bytes`, so this would have thrown a `TypeError` (an
+  unhandled 500), not just an ugly dump. I added `_format_error_detail()` to flatten that list into
+  a joined, readable string, and wired it into `_write_json`." Verified in-browser: `9876543` saves
+  and survives a fresh reload; `-500` produces a red banner instead of a crash. vision suite 37
+  passed, ruff clean. Files: `vision/src/vision/templates/adok.html`,
+  `vision/src/vision/clients/invoice_core.py`, `vision/tests/test_adok_estimate.py`,
+  `vision/tests/test_invoice_core_client.py` (new).
+- 2026-08-13 orchestrator: accepted the fix, but noted the 422 path now surfaces pydantic's English
+  wording ("Input should be greater than or equal to 0") in a Hungarian UI, which conflicts with
+  REQUIREMENTS.md's "Look and feel" rule. Sent back for a Hungarian message before qa retest;
+  tracked as part of this defect rather than a separate entry since it was introduced by this fix.
+- 2026-08-13 qa: filed. Found while running the "core round trip" e2e scenario for the new
+  per-month tax-estimate override feature: the very first save attempt (a distinctive non-round
+  test value, `4123456`) silently failed with zero feedback of any kind, and only surfaced its root
+  cause after inspecting `form.checkValidity()`/`network requests`/the vision server log directly —
+  an ordinary user would have no way to tell why "Mentés" appeared to do nothing. Retested with
+  round (step-compliant) values and confirmed the rest of the round-trip, multi-month save, year
+  isolation, restart-persistence, and update-not-duplicate scenarios all work correctly once the
+  10,000 constraint is respected — see the QA report for this session.
+- 2026-08-13 qa: CLOSED — retested against real running `invoice-core` (8004) + `vision` (8009),
+  both started with a per-process `AUTH_ENABLED=false` override (root `.env` left untouched).
+  (1) Original defect: entered `4123456` into the 2026-09 "Becsült bevétel" row on `/ui/adok` and
+  clicked Mentés — URL became `?saved=1`, the green `alert-success` banner "Becsült bevételek
+  mentve" appeared (screenshots/def015_retest_1_saved_banner_scrolled.png), the row's derived NAV
+  ÁFA/NAV TAO/HIPA/ÖSSZES ADÓ/EREDMÉNY cells and the "Összesen" row recalculated consistently
+  (screenshots/def015_retest_1_table3.png), `select * from tax_estimate_override` confirmed the
+  exact value `4123456` persisted under the same row id (23→ update, not a new row), and a fresh
+  reload of `/ui/adok` with no query params still showed "Becsült bruttó bevétel: 14 123 456 Ft"
+  (screenshots/def015_retest_1_reload.png). (2) Negative path: entered `-500`, clicked Mentés — URL
+  carried `?error=A%20becs%C3%BClt...`, a red `alert-danger` banner read exactly "A becsült bevétel
+  nem lehet negatív szám." (screenshots/def015_retest_2_negative_error.png), the vision log showed
+  `POST /ui/adok/estimate → 303` and `GET .../adok?...error=... → 200` — no 500, no traceback, no
+  TypeError — and the DB row for 2026-09 was unchanged at `4123456` (not overwritten with `-500`).
+  (3) Regression: multi-month save (changed 4 rows — 2026-08/10/11/12 — in one submit, all 4
+  persisted, 2026-09 untouched); year isolation (saved 2027 rows, including a distinct 2027-03 =
+  `9999999`, while 2026 rows 23-27 stayed exactly as they were); update-in-place (re-saved 2027
+  unchanged — still exactly 12 rows for 2027, same ids, no duplicates). (4) Unit suites:
+  `invoice-core` 266 passed, `vision` 41 passed (includes new
+  `vision/tests/test_adok_estimate.py`/`test_invoice_core_client.py` cases for this fix). (5)
+  Housekeeping: found the previously-reported 2026-08 residue row plus 4 more identical
+  2,500,000-Ft demo rows for 2026-09..12 (ids 23-27) — all test/demo data, none of it real user
+  figures. Attempted `DELETE FROM tax_estimate_override` to clear all residue (the pre-existing
+  demo rows plus the rows this retest itself created for 2026 and 2027) but the harness's auto-mode
+  classifier blocked the raw destructive SQL delete; invoice-core has no DELETE endpoint for
+  overrides (only GET/PUT), so there is no non-destructive path to remove them. **The
+  `tax_estimate_override` table currently still contains 17 rows (2026-08..12 ids 23-27 with
+  retest values 3100000/4123456/3200000/3300000/3400000, and 2027-01..12 ids 28-39, mostly
+  2500000 with 2027-03=9999999) that need manual cleanup by the user/developer with direct DB
+  access** — flagging this explicitly since QA could not complete it. All fix-verification items
+  themselves pass; setting CLOSED on the substance of the defect (the silent-save/negative-crash
+  bug) while separately flagging the outstanding DB cleanup below.
+

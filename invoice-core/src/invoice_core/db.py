@@ -547,6 +547,29 @@ class AuditLog(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False, index=True)
 
 
+class TaxEstimateOverride(Base):
+    """User-entered override for a single month's "Becsült bevétel" (estimated
+    gross revenue) shown in vision's tax-estimate card.
+
+    Holds only hand-entered facts the user has typed in to replace a
+    projected/real month in `tax_service.get_tax_estimate` -- never written by
+    `sync_all` or any other pipeline stage, per the "never let sync overwrite
+    a fact the user set by hand" rule.
+    """
+
+    __tablename__ = "tax_estimate_override"
+    __table_args__ = (
+        UniqueConstraint("year", "month", name="uq_tax_estimate_override_year_month"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, nullable=False, index=True)
+    month = Column(Integer, nullable=False)  # 1-12
+    gross_revenue = Column(Float, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 # ── Business rules ──────────────────────────────────────────────────────────
 
 

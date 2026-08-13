@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Fizetés Calculator — Moneypenny{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
+    <li class="breadcrumb-item active">Fizetés Calculator</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4"><i class="bi bi-calculator me-2"></i>Fizetés Calculator</h1>
+
+<div class="row">
+  <div class="col-12 col-xl-8">
+    <div class="card shadow-sm">
+      <div class="card-header">
+        <strong>Bér / osztalék optimalizáció</strong>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0" id="fizetes-calc-table">
+          <thead class="table-light">
+            <tr>
+              <th>Tétel</th>
+              <th class="text-end">Összeg</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="table-active">
+              <td>
+                <label for="fc-net-wage-input" class="form-label mb-0 fw-semibold">Nettó munkabér</label>
+              </td>
+              <td class="text-end">
+                <div class="input-group input-group-sm justify-content-end" style="max-width:220px; margin-left:auto;">
+                  <input type="number" step="1000" min="0" class="form-control text-end fw-semibold"
+                         id="fc-net-wage-input" value="1000000">
+                  <span class="input-group-text">Ft</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>Ehhez szükséges bruttó bér</td>
+              <td class="text-end fw-semibold" id="fc-gross-wage">—</td>
+            </tr>
+            <tr class="text-muted small">
+              <td class="ps-4">SZJA (15%)</td>
+              <td class="text-end" id="fc-szja">—</td>
+            </tr>
+            <tr class="text-muted small">
+              <td class="ps-4">Nyugdíjjárulék (10%)</td>
+              <td class="text-end" id="fc-nyugdij">—</td>
+            </tr>
+            <tr class="text-muted small">
+              <td class="ps-4">Egészségbizt. + munkaerőpiaci j. (8,5%)</td>
+              <td class="text-end" id="fc-egeszsegbizt">—</td>
+            </tr>
+            <tr>
+              <td>Munkáltatói szocho (13%)</td>
+              <td class="text-end text-warning" id="fc-employer-szocho">—</td>
+            </tr>
+            <tr>
+              <td>Bér teljes céges költsége</td>
+              <td class="text-end fw-semibold" id="fc-total-wage-cost">—</td>
+            </tr>
+            <tr class="table-warning">
+              <td>
+                Minimálisan szükséges havi árbevétel
+                <div class="text-muted small">bérköltség + egyéb átlagos költség (5%, min. 100 000 Ft) + HIPA (2%) fedezésére, nulla eredménnyel</div>
+              </td>
+              <td class="text-end fw-semibold" id="fc-min-revenue">—</td>
+            </tr>
+            <tr class="table-active">
+              <td>
+                <label for="fc-revenue-input" class="form-label mb-0 fw-semibold">Tervezett havi árbevétel</label>
+                <div>
+                  <button type="button" class="btn btn-link btn-sm p-0" id="fc-use-min-revenue">minimumra állítás</button>
+                </div>
+              </td>
+              <td class="text-end">
+                <div class="input-group input-group-sm justify-content-end" style="max-width:220px; margin-left:auto;">
+                  <input type="number" step="1000" min="0" class="form-control text-end fw-semibold"
+                         id="fc-revenue-input" value="0">
+                  <span class="input-group-text">Ft</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>Egyéb átlagos költség (5%, min. 100 000 Ft)</td>
+              <td class="text-end" id="fc-other-costs">—</td>
+            </tr>
+            <tr>
+              <td>HIPA (2%)</td>
+              <td class="text-end text-info" id="fc-hipa">—</td>
+            </tr>
+            <tr>
+              <td>Bér és költségek után maradó eredmény</td>
+              <td class="text-end" id="fc-result-after-costs">—</td>
+            </tr>
+            <tr>
+              <td>TAO (9%)</td>
+              <td class="text-end text-info" id="fc-tao">—</td>
+            </tr>
+            <tr>
+              <td>Osztalékra jutó összeg</td>
+              <td class="text-end" id="fc-dividend-base">—</td>
+            </tr>
+            <tr>
+              <td>Osztalék SZJA (15%)</td>
+              <td class="text-end text-danger" id="fc-dividend-szja">—</td>
+            </tr>
+            <tr>
+              <td>Osztalék szocho (13%)</td>
+              <td class="text-end text-warning" id="fc-dividend-szocho">—</td>
+            </tr>
+            <tr>
+              <td>Nettó osztalék</td>
+              <td class="text-end fw-semibold text-success" id="fc-net-dividend">—</td>
+            </tr>
+          </tbody>
+          <tfoot class="table-light">
+            <tr class="fw-bold">
+              <td>Összes nettó magánszemélynél</td>
+              <td class="text-end text-success" id="fc-total-net">—<span class="fw-normal text-muted">/hó</span></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <p class="text-muted small mt-2 mb-0">
+      A számítás közelítő becslés. A nettó munkabérből indul ki, onnan származtatja a bruttó bért
+      (33,5% munkavállalói terhelés: 15% SZJA + 10% nyugdíjjárulék + 8,5% egészségbiztosítási és
+      munkaerőpiaci járulék) és a munkáltatói szochót (13%), majd ebből számolja a bérköltség
+      fedezéséhez minimálisan szükséges havi árbevételt — feltételezve, hogy a cégnek emellett az
+      árbevétel 5%-ának megfelelő (de legalább 100 000 Ft) egyéb átlagos költsége (rezsi, könyvelés,
+      stb.) és 2%-os HIPA (helyi iparűzési adó) fizetési kötelezettsége is van. A tervezett árbevétel mezőben ennél
+      magasabb összeget megadva a fennmaradó eredmény társasági adóját (TAO 9%) és a kifizethető
+      osztalék terheit (SZJA 15% + szocho 13%) is kiszámítja.
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var SZJA_RATE = 0.15;
+  var NYUGDIJ_RATE = 0.10;
+  var EGESZSEGBIZT_MUNKAEROPIACI_RATE = 0.085;
+  var EMPLOYEE_DEDUCTION_RATE = SZJA_RATE + NYUGDIJ_RATE + EGESZSEGBIZT_MUNKAEROPIACI_RATE; // 33,5%
+  var EMPLOYER_SZOCHO_RATE = 0.13;
+  var OTHER_COST_RATE = 0.05; // egyéb átlagos költség, árbevétel %-ában
+  var OTHER_COST_MIN = 100000; // egyéb átlagos költség alsó korlátja
+  var HIPA_RATE = 0.02; // helyi iparűzési adó, árbevétel %-ában
+  var TAO_RATE = 0.09;
+  var DIVIDEND_SZJA_RATE = 0.15;
+  var DIVIDEND_SZOCHO_RATE = 0.13;
+
+  var revenueTouched = false;
+
+  function fmt(value) {
+    return Math.round(value).toLocaleString('hu-HU') + ' Ft';
+  }
+
+  function recalc() {
+    var netWageInput = document.getElementById('fc-net-wage-input');
+    var revenueInput = document.getElementById('fc-revenue-input');
+    var netWage = Math.max(0, parseFloat(netWageInput.value) || 0);
+
+    var grossWage = netWage / (1 - EMPLOYEE_DEDUCTION_RATE);
+    var szja = grossWage * SZJA_RATE;
+    var nyugdij = grossWage * NYUGDIJ_RATE;
+    var egeszsegbizt = grossWage * EGESZSEGBIZT_MUNKAEROPIACI_RATE;
+    var employerSzocho = grossWage * EMPLOYER_SZOCHO_RATE;
+    var totalWageCost = grossWage + employerSzocho;
+
+    // Egyéb átlagos költség = max(OTHER_COST_RATE * bevétel, OTHER_COST_MIN), a fix alsó
+    // korlát miatt a bevétel nem oldható meg egyetlen zárt képlettel: két esetet kell
+    // megvizsgálni, aszerint hogy a minimum vagy a százalékos költség lenne-e magasabb.
+    //   ha a min. korlát aktív: minRevenue * (1 - HIPA_RATE) = totalWageCost + OTHER_COST_MIN
+    var minRevenueAtFloor = (totalWageCost + OTHER_COST_MIN) / (1 - HIPA_RATE);
+    var minRevenue;
+    if (minRevenueAtFloor * OTHER_COST_RATE <= OTHER_COST_MIN) {
+      // Ezen a bevételi szinten a százalékos költség nem érné el a minimumot, tehát a
+      // minimum korlát valóban aktív — ez a helyes megoldás.
+      minRevenue = minRevenueAtFloor;
+    } else {
+      // A minimum korlát itt már nem lenne aktív — a tisztán százalékos képlet érvényes:
+      //   minRevenue * (1 - OTHER_COST_RATE - HIPA_RATE) = totalWageCost
+      minRevenue = totalWageCost / (1 - OTHER_COST_RATE - HIPA_RATE);
+    }
+
+    if (!revenueTouched) {
+      revenueInput.value = Math.round(minRevenue);
+    }
+    var revenue = Math.max(0, parseFloat(revenueInput.value) || 0);
+
+    var otherCosts = Math.max(revenue * OTHER_COST_RATE, OTHER_COST_MIN);
+    var hipa = revenue * HIPA_RATE;
+    var resultAfterCosts = revenue - totalWageCost - otherCosts - hipa;
+    var tao = Math.max(0, resultAfterCosts * TAO_RATE);
+    var dividendBase = Math.max(0, resultAfterCosts - tao);
+    var dividendSzja = dividendBase * DIVIDEND_SZJA_RATE;
+    var dividendSzocho = dividendBase * DIVIDEND_SZOCHO_RATE;
+    var netDividend = dividendBase - dividendSzja - dividendSzocho;
+    var totalNet = netWage + netDividend;
+
+    document.getElementById('fc-gross-wage').textContent = '~' + fmt(grossWage);
+    document.getElementById('fc-szja').textContent = '~' + fmt(szja);
+    document.getElementById('fc-nyugdij').textContent = '~' + fmt(nyugdij);
+    document.getElementById('fc-egeszsegbizt').textContent = '~' + fmt(egeszsegbizt);
+    document.getElementById('fc-employer-szocho').textContent = '~' + fmt(employerSzocho);
+    document.getElementById('fc-total-wage-cost').textContent = '~' + fmt(totalWageCost);
+    document.getElementById('fc-min-revenue').textContent = '~' + fmt(minRevenue);
+    document.getElementById('fc-other-costs').textContent = '~' + fmt(otherCosts);
+    document.getElementById('fc-hipa').textContent = '~' + fmt(hipa);
+    document.getElementById('fc-result-after-costs').textContent = '~' + fmt(resultAfterCosts);
+    document.getElementById('fc-tao').textContent = '~' + fmt(tao);
+    document.getElementById('fc-dividend-base').textContent = '~' + fmt(dividendBase);
+    document.getElementById('fc-dividend-szja').textContent = '~' + fmt(dividendSzja);
+    document.getElementById('fc-dividend-szocho').textContent = '~' + fmt(dividendSzocho);
+    document.getElementById('fc-net-dividend').textContent = '~' + fmt(netDividend);
+    document.getElementById('fc-total-net').innerHTML = '~' + fmt(totalNet) + '<span class="fw-normal text-muted">/hó</span>';
+  }
+
+  document.getElementById('fc-net-wage-input').addEventListener('input', recalc);
+  document.getElementById('fc-revenue-input').addEventListener('input', function () {
+    revenueTouched = true;
+    recalc();
+  });
+  document.getElementById('fc-use-min-revenue').addEventListener('click', function () {
+    revenueTouched = false;
+    recalc();
+  });
+
+  recalc();
+})();
+</script>
+{% endblock %}

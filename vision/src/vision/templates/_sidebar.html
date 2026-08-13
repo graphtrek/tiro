@@ -23,7 +23,8 @@
         or '/ui/invoice-files' in request.url.path
         or '/ui/transactions' in request.url.path
         or '/ui/dividend' in request.url.path
-        or '/ui/adok' in request.url.path %}
+        or '/ui/adok' in request.url.path
+        or '/ui/fizetes-kalkulator' in request.url.path %}
     <li class="nav-item">
       <a class="nav-link {% if not szamlak_open %}collapsed{% endif %}" href="#szamlak-nav"
          data-bs-toggle="collapse" role="button"
@@ -55,6 +56,11 @@
         <li>
           <a class="nav-link {% if '/ui/adok' in request.url.path %}active{% endif %}" href="/ui/adok">
             <i class="fas fa-percent"></i> Adók
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/fizetes-kalkulator' in request.url.path %}active{% endif %}" href="/ui/fizetes-kalkulator">
+            <i class="fas fa-calculator"></i> Fizetés Calculator
           </a>
         </li>
       </ul>

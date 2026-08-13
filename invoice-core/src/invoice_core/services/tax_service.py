@@ -4,12 +4,19 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from invoice_core.config import get_settings
-from invoice_core.db import BankTransaction, Invoice, InvoiceVatSummary, _InvoiceDirection
+from invoice_core.db import (
+    BankTransaction,
+    Invoice,
+    InvoiceVatSummary,
+    TaxEstimateOverride,
+    _InvoiceDirection,
+)
 from invoice_core.timeutil import today
+
+STANDARD_VAT_RATE = 0.27  # Hungarian standard VAT rate, used to derive net from a gross override
 
 
 @dataclass
@@ -25,6 +32,7 @@ class TaxTransaction:
 @dataclass
 class TaxMonthRow:
     month: str
+    gross_revenue: float
     totals: dict[str, float]
     row_total: float
 
@@ -66,16 +74,22 @@ def get_tax_report(db: Session, year: int) -> TaxReport:
         .all()
     )
 
-    gross_revenue = float(
-        db.query(func.coalesce(func.sum(BankTransaction.amount), 0.0))
+    credit_rows = (
+        db.query(BankTransaction.transaction_date, BankTransaction.amount)
         .filter(
             BankTransaction.direction == "CREDIT",
             BankTransaction.transaction_date >= year_start,
             BankTransaction.transaction_date < year_end,
         )
-        .scalar()
-        or 0.0
+        .all()
     )
+    monthly_gross_revenue: dict[str, float] = defaultdict(float)
+    gross_revenue = 0.0
+    for tx_date, amount in credit_rows:
+        amt = float(amount or 0.0)
+        gross_revenue += amt
+        month_key = tx_date.strftime("%Y-%m") if tx_date else "unknown"
+        monthly_gross_revenue[month_key] += amt
 
     tax_labels = list(tax_accounts.values())
     totals_by_type: dict[str, float] = defaultdict(float)
@@ -106,6 +120,7 @@ def get_tax_report(db: Session, year: int) -> TaxReport:
     monthly = [
         TaxMonthRow(
             month=m,
+            gross_revenue=monthly_gross_revenue.get(m, 0.0),
             totals={label: monthly_data[m].get(label, 0.0) for label in tax_labels},
             row_total=sum(monthly_data[m].values()),
         )
@@ -136,6 +151,7 @@ class TaxEstimateMonthRow:
     szja_tax: float
     szocho_tax: float
     total: float
+    is_override: bool = False
 
 
 @dataclass
@@ -183,6 +199,34 @@ def _tax_row(
     )
 
 
+def get_estimate_overrides(db: Session, year: int) -> dict[int, float]:
+    """Return {month: gross_revenue} for all saved overrides in *year*."""
+    rows = db.query(TaxEstimateOverride).filter(TaxEstimateOverride.year == year).all()
+    return {row.month: row.gross_revenue for row in rows}
+
+
+def save_estimate_overrides(
+    db: Session, year: int, overrides: dict[int, float]
+) -> dict[int, float]:
+    """Upsert each {month: gross_revenue} pair for *year* and return the full saved set.
+
+    Months present in *overrides* are inserted/updated; months already saved
+    for *year* but absent from *overrides* are left untouched (never deleted).
+    """
+    for month, gross_revenue in overrides.items():
+        existing = (
+            db.query(TaxEstimateOverride)
+            .filter(TaxEstimateOverride.year == year, TaxEstimateOverride.month == month)
+            .one_or_none()
+        )
+        if existing is not None:
+            existing.gross_revenue = gross_revenue
+        else:
+            db.add(TaxEstimateOverride(year=year, month=month, gross_revenue=gross_revenue))
+    db.commit()
+    return get_estimate_overrides(db, year)
+
+
 def get_tax_estimate(
     db: Session,
     year: int,
@@ -203,6 +247,15 @@ def get_tax_estimate(
     filled with the trailing average of the year's actual (nonzero) months and
     flagged `is_projected=True`. Other years are returned as real/zero-filled
     data for all 12 months with no projection.
+
+    Any month with a saved `TaxEstimateOverride` (user-entered "Becsult
+    bevetel") substitutes its revenue inputs -- gross_revenue = the override,
+    revenue (net) = gross / 1.27, expenses = 0.0, vat_payable = gross - net --
+    before the row is built, and is flagged `is_override=True`. This takes
+    precedence over both real invoice data and the trailing-average
+    projection, for elapsed and future months alike, and overridden months
+    are excluded from the trailing-average pool so non-overridden months'
+    projections are unaffected.
     """
     invoice_rows = (
         db.query(Invoice.invoice_date, Invoice.direction, Invoice.amount_net, Invoice.amount_total)
@@ -248,14 +301,32 @@ def get_tax_estimate(
     is_current_year = year == today_date.year
     real_month_count = today_date.month if is_current_year else 12
 
+    overrides = get_estimate_overrides(db, year)
+
     monthly: list[TaxEstimateMonthRow] = []
     for m in range(1, real_month_count + 1):
         month_key = f"{year:04d}-{m:02d}"
-        rev_exp = monthly_rev_exp.get(
-            month_key, {"revenue": 0.0, "gross_revenue": 0.0, "expenses": 0.0}
-        )
-        monthly.append(
-            _tax_row(
+        override_gross = overrides.get(m)
+        if override_gross is not None:
+            net_revenue = override_gross / (1 + STANDARD_VAT_RATE)
+            row = _tax_row(
+                month_key,
+                False,
+                net_revenue,
+                override_gross,
+                0.0,
+                override_gross - net_revenue,
+                tao_rate,
+                hipa_rate,
+                szja_rate,
+                szocho_rate,
+            )
+            row.is_override = True
+        else:
+            rev_exp = monthly_rev_exp.get(
+                month_key, {"revenue": 0.0, "gross_revenue": 0.0, "expenses": 0.0}
+            )
+            row = _tax_row(
                 month_key,
                 False,
                 rev_exp["revenue"],
@@ -267,10 +338,10 @@ def get_tax_estimate(
                 szja_rate,
                 szocho_rate,
             )
-        )
+        monthly.append(row)
 
     if is_current_year and real_month_count < 12:
-        active = [row for row in monthly if row.revenue or row.expenses]
+        active = [row for row in monthly if not row.is_override and (row.revenue or row.expenses)]
         if active:
             avg_revenue = sum(row.revenue for row in active) / len(active)
             avg_gross_revenue = sum(row.gross_revenue for row in active) / len(active)
@@ -281,8 +352,24 @@ def get_tax_estimate(
 
         for m in range(real_month_count + 1, 13):
             month_key = f"{year:04d}-{m:02d}"
-            monthly.append(
-                _tax_row(
+            override_gross = overrides.get(m)
+            if override_gross is not None:
+                net_revenue = override_gross / (1 + STANDARD_VAT_RATE)
+                row = _tax_row(
+                    month_key,
+                    True,
+                    net_revenue,
+                    override_gross,
+                    0.0,
+                    override_gross - net_revenue,
+                    tao_rate,
+                    hipa_rate,
+                    szja_rate,
+                    szocho_rate,
+                )
+                row.is_override = True
+            else:
+                row = _tax_row(
                     month_key,
                     True,
                     avg_revenue,
@@ -294,7 +381,7 @@ def get_tax_estimate(
                     szja_rate,
                     szocho_rate,
                 )
-            )
+            monthly.append(row)
 
     totals = TaxEstimateMonthRow(
         month="Összesen",

@@ -5,10 +5,11 @@ from __future__ import annotations
 import time
 from datetime import date, timedelta
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.invoice_core import InvoiceCoreClient
@@ -1036,7 +1037,7 @@ def dividend_page(request: Request, year: int | None = None):
 
 
 @router.get("/adok")
-def adok_page(request: Request, year: int | None = None):
+def adok_page(request: Request, year: int | None = None, saved: int = 0, error: str | None = None):
     client = _client()
     effective_year = year or local_today().year
     raw = client.get_tax_report(year=effective_year)
@@ -1062,6 +1063,57 @@ def adok_page(request: Request, year: int | None = None):
         if m.get("month") >= current_month_key and m.get("month") not in paid_months
     ]
     raw_estimate["monthly"] = upcoming
+    # "Becsült bevétel" starts from a fixed monthly assumption rather than a
+    # trend-based projection — recompute every tax figure for each upcoming
+    # month from this fixed gross revenue (mirroring invoice-core's
+    # tax_service._tax_row formula) instead of only overriding the display
+    # column, so all rows in the table become internally consistent rather
+    # than mixing real/averaged invoice data with a fixed income figure. This
+    # is only the server-rendered starting point — the template makes the
+    # "Becsült bevétel" cell an editable input per row and recomputes every
+    # other cell in that row client-side (adok.html's scripts block) whenever
+    # the user changes it, so JS is the source of truth after first paint.
+    # No expense data applies to a fixed-income assumption, so expenses are
+    # taken as 0; the standard Hungarian 27% VAT rate splits the fixed gross
+    # figure into net revenue + VAT payable (no input-VAT credit assumed).
+    fixed_monthly_income = 2_500_000.0
+    vat_rate = 0.27
+    tao_rate = raw_estimate.get("tao_rate", 0.10)
+    hipa_rate = raw_estimate.get("hipa_rate", 0.02)
+
+    # Saved per-month overrides win over the 2.5M fallback assumption; if the
+    # overrides call fails (e.g. endpoint not up yet), overrides_by_month
+    # stays empty and every month silently falls back to the fixed default —
+    # the page must still render.
+    overrides_raw = client.get_tax_estimate_overrides(year=effective_year) or {}
+    overrides_by_month = {
+        o.get("month"): o.get("gross_revenue")
+        for o in overrides_raw.get("months", [])
+        if o.get("month") is not None
+    }
+
+    for m in upcoming:
+        month_int = int(m["month"].split("-")[1])
+        gross_revenue = overrides_by_month.get(month_int, fixed_monthly_income)
+        net_revenue = gross_revenue / (1 + vat_rate)
+        vat_payable = gross_revenue - net_revenue
+        # HIPA (helyi iparűzési adó) is a deductible business expense for
+        # Hungarian corporate income tax purposes, so it must reduce the TAO
+        # base — computing TAO on the pre-HIPA profit overstates the
+        # liability. This table only models company-level taxes (ÁFA, TAO/
+        # KIVA, HIPA); personal-level SZJA/SZOCHÓ on an eventual dividend
+        # payout are a separate, discretionary decision covered in detail by
+        # the Fizetés Calculator, not an automatic company obligation.
+        hipa_tax = max(0.0, net_revenue * hipa_rate)
+        tao_base = net_revenue - hipa_tax
+        tao_tax = max(0.0, tao_base * tao_rate)
+        m["gross_revenue"] = gross_revenue
+        m["revenue"] = net_revenue
+        m["expenses"] = 0.0
+        m["vat_payable"] = vat_payable
+        m["tao_tax"] = tao_tax
+        m["hipa_tax"] = hipa_tax
+        m["total"] = vat_payable + tao_tax + hipa_tax
     estimate_fields = [
         "revenue",
         "gross_revenue",
@@ -1069,8 +1121,6 @@ def adok_page(request: Request, year: int | None = None):
         "vat_payable",
         "tao_tax",
         "hipa_tax",
-        "szja_tax",
-        "szocho_tax",
         "total",
     ]
     raw_estimate["totals"] = {
@@ -1079,19 +1129,24 @@ def adok_page(request: Request, year: int | None = None):
         **{f: sum(m.get(f, 0) for m in upcoming) for f in estimate_fields},
     }
 
-    # Only estimate the tax types actually active in "Havi bontás" this year
-    # (its columns are the tax-account labels with a nonzero yearly total),
-    # so both tables show the same set of taxes. Labels with no rate-based
-    # estimate (e.g. "Iparkamara", "HIPA - Késedelmi") fall back to 0/dash,
-    # same as "Havi bontás" already does for months with no payment.
+    # "Becsült adók" only ever shows company-level tax types: ÁFA, TAO/KIVA and
+    # HIPA. NAV SZJA and NAV Szochó are personal-level taxes on an eventual
+    # dividend payout, not an automatic company obligation, so they're left
+    # out here (the Fizetés Calculator models that layer instead); "HIPA -
+    # Késedelmi" / "Iparkamara" have no estimate formula at all. Excluding all
+    # of these from estimate_label_map means none of them can ever become a
+    # column, regardless of whether they show up as an active tax type in
+    # "Havi bontás".
     estimate_label_map = {
         "NAV ÁFA": "vat_payable",
         "NAV TAO": "tao_tax",
         "HIPA": "hipa_tax",
-        "NAV SZJA": "szja_tax",
-        "NAV Szochó": "szocho_tax",
     }
-    active_labels = [label for label in report.tax_labels if report.totals_by_type.get(label, 0)]
+    active_labels = [
+        label
+        for label in report.tax_labels
+        if label in estimate_label_map and report.totals_by_type.get(label, 0)
+    ]
     if not active_labels:
         # No tax paid yet this year (e.g. early in a fresh year) — fall back to
         # showing every estimable tax type instead of an empty table, so the
@@ -1121,7 +1176,37 @@ def adok_page(request: Request, year: int | None = None):
         estimate=estimate,
         estimate_labels=active_labels,
         year=effective_year,
+        saved=saved,
+        error=error,
     )
+
+
+@router.post("/adok/estimate")
+def adok_save_estimate(
+    request: Request,
+    year: int = Form(...),
+    month: list[int] = Form([]),
+    gross_revenue: list[float] = Form([]),
+):
+    client = _client()
+    months = [
+        {"month": mth, "gross_revenue": rev} for mth, rev in zip(month, gross_revenue, strict=False)
+    ]
+    result = client.save_tax_estimate_overrides(year, months)
+    if result.get("error"):
+        return RedirectResponse(
+            url=f"/ui/adok?year={year}&error={quote(result['error'])}", status_code=303
+        )
+    return RedirectResponse(url=f"/ui/adok?year={year}&saved=1", status_code=303)
+
+
+# ── Fizetés Calculator (wage vs. dividend optimizer) ──────────────────────────
+
+
+@router.get("/fizetes-kalkulator")
+def fizetes_kalkulator_page(request: Request):
+    client = _client()
+    return _resp(request, "fizetes_kalkulator.html", client)
 
 
 # ── Sync ──────────────────────────────────────────────────────────────────────

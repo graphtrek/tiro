@@ -365,3 +365,18 @@ class BankTransactionOut(BaseModel):
     invoice_file_id: int | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class TaxEstimateOverrideMonth(BaseModel):
+    month: int = Field(..., ge=1, le=12)
+    gross_revenue: float = Field(..., ge=0)
+
+
+class TaxEstimateOverridesIn(BaseModel):
+    year: int = Field(..., ge=2000, le=2100)
+    months: list[TaxEstimateOverrideMonth] = Field(default_factory=list)
+
+
+class TaxEstimateOverridesOut(BaseModel):
+    year: int
+    months: list[TaxEstimateOverrideMonth]

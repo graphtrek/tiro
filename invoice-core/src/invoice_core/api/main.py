@@ -53,6 +53,8 @@ from invoice_core.models import (
     SyncMode,
     SyncRequest,
     SyncResponse,
+    TaxEstimateOverridesIn,
+    TaxEstimateOverridesOut,
     TimesheetEntryIn,
     TimesheetEntryOut,
     TimesheetEntryUpdate,
@@ -934,6 +936,41 @@ def tax_estimate_report(
         db, effective_year, tao_rate, hipa_rate, szja_rate, szocho_rate
     )
     return dataclasses.asdict(report)
+
+
+@app.get("/api/v1/reports/tax-estimate/overrides", response_model=TaxEstimateOverridesOut)
+def get_tax_estimate_overrides(
+    year: int | None = Query(None, description="Year (default: current year)"),
+    db: Session = Depends(get_db),
+):
+    """Return the user-entered monthly "Becsult bevetel" overrides for *year*."""
+    effective_year = year or today().year
+    overrides = tax_service.get_estimate_overrides(db, effective_year)
+    months = [{"month": m, "gross_revenue": g} for m, g in sorted(overrides.items())]
+    return {"year": effective_year, "months": months}
+
+
+@app.put("/api/v1/reports/tax-estimate/overrides", response_model=TaxEstimateOverridesOut)
+def put_tax_estimate_overrides(
+    payload: TaxEstimateOverridesIn,
+    db: Session = Depends(get_db),
+):
+    """Upsert the user-entered monthly "Becsult bevetel" overrides for a year.
+
+    Months present in the payload are inserted/updated; months already saved
+    for the year but absent from the payload are left untouched (never
+    deleted).
+    """
+    seen_months: set[int] = set()
+    for entry in payload.months:
+        if entry.month in seen_months:
+            raise HTTPException(status_code=400, detail=f"Duplicate month {entry.month} in payload")
+        seen_months.add(entry.month)
+
+    overrides = {entry.month: entry.gross_revenue for entry in payload.months}
+    saved = tax_service.save_estimate_overrides(db, payload.year, overrides)
+    months = [{"month": m, "gross_revenue": g} for m, g in sorted(saved.items())]
+    return {"year": payload.year, "months": months}
 
 
 @app.get("/api/v1/reports/timesheet")

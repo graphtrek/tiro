@@ -62,6 +62,7 @@
         <thead class="table-light">
           <tr>
             <th>Hónap</th>
+            <th class="text-end text-secondary">Jövedelem</th>
             {% for label in report.tax_labels %}
             {% if report.totals_by_type.get(label, 0) %}
             {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
@@ -75,6 +76,7 @@
           {% for row in report.monthly %}
           <tr>
             <td>{{ row.month }}</td>
+            <td class="text-end text-secondary">{{ amount_fmt(row.gross_revenue) }}</td>
             {% for label in report.tax_labels %}
             {% if report.totals_by_type.get(label, 0) %}
             {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
@@ -91,6 +93,7 @@
         <tfoot class="table-light">
           <tr class="fw-semibold">
             <td>Összesen</td>
+            <td class="text-end text-secondary">{{ amount_fmt(report.gross_revenue) }}</td>
             {% for label in report.tax_labels %}
             {% set yearly = report.totals_by_type.get(label, 0) %}
             {% if yearly %}
@@ -108,61 +111,103 @@
 {% endif %}
 
 <!-- Becsült adók -->
+{% set estimate_field_map = {
+  "NAV ÁFA": "vat_payable",
+  "NAV TAO": "tao_tax",
+  "HIPA": "hipa_tax",
+} %}
+{% if saved %}
+<div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+  <i class="bi bi-check-circle me-1"></i>Becsült bevételek mentve
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger alert-dismissible fade show py-2" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+<form method="post" action="/ui/adok/estimate" hx-boost="false">
 <div class="card shadow-sm mb-4">
   <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
       <i class="bi bi-graph-up-arrow me-2"></i><strong>Becsült adók — {{ estimate.year }}</strong>
-      <span class="text-muted small ms-2">TAO/KIVA {{ (estimate.tao_rate*100)|int }}%, HIPA {{ (estimate.hipa_rate*100)|int }}%, SZJA {{ (estimate.szja_rate*100)|int }}%, SZOCHÓ {{ (estimate.szocho_rate*100)|int }}%</span>
+      <span class="text-muted small ms-2">TAO/KIVA {{ (estimate.tao_rate*100)|int }}%, HIPA {{ (estimate.hipa_rate*100)|int }}%</span>
     </div>
-    <span class="text-muted small">Becsült bruttó bevétel: <span class="fw-semibold text-body">{{ amount_fmt(estimate.totals.gross_revenue) }}</span></span>
+    <div class="d-flex align-items-center gap-3">
+      <span class="text-muted small">Becsült bruttó bevétel: <span class="fw-semibold text-body becsult-gross-total">{{ amount_fmt(estimate.totals.gross_revenue) }}</span></span>
+      <input type="hidden" name="year" value="{{ estimate.year }}">
+      <button type="submit" class="btn btn-sm btn-primary">
+        <i class="bi bi-save me-1"></i>Mentés
+      </button>
+    </div>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-sm table-hover mb-0">
+      <table class="table table-sm table-hover mb-0" id="becsult-table" data-vat-rate="0.27"
+             data-tao-rate="{{ estimate.tao_rate }}" data-hipa-rate="{{ estimate.hipa_rate }}">
         <thead class="table-light">
           <tr>
             <th>Hónap</th>
+            <th class="text-end text-secondary">Becsült bevétel</th>
             {% for label in estimate_labels %}
             {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
             <th class="text-end {{ c.text }}">{{ label }}</th>
             {% endfor %}
-            <th class="text-end fw-bold">Összesen</th>
+            <th class="text-end fw-bold">Összes Adó</th>
+            <th class="text-end text-success">Eredmény</th>
           </tr>
         </thead>
         <tbody>
           {% for row in estimate.monthly %}
-          <tr class="{% if row.is_projected %}text-muted fst-italic{% endif %}">
-            <td>{{ row.month }}</td>
+          {% set row_idx = loop.index0 %}
+          <tr class="{% if row.is_projected %}text-secondary fst-italic{% endif %}" data-becsult-row="{{ row_idx }}">
+            <td>
+              {{ row.month }}
+              <input type="hidden" name="month" value="{{ row.month.split('-')[1]|int }}">
+            </td>
+            <td class="text-end text-secondary">
+              <div class="input-group input-group-sm justify-content-end" style="max-width:160px; margin-left:auto;">
+                <input type="number" step="any" name="gross_revenue" class="form-control text-end becsult-bevetel-input"
+                       data-row="{{ row_idx }}" value="{{ row.gross_revenue | round | int }}">
+                <span class="input-group-text">Ft</span>
+              </div>
+            </td>
             {% for label in estimate_labels %}
             {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
-            <td class="text-end">
+            <td class="text-end becsult-field" data-row="{{ row_idx }}" data-field="{{ estimate_field_map[label] }}">
               {% set v = row.label_totals.get(label, 0) %}
               {% if v %}<span class="{{ c.text }}">{{ amount_fmt(v) }}</span>{% else %}<span class="text-muted">—</span>{% endif %}
             </td>
             {% endfor %}
-            <td class="text-end fw-semibold">{{ amount_fmt(row.total) }}</td>
+            <td class="text-end fw-semibold becsult-total" data-row="{{ row_idx }}">{{ amount_fmt(row.total) }}</td>
+            <td class="text-end text-success fw-semibold becsult-eredmeny" data-row="{{ row_idx }}">{{ amount_fmt(row.gross_revenue - row.total) }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="{{ estimate_labels|length + 2 }}" class="text-center text-muted">Nincs adat</td></tr>
+          <tr><td colspan="{{ estimate_labels|length + 4 }}" class="text-center text-muted">Nincs adat</td></tr>
           {% endfor %}
         </tbody>
         <tfoot class="table-light">
           <tr class="fw-semibold">
             <td>{{ estimate.totals.month }}</td>
+            <td class="text-end text-secondary becsult-gross-total">{{ amount_fmt(estimate.totals.gross_revenue) }}</td>
             {% for label in estimate_labels %}
             {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
             {% set yearly = estimate.totals.label_totals.get(label, 0) %}
-            <td class="text-end {% if yearly %}{{ c.text }}{% else %}text-muted{% endif %}">
+            <td class="text-end becsult-field-total {% if yearly %}{{ c.text }}{% else %}text-muted{% endif %}" data-field="{{ estimate_field_map[label] }}">
               {% if yearly %}{{ amount_fmt(yearly) }}{% else %}—{% endif %}
             </td>
             {% endfor %}
-            <td class="text-end fw-bold">{{ amount_fmt(estimate.totals.total) }}</td>
+            <td class="text-end fw-bold becsult-total-total">{{ amount_fmt(estimate.totals.total) }}</td>
+            <td class="text-end text-success fw-bold becsult-eredmeny-total">{{ amount_fmt(estimate.totals.gross_revenue - estimate.totals.total) }}</td>
           </tr>
         </tfoot>
       </table>
     </div>
   </div>
 </div>
+</form>
 
 <!-- Tranzakciók -->
 {% if report.transactions %}
@@ -199,4 +244,91 @@
   <i class="bi bi-info-circle me-2"></i>Nincs rögzített adófizetés {{ report.year }}-ben.
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var table = document.getElementById('becsult-table');
+  if (!table) return;
+  var VAT_RATE = parseFloat(table.getAttribute('data-vat-rate'));
+  var TAO_RATE = parseFloat(table.getAttribute('data-tao-rate'));
+  var HIPA_RATE = parseFloat(table.getAttribute('data-hipa-rate'));
+
+  function fmt(value) {
+    return Math.round(value).toLocaleString('hu-HU') + ' Ft';
+  }
+
+  function cellHtml(value) {
+    return value ? fmt(value) : '<span class="text-muted">—</span>';
+  }
+
+  // Mirrors invoice-core's tax_service._tax_row: HIPA is a deductible
+  // business expense for Hungarian corporate income tax purposes, so it
+  // reduces the TAO base before the TAO/KIVA rate is applied.
+  function computeRow(grossRevenue) {
+    var netRevenue = grossRevenue / (1 + VAT_RATE);
+    var vatPayable = grossRevenue - netRevenue;
+    var hipaTax = Math.max(0, netRevenue * HIPA_RATE);
+    var taoBase = netRevenue - hipaTax;
+    var taoTax = Math.max(0, taoBase * TAO_RATE);
+    var total = vatPayable + taoTax + hipaTax;
+    return {
+      gross_revenue: grossRevenue,
+      vat_payable: vatPayable,
+      tao_tax: taoTax,
+      hipa_tax: hipaTax,
+      total: total,
+      eredmeny: grossRevenue - total,
+    };
+  }
+
+  // Per-row computed values, keyed by data-row — kept up to date incrementally
+  // so an edit to one row only ever rewrites that row's own cells; the totals
+  // footer is then just a cheap sum over this cache, not a DOM re-scan.
+  var rowValues = {};
+
+  function recalcRow(rowIdx, grossRevenue) {
+    var r = computeRow(grossRevenue);
+    rowValues[rowIdx] = r;
+
+    table.querySelectorAll('.becsult-field[data-row="' + rowIdx + '"]').forEach(function (cell) {
+      cell.innerHTML = cellHtml(r[cell.getAttribute('data-field')]);
+    });
+    var totalCell = table.querySelector('.becsult-total[data-row="' + rowIdx + '"]');
+    if (totalCell) totalCell.textContent = fmt(r.total);
+    var eredmenyCell = table.querySelector('.becsult-eredmeny[data-row="' + rowIdx + '"]');
+    if (eredmenyCell) eredmenyCell.textContent = fmt(r.eredmeny);
+  }
+
+  function recalcTotals() {
+    var totals = { gross_revenue: 0, vat_payable: 0, tao_tax: 0, hipa_tax: 0, total: 0, eredmeny: 0 };
+    Object.keys(rowValues).forEach(function (rowIdx) {
+      var r = rowValues[rowIdx];
+      Object.keys(totals).forEach(function (key) { totals[key] += r[key]; });
+    });
+
+    document.querySelectorAll('.becsult-gross-total').forEach(function (el) {
+      el.textContent = fmt(totals.gross_revenue);
+    });
+    table.querySelectorAll('.becsult-field-total').forEach(function (cell) {
+      cell.innerHTML = cellHtml(totals[cell.getAttribute('data-field')]);
+    });
+    var totalTotalCell = table.querySelector('.becsult-total-total');
+    if (totalTotalCell) totalTotalCell.textContent = fmt(totals.total);
+    var eredmenyTotalCell = table.querySelector('.becsult-eredmeny-total');
+    if (eredmenyTotalCell) eredmenyTotalCell.textContent = fmt(totals.eredmeny);
+  }
+
+  table.querySelectorAll('.becsult-bevetel-input').forEach(function (input) {
+    // Seed the cache from each row's server-rendered starting value.
+    recalcRow(input.getAttribute('data-row'), Math.max(0, parseFloat(input.value) || 0));
+    input.addEventListener('input', function () {
+      recalcRow(input.getAttribute('data-row'), Math.max(0, parseFloat(input.value) || 0));
+      recalcTotals();
+    });
+  });
+  recalcTotals();
+})();
+</script>
 {% endblock %}

@@ -373,3 +373,162 @@ Disposition: REJECTED - not a finding; records validation working as intended.
 ---
 
 **Disposition for Round 2 Findings**: see individual `Disposition:` lines above (triaged below).
+
+---
+
+## Round 3 Findings
+
+Session Date: 2026-08-13
+Reviewer: Claude Code (Adversarial, Haiku 4.5)
+Focus: Feature-gate pass on "Becsült adók" (estimated taxes) card save feature in vision's /ui/adok page.
+
+### ADV-016 — Non-numeric year parameter returns raw JSON validation error to browser
+Service(s): vision
+Steps:
+1. Navigate to http://localhost:8009/ui/adok?year=abc
+2. Observe page rendering
+Expected: Application should display a user-friendly error message or gracefully redirect to a valid year page
+Actual: Browser displays raw JSON validation error:
+  ```json
+  {"detail":[{"type":"int_parsing","loc":["query","year"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"abc"}]}
+  ```
+  The page renders with only a "Pretty-print" checkbox instead of the normal tax estimate card interface.
+Screenshot: screenshots/adv-016-invalid-year-param.png
+Suggested severity: MEDIUM
+Disposition: REJECTED - pre-existing framework behavior, not introduced by this change, and not
+reachable through the UI. `adok_page`'s `year: int | None` query param predates the Becsült adók
+save feature, and FastAPI's raw 422 body is what every `/ui/*` page in vision returns for any
+hand-tampered typed query param — this is not specific to `/ui/adok`. The year filter in the UI is
+`<input type="number">`, so a user cannot produce `year=abc` without hand-editing the URL.
+REQUIREMENTS.md requires no friendly error page for malformed query params. If a global handler for
+this is wanted it is a vision-wide change on its own ticket, not part of this feature.
+
+### ADV-017 — Form silently rejects invalid values with no error message to user
+Service(s): vision, invoice-core
+Steps:
+1. Navigate to http://localhost:8009/ui/adok?year=2026
+2. Modify 2026-11 "Becsült bevétel" to -1000000 (negative value)
+3. Modify 2026-12 "Becsült bevétel" to 0
+4. Click "Mentés" (Save) button
+5. Observe: success alert "Becsült bevételek mentve" appears
+6. Reload the page
+7. Check values for 2026-11 and 2026-12
+Expected: Either (a) form should reject negative/zero values with client-side validation and display error message, or (b) if accepted on client, server should return error message that's displayed to user
+Actual: 
+  - Form accepts negative and zero values without any visual rejection or warning
+  - Success alert "Becsült bevételek mentve" is displayed to user
+  - Page reload reveals values reverted to previously-saved values (3300000 for 2026-11, 3400000 for 2026-12)
+  - Server-side API validation (payload validation ge=0) correctly rejected negative values (422 error)
+  - No error message or indication of failure is shown to the user
+  - User believes changes were saved when they were actually rejected
+Root cause: Server returns 422 validation error, but vision frontend does not parse or display error messages from failed save attempts.
+Screenshot: screenshots/adv-017-silent-rejection.png
+Suggested severity: HIGH
+Disposition: PENDING
+
+### ADV-018 — Very large revenue values (999999999999) accepted without upper bound validation
+Service(s): invoice-core
+Steps:
+1. Navigate to http://localhost:8009/ui/adok?year=2026
+2. Modify 2026-09 "Becsült bevétel" to 999999999999
+3. Click "Mentés" (Save) button
+4. Verify via API: `curl http://localhost:8004/api/v1/reports/tax-estimate/overrides?year=2026`
+Expected: Server should enforce a reasonable maximum gross revenue value (e.g., 1 billion or country-specific limit) and return 422 validation error
+Actual:
+  - Form accepts 999999999999 without client-side validation
+  - Server accepts and persists the value to database
+  - API response shows: `"gross_revenue": 999999999999.0`
+  - Client-side calculations show precision loss at such large scales (spinbutton shows 999999995904)
+  - No documented maximum value in the API contract (only minimum ge=0)
+  - Tax calculations compute correctly with the large value but result in unrealistic tax amounts (billions in HUF)
+Root cause: Pydantic model field has only minimum validation (ge=0), no maximum
+Suggested severity: MEDIUM
+Disposition: REJECTED - no requirement establishes an upper bound, and any specific cap would be
+arbitrary. This field is a user's own private planning estimate, not a reported tax figure, so an
+absurd value harms nobody but the user who typed it and is corrected by retyping. The finding's own
+evidence shows persistence is exact (`"gross_revenue": 999999999999.0` round-trips through the API
+unchanged), so there is no data-corruption issue; the `999999995904` artifact is display-side only
+and appears solely at ~1e12 Ft, orders of magnitude beyond any real Hungarian SME revenue. Rejected
+as a hypothetical rather than a defect a user can plausibly hit.
+
+### ADV-019 — Concurrent save requests handled without user feedback
+Service(s): vision, invoice-core
+Steps:
+1. Navigate to http://localhost:8009/ui/adok?year=2026
+2. Modify a revenue value
+3. Rapidly click "Mentés" (Save) button 5 times in succession
+4. Wait for network to settle
+5. Observe alerts/messages
+Expected: Either (a) form should be disabled after first click to prevent concurrent submissions, or (b) each submission should show a separate success/error message
+Actual:
+  - All 5 clicks are accepted by the form
+  - Only ONE success alert "Becsült bevételek mentve" is shown
+  - No indication that multiple requests were made
+  - No loading state or spinner on the save button during requests
+  - No protection against accidental double-submission
+Root cause: No debouncing, throttling, or disabled state on save button; no per-request message tracking
+Suggested severity: LOW
+Disposition: REJECTED - working as intended. The save is an idempotent upsert keyed on
+`(year, month)`: submitting the same form five times writes the same values five times and leaves
+exactly one row per month, which is why only one success banner and one final state are observed.
+The route already uses redirect-after-POST (303), so a browser reload cannot resubmit either. There
+is no corruption, no duplicate rows and no lost update here — only the absence of a spinner, which
+is cosmetic polish rather than a defect against REQUIREMENTS.md.
+
+### ADV-020 — Year filter allows historical year (1999) with empty data display
+Service(s): vision
+Steps:
+1. Navigate to http://localhost:8009/ui/adok?year=1999
+2. Observe the "Becsült adók" card
+Expected: Either (a) show all 12 months with default 2500000 Ft value, or (b) show empty/no-data message
+Actual:
+  - Page correctly shows "Adók — 1999" heading
+  - The "Becsült adók" table shows "Nincs adat" (No data) for all months
+  - Total row shows 0 Ft for all values
+  - This is correct behavior since 1999 has no historical data and no saved overrides
+  - However, the page does not guide the user that they could enter estimated values for 1999 if needed
+Observation: Behavior is technically correct but could be confusing — it's unclear whether "no data" means "no data available" vs. "no data to show because year is too old."
+Screenshot: screenshots/adv-020-historical-year.png
+Suggested severity: LOW
+Disposition: REJECTED - by design, as the finding itself concedes ("technically correct"). The
+"Becsült adók" card is deliberately forward-looking: `adok_page` drops every month earlier than the
+current one so the estimate table never repeats a month already shown in "Havi bontás" above. For a
+fully elapsed year every month is filtered out, hence "Nincs adat". The year filter's own input is
+bounded `min="2020"`, and invoice-core rejects `year < 2000` outright, so 1999 is only reachable by
+hand-editing the URL.
+
+### ADV-021 — Future year (2100) shows all months with default 2500000 Ft
+Service(s): vision
+Steps:
+1. Navigate to http://localhost:8009/ui/adok?year=2100
+2. Observe the "Becsült adók" card
+Expected: Page should show 12 months with editable fields to allow user to save estimates for future year
+Actual:
+  - Page correctly shows "Adók — 2100" heading
+  - All 12 months (2100-01 through 2100-12) displayed with default value 2500000 Ft
+  - User can modify and save estimates for this future year
+  - This is correct behavior per the feature specification (fallback to 2500000 when no override exists)
+Suggested severity: N/A (working as designed)
+Disposition: REJECTED - not a finding; working correctly
+
+### ADV-022 — Client-side calculations match server values for basic cases
+Service(s): vision, invoice-core
+Steps:
+1. Navigate to http://localhost:8009/ui/adok?year=2026
+2. Note initial tax calculations for each month
+3. Modify 2026-08 from 3100000 to 5000000
+4. Observe client-side recalculations in the row
+5. API call to verify: `curl http://localhost:8004/api/v1/reports/tax-estimate?year=2026`
+Expected: Client-side calculations should match server-rendered values
+Actual:
+  - Client-side calculations update immediately as value is changed
+  - For 2026-08 with 5000000 Ft: NAV ÁFA changed from 659055 to 1062992 (correct)
+  - Total tax changed from 947087 to 1527559 (correct)
+  - Server values match the client calculations after page reload
+  - Tax calculation formula (gross/1.27 for net, etc.) is consistently applied
+Suggested severity: N/A (working as designed)
+Disposition: REJECTED - not a finding; calculations working correctly
+
+---
+
+**Disposition for Round 3 Findings**: see individual `Disposition:` lines above.
