@@ -570,6 +570,23 @@ class TaxEstimateOverride(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
+class FizetesKalkulatorState(Base):
+    """Persisted inputs for vision's Fizetés Calculator (wage vs. dividend
+    optimizer) page, so they survive across browsers/devices instead of
+    living only in the browser's localStorage. Single shared row -- this is
+    an internal company tool, not per-user state.
+    """
+
+    __tablename__ = "fizetes_kalkulator_state"
+
+    id = Column(Integer, primary_key=True, index=True)
+    net_wage = Column(Float, nullable=False)
+    revenue = Column(Float, nullable=False)
+    revenue_touched = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 # ── Business rules ──────────────────────────────────────────────────────────
 
 

@@ -720,6 +720,24 @@ class InvoiceCoreClient:
             translate_detail=_translate_tax_estimate_error,
         )
 
+    def get_fizetes_kalkulator(self) -> dict:
+        return self._get_one("/api/v1/fizetes-kalkulator") or {
+            "net_wage": 1_000_000.0,
+            "revenue": 0.0,
+            "revenue_touched": False,
+        }
+
+    def save_fizetes_kalkulator(
+        self, net_wage: float, revenue: float, revenue_touched: bool
+    ) -> dict:
+        return self._write_json(
+            "PUT",
+            "/api/v1/fizetes-kalkulator",
+            {"net_wage": net_wage, "revenue": revenue, "revenue_touched": revenue_touched},
+            "Nem sikerült menteni a kalkulátor adatait",
+            label="Fizetés kalkulátor mentése",
+        )
+
     def get_timesheet_report(
         self,
         report_type: str,

@@ -380,3 +380,15 @@ class TaxEstimateOverridesIn(BaseModel):
 class TaxEstimateOverridesOut(BaseModel):
     year: int
     months: list[TaxEstimateOverrideMonth]
+
+
+class FizetesKalkulatorStateIn(BaseModel):
+    net_wage: float = Field(..., ge=0)
+    revenue: float = Field(..., ge=0)
+    revenue_touched: bool = False
+
+
+class FizetesKalkulatorStateOut(BaseModel):
+    net_wage: float
+    revenue: float
+    revenue_touched: bool

@@ -13,11 +13,29 @@
 {% block content %}
 <h1 class="h3 mb-4"><i class="bi bi-calculator me-2"></i>Fizetés Calculator</h1>
 
+{% if saved %}
+<div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+  <i class="bi bi-check-circle me-1"></i>Kalkulátor adatai mentve
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger alert-dismissible fade show py-2" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
 <div class="row">
   <div class="col-12 col-xl-8">
+    <form method="post" action="/ui/fizetes-kalkulator" hx-boost="false">
+    <input type="hidden" name="revenue_touched" id="fc-revenue-touched" value="{{ 'true' if state.revenue_touched else 'false' }}">
     <div class="card shadow-sm">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <strong>Bér / osztalék optimalizáció</strong>
+        <button type="submit" class="btn btn-sm btn-primary">
+          <i class="bi bi-save me-1"></i>Mentés
+        </button>
       </div>
       <div class="card-body p-0">
         <table class="table table-sm table-hover mb-0" id="fizetes-calc-table">
@@ -35,7 +53,7 @@
               <td class="text-end">
                 <div class="input-group input-group-sm justify-content-end" style="max-width:220px; margin-left:auto;">
                   <input type="number" step="1000" min="0" class="form-control text-end fw-semibold"
-                         id="fc-net-wage-input" value="1000000">
+                         id="fc-net-wage-input" name="net_wage" value="{{ state.net_wage | round | int }}">
                   <span class="input-group-text">Ft</span>
                 </div>
               </td>
@@ -81,7 +99,7 @@
               <td class="text-end">
                 <div class="input-group input-group-sm justify-content-end" style="max-width:220px; margin-left:auto;">
                   <input type="number" step="1000" min="0" class="form-control text-end fw-semibold"
-                         id="fc-revenue-input" value="0">
+                         id="fc-revenue-input" name="revenue" value="{{ state.revenue | round | int }}">
                   <span class="input-group-text">Ft</span>
                 </div>
               </td>
@@ -128,6 +146,7 @@
         </table>
       </div>
     </div>
+    </form>
     <p class="text-muted small mt-2 mb-0">
       A számítás közelítő becslés. A nettó munkabérből indul ki, onnan származtatja a bruttó bért
       (33,5% munkavállalói terhelés: 15% SZJA + 10% nyugdíjjárulék + 8,5% egészségbiztosítási és
@@ -157,7 +176,8 @@
   var DIVIDEND_SZJA_RATE = 0.15;
   var DIVIDEND_SZOCHO_RATE = 0.13;
 
-  var revenueTouched = false;
+  var revenueTouchedInput = document.getElementById('fc-revenue-touched');
+  var revenueTouched = revenueTouchedInput.value === 'true';
 
   function fmt(value) {
     return Math.round(value).toLocaleString('hu-HU') + ' Ft';
@@ -227,10 +247,12 @@
   document.getElementById('fc-net-wage-input').addEventListener('input', recalc);
   document.getElementById('fc-revenue-input').addEventListener('input', function () {
     revenueTouched = true;
+    revenueTouchedInput.value = 'true';
     recalc();
   });
   document.getElementById('fc-use-min-revenue').addEventListener('click', function () {
     revenueTouched = false;
+    revenueTouchedInput.value = 'false';
     recalc();
   });
 

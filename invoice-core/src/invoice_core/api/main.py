@@ -39,6 +39,8 @@ from invoice_core.models import (
     CustomerIn,
     CustomerOut,
     CustomerUpdate,
+    FizetesKalkulatorStateIn,
+    FizetesKalkulatorStateOut,
     InvoiceOut,
     LinkCustomerRequest,
     LinkFileRequest,
@@ -73,6 +75,7 @@ from invoice_core.services import (
     audit_service,
     dashboard_service,
     dividend_service,
+    fizetes_kalkulator_service,
     invoice_file_service,
     invoice_service,
     partner_service,
@@ -971,6 +974,20 @@ def put_tax_estimate_overrides(
     saved = tax_service.save_estimate_overrides(db, payload.year, overrides)
     months = [{"month": m, "gross_revenue": g} for m, g in sorted(saved.items())]
     return {"year": payload.year, "months": months}
+
+
+@app.get("/api/v1/fizetes-kalkulator", response_model=FizetesKalkulatorStateOut)
+def get_fizetes_kalkulator(db: Session = Depends(get_db)):
+    """Return the saved wage/dividend calculator inputs (or defaults if never saved)."""
+    return fizetes_kalkulator_service.get_state(db)
+
+
+@app.put("/api/v1/fizetes-kalkulator", response_model=FizetesKalkulatorStateOut)
+def put_fizetes_kalkulator(payload: FizetesKalkulatorStateIn, db: Session = Depends(get_db)):
+    """Upsert the wage/dividend calculator's current inputs."""
+    return fizetes_kalkulator_service.save_state(
+        db, payload.net_wage, payload.revenue, payload.revenue_touched
+    )
 
 
 @app.get("/api/v1/reports/timesheet")

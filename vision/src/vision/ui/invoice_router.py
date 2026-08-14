@@ -1204,9 +1204,28 @@ def adok_save_estimate(
 
 
 @router.get("/fizetes-kalkulator")
-def fizetes_kalkulator_page(request: Request):
+def fizetes_kalkulator_page(request: Request, saved: int = 0, error: str | None = None):
     client = _client()
-    return _resp(request, "fizetes_kalkulator.html", client)
+    state = client.get_fizetes_kalkulator()
+    return _resp(
+        request, "fizetes_kalkulator.html", client, state=dict_to_ns(state), saved=saved, error=error
+    )
+
+
+@router.post("/fizetes-kalkulator")
+def fizetes_kalkulator_save(
+    request: Request,
+    net_wage: float = Form(...),
+    revenue: float = Form(...),
+    revenue_touched: str = Form("false"),
+):
+    client = _client()
+    result = client.save_fizetes_kalkulator(net_wage, revenue, revenue_touched == "true")
+    if result.get("error"):
+        return RedirectResponse(
+            url=f"/ui/fizetes-kalkulator?error={quote(result['error'])}", status_code=303
+        )
+    return RedirectResponse(url="/ui/fizetes-kalkulator?saved=1", status_code=303)
 
 
 # ── Sync ──────────────────────────────────────────────────────────────────────
