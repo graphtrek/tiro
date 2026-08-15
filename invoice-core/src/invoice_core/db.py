@@ -357,6 +357,7 @@ class User(Base):
     email = Column(String, nullable=False, index=True)
     name = Column(String, nullable=True)
     picture = Column(String, nullable=True)  # avatar URL
+    role = Column(String, nullable=False, server_default="read_write")
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     last_login_at = Column(DateTime, server_default=func.now(), nullable=False)

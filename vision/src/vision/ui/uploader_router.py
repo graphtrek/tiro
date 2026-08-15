@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.uploader import UploaderClient
+from vision.ui.utils import redirect_if_readonly
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -25,6 +26,8 @@ def _uploader_client() -> UploaderClient:
 @router.get("/upload")
 def upload_page(request: Request):
     """Feltöltési oldal."""
+    if (redirect := redirect_if_readonly(request)) is not None:
+        return redirect
     uc = _uploader_client()
     storage = uc.list_files()
     return templates.TemplateResponse(
@@ -82,6 +85,8 @@ async def do_upload(
 @router.get("/upload/files", response_class=HTMLResponse)
 def upload_files_partial(request: Request):
     """HTMX partial: tárolt fájlok táblázata."""
+    if (redirect := redirect_if_readonly(request)) is not None:
+        return redirect
     uc = _uploader_client()
     storage = uc.list_files()
     return templates.TemplateResponse(
@@ -92,8 +97,10 @@ def upload_files_partial(request: Request):
 
 
 @router.get("/upload/files/{bank}/{filename}/download")
-def download_file(bank: str, filename: str):
+def download_file(request: Request, bank: str, filename: str):
     """Fájl letöltése az uploader szervizről."""
+    if (redirect := redirect_if_readonly(request)) is not None:
+        return redirect
     uc = _uploader_client()
     url = f"{uc.base_url}/api/v1/files/{bank}/{filename}/download"
 

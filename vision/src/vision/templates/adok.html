@@ -138,9 +138,11 @@
     <div class="d-flex align-items-center gap-3">
       <span class="text-muted small">Becsült bruttó bevétel: <span class="fw-semibold text-body becsult-gross-total">{{ amount_fmt(estimate.totals.gross_revenue) }}</span></span>
       <input type="hidden" name="year" value="{{ estimate.year }}">
+      {% if not request.state.user or request.state.user.role != 'read_only' %}
       <button type="submit" class="btn btn-sm btn-primary">
         <i class="bi bi-save me-1"></i>Mentés
       </button>
+      {% endif %}
     </div>
   </div>
   <div class="card-body p-0">
@@ -170,7 +172,8 @@
             <td class="text-end text-secondary">
               <div class="input-group input-group-sm justify-content-end" style="max-width:160px; margin-left:auto;">
                 <input type="number" step="any" name="gross_revenue" class="form-control text-end becsult-bevetel-input"
-                       data-row="{{ row_idx }}" value="{{ row.gross_revenue | round | int }}">
+                       data-row="{{ row_idx }}" value="{{ row.gross_revenue | round | int }}"
+                       {% if request.state.user and request.state.user.role == 'read_only' %}readonly{% endif %}>
                 <span class="input-group-text">Ft</span>
               </div>
             </td>

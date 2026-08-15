@@ -72,6 +72,7 @@
         <td class="small font-monospace">{{ row.tax_id or '—' }}</td>
         <td class="small">{{ row.address or '—' }}</td>
         <td>
+          {% if not request.state.user or request.state.user.role != 'read_only' %}
           <form hx-post="{{ link_url_prefix }}"
                 hx-target="{{ hx_target }}"
                 hx-swap="innerHTML"
@@ -83,6 +84,7 @@
               Kiválaszt
             </button>
           </form>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}
@@ -90,6 +92,7 @@
   </table>
 </div>
 
+{% if not request.state.user or request.state.user.role != 'read_only' %}
 <hr>
 <button class="btn btn-link btn-sm p-0" type="button" data-bs-toggle="collapse" data-bs-target="#createPartnerForm">
   <i class="bi bi-plus-lg me-1"></i>Új {{ 'szállító' if kind == 'supplier' else 'vevő' }} létrehozása és kapcsolása
@@ -148,3 +151,4 @@
     </button>
   </form>
 </div>
+{% endif %}

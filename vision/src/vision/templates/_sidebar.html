@@ -113,6 +113,7 @@
         </li>
       </ul>
     </li>
+    {% if not request.state.user or request.state.user.role != 'read_only' %}
     {% set admin_open = '/ui/admin' in request.url.path
         or '/ui/sync' in request.url.path
         or '/ui/upload' in request.url.path %}
@@ -151,5 +152,6 @@
         </li>
       </ul>
     </li>
+    {% endif %}
   </ul>
 </nav>

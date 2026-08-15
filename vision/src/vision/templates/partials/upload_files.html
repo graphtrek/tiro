@@ -27,6 +27,7 @@
             <td class="text-end small text-muted">{{ "{:,}".format(f.size_bytes) }} B</td>
             <td class="small text-muted">{{ f.modified_at[:16] if f.modified_at is string else f.modified_at.strftime('%Y-%m-%d %H:%M') }}</td>
             <td class="text-end">
+              {% if not request.state.user or request.state.user.role != 'read_only' %}
               <button class="btn btn-sm btn-outline-danger"
                       hx-delete="/ui/upload/files/{{ bank }}/{{ f.filename }}"
                       hx-target="closest tr"
@@ -34,6 +35,7 @@
                       hx-confirm="Biztosan törli? {{ f.filename }}">
                 <i class="bi bi-trash"></i>
               </button>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

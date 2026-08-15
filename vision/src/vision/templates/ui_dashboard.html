@@ -41,9 +41,6 @@
 
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 mb-0"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
-    <a href="/ui/sync" class="btn btn-primary btn-sm">
-      <i class="bi bi-arrow-repeat me-1"></i>Sync indítása
-    </a>
   </div>
 
   <!-- Timesheet -->
@@ -66,45 +63,6 @@
     <div class="card-body">
       <div class="chart-container">
         <canvas id="timesheetChart"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <div class="card mb-4">
-    <div class="card-header">
-      <h5 class="card-title">Legutóbbi timesheet bejegyzések</h5>
-      <div class="card-actions">
-        <a href="/ui/controlling/timesheet" class="btn btn-sm btn-outline-primary">Mind</a>
-      </div>
-    </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead>
-            <tr>
-              <th>Dátum</th>
-              <th>Felhasználó</th>
-              <th>Projekt</th>
-              <th>Ügyfél</th>
-              <th>Tevékenység</th>
-              <th class="text-end">Óra</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in timesheet_recent %}
-            <tr>
-              <td class="fw-medium">{{ row.entry_date }}</td>
-              <td>{{ row.user_name }}</td>
-              <td>{{ row.project_code }}</td>
-              <td>{{ row.customer_name }}</td>
-              <td>{{ row.activity_type_name }}</td>
-              <td class="text-end">{{ row.hours_label }}</td>
-            </tr>
-            {% else %}
-            <tr><td colspan="6" class="text-center text-muted py-4">Nincs adat</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
       </div>
     </div>
   </div>
@@ -268,7 +226,7 @@
   </div>
 
   <!-- Legutóbbi számlák (full width) -->
-  <div class="card">
+  <div class="card mb-4">
     <div class="card-header">
       <h5 class="card-title">Legutóbbi számlák</h5>
       <div class="card-actions">
@@ -308,6 +266,46 @@
             </tr>
             {% else %}
             <tr><td colspan="5" class="text-center text-muted py-4">Nincs adat</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legutóbbi timesheet bejegyzések (full width) -->
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title">Legutóbbi timesheet bejegyzések</h5>
+      <div class="card-actions">
+        <a href="/ui/controlling/timesheet" class="btn btn-sm btn-outline-primary">Mind</a>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Dátum</th>
+              <th>Felhasználó</th>
+              <th>Projekt</th>
+              <th>Ügyfél</th>
+              <th>Tevékenység</th>
+              <th class="text-end">Óra</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in timesheet_recent %}
+            <tr>
+              <td class="fw-medium">{{ row.entry_date }}</td>
+              <td>{{ row.user_name }}</td>
+              <td>{{ row.project_code }}</td>
+              <td>{{ row.customer_name }}</td>
+              <td>{{ row.activity_type_name }}</td>
+              <td class="text-end">{{ row.hours_label }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">Nincs adat</td></tr>
             {% endfor %}
           </tbody>
         </table>

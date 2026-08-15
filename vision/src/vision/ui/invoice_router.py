@@ -13,7 +13,7 @@ from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from vision.clients.invoice_core import InvoiceCoreClient
-from vision.ui.utils import dict_to_ns, local_today
+from vision.ui.utils import dict_to_ns, local_today, redirect_if_readonly
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -1233,6 +1233,8 @@ def fizetes_kalkulator_save(
 
 @router.get("/sync")
 def sync_page(request: Request):
+    if (redirect := redirect_if_readonly(request)) is not None:
+        return redirect
     client = _client()
     sync_logs = dict_to_ns(client.get_sync_logs())
     pending = dict_to_ns(client.get_pending_sync_counts())

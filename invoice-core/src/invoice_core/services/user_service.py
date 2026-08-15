@@ -20,6 +20,7 @@ def upsert_user(db: Session, payload: UserIn) -> User:
     record.email = payload.email
     record.name = payload.name
     record.picture = payload.picture
+    record.role = payload.role
     record.last_login_at = utcnow()
     db.commit()
     db.refresh(record)

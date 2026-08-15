@@ -23,6 +23,7 @@
           <th>Név</th>
           <th>Email</th>
           <th>Provider</th>
+          <th>Role</th>
           <th>Utolsó belépés</th>
           <th>Regisztrálva</th>
           {% if is_admin %}<th></th>{% endif %}
@@ -41,6 +42,7 @@
           <td>{{ row.name or '—' }}</td>
           <td>{{ row.email }}</td>
           <td><span class="badge bg-secondary">{{ row.provider }}</span></td>
+          <td>{{ row.role or '—' }}</td>
           <td>{{ row.last_login_at.strftime('%Y-%m-%d %H:%M') if row.last_login_at else '—' }}</td>
           <td>{{ row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—' }}</td>
           {% if is_admin %}
@@ -68,14 +70,14 @@
       language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
-      order: [[4, "desc"]],
+      order: [[5, "desc"]],
       responsive: true,
       columnDefs: [
         { targets: 0, searchable: false, orderable: false, responsivePriority: 10001 },
         { targets: 1, responsivePriority: 1 },
         { targets: 2, responsivePriority: 2 },
-        { targets: [3, 5], responsivePriority: 10001 },
-        {% if is_admin %}{ targets: 6, searchable: false, orderable: false, responsivePriority: 3 },{% endif %}
+        { targets: [3, 4, 6], responsivePriority: 10001 },
+        {% if is_admin %}{ targets: 7, searchable: false, orderable: false, responsivePriority: 3 },{% endif %}
       ],
     });
   });

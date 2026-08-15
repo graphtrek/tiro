@@ -117,10 +117,44 @@ def test_expired_state_rejected(service: AuthService):
 
 
 def test_whitelist_email_and_domain(service: AuthService):
-    service.check_whitelist("imre.tatai@graphtrek.co")  # explicit e-mail
-    service.check_whitelist("Valaki@Graphtrek.co")  # domain, kis/nagybetű
+    assert service.resolve_role("imre.tatai@graphtrek.co") == "read_write"  # explicit e-mail
+    assert service.resolve_role("Valaki@Graphtrek.co") == "read_write"  # domain, kis/nagybetű
     with pytest.raises(NotAllowedError):
-        service.check_whitelist("idegen@gmail.com")
+        service.resolve_role("idegen@gmail.com")
+
+
+def test_resolve_role_readonly_email_and_domain(service: AuthService):
+    assert service.resolve_role("kulso@gmail.com") == "read_only"  # explicit readonly e-mail
+    assert service.resolve_role("Valaki@Partner.example") == "read_only"  # readonly domain
+
+
+def test_resolve_role_unlisted_rejected(service: AuthService):
+    with pytest.raises(NotAllowedError):
+        service.resolve_role("idegen@gmail.com")
+
+
+def test_complete_login_sets_readonly_role_for_external_user(
+    service: AuthService, provider: FakeProvider
+):
+    provider.user = UserInfo(sub="ext-1", email="kulso@gmail.com", provider="google")
+    state = _state_from(service.start_login("google"))
+    tokens, user, _next_url = service.complete_login("google", code="c", state=state)
+
+    assert user.role == "read_only"
+    claims = service.verify_access_token(tokens.access_token)
+    assert claims.role == "read_only"
+
+
+def test_refresh_carries_role_through_without_re_resolving(
+    service: AuthService, provider: FakeProvider
+):
+    provider.user = UserInfo(sub="ext-1", email="kulso@gmail.com", provider="google")
+    state = _state_from(service.start_login("google"))
+    tokens, _user, _next_url = service.complete_login("google", code="c", state=state)
+
+    refreshed = service.refresh(tokens.refresh_token)
+    claims = service.verify_access_token(refreshed.access_token)
+    assert claims.role == "read_only"
 
 
 def test_whitelisted_login_rejected(service: AuthService, provider: FakeProvider):

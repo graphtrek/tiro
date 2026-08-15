@@ -37,6 +37,51 @@ def test_upsert_user_creates_new_row(db):
     assert record.last_login_at is not None
 
 
+def test_upsert_user_persists_role_on_insert(db):
+    payload = UserIn(
+        provider="google",
+        sub="google-user-1",
+        email="kulso@gmail.com",
+        role="read_only",
+    )
+    record = user_service.upsert_user(db, payload)
+
+    assert record.role == "read_only"
+
+
+def test_upsert_user_defaults_role_to_read_write(db):
+    payload = UserIn(provider="google", sub="google-user-1", email="imre.tatai@graphtrek.co")
+    record = user_service.upsert_user(db, payload)
+
+    assert record.role == "read_write"
+
+
+def test_upsert_user_updates_role_on_conflict(db):
+    first = user_service.upsert_user(
+        db,
+        UserIn(
+            provider="google",
+            sub="google-user-1",
+            email="imre.tatai@graphtrek.co",
+            role="read_only",
+        ),
+    )
+    assert first.role == "read_only"
+
+    second = user_service.upsert_user(
+        db,
+        UserIn(
+            provider="google",
+            sub="google-user-1",
+            email="imre.tatai@graphtrek.co",
+            role="read_write",
+        ),
+    )
+
+    assert second.id == first.id
+    assert second.role == "read_write"
+
+
 def test_upsert_user_updates_existing_row_by_provider_and_sub(db):
     first = user_service.upsert_user(
         db, UserIn(provider="google", sub="google-user-1", email="old@example.com", name="Old Name")

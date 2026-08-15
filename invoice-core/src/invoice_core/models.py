@@ -182,6 +182,7 @@ class UserIn(BaseModel):
     email: str
     name: str | None = None
     picture: str | None = None
+    role: str = "read_write"
 
 
 class UserOut(BaseModel):
@@ -193,6 +194,7 @@ class UserOut(BaseModel):
     email: str
     name: str | None = None
     picture: str | None = None
+    role: str = "read_write"
     created_at: datetime
     updated_at: datetime
     last_login_at: datetime

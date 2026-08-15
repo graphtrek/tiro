@@ -8,6 +8,8 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+from fastapi.responses import RedirectResponse
+
 if TYPE_CHECKING:
     from fastapi import Request
 
@@ -36,6 +38,16 @@ def current_user(client: InvoiceCoreClient, request: Request) -> dict | None:
         return None
     email = claims.get("email")
     return next((u for u in client.get_users() if u["email"] == email), None)
+
+
+def redirect_if_readonly(request: Request) -> RedirectResponse | None:
+    """Admin section (users, activity types, audit, sync, upload) is fully
+    off-limits to read-only users — redirect straight to the dashboard on any
+    direct navigation instead of only hiding the sidebar links."""
+    claims = getattr(request.state, "user", None) or {}
+    if claims.get("role") == "read_only":
+        return RedirectResponse("/ui/", status_code=302)
+    return None
 
 
 def _parse_leaf(v):

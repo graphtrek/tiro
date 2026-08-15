@@ -67,19 +67,23 @@
             {{ payment_badge(invoice.payment_status) }}
             {% if invoice.payment_status_locked %}
               <span class="badge bg-secondary ms-1" title="Manuálisan beállított fizetési státusz"><i class="bi bi-lock-fill"></i> Manuális</span>
+              {% if not request.state.user or request.state.user.role != 'read_only' %}
               <form hx-post="/ui/invoices/{{ invoice.id }}/fizetve" hx-target="body" hx-push-url="true" class="d-inline ms-1 m-0">
                 <input type="hidden" name="locked" value="false">
                 <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Manuális zár feloldása">
                   <i class="bi bi-unlock"></i>
                 </button>
               </form>
+              {% endif %}
             {% else %}
+              {% if not request.state.user or request.state.user.role != 'read_only' %}
               <form hx-post="/ui/invoices/{{ invoice.id }}/fizetve" hx-target="body" hx-push-url="true" class="d-inline ms-1 m-0">
                 <input type="hidden" name="locked" value="true">
                 <button type="submit" class="btn btn-outline-success btn-sm py-0 px-1" title="Manuálisan megjelölés fizetve">
                   <i class="bi bi-check-circle"></i> Fizetve
                 </button>
               </form>
+              {% endif %}
             {% endif %}
           </dd>
 
@@ -122,6 +126,7 @@
         <div class="card shadow-sm">
           <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-building me-1"></i><strong>Szállító</strong></span>
+            {% if not request.state.user or request.state.user.role != 'read_only' %}
             {% if invoice.supplier_id %}
             <form hx-post="/ui/invoices/{{ invoice.id }}/supplier/unlink"
                   hx-target="body" hx-push-url="true" class="d-inline m-0">
@@ -135,6 +140,7 @@
                     data-picker-url="/ui/picker/partners?kind=supplier&invoice_id={{ invoice.id }}">
               <i class="bi bi-link-45deg"></i> Szállító kapcsolása
             </button>
+            {% endif %}
             {% endif %}
           </div>
           <div class="card-body">
@@ -167,6 +173,7 @@
         <div class="card shadow-sm">
           <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-person me-1"></i><strong>Vevő</strong></span>
+            {% if not request.state.user or request.state.user.role != 'read_only' %}
             {% if invoice.customer_id %}
             <form hx-post="/ui/invoices/{{ invoice.id }}/customer/unlink"
                   hx-target="body" hx-push-url="true" class="d-inline m-0">
@@ -180,6 +187,7 @@
                     data-picker-url="/ui/picker/partners?kind=customer&invoice_id={{ invoice.id }}">
               <i class="bi bi-link-45deg"></i> Vevő kapcsolása
             </button>
+            {% endif %}
             {% endif %}
           </div>
           <div class="card-body">
@@ -282,6 +290,7 @@
 <div class="card shadow-sm mb-4">
   <div class="card-header"><i class="bi bi-pencil-square me-1"></i><strong>Megjegyzés</strong></div>
   <div class="card-body">
+    {% if not request.state.user or request.state.user.role != 'read_only' %}
     <form hx-post="/ui/invoices/{{ invoice.id }}/note" hx-target="body" hx-push-url="true" class="m-0">
       <div class="mb-2">
         <textarea name="note" class="form-control form-control-sm font-monospace" rows="3" placeholder="Ide írhat megjegyzést a számlához…">{{ invoice.note or '' }}</textarea>
@@ -290,6 +299,9 @@
         <i class="bi bi-floppy me-1"></i>Mentés
       </button>
     </form>
+    {% else %}
+    <p class="mb-0">{{ invoice.note or '—' }}</p>
+    {% endif %}
   </div>
 </div>
 
@@ -302,6 +314,7 @@
         <span class="badge bg-warning text-dark ms-1" title="Manuálisan kapcsolva"><i class="bi bi-lock-fill"></i> Manuális</span>
       {% endif %}
     </span>
+    {% if not request.state.user or request.state.user.role != 'read_only' %}
     {% if invoice.invoice_file_id %}
       <form hx-post="/ui/invoices/{{ invoice.id }}/invoice-file/unlink"
             hx-target="body" hx-push-url="true" class="d-inline m-0">
@@ -315,6 +328,7 @@
               data-picker-url="/ui/picker/invoice-files?source_type=invoice&source_id={{ invoice.id }}">
         <i class="bi bi-link-45deg"></i> PDF kapcsolása
       </button>
+    {% endif %}
     {% endif %}
   </div>
   {% if invoice.invoice_file_id %}
@@ -333,11 +347,13 @@
   <h5 class="mb-3">
     <i class="bi bi-bank me-1 text-info"></i>Bank tranzakciók ({{ invoice.bank_transactions | length }})
   </h5>
+  {% if not request.state.user or request.state.user.role != 'read_only' %}
   <button class="btn btn-outline-primary btn-sm mb-3"
           data-bs-toggle="modal" data-bs-target="#pickerModal"
           data-picker-url="/ui/picker/transactions?invoice_id={{ invoice.id }}">
     <i class="bi bi-link-45deg"></i> Tranzakció kapcsolása
   </button>
+  {% endif %}
 </div>
 {% if invoice.bank_transactions %}
 {% for t in invoice.bank_transactions %}
@@ -346,12 +362,14 @@
     <span class="font-monospace small">{{ t.bank | upper }}: {{ t.transaction_id }}</span>
     <div class="d-flex gap-2 align-items-center">
       <span class="fw-bold">{{ amount_fmt(t.amount, t.currency) }}</span>
+      {% if not request.state.user or request.state.user.role != 'read_only' %}
       <form hx-post="/ui/invoices/{{ invoice.id }}/transactions/{{ t.id }}/unlink"
             hx-target="body" hx-push-url="true" class="d-inline m-0">
         <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" title="Kapcsolat törlése">
           <i class="bi bi-x-lg"></i>
         </button>
       </form>
+      {% endif %}
     </div>
   </div>
   <div class="card-body">

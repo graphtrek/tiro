@@ -103,6 +103,7 @@
         <td class="small">{{ row.linked_invoice_number or '—' }}</td>
         <td>{{ row.words or '' }}</td>
         <td>
+          {% if not request.state.user or request.state.user.role != 'read_only' %}
           <form hx-post="{{ link_url_prefix }}"
                 hx-target="{{ hx_target }}"
                 hx-swap="innerHTML"
@@ -114,6 +115,7 @@
               Kiválaszt
             </button>
           </form>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

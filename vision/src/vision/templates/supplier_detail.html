@@ -26,6 +26,7 @@
     <div class="card shadow-sm">
       <div class="card-header d-flex align-items-center">
         <strong>Adatok</strong>
+        {% if not request.state.user or request.state.user.role != 'read_only' %}
         <div class="ms-auto d-flex gap-1">
           <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
                   data-bs-target="#editSupplierModal">
@@ -38,6 +39,7 @@
             <i class="bi bi-trash"></i>
           </button>
         </div>
+        {% endif %}
       </div>
       <div class="card-body">
         <dl class="row mb-0">
@@ -55,6 +57,7 @@
   </div>
 </div>
 
+{% if not request.state.user or request.state.user.role != 'read_only' %}
 <!-- Szállító módosítása modal -->
 <div class="modal fade" id="editSupplierModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -106,6 +109,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Számlák -->
 <div class="card shadow-sm mb-4">

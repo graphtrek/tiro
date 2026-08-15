@@ -57,6 +57,7 @@
         <td class="small fw-bold text-nowrap">{{ amount_fmt(row.amount, row.currency) }}</td>
         <td class="small">{{ row.partner_name or '—' }}</td>
         <td>
+          {% if not request.state.user or request.state.user.role != 'read_only' %}
           <form hx-post="/ui/invoices/{{ invoice_id }}/transactions/{{ row.id }}/link"
                 hx-target="body"
                 hx-swap="innerHTML"
@@ -67,6 +68,7 @@
               Kiválaszt
             </button>
           </form>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

@@ -18,11 +18,13 @@
 {% set project_status_badges = {"OPEN": "bg-success", "CLOSED": "bg-secondary", "ONHOLD": "bg-warning text-dark"} %}
 <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
   <h1 class="h3 mb-0"><i class="bi bi-kanban me-2"></i>Projektek</h1>
+  {% if not request.state.user or request.state.user.role != 'read_only' %}
   <div class="ms-auto d-flex gap-2">
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newProjectModal">
       <i class="bi bi-plus-lg me-1"></i>Új
     </button>
   </div>
+  {% endif %}
 </div>
 
 {% if error %}
@@ -50,7 +52,7 @@
       </thead>
       <tbody>
         {% for row in rows %}
-        {% set is_owner = current_user and current_user.id == row.owner_id %}
+        {% set is_owner = current_user and current_user.id == row.owner_id and (not request.state.user or request.state.user.role != 'read_only') %}
         <tr class="{% if row.status == 'CLOSED' %}text-muted{% endif %}">
           <td><strong>{{ row.code }}</strong></td>
           <td>{{ row.customer_name }}</td>
@@ -79,6 +81,7 @@
               <i class="bi bi-eye"></i>
             </button>
             {% endif %}
+            {% if not request.state.user or request.state.user.role != 'read_only' %}
             {% if row.first_entry_date %}
             <button class="btn btn-sm btn-outline-danger" title="Nem törölhető: a projekthez már vannak rögzített timesheet bejegyzések" disabled>
               <i class="bi bi-trash"></i>
@@ -90,6 +93,7 @@
                     hx-confirm="Biztosan törli? '{{ row.code }}'">
               <i class="bi bi-trash"></i>
             </button>
+            {% endif %}
             {% endif %}
           </td>
         </tr>
@@ -121,6 +125,7 @@
   })();
 </script>
 
+{% if not request.state.user or request.state.user.role != 'read_only' %}
 <!-- Új projekt modal -->
 <div class="modal fade" id="newProjectModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -207,10 +212,11 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Projekt módosítása modalok -->
 {% for row in rows %}
-{% set is_owner = current_user and current_user.id == row.owner_id %}
+{% set is_owner = current_user and current_user.id == row.owner_id and (not request.state.user or request.state.user.role != 'read_only') %}
 <div class="modal fade" id="editProjectModal{{ row.id }}" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">

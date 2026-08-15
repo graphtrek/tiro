@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     allowed_emails: str = ""  # vesszővel elválasztva
     allowed_domains: str = ""  # vesszővel elválasztva
 
+    # Csak olvasási jogosultság — külső e-mail / domain (read_only szerepkör)
+    readonly_emails: str = ""  # vesszővel elválasztva
+    readonly_domains: str = ""  # vesszővel elválasztva
+
     # Admin — ezek az e-mailek indíthatnak megszemélyesítést (POST /auth/impersonate)
     admin_emails: str = ""  # vesszővel elválasztva
 
@@ -94,6 +98,14 @@ class Settings(BaseSettings):
     @property
     def allowed_domains_list(self) -> list[str]:
         return [d.strip().lower() for d in self.allowed_domains.split(",") if d.strip()]
+
+    @property
+    def readonly_emails_list(self) -> list[str]:
+        return [e.strip().lower() for e in self.readonly_emails.split(",") if e.strip()]
+
+    @property
+    def readonly_domains_list(self) -> list[str]:
+        return [d.strip().lower() for d in self.readonly_domains.split(",") if d.strip()]
 
     @property
     def admin_emails_list(self) -> list[str]:

@@ -81,6 +81,8 @@ def settings(keys_dir, tmp_path) -> Settings:
         denylist_path=str(tmp_path / "revoked_jti.txt"),
         allowed_emails="imre.tatai@graphtrek.co",
         allowed_domains="graphtrek.co",
+        readonly_emails="kulso@gmail.com",
+        readonly_domains="partner.example",
         admin_emails="imre.tatai@graphtrek.co",
         google_client_id="test-client",
         google_client_secret="test-secret",

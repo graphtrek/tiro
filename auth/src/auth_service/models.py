@@ -13,6 +13,7 @@ class UserInfo(BaseModel):
     name: str | None = None
     picture: str | None = None  # avatar URL
     provider: str  # "google"
+    role: str = "read_write"
 
 
 class TokenPair(BaseModel):
@@ -42,6 +43,7 @@ class JWTClaims(BaseModel):
     name: str | None = None
     picture: str | None = None
     provider: str | None = None
+    role: str | None = None
     jti: str | None = None  # refresh tokennél, visszavonáshoz
     impersonator_sub: str | None = None  # megszemélyesítésnél: az admin sub-ja
     impersonator_email: str | None = None  # megszemélyesítésnél: az admin e-mailje

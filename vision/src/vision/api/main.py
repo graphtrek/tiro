@@ -78,6 +78,11 @@ async def require_auth(request: Request, call_next):
         return JSONResponse({"detail": "Érvénytelen vagy hiányzó access token"}, status_code=401)
 
     request.state.user = claims
+    if claims.get("role") == "read_only" and request.method not in ("GET", "HEAD", "OPTIONS"):
+        return JSONResponse(
+            {"detail": "Csak olvasási jogosultság — írási művelet nem engedélyezett"},
+            status_code=403,
+        )
     ctx = current_token.set(token)
     try:
         return await call_next(request)

@@ -57,6 +57,31 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <script>
+    // htmx "settles" class/style/width/height on any element whose id matches
+    // one in the outgoing content, briefly restoring the OLD element's value
+    // before applying the new response's — meant for smooth CSS transitions
+    // on elements that persist across a swap. Nothing in this app uses that
+    // (grepped for .htmx-settling/.htmx-swapping — no hits). But every
+    // DataTable-driven page (Bank, Számlák, Szállítók, admin/users, ...) gives
+    // its <table> a stable id and reinitializes DataTables from a page-local
+    // <script> after each boosted swap. Navigating to a page via a link
+    // pointing at the URL you're ALREADY on (e.g. double-clicking the current
+    // sidebar item, or clicking it again while already there) swaps in a new
+    // <table> with the SAME id as the live one being replaced — htmx then
+    // "settles" that id-matched table's class attribute back to the pristine
+    // server-rendered value (no "dataTable"/"dtr-inline"/"collapsed") a few
+    // milliseconds after the page's own script already ran "new
+    // DataTable(...)" and added them, silently breaking the table (missing
+    // sort arrows, missing Responsive column-collapse control) with no
+    // console error. Confirmed live: only reproduces on same-URL navigation
+    // (never on a normal Bank->Invoices->Bank round trip, since invoice-table
+    // and transaction-table don't share an id); setting
+    // htmx.config.attributesToSettle = [] made it disappear. Set here, in
+    // <head>, rather than in the body's own re-executed-on-every-swap script
+    // block, so it's in effect before the very first boosted request can fire.
+    htmx.config.attributesToSettle = [];
+  </script>
 </head>
 <body hx-boost="true">
 

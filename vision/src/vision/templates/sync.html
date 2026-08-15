@@ -18,6 +18,7 @@
 </div>
 
 <div class="row g-4">
+  {% if not request.state.user or request.state.user.role != 'read_only' %}
   <div class="col-12 col-lg-5">
     <div class="card shadow-sm">
       <div class="card-header"><strong>Sync indítása</strong></div>
@@ -67,6 +68,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <div class="col-12 col-lg-7">
     <div id="sync-result"></div>

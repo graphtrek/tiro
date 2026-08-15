@@ -38,7 +38,7 @@
           <td>{{ row.participants }}</td>
           <td class="text-end">{{ row.hours_label }}</td>
           <td class="text-end text-nowrap">
-            {% if row.is_own %}
+            {% if row.is_own and (not request.state.user or request.state.user.role != 'read_only') %}
             <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
                     data-bs-target="#editEntryModal{{ row.id }}">
               <i class="bi bi-pencil"></i>
@@ -91,6 +91,7 @@
   })();
 </script>
 
+{% if not request.state.user or request.state.user.role != 'read_only' %}
 <!-- Új rekord modal -->
 <div class="modal fade" id="newRecordModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -167,8 +168,10 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Rekord módosítása modalok -->
+{% if not request.state.user or request.state.user.role != 'read_only' %}
 {% for row in rows if row.is_own %}
 <div class="modal fade" id="editEntryModal{{ row.id }}" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -250,6 +253,7 @@
   </div>
 </div>
 {% endfor %}
+{% endif %}
 
 <script>
   (function() {

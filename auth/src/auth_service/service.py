@@ -134,7 +134,7 @@ class AuthService:
             code_verifier=pending.code_verifier,
             redirect_uri=self.settings.oauth_redirect_url,
         )
-        self.check_whitelist(user.email)
+        user.role = self.resolve_role(user.email)
 
         tokens = self.issue_tokens(user)
         self._save_user(user, tokens.access_token)
@@ -152,14 +152,18 @@ class AuthService:
                 exc,
             )
 
-    def check_whitelist(self, email: str) -> None:
-        """Csak whitelistelt e-mail / domain léphet be."""
+    def resolve_role(self, email: str) -> str:
+        """Whitelistelt e-mail / domain → szerepkör; egyébként `NotAllowedError`."""
         email = email.strip().lower()
         if email in self.settings.allowed_emails_list:
-            return
+            return "read_write"
         domain = email.rsplit("@", 1)[-1]
         if domain in self.settings.allowed_domains_list:
-            return
+            return "read_write"
+        if email in self.settings.readonly_emails_list:
+            return "read_only"
+        if domain in self.settings.readonly_domains_list:
+            return "read_only"
         logger.warning("Elutasított belépés (nincs a whitelisten): %s", email)
         raise NotAllowedError(f"A(z) {email} fiókkal nem engedélyezett a belépés")
 
@@ -200,6 +204,7 @@ class AuthService:
             name=claims.name,
             picture=claims.picture,
             provider=claims.provider or "unknown",
+            role=claims.role or "read_write",
         )
         access = self.jwt.issue_access_token(user)
         return TokenPair(

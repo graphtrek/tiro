@@ -29,6 +29,13 @@ def test_access_token_roundtrip(jwt_service: JWTService):
     assert claims.exp - claims.iat == jwt_service.settings.access_token_ttl
 
 
+def test_access_token_roundtrip_carries_role(jwt_service: JWTService):
+    readonly_user = USER.model_copy(update={"role": "read_only"})
+    token = jwt_service.issue_access_token(readonly_user)
+    claims = jwt_service.decode(token, expected_typ="access")
+    assert claims.role == "read_only"
+
+
 def test_refresh_token_has_jti_and_profile(jwt_service: JWTService):
     token, jti = jwt_service.issue_refresh_token(USER)
     claims = jwt_service.decode(token, expected_typ="refresh")

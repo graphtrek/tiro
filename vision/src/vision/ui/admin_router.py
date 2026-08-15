@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 from vision.auth import current_token
 from vision.clients.invoice_core import InvoiceCoreClient
 from vision.config import get_settings
-from vision.ui.utils import dict_to_ns
+from vision.ui.utils import dict_to_ns, redirect_if_readonly
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -31,6 +31,8 @@ def _is_admin(request: Request) -> bool:
 
 @router.get("/users")
 def users_page(request: Request):
+    if (redirect := redirect_if_readonly(request)) is not None:
+        return redirect
     client = _client()
     rows = dict_to_ns(client.get_users())
     return templates.TemplateResponse(
@@ -73,6 +75,8 @@ def impersonate_user(request: Request, email: str = Form(...)):
 
 @router.get("/audit")
 def audit_page(request: Request):
+    if (redirect := redirect_if_readonly(request)) is not None:
+        return redirect
     rows = dict_to_ns(_client().get_audit_log())
     return templates.TemplateResponse(request, "admin_audit.html", {"rows": rows})
 
@@ -86,6 +90,8 @@ def _activity_types_page(request: Request, error: str | None = None):
 
 @router.get("/activity-types")
 def activity_types_page(request: Request):
+    if (redirect := redirect_if_readonly(request)) is not None:
+        return redirect
     return _activity_types_page(request)
 
 

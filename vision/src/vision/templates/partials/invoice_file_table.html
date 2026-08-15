@@ -45,6 +45,7 @@
       </td>
       <td>{{ row.words or '' }}</td>
       <td class="text-end">
+        {% if not request.state.user or request.state.user.role != 'read_only' %}
         <button class="btn btn-sm btn-outline-danger"
                 hx-delete="/ui/invoice-files/{{ row.id }}/delete"
                 hx-target="#table-container"
@@ -52,6 +53,7 @@
                 hx-confirm="Biztosan törli a fájlt? '{{ row.filename }}'">
           <i class="bi bi-trash"></i>
         </button>
+        {% endif %}
       </td>
     </tr>
     {% endfor %}

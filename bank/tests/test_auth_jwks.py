@@ -6,12 +6,14 @@ verify_jwt hibaágait mock-oljuk.
 
 from __future__ import annotations
 
+import asyncio
 import ssl
 
 import certifi
 import jwt
 import pytest
 from fastapi import HTTPException
+from starlette.requests import Request
 
 import bank.auth as auth_mod
 
@@ -103,3 +105,55 @@ def test_verify_jwt_genuinely_invalid_token_still_401(monkeypatch: pytest.Monkey
 
     assert excinfo.value.status_code == 401
     assert "Érvénytelen access token" in excinfo.value.detail
+
+
+class _FakeAuthSettings:
+    auth_enabled = True
+    auth_service_url = "http://localhost:8007"
+    jwt_audience = "moneypenny"
+    jwt_issuer = "auth-service"
+
+
+def _make_request(method: str, path: str = "/transactions", token: str = "valid-token"):
+    scope = {
+        "type": "http",
+        "method": method,
+        "path": path,
+        "headers": [(b"authorization", f"Bearer {token}".encode())],
+        "query_string": b"",
+        "server": ("test", 80),
+        "scheme": "http",
+        "client": ("test", 123),
+    }
+    return Request(scope)
+
+
+def test_require_auth_blocks_write_for_read_only_role(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(auth_mod, "get_auth_settings", lambda: _FakeAuthSettings())
+    monkeypatch.setattr(
+        auth_mod, "verify_jwt", lambda token: {"typ": "access", "role": "read_only"}
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(auth_mod.require_auth(_make_request("POST")))
+    assert excinfo.value.status_code == 403
+
+
+def test_require_auth_allows_get_for_read_only_role(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(auth_mod, "get_auth_settings", lambda: _FakeAuthSettings())
+    monkeypatch.setattr(
+        auth_mod, "verify_jwt", lambda token: {"typ": "access", "role": "read_only"}
+    )
+
+    claims = asyncio.run(auth_mod.require_auth(_make_request("GET")))
+    assert claims["role"] == "read_only"
+
+
+def test_require_auth_allows_write_for_read_write_role(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(auth_mod, "get_auth_settings", lambda: _FakeAuthSettings())
+    monkeypatch.setattr(
+        auth_mod, "verify_jwt", lambda token: {"typ": "access", "role": "read_write"}
+    )
+
+    claims = asyncio.run(auth_mod.require_auth(_make_request("POST")))
+    assert claims["role"] == "read_write"
