@@ -228,3 +228,48 @@ def test_customers_nonempty_state_renders_rows(monkeypatch, client, auth_header)
 
     assert response.status_code == 200
     assert "Beta Zrt" in response.text
+
+
+def test_base_datatable_swap_cleanup_scoped_to_swap_target(monkeypatch, client, auth_header):
+    """Bug: opening the bank-transactions detail offcanvas (an htmx swap
+    scoped to '#tx-offcanvas-body') permanently broke DataTables Responsive's
+    collapsed/expanded child rows on the unrelated, still-visible
+    '#transaction-table' in the background.
+
+    Root cause: base.html's global 'htmx:beforeSwap' cleanup handler (added
+    to avoid leaking a stale DataTable instance when a table's own container
+    gets swapped, e.g. controlling/timesheet's '#timesheet-content') looked
+    at every 'table.dataTable' in the whole document and destroyed it,
+    regardless of whether that table had anything to do with the swap that
+    was about to happen. destroy() unbinds Responsive's window resize
+    listener and strips its 'dtr-inline collapsed' classes permanently, since
+    nothing re-initializes a table outside of its own page script running
+    again on its own container swap.
+
+    Fix: only destroy a table that is actually inside (or is) the swap's
+    'evt.detail.target' — this test locks in that the handler receives the
+    event and checks containment before destroying."""
+    monkeypatch.setattr(
+        InvoiceCoreClient,
+        "get_dashboard",
+        lambda self: {
+            "kpis": EMPTY_DASHBOARD_KPIS,
+            "recent_invoices": [],
+            "recent_transactions": [],
+            "top_suppliers": [],
+            "top_customers": [],
+            "monthly_finance": [],
+        },
+    )
+
+    response = client.get("/ui/", headers={**auth_header, "Accept": "text/html"})
+
+    assert response.status_code == 200
+    body = response.text
+    assert "_dataTableSwapCleanupBound" in body
+    # the handler must read evt.detail.target ...
+    assert "function (evt)" in body
+    assert "var target = evt.detail.target;" in body
+    # ... and only destroy a table that is the target or contained by it,
+    # never an unconditional document-wide destroy of every DataTable.
+    assert "(el === target || target.contains(el))" in body

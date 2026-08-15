@@ -205,16 +205,28 @@
       // per discarded element, but by then the old subtree is already detached
       // and isDataTable() requires the node to still be document-connected, so
       // it silently reports false and skips destroy — confirmed by
-      // instrumenting it live). Looks at the whole document rather than
-      // scoping to evt.detail.target: that target is now often a nested
-      // container (e.g. "#timesheet-content"), not body, but a stale
-      // not-yet-destroyed instance is a problem regardless of which element
-      // is about to be swapped.
+      // instrumenting it live). Scoped to tables inside evt.detail.target
+      // (or the target itself, e.g. "#timesheet-content" wrapping a
+      // <table>) rather than the whole document: a table is only actually
+      // going stale when it sits inside the region htmx is about to
+      // replace. Querying the whole document instead (as an earlier version
+      // of this handler did) destroyed every live DataTable on the page for
+      // *any* htmx swap anywhere — including swaps that have nothing to do
+      // with a table at all, e.g. loading bank/transactions.html's detail
+      // offcanvas (target "#tx-offcanvas-body") destroyed the unrelated,
+      // still-visible #transaction-table in the background. Once destroyed,
+      // DataTables' Responsive extension unbinds its window "resize"
+      // listener and strips the "dtr-inline collapsed" classes (see
+      // dataTables.responsive.js's "destroy.dtr" handler) and nothing ever
+      // reinitializes it afterwards — that table's own init script only
+      // (re)runs when its own container is swapped in, which never happens
+      // here — permanently breaking its collapsed/expanded child rows.
       if (!window._dataTableSwapCleanupBound) {
         window._dataTableSwapCleanupBound = true;
-        document.body.addEventListener('htmx:beforeSwap', function () {
+        document.body.addEventListener('htmx:beforeSwap', function (evt) {
+          var target = evt.detail.target;
           document.querySelectorAll('table.dataTable').forEach(function (el) {
-            if ($.fn.DataTable.isDataTable(el)) {
+            if ((el === target || target.contains(el)) && $.fn.DataTable.isDataTable(el)) {
               $(el).DataTable().destroy();
             }
           });
