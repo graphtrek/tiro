@@ -215,7 +215,7 @@ uv run pytest tests/ -v
 
 ## auth — central authentication microservice
 
-Google OAuth 2.0 / OpenID Connect login (authorization code + PKCE + state, email/domain whitelist); issues its own **RS256 JWT** pair (access 15 min, refresh 30 days). Only this service talks to Google — every other service validates JWTs **locally** against `/.well-known/jwks.json` (PyJWKClient cache, no per-request network call). Leaf service, no DB of its own (refresh-token revocation is a file-based jti denylist) — on every successful login it best-effort POSTs the user's profile + provider to `invoice-core`'s `/api/v1/users` (using the freshly-issued access token), which is the only service in the workspace holding a database. Spec: `moneypenny/auth-service-spec.md`. `requires-python >=3.11`.
+Google OAuth 2.0 / OpenID Connect login (authorization code + PKCE + state, email/domain whitelist); issues its own **RS256 JWT** pair (access 15 min, refresh 1 day). The RS256 keypair is regenerated in-memory on every `auth` process startup (not the persisted `auth keygen` files), so a restart rotates the JWKS `kid` and invalidates every previously issued token workspace-wide — every user must log in again after a restart. Only this service talks to Google — every other service validates JWTs **locally** against `/.well-known/jwks.json` (PyJWKClient cache, no per-request network call). Leaf service, no DB of its own (refresh-token revocation is a file-based jti denylist) — on every successful login it best-effort POSTs the user's profile + provider to `invoice-core`'s `/api/v1/users` (using the freshly-issued access token), which is the only service in the workspace holding a database. Spec: `moneypenny/auth-service-spec.md`. `requires-python >=3.11`.
 
 ### Running
 

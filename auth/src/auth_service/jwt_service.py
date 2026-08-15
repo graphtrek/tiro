@@ -51,10 +51,16 @@ def generate_keypair(out_dir: str | Path, key_size: int = 2048) -> tuple[Path, P
 class JWTService:
     """Access / refresh token kiállítás, validálás és JWKS."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, regenerate_keys: bool = False):
         self.settings = settings
         private_path = Path(settings.jwt_private_key_path)
         public_path = Path(settings.jwt_public_key_path)
+        if regenerate_keys:
+            # Friss kulcspár minden szerverindításkor: a régi `kid` eltűnik a
+            # JWKS-ből, így minden korábban kiadott access/refresh token
+            # érvényesítése elbukik -- újraindítás után mindenkinek újra be
+            # kell lépnie (lásd CLAUDE.md "always needs to login").
+            generate_keypair(private_path.parent)
         if not private_path.exists() or not public_path.exists():
             raise AuthError(
                 f"Hiányzó RS256 kulcspár ({private_path}, {public_path}) — "

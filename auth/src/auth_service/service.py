@@ -70,9 +70,10 @@ class AuthService:
         jwt_service: JWTService | None = None,
         providers: dict[str, AuthProvider] | None = None,
         invoice_core_client: InvoiceCoreClient | None = None,
+        regenerate_keys: bool = False,
     ):
         self.settings = settings or get_settings()
-        self.jwt = jwt_service or JWTService(self.settings)
+        self.jwt = jwt_service or JWTService(self.settings, regenerate_keys=regenerate_keys)
         self.providers = providers if providers is not None else build_providers(self.settings)
         self.denylist = Denylist(self.settings.denylist_path)
         self._invoice_core = invoice_core_client or InvoiceCoreClient(self.settings)

@@ -88,3 +88,18 @@ def test_state_and_pkce_helpers():
     verifier, challenge = make_pkce_pair()
     assert len(verifier) >= 43
     assert challenge and "=" not in challenge
+
+
+def test_regenerate_keys_invalidates_previous_tokens(settings):
+    """Egy szerverindítás (regenerate_keys=True) rotálja a kulcspárt és a `kid`-et,
+    így minden korábban kiadott tokent érvényteleníti — kényszerített újra-belépés."""
+    before = JWTService(settings)
+    token = before.issue_access_token(USER)
+
+    after = JWTService(settings, regenerate_keys=True)
+
+    assert after.kid != before.kid
+    with pytest.raises(AuthError):
+        after.decode(token, expected_typ="access")
+    # a régi instancia még mindig érvényesíti a saját maga által kiadott tokent
+    assert before.decode(token, expected_typ="access").sub == USER.sub

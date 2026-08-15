@@ -52,10 +52,12 @@ _service: AuthService | None = None
 
 
 def get_service() -> AuthService:
-    """Lustán inicializált singleton — a kulcspárnak léteznie kell (auth keygen)."""
+    """Lustán inicializált singleton — az első hívás friss RS256 kulcspárt generál,
+    így egy szerverindítás (deploy, crash, `--reload`) minden korábban kiadott
+    tokent érvénytelenít, és mindenkinek újra be kell lépnie."""
     global _service
     if _service is None:
-        _service = AuthService()
+        _service = AuthService(regenerate_keys=True)
     return _service
 
 
