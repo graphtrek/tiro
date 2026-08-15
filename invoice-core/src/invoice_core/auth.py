@@ -36,6 +36,12 @@ _ENV_FILE = _WORKSPACE_ROOT / ".env"
 ACCESS_COOKIE_NAME = "mp_access_token"
 PUBLIC_PATHS = {"/health"}
 
+# A saját login-rekord felvétele (auth szerviz hívja minden sikeres belépéskor,
+# a payloadot maga a auth szerviz állítja elő — nem a hívó adja meg) nem
+# számít "írási műveletnek" a read_only szerepkör szempontjából, különben
+# a csak-olvasó felhasználók sose kerülnének be a user táblába.
+_READ_ONLY_WRITE_EXEMPT = {("POST", "/api/v1/users")}
+
 # A beérkező kérés Bearer tokenje — a downstream kliensek (nav-invoice,
 # invoice-file-filter, bank) ezt adják tovább (token passthrough).
 current_token: ContextVar[str | None] = ContextVar("current_token", default=None)
@@ -144,7 +150,11 @@ async def require_auth(request: Request):
         raise HTTPException(status_code=401, detail="Hiányzó access token")
     claims = verify_jwt(token)
     request.state.user = claims
-    if claims.get("role") == "read_only" and request.method not in ("GET", "HEAD", "OPTIONS"):
+    if (
+        claims.get("role") == "read_only"
+        and request.method not in ("GET", "HEAD", "OPTIONS")
+        and (request.method, request.url.path) not in _READ_ONLY_WRITE_EXEMPT
+    ):
         raise HTTPException(
             status_code=403, detail="Csak olvasási jogosultság — írási művelet nem engedélyezett"
         )
