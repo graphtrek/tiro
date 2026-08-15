@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Generator
 from datetime import date, timedelta
 from enum import Enum as PyEnum
+from enum import StrEnum
 
 from sqlalchemy import (
     JSON,
@@ -85,6 +86,12 @@ class _ProjectStatus(PyEnum):
     OPEN = "OPEN"
     CLOSED = "CLOSED"
     ONHOLD = "ONHOLD"
+
+
+class _VacationKind(StrEnum):
+    VACATION = "vacation"
+    OUT_OF_OFFICE = "out_of_office"
+    NOTE = "note"
 
 
 def _enum_str(value) -> str:
@@ -482,6 +489,35 @@ class TimesheetEntry(Base):
         entry_monday = self.entry_date - timedelta(days=self.entry_date.weekday())
         weeks_between = (entry_monday - anchor_monday).days // 7
         return max(weeks_between, 0) + 1
+
+
+class VacationRequest(Base):
+    __tablename__ = "vacation_request"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False, index=True)
+    # values_callable: store/read the enum's *value* (e.g. "out_of_office") rather
+    # than its member name (e.g. "OUT_OF_OFFICE") — needed because this enum's
+    # member names and values intentionally differ (unlike the other enums here).
+    kind = Column(
+        SAEnum(
+            _VacationKind,
+            native_enum=False,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+        ),
+        nullable=False,
+    )
+    start_date = Column(Date, nullable=False, index=True)
+    end_date = Column(Date, nullable=False, index=True)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+    @property
+    def user_name(self) -> str:
+        return (self.user.name or self.user.email) if self.user else ""
 
 
 class SyncLog(Base):

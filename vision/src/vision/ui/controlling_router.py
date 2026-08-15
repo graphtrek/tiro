@@ -32,6 +32,18 @@ _PROJECT_SCOPE_COLORS = {
     "all": "warning",
 }
 
+_VACATION_KINDS = ["vacation", "out_of_office", "note"]
+_VACATION_KIND_LABELS = {
+    "vacation": "Szabadság",
+    "out_of_office": "Nem elérhető",
+    "note": "Megjegyzés",
+}
+_VACATION_KIND_COLORS = {
+    "vacation": "success",
+    "out_of_office": "warning",
+    "note": "secondary",
+}
+
 _REPORT_TYPES = ["project", "person", "customer", "activity_type"]
 _REPORT_TYPE_LABELS = {
     "project": "Projekt riport (heti + kumulált)",
@@ -319,6 +331,117 @@ def delete_timesheet_entry(request: Request, entry_id: int, project_scope: str =
         )
     result = client.delete_timesheet_entry(entry_id, user["id"])
     return _timesheet_redirect_or_error(request, result.get("error"), project_scope)
+
+
+def _vacation_page(request: Request, error: str | None = None):
+    is_partial = bool(request.headers.get("HX-Request")) and not request.headers.get("HX-Boosted")
+    template = "partials/vacation_content.html" if is_partial else "controlling_vacation.html"
+
+    client = _client()
+    user = _current_user(client, request)
+    if user is None:
+        return templates.TemplateResponse(
+            request,
+            template,
+            {
+                "rows": [],
+                "current_user": None,
+                "error": error or "Felhasználó azonosítása sikertelen",
+                "vacation_kinds": _VACATION_KINDS,
+                "vacation_kind_labels": _VACATION_KIND_LABELS,
+                "vacation_kind_colors": _VACATION_KIND_COLORS,
+                "today": local_today().isoformat(),
+            },
+        )
+
+    rows = client.get_vacation_requests()
+    for row in rows:
+        row["is_own"] = row["user_id"] == user["id"]
+
+    return templates.TemplateResponse(
+        request,
+        template,
+        {
+            "rows": rows,
+            "current_user": user,
+            "error": error,
+            "vacation_kinds": _VACATION_KINDS,
+            "vacation_kind_labels": _VACATION_KIND_LABELS,
+            "vacation_kind_colors": _VACATION_KIND_COLORS,
+            "today": local_today().isoformat(),
+        },
+    )
+
+
+def _vacation_form_result(request: Request, error: str | None):
+    """Create/update responses: on error, swap just the alert into the modal's own
+    error slot (see hx-target="#vac-error-new"/"#vac-error-edit-{id}" in
+    vacation_content.html) so the message shows where the user is typing instead
+    of closing the modal and banner-ing it at the top of the page."""
+    if error:
+        return templates.TemplateResponse(
+            request, "partials/timesheet_form_error.html", {"error": error}
+        )
+    return Response(status_code=204, headers={"HX-Redirect": "/ui/controlling/vacation"})
+
+
+def _vacation_redirect_or_error(request: Request, error: str | None):
+    """On success, tell htmx to do a real browser navigation back to the list page
+    instead of swapping the response in — same DataTables Responsive re-init
+    rationale as `_timesheet_redirect_or_error`."""
+    if error:
+        return _vacation_page(request, error=error)
+    return Response(status_code=204, headers={"HX-Redirect": "/ui/controlling/vacation"})
+
+
+@router.get("/vacation")
+def vacation_page(request: Request):
+    return _vacation_page(request)
+
+
+@router.post("/vacation")
+def create_vacation_request(
+    request: Request,
+    kind: str = Form(...),
+    start_date: str = Form(...),
+    end_date: str = Form(...),
+    note: str = Form(""),
+):
+    client = _client()
+    user = _current_user(client, request)
+    if user is None:
+        return _vacation_form_result(request, "Felhasználó azonosítása sikertelen")
+    result = client.create_vacation_request(user["id"], kind, start_date, end_date, note or None)
+    return _vacation_form_result(request, result.get("error"))
+
+
+@router.post("/vacation/{request_id}")
+def update_vacation_request(
+    request: Request,
+    request_id: int,
+    kind: str = Form(...),
+    start_date: str = Form(...),
+    end_date: str = Form(...),
+    note: str = Form(""),
+):
+    client = _client()
+    user = _current_user(client, request)
+    if user is None:
+        return _vacation_form_result(request, "Felhasználó azonosítása sikertelen")
+    result = client.update_vacation_request(
+        request_id, user["id"], kind, start_date, end_date, note or None
+    )
+    return _vacation_form_result(request, result.get("error"))
+
+
+@router.delete("/vacation/{request_id}")
+def delete_vacation_request(request: Request, request_id: int):
+    client = _client()
+    user = _current_user(client, request)
+    if user is None:
+        return _vacation_page(request, error="Felhasználó azonosítása sikertelen")
+    result = client.delete_vacation_request(request_id, user["id"])
+    return _vacation_redirect_or_error(request, result.get("error"))
 
 
 def _resolve_date_range(

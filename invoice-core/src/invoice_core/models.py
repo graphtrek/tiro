@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -312,6 +313,35 @@ class TimesheetEntryOut(BaseModel):
     hours: float
     participants: str | None = None
     description: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class VacationRequestIn(BaseModel):
+    user_id: int
+    kind: Literal["vacation", "out_of_office", "note"]
+    start_date: date
+    end_date: date
+    note: str | None = None
+
+
+class VacationRequestUpdate(BaseModel):
+    kind: Literal["vacation", "out_of_office", "note"]
+    start_date: date
+    end_date: date
+    note: str | None = None
+
+
+class VacationRequestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    user_name: str
+    kind: Literal["vacation", "out_of_office", "note"]
+    start_date: date
+    end_date: date
+    note: str | None = None
     created_at: datetime
     updated_at: datetime
 

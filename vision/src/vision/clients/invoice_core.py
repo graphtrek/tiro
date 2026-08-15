@@ -643,6 +643,65 @@ class InvoiceCoreClient:
             label="Timesheet bejegyzés törlése",
         )
 
+    # ── Vacation requests ────────────────────────────────────────────────────
+
+    def get_vacation_requests(self, user_id: int | None = None) -> list[dict]:
+        params = {"user_id": user_id} if user_id is not None else {}
+        return self._get("/api/v1/vacation-requests", params)
+
+    def create_vacation_request(
+        self,
+        user_id: int,
+        kind: str,
+        start_date: str,
+        end_date: str,
+        note: str | None,
+    ) -> dict:
+        return self._write_json(
+            "POST",
+            "/api/v1/vacation-requests",
+            {
+                "user_id": user_id,
+                "kind": kind,
+                "start_date": start_date,
+                "end_date": end_date,
+                "note": note,
+            },
+            "Nem sikerült menteni a szabadság kérelmet",
+            label="Új szabadság bejegyzés",
+        )
+
+    def update_vacation_request(
+        self,
+        request_id: int,
+        user_id: int,
+        kind: str,
+        start_date: str,
+        end_date: str,
+        note: str | None,
+    ) -> dict:
+        return self._write_json(
+            "PUT",
+            f"/api/v1/vacation-requests/{request_id}?user_id={user_id}",
+            {
+                "kind": kind,
+                "start_date": start_date,
+                "end_date": end_date,
+                "note": note,
+            },
+            "Nem sikerült menteni a szabadság kérelmet",
+            label="Szabadság bejegyzés módosítása",
+        )
+
+    def delete_vacation_request(self, request_id: int, user_id: int) -> dict:
+        return self._write_json(
+            "DELETE",
+            f"/api/v1/vacation-requests/{request_id}?user_id={user_id}",
+            {},
+            "Nem sikerült törölni a szabadság kérelmet",
+            label="Szabadság bejegyzés törlése",
+        )
+
     def _write_json(
         self,
         method: str,

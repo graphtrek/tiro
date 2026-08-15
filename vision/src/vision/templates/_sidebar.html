@@ -111,6 +111,11 @@
             <i class="fas fa-diagram-project"></i> Projektek
           </a>
         </li>
+        <li>
+          <a class="nav-link {% if '/ui/controlling/vacation' in request.url.path %}active{% endif %}" href="/ui/controlling/vacation">
+            <i class="fas fa-umbrella-beach"></i> Szabadság
+          </a>
+        </li>
       </ul>
     </li>
     {% if not request.state.user or request.state.user.role != 'read_only' %}

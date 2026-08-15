@@ -62,6 +62,9 @@ from invoice_core.models import (
     TimesheetEntryUpdate,
     UserIn,
     UserOut,
+    VacationRequestIn,
+    VacationRequestOut,
+    VacationRequestUpdate,
 )
 from invoice_core.service import (
     SyncInProgressError,
@@ -85,6 +88,7 @@ from invoice_core.services import (
     timesheet_service,
     transaction_service,
     user_service,
+    vacation_service,
 )
 from invoice_core.timeutil import today, utcnow
 
@@ -638,6 +642,47 @@ def update_timesheet_entry(
 def delete_timesheet_entry(entry_id: int, user_id: int = Query(...), db: Session = Depends(get_db)):
     if not timesheet_service.delete_timesheet_entry(db, entry_id, user_id):
         raise HTTPException(status_code=404, detail="Timesheet rekord nem található")
+    return {"status": "deleted"}
+
+
+# ── Vacation planner endpoints ────────────────────────────────────────────────
+
+
+@app.post("/api/v1/vacation-requests", response_model=VacationRequestOut)
+def create_vacation_request(payload: VacationRequestIn, db: Session = Depends(get_db)):
+    try:
+        return vacation_service.create_vacation_request(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/vacation-requests", response_model=list[VacationRequestOut])
+def list_vacation_requests(user_id: int | None = Query(None), db: Session = Depends(get_db)):
+    return vacation_service.list_vacation_requests(db, user_id)
+
+
+@app.put("/api/v1/vacation-requests/{request_id}", response_model=VacationRequestOut)
+def update_vacation_request(
+    request_id: int,
+    payload: VacationRequestUpdate,
+    user_id: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        record = vacation_service.update_vacation_request(db, request_id, user_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if record is None:
+        raise HTTPException(status_code=404, detail="Szabadság kérelem nem található")
+    return record
+
+
+@app.delete("/api/v1/vacation-requests/{request_id}")
+def delete_vacation_request(
+    request_id: int, user_id: int = Query(...), db: Session = Depends(get_db)
+):
+    if not vacation_service.delete_vacation_request(db, request_id, user_id):
+        raise HTTPException(status_code=404, detail="Szabadság kérelem nem található")
     return {"status": "deleted"}
 
 

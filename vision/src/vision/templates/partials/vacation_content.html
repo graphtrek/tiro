@@ -1,0 +1,178 @@
+{% if error %}
+<div class="alert alert-danger py-2" role="alert">
+  <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+</div>
+{% endif %}
+
+<p class="text-muted">Csapat szabadság / elérhetőség bejegyzései.</p>
+
+<div class="card">
+  <div class="card-body pt-3">
+    <table id="vacation-table" class="table table-hover table-sm nowrap" style="width:100%">
+      <thead>
+        <tr>
+          <th>Kezdete</th>
+          <th>Vége</th>
+          <th>Típus</th>
+          <th>Megjegyzés</th>
+          <th>Felhasználó</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.start_date }}</td>
+          <td>{{ row.end_date }}</td>
+          <td><span class="badge bg-{{ vacation_kind_colors[row.kind] }}">{{ vacation_kind_labels[row.kind] }}</span></td>
+          <td>{{ row.note or '' }}</td>
+          <td>{{ row.user_name }}</td>
+          <td class="text-end text-nowrap">
+            {% if row.is_own and (not request.state.user or request.state.user.role != 'read_only') %}
+            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
+                    data-bs-target="#editVacationModal{{ row.id }}">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" title="Töröl"
+                    hx-delete="/ui/controlling/vacation/{{ row.id }}"
+                    hx-target="#vacation-content" hx-push-url="true"
+                    hx-confirm="Biztosan törli ezt a bejegyzést?">
+              <i class="bi bi-trash"></i>
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  (function() {
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable("#vacation-table")) {
+      $("#vacation-table").DataTable().destroy();
+    }
+    new DataTable("#vacation-table", {
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      pageLength: 15,
+      lengthMenu: [10, 15, 25, 50],
+      order: [[0, "desc"]],
+      responsive: true,
+      autoWidth: false,
+      columnDefs: [
+        { targets: 0, responsivePriority: 1 },
+        { targets: 2, responsivePriority: 2 },
+        { targets: -1, searchable: false, orderable: false, responsivePriority: 1 },
+      ],
+    });
+  })();
+</script>
+
+{% if not request.state.user or request.state.user.role != 'read_only' %}
+<!-- Új szabadság modal -->
+<div class="modal fade" id="newVacationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form hx-post="/ui/controlling/vacation" hx-target="#vac-error-new" hx-swap="innerHTML">
+        <div class="modal-header py-2">
+          <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új szabadság bejegyzés</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div class="modal-body">
+          <div id="vac-error-new"></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Típus <span class="text-danger">*</span></label>
+              <select name="kind" class="form-select" required>
+                {% for k in vacation_kinds %}
+                <option value="{{ k }}">{{ vacation_kind_labels[k] }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Kezdete <span class="text-danger">*</span></label>
+              <input type="date" name="start_date" class="form-control" value="{{ today }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Vége <span class="text-danger">*</span></label>
+              <input type="date" name="end_date" class="form-control" value="{{ today }}" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Megjegyzés</label>
+              <textarea name="note" class="form-control" rows="2" placeholder="Opcionális megjegyzés…"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Bejegyzés módosítása modalok -->
+{% if not request.state.user or request.state.user.role != 'read_only' %}
+{% for row in rows if row.is_own %}
+<div class="modal fade" id="editVacationModal{{ row.id }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form hx-post="/ui/controlling/vacation/{{ row.id }}" hx-target="#vac-error-edit-{{ row.id }}" hx-swap="innerHTML">
+        <div class="modal-header py-2">
+          <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Szabadság bejegyzés módosítása</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+        </div>
+        <div class="modal-body">
+          <div id="vac-error-edit-{{ row.id }}"></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Típus <span class="text-danger">*</span></label>
+              <select name="kind" class="form-select" required>
+                {% for k in vacation_kinds %}
+                <option value="{{ k }}" {% if k == row.kind %}selected{% endif %}>{{ vacation_kind_labels[k] }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Kezdete <span class="text-danger">*</span></label>
+              <input type="date" name="start_date" class="form-control" value="{{ row.start_date }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Vége <span class="text-danger">*</span></label>
+              <input type="date" name="end_date" class="form-control" value="{{ row.end_date }}" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Megjegyzés</label>
+              <textarea name="note" class="form-control" rows="2" placeholder="Opcionális megjegyzés…">{{ row.note or '' }}</textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<script>
+  (function() {
+    // Same rationale as timesheet_content.html: a validation error keeps the
+    // modal open via hx-target="#vac-error-*" instead of swapping
+    // #vacation-content, so DataTables' Responsive extension never gets a
+    // fresh init pass out of that flow. Do a real full-page reload once the
+    // user dismisses the modal (Cancel/X/Escape/backdrop) — the same reliable
+    // path a successful save already takes via HX-Redirect.
+    document.querySelectorAll('#newVacationModal, [id^="editVacationModal"]').forEach(function(modal) {
+      modal.addEventListener('hidden.bs.modal', function() {
+        window.location.reload();
+      });
+    });
+  })();
+</script>
