@@ -73,6 +73,7 @@ IDENTIFIER_KEYS = {
     "supplier_bank_account",
     "customer_bank_account",
     "bank_transaction_id",
+    "bank_txn_external_id",
     "short_name",
 }
 
@@ -160,6 +161,7 @@ AMOUNT_KEYS = {
     "vat_rate_net_amount",
     "vat_rate_vat_amount",
     "bank_amount",
+    "net_wage",
 }
 
 # dict[str, float] fields keyed by an arbitrary label (e.g. a tax type name)
@@ -334,6 +336,7 @@ _KIND_ALIASES = {
     "supplier_bank_account": "bban",
     "customer_bank_account": "bban",
     "bank_transaction_id": "transaction_id",
+    "bank_txn_external_id": "transaction_id",
 }
 
 
@@ -440,6 +443,14 @@ _FAKE_WORK_DESCRIPTIONS = [
     "Projektmenedzsment feladatok",
 ]
 
+_FAKE_VACATION_NOTES = [
+    "Éves szabadság",
+    "Táv-munka",
+    "Orvosi vizsgálat",
+    "Családi program",
+    "Egyéb elfoglaltság",
+]
+
 
 def _looks_like_transaction_row(node: dict) -> bool:
     return "bank" in node or "transaction_id" in node
@@ -449,20 +460,31 @@ def _looks_like_timesheet_row(node: dict) -> bool:
     return "hours" in node
 
 
+def _looks_like_invoice_row(node: dict) -> bool:
+    return "invoice_number" in node
+
+
+def _looks_like_vacation_row(node: dict) -> bool:
+    return "start_date" in node and "end_date" in node
+
+
 def fake_transaction_text(real: str | None, kind: str) -> str | None:
     """Deterministic fake narrative for a bank transaction's free-text
-    `description`/`payment_reference`, or a timesheet entry's free-text
-    `description` (work-log note) -- real narratives often spell out the
-    counterparty/person name or invoice number in plain text, which no
-    field-level mask can catch, so these are replaced outright rather than
-    partially scrubbed."""
+    `description`/`payment_reference`/`note`, an invoice's `note`, a
+    timesheet entry's `description` (work-log note), or a vacation
+    request's `note` -- real narratives often spell out a counterparty/
+    person name or invoice number in plain text, which no field-level mask
+    can catch, so these are replaced outright rather than partially
+    scrubbed."""
     if not real:
         return real
     digest = hashlib.sha256(f"{kind}:{real.strip().lower()}".encode()).hexdigest()
-    if kind in ("description", "line_description"):
+    if kind in ("description", "line_description", "note"):
         return _FAKE_DESCRIPTIONS[int(digest[:2], 16) % len(_FAKE_DESCRIPTIONS)]
     if kind == "work_description":
         return _FAKE_WORK_DESCRIPTIONS[int(digest[:2], 16) % len(_FAKE_WORK_DESCRIPTIONS)]
+    if kind == "vacation_note":
+        return _FAKE_VACATION_NOTES[int(digest[:2], 16) % len(_FAKE_VACATION_NOTES)]
     # payment_reference
     return f"REF-{digest[:10].upper()}"
 
@@ -578,6 +600,18 @@ def _anonymize_node(node, scale_key: str | None):
                     fake_transaction_text(value, "work_description")
                     if isinstance(value, str)
                     else value
+                )
+            elif key == "note" and _looks_like_vacation_row(node):
+                result[key] = (
+                    fake_transaction_text(value, "vacation_note")
+                    if isinstance(value, str)
+                    else value
+                )
+            elif key == "note" and (
+                _looks_like_transaction_row(node) or _looks_like_invoice_row(node)
+            ):
+                result[key] = (
+                    fake_transaction_text(value, "note") if isinstance(value, str) else value
                 )
             elif key in AMOUNT_KEYS:
                 if isinstance(value, (int, float)) and not isinstance(value, bool):

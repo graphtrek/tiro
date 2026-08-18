@@ -44,7 +44,17 @@ from invoice_core.anonymize import (
 )
 from invoice_core.api.main import app
 from invoice_core.auth import require_auth
-from invoice_core.db import BankTransaction, Base, Invoice, Supplier, _InvoiceDirection, get_db
+from invoice_core.db import (
+    BankTransaction,
+    Base,
+    Invoice,
+    Supplier,
+    TaxEstimateOverride,
+    User,
+    VacationRequest,
+    _InvoiceDirection,
+    get_db,
+)
 
 # ── Primitive determinism ────────────────────────────────────────────────────
 
@@ -895,3 +905,139 @@ def test_anonymize_bank_accounts_entry_matches_bban_masking():
     bare `bban` field with that same real value would."""
     real = "11111111-22222222-33333333"
     assert anonymize({"bank_accounts": real})["bank_accounts"] == fake_identifier(real, "bban")
+
+
+# ── Full-sweep findings: note masking, bank_txn_external_id alias ───────────
+
+
+def test_anonymize_masks_note_on_transaction_row():
+    payload = {"id": 1, "bank": "Erste", "note": "ACME Kft. részére, INV-42"}
+    result = anonymize(payload)
+    assert result["note"] != payload["note"]
+    assert "ACME" not in result["note"]
+
+
+def test_anonymize_masks_note_on_invoice_row():
+    payload = {"id": 1, "invoice_number": "INV-42", "note": "Jóváhagyta Nagy János"}
+    result = anonymize(payload)
+    assert result["note"] != payload["note"]
+    assert "Nagy János" not in result["note"]
+
+
+def test_anonymize_masks_note_on_vacation_row_with_dedicated_phrase_bank():
+    payload = {
+        "id": 1,
+        "user_name": "Tatai Imre",
+        "start_date": "2026-07-01",
+        "end_date": "2026-07-05",
+        "note": "Nyaralás a családdal",
+    }
+    result = anonymize(payload)
+    assert result["note"] != payload["note"]
+    assert result["user_name"] != "Tatai Imre"
+
+
+def test_anonymize_does_not_mask_note_with_no_recognized_context():
+    """A `note` with none of the transaction/invoice/vacation sibling
+    signals is left untouched -- safe default rather than guessing."""
+    payload = {"id": 1, "code": "ACME-001", "note": "Belső feljegyzés"}
+    result = anonymize(payload)
+    assert result["note"] == payload["note"]
+
+
+def test_anonymize_bank_txn_external_id_aliases_with_transaction_id():
+    real = "TXN-EXT-1"
+    assert fake_identifier(real, "transaction_id") == fake_identifier(real, "bank_txn_external_id")
+
+
+# ── Endpoint wiring found missing in the full sweep ──────────────────────────
+
+
+def test_fizetes_kalkulator_respects_anonymized_claim(client):
+    """GET /api/v1/fizetes-kalkulator was not wired into anonymization at
+    all -- real net_wage/revenue defaults were always returned as-is."""
+    tc, _session = client
+    app.dependency_overrides[require_auth] = _override_auth_with_claims(
+        {"role": "read_only", "anonymized": True}
+    )
+    resp = tc.get("/api/v1/fizetes-kalkulator")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["net_wage"] != 1_000_000.0  # DEFAULT_NET_WAGE, masked
+    assert body["revenue_touched"] is False  # non-amount field passes through
+
+
+def test_vacation_requests_respect_anonymized_claim(client):
+    """GET /api/v1/vacation-requests was not wired into anonymization at
+    all -- real employee names and notes were always returned as-is."""
+    tc, session = client
+    user = User(provider="google", sub="u1", email="imre@example.com", name="Tatai Imre")
+    session.add(user)
+    session.flush()
+    session.add(
+        VacationRequest(
+            user_id=user.id,
+            kind="vacation",
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 5),
+            note="Nyaralás",
+        )
+    )
+    session.commit()
+
+    app.dependency_overrides[require_auth] = _override_auth_with_claims(
+        {"role": "read_only", "anonymized": True}
+    )
+    resp = tc.get("/api/v1/vacation-requests")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["user_name"] != "Tatai Imre"
+    assert body[0]["note"] != "Nyaralás"
+
+
+def test_supplier_summary_respects_anonymized_claim(client):
+    """GET /api/v1/partners/suppliers/summary was not wired into
+    anonymization at all -- real aggregate invoice/bank totals across all
+    suppliers were always returned as-is."""
+    tc, session = client
+    supplier = Supplier(name="ACME Kft.", tax_id="12345678")
+    session.add(supplier)
+    session.flush()
+    session.add(
+        Invoice(
+            invoice_number="INV-SUM-1",
+            invoice_date=date(2026, 6, 1),
+            supplier_id=supplier.id,
+            amount_total=5000.0,
+            currency="HUF",
+            direction=_InvoiceDirection.INBOUND,
+        )
+    )
+    session.commit()
+
+    app.dependency_overrides[require_auth] = _override_auth_with_claims(
+        {"role": "read_only", "anonymized": True}
+    )
+    resp = tc.get("/api/v1/partners/suppliers/summary")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["invoice_totals"]) == 1
+    assert body["invoice_totals"][0]["total"] != 5000.0
+
+
+def test_tax_estimate_overrides_respect_anonymized_claim(client):
+    """GET /api/v1/reports/tax-estimate/overrides was not wired into
+    anonymization at all -- real user-entered revenue overrides were always
+    returned as-is."""
+    tc, session = client
+    session.add(TaxEstimateOverride(year=2026, month=6, gross_revenue=750_000.0))
+    session.commit()
+
+    app.dependency_overrides[require_auth] = _override_auth_with_claims(
+        {"role": "read_only", "anonymized": True}
+    )
+    resp = tc.get("/api/v1/reports/tax-estimate/overrides", params={"year": 2026})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["months"][0]["gross_revenue"] != 750_000.0

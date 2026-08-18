@@ -457,8 +457,11 @@ def delete_invoice_file(file_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/partners/suppliers/summary")
-def supplier_summary(db: Session = Depends(get_db)):
-    return dataclasses.asdict(partner_service.get_supplier_summary(db))
+def supplier_summary(request: Request, db: Session = Depends(get_db)):
+    payload = dataclasses.asdict(partner_service.get_supplier_summary(db))
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.get("/api/v1/partners/suppliers")
@@ -704,8 +707,14 @@ def create_vacation_request(payload: VacationRequestIn, db: Session = Depends(ge
 
 
 @app.get("/api/v1/vacation-requests", response_model=list[VacationRequestOut])
-def list_vacation_requests(user_id: int | None = Query(None), db: Session = Depends(get_db)):
-    return vacation_service.list_vacation_requests(db, user_id)
+def list_vacation_requests(
+    request: Request, user_id: int | None = Query(None), db: Session = Depends(get_db)
+):
+    records = vacation_service.list_vacation_requests(db, user_id)
+    payload = [VacationRequestOut.model_validate(r).model_dump() for r in records]
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.put("/api/v1/vacation-requests/{request_id}", response_model=VacationRequestOut)
@@ -1061,6 +1070,7 @@ def tax_estimate_report(
 
 @app.get("/api/v1/reports/tax-estimate/overrides", response_model=TaxEstimateOverridesOut)
 def get_tax_estimate_overrides(
+    request: Request,
     year: int | None = Query(None, description="Year (default: current year)"),
     db: Session = Depends(get_db),
 ):
@@ -1068,7 +1078,10 @@ def get_tax_estimate_overrides(
     effective_year = year or today().year
     overrides = tax_service.get_estimate_overrides(db, effective_year)
     months = [{"month": m, "gross_revenue": g} for m, g in sorted(overrides.items())]
-    return {"year": effective_year, "months": months}
+    payload = {"year": effective_year, "months": months}
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.put("/api/v1/reports/tax-estimate/overrides", response_model=TaxEstimateOverridesOut)
@@ -1095,9 +1108,12 @@ def put_tax_estimate_overrides(
 
 
 @app.get("/api/v1/fizetes-kalkulator", response_model=FizetesKalkulatorStateOut)
-def get_fizetes_kalkulator(db: Session = Depends(get_db)):
+def get_fizetes_kalkulator(request: Request, db: Session = Depends(get_db)):
     """Return the saved wage/dividend calculator inputs (or defaults if never saved)."""
-    return fizetes_kalkulator_service.get_state(db)
+    payload = fizetes_kalkulator_service.get_state(db)
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.put("/api/v1/fizetes-kalkulator", response_model=FizetesKalkulatorStateOut)
