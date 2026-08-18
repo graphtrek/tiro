@@ -18,6 +18,14 @@ from sqlalchemy import insert as sa_insert
 from sqlalchemy import select as sa_select
 from sqlalchemy.orm import Session
 
+from invoice_core.anonymize import (
+    anonymize,
+    fake_amount,
+    fake_identifier,
+    fake_name,
+    fake_person_name,
+    should_anonymize,
+)
 from invoice_core.auth import require_auth
 from invoice_core.config import configure_logging, get_settings
 from invoice_core.db import (
@@ -269,10 +277,10 @@ def audit_log(
 
 
 @app.get("/api/v1/dashboard")
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(request: Request, db: Session = Depends(get_db)):
     """Aggregate the KPI cards, recent lists, and last-sync info shown on the dashboard page."""
     last_sync = dashboard_service.get_last_sync(db)
-    return {
+    payload = {
         "kpis": dataclasses.asdict(dashboard_service.get_kpis(db)),
         "recent_invoices": [
             dataclasses.asdict(r) for r in dashboard_service.get_recent_invoices(db)
@@ -287,6 +295,9 @@ def dashboard(db: Session = Depends(get_db)):
             dataclasses.asdict(r) for r in dashboard_service.get_monthly_finance(db)
         ],
     }
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 # ── Invoice endpoints ─────────────────────────────────────────────────────────
@@ -300,6 +311,7 @@ def invoice_count(db: Session = Depends(get_db)):
 
 @app.get("/api/v1/invoices")
 def list_invoices(
+    request: Request,
     date_from: _date | None = Query(None, description="YYYY-MM-DD"),
     date_to: _date | None = Query(None, description="YYYY-MM-DD"),
     status: str | None = Query(None, description="PAID | UNPAID | PARTIAL"),
@@ -322,7 +334,10 @@ def list_invoices(
     )
     if direction:
         rows = [r for r in rows if r.direction == direction]
-    return [dataclasses.asdict(r) for r in rows]
+    payload = [dataclasses.asdict(r) for r in rows]
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 # Two routes exist for fetching a single invoice: one by numeric database id
@@ -332,19 +347,25 @@ def list_invoices(
 # general `{invoice_number}` route below it — otherwise every request would be
 # swallowed by the string route and the int route would never match.
 @app.get("/api/v1/invoices/{invoice_id:int}")
-def get_invoice_by_id(invoice_id: int, db: Session = Depends(get_db)):
+def get_invoice_by_id(invoice_id: int, request: Request, db: Session = Depends(get_db)):
     inv = invoice_service.get_invoice(db, invoice_id)
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    return dataclasses.asdict(inv)
+    payload = dataclasses.asdict(inv)
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
-@app.get("/api/v1/invoices/{invoice_number}", response_model=InvoiceOut)
-def get_invoice(invoice_number: str, db: Session = Depends(get_db)):
+@app.get("/api/v1/invoices/{invoice_number}")
+def get_invoice(invoice_number: str, request: Request, db: Session = Depends(get_db)):
     inv = db.query(Invoice).filter_by(invoice_number=invoice_number).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invoice not found")
-    return inv
+    payload = InvoiceOut.model_validate(inv).model_dump()
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.patch("/api/v1/invoices/{invoice_id:int}")
@@ -380,6 +401,7 @@ def patch_invoice(invoice_id: int, req: PatchInvoiceRequest, db: Session = Depen
 
 @app.get("/api/v1/invoice-files")
 def list_invoice_files(
+    request: Request,
     linked: str | None = Query(None, description="yes | no"),
     filename: str | None = Query(None, description="filename substring filter"),
     limit: int = Query(1000, ge=1, le=5000, description="Max rows to return"),
@@ -389,7 +411,10 @@ def list_invoice_files(
     rows = invoice_file_service.list_invoice_files(
         db, linked=linked, filename=filename, limit=limit, offset=offset
     )
-    return [dataclasses.asdict(r) for r in rows]
+    payload = [dataclasses.asdict(r) for r in rows]
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.get("/api/v1/invoice-files/{file_id:int}/pdf")
@@ -437,29 +462,41 @@ def supplier_summary(db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/partners/suppliers")
-def list_suppliers(db: Session = Depends(get_db)):
-    return [dataclasses.asdict(r) for r in partner_service.list_suppliers(db)]
+def list_suppliers(request: Request, db: Session = Depends(get_db)):
+    payload = [dataclasses.asdict(r) for r in partner_service.list_suppliers(db)]
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.get("/api/v1/partners/suppliers/{supplier_id:int}")
-def get_supplier(supplier_id: int, db: Session = Depends(get_db)):
+def get_supplier(supplier_id: int, request: Request, db: Session = Depends(get_db)):
     supplier = partner_service.get_supplier(db, supplier_id)
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
-    return dataclasses.asdict(supplier)
+    payload = dataclasses.asdict(supplier)
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.get("/api/v1/partners/customers")
-def list_customers(db: Session = Depends(get_db)):
-    return [dataclasses.asdict(r) for r in partner_service.list_customers(db)]
+def list_customers(request: Request, db: Session = Depends(get_db)):
+    payload = [dataclasses.asdict(r) for r in partner_service.list_customers(db)]
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.get("/api/v1/partners/customers/{customer_id:int}")
-def get_customer(customer_id: int, db: Session = Depends(get_db)):
+def get_customer(customer_id: int, request: Request, db: Session = Depends(get_db)):
     customer = partner_service.get_customer(db, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-    return dataclasses.asdict(customer)
+    payload = dataclasses.asdict(customer)
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.post("/api/v1/partners/suppliers", response_model=SupplierOut)
@@ -584,8 +621,12 @@ def create_project(payload: ProjectIn, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/projects", response_model=list[ProjectOut])
-def list_projects(db: Session = Depends(get_db)):
-    return project_service.list_projects(db)
+def list_projects(request: Request, db: Session = Depends(get_db)):
+    records = project_service.list_projects(db)
+    payload = [ProjectOut.model_validate(r).model_dump() for r in records]
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.put("/api/v1/projects/{project_id}", response_model=ProjectOut)
@@ -618,8 +659,14 @@ def create_timesheet_entry(payload: TimesheetEntryIn, db: Session = Depends(get_
 
 
 @app.get("/api/v1/timesheet-entries", response_model=list[TimesheetEntryOut])
-def list_timesheet_entries(user_id: int | None = Query(None), db: Session = Depends(get_db)):
-    return timesheet_service.list_timesheet_entries(db, user_id)
+def list_timesheet_entries(
+    request: Request, user_id: int | None = Query(None), db: Session = Depends(get_db)
+):
+    records = timesheet_service.list_timesheet_entries(db, user_id)
+    payload = [TimesheetEntryOut.model_validate(r).model_dump() for r in records]
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.put("/api/v1/timesheet-entries/{entry_id}", response_model=TimesheetEntryOut)
@@ -690,13 +737,21 @@ def delete_vacation_request(
 
 
 @app.get("/api/v1/transactions/balances")
-def transaction_balances(db: Session = Depends(get_db)):
+def transaction_balances(request: Request, db: Session = Depends(get_db)):
     balances = transaction_service.get_bank_balances(db)
-    return [dataclasses.asdict(b) for b in balances]
+    payload = [dataclasses.asdict(b) for b in balances]
+    if should_anonymize(request):
+        # `bank` (institution label, e.g. "Erste"/"Wise") is left alone --
+        # it's account/infrastructure metadata, not a masked partner name.
+        payload = [
+            {**b, "balance": fake_amount(b["balance"], f"bank:{b['bank']}")} for b in payload
+        ]
+    return payload
 
 
 @app.get("/api/v1/transactions")
 def list_transactions(
+    request: Request,
     date_from: _date | None = Query(None, description="YYYY-MM-DD"),
     date_to: _date | None = Query(None, description="YYYY-MM-DD"),
     linked: str | None = Query(None, description="yes | no"),
@@ -714,15 +769,21 @@ def list_transactions(
         amount_min=amount_min,
         amount_max=amount_max,
     )
-    return [dataclasses.asdict(r) for r in rows]
+    payload = [dataclasses.asdict(r) for r in rows]
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.get("/api/v1/transactions/{transaction_id:int}")
-def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
+def get_transaction(transaction_id: int, request: Request, db: Session = Depends(get_db)):
     tx = transaction_service.get_transaction(db, transaction_id)
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    return dataclasses.asdict(tx)
+    payload = dataclasses.asdict(tx)
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 # ── Manual link / unlink endpoints ───────────────────────────────────────────
@@ -937,6 +998,7 @@ def unlink_invoice_from_transaction(invoice_id: int, txn_id: int, db: Session = 
 
 @app.get("/api/v1/reports/dividend")
 def dividend_report(
+    request: Request,
     year: int | None = Query(None, description="Year (default: current year)"),
     kiva_rate: float = Query(0.10, description="KIVA tax rate (default 0.10)"),
     hipa_rate: float = Query(0.02, description="HIPA (local business tax) rate (default 0.02)"),
@@ -952,22 +1014,30 @@ def dividend_report(
     """
     effective_year = year or today().year
     report = dividend_service.calculate_dividend(db, effective_year, kiva_rate, hipa_rate=hipa_rate)
-    return dataclasses.asdict(report)
+    payload = dataclasses.asdict(report)
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.get("/api/v1/reports/tax")
 def tax_report(
+    request: Request,
     year: int | None = Query(None, description="Year (default: current year)"),
     db: Session = Depends(get_db),
 ):
     """Summarize *year*'s payments to tax-authority accounts, defaulting to the current year."""
     effective_year = year or today().year
     report = tax_service.get_tax_report(db, effective_year)
-    return dataclasses.asdict(report)
+    payload = dataclasses.asdict(report)
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.get("/api/v1/reports/tax-estimate")
 def tax_estimate_report(
+    request: Request,
     year: int | None = Query(None, description="Year (default: current year)"),
     tao_rate: float = Query(0.10, description="TAO/KIVA rate (default 0.10)"),
     hipa_rate: float = Query(0.02, description="HIPA rate (default 0.02)"),
@@ -983,7 +1053,10 @@ def tax_estimate_report(
     report = tax_service.get_tax_estimate(
         db, effective_year, tao_rate, hipa_rate, szja_rate, szocho_rate
     )
-    return dataclasses.asdict(report)
+    payload = dataclasses.asdict(report)
+    if should_anonymize(request):
+        payload = anonymize(payload)
+    return payload
 
 
 @app.get("/api/v1/reports/tax-estimate/overrides", response_model=TaxEstimateOverridesOut)
@@ -1037,6 +1110,7 @@ def put_fizetes_kalkulator(payload: FizetesKalkulatorStateIn, db: Session = Depe
 
 @app.get("/api/v1/reports/timesheet")
 def timesheet_report(
+    request: Request,
     report_type: str = Query(..., description="project | person | customer | activity_type"),
     date_from: _date | None = Query(None, description="YYYY-MM-DD"),
     date_to: _date | None = Query(None, description="YYYY-MM-DD"),
@@ -1068,7 +1142,26 @@ def timesheet_report(
         )
     else:
         raise HTTPException(status_code=400, detail="Ismeretlen riport típus")
-    return dataclasses.asdict(report)
+    payload = dataclasses.asdict(report)
+    if should_anonymize(request):
+        # `GroupTotalRow.key_label` holds the project code / user name /
+        # customer name itself depending on `group_by`
+        # (report_service.get_group_report's key_and_label) -- not a
+        # recognized field name for the generic walker, so it would
+        # otherwise leak the real value right next to the now-masked
+        # `project_code`/`user_name`/`customer_name` on each detail row.
+        group_by = payload.get("group_by")
+        if group_by == "project":
+            for row in payload.get("rows", []):
+                row["key_label"] = fake_identifier(row["key_label"], "code")
+        elif group_by == "person":
+            for row in payload.get("rows", []):
+                row["key_label"] = fake_person_name(row["key_label"])
+        elif group_by == "customer":
+            for row in payload.get("rows", []):
+                row["key_label"] = fake_name(row["key_label"])
+        payload = anonymize(payload)
+    return payload
 
 
 def run_server():

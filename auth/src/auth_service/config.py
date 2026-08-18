@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     readonly_emails: str = ""  # vesszővel elválasztva
     readonly_domains: str = ""  # vesszővel elválasztva
 
+    # Tiltólista — ezekkel az e-mail címekkel / domainekkel nem lehet belépni
+    blocked_emails: str = ""  # vesszővel elválasztva
+    blocked_domains: str = ""  # vesszővel elválasztva
+
     # Admin — ezek az e-mailek indíthatnak megszemélyesítést (POST /auth/impersonate)
     admin_emails: str = ""  # vesszővel elválasztva
 
@@ -106,6 +110,14 @@ class Settings(BaseSettings):
     @property
     def readonly_domains_list(self) -> list[str]:
         return [d.strip().lower() for d in self.readonly_domains.split(",") if d.strip()]
+
+    @property
+    def blocked_emails_list(self) -> list[str]:
+        return [e.strip().lower() for e in self.blocked_emails.split(",") if e.strip()]
+
+    @property
+    def blocked_domains_list(self) -> list[str]:
+        return [d.strip().lower() for d in self.blocked_domains.split(",") if d.strip()]
 
     @property
     def admin_emails_list(self) -> list[str]:

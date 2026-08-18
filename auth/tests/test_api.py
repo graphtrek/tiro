@@ -100,7 +100,10 @@ def test_callback_provider_error_redirects_to_login_error(client: TestClient):
     assert "/login?error=" in response.headers["location"]
 
 
-def test_callback_not_whitelisted_redirects_with_error(client: TestClient, provider: FakeProvider):
+def test_callback_blocked_email_redirects_with_error(
+    client: TestClient, settings, provider: FakeProvider
+):
+    settings.blocked_emails = "idegen@gmail.com"
     provider.user = UserInfo(sub="x", email="idegen@gmail.com", provider="google")
     login = client.get("/auth/google/login")
     state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
@@ -108,6 +111,19 @@ def test_callback_not_whitelisted_redirects_with_error(client: TestClient, provi
     assert response.status_code == 302
     assert "/login?error=" in response.headers["location"]
     assert not client.cookies.get("mp_access_token")
+
+
+def test_callback_open_readonly_login_succeeds_for_unlisted_email(
+    client: TestClient, provider: FakeProvider
+):
+    """Bármely más hitelesített Google fiók mostantól belép (anonimizált read_only)."""
+    provider.user = UserInfo(sub="x", email="idegen@gmail.com", provider="google")
+    login = client.get("/auth/google/login")
+    state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+    response = client.get("/auth/google/callback", params={"code": "c", "state": state})
+    assert response.status_code == 302
+    assert response.headers["location"] == "http://localhost:8009"
+    assert client.cookies.get("mp_access_token")
 
 
 def test_me_with_cookie(client: TestClient):

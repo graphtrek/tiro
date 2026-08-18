@@ -116,24 +116,32 @@ def test_expired_state_rejected(service: AuthService):
         service.complete_login("google", code="c", state=state)
 
 
-def test_whitelist_email_and_domain(service: AuthService):
-    assert service.resolve_role("imre.tatai@graphtrek.co") == "read_write"  # explicit e-mail
-    assert service.resolve_role("Valaki@Graphtrek.co") == "read_write"  # domain, kis/nagybetű
+def test_resolve_access_allowlist_email_and_domain(service: AuthService):
+    assert service.resolve_access("imre.tatai@graphtrek.co") == ("read_write", False)  # e-mail
+    assert service.resolve_access("Valaki@Graphtrek.co") == ("read_write", False)  # domain
+
+
+def test_resolve_access_readonly_email_and_domain(service: AuthService):
+    # Megbízható külső fiókok (READONLY_EMAILS/DOMAINS) — valós adat
+    assert service.resolve_access("kulso@gmail.com") == ("read_only", False)  # explicit e-mail
+    assert service.resolve_access("Valaki@Partner.example") == ("read_only", False)  # domain
+
+
+def test_resolve_access_unlisted_email_is_open_readonly_anonymized(service: AuthService):
+    # Bármely más hitelesített Google fiók mostantól belép, de anonimizált adatot kap
+    assert service.resolve_access("idegen@gmail.com") == ("read_only", True)
+
+
+def test_resolve_access_blocked_email_and_domain_rejected(service: AuthService):
+    service.settings.blocked_emails = "tiltott@gmail.com"
+    service.settings.blocked_domains = "tiltott.example"
     with pytest.raises(NotAllowedError):
-        service.resolve_role("idegen@gmail.com")
-
-
-def test_resolve_role_readonly_email_and_domain(service: AuthService):
-    assert service.resolve_role("kulso@gmail.com") == "read_only"  # explicit readonly e-mail
-    assert service.resolve_role("Valaki@Partner.example") == "read_only"  # readonly domain
-
-
-def test_resolve_role_unlisted_rejected(service: AuthService):
+        service.resolve_access("tiltott@gmail.com")
     with pytest.raises(NotAllowedError):
-        service.resolve_role("idegen@gmail.com")
+        service.resolve_access("valaki@tiltott.example")
 
 
-def test_complete_login_sets_readonly_role_for_external_user(
+def test_complete_login_sets_readonly_role_for_trusted_external_user(
     service: AuthService, provider: FakeProvider
 ):
     provider.user = UserInfo(sub="ext-1", email="kulso@gmail.com", provider="google")
@@ -141,11 +149,41 @@ def test_complete_login_sets_readonly_role_for_external_user(
     tokens, user, _next_url = service.complete_login("google", code="c", state=state)
 
     assert user.role == "read_only"
+    assert user.anonymized is False
     claims = service.verify_access_token(tokens.access_token)
     assert claims.role == "read_only"
+    assert claims.anonymized is False
 
 
-def test_refresh_carries_role_through_without_re_resolving(
+def test_complete_login_sets_anonymized_readonly_role_for_unlisted_user(
+    service: AuthService, provider: FakeProvider
+):
+    provider.user = UserInfo(sub="open-1", email="idegen@gmail.com", provider="google")
+    state = _state_from(service.start_login("google"))
+    tokens, user, _next_url = service.complete_login("google", code="c", state=state)
+
+    assert user.role == "read_only"
+    assert user.anonymized is True
+    claims = service.verify_access_token(tokens.access_token)
+    assert claims.role == "read_only"
+    assert claims.anonymized is True
+
+
+def test_complete_login_sets_read_write_role_without_anonymization(
+    service: AuthService, provider: FakeProvider
+):
+    # provider.user az alapértelmezett allowlistelt fiók (imre.tatai@graphtrek.co)
+    state = _state_from(service.start_login("google"))
+    tokens, user, _next_url = service.complete_login("google", code="c", state=state)
+
+    assert user.role == "read_write"
+    assert user.anonymized is False
+    claims = service.verify_access_token(tokens.access_token)
+    assert claims.role == "read_write"
+    assert claims.anonymized is False
+
+
+def test_refresh_carries_role_and_anonymized_through_without_re_resolving(
     service: AuthService, provider: FakeProvider
 ):
     provider.user = UserInfo(sub="ext-1", email="kulso@gmail.com", provider="google")
@@ -155,9 +193,24 @@ def test_refresh_carries_role_through_without_re_resolving(
     refreshed = service.refresh(tokens.refresh_token)
     claims = service.verify_access_token(refreshed.access_token)
     assert claims.role == "read_only"
+    assert claims.anonymized is False
 
 
-def test_whitelisted_login_rejected(service: AuthService, provider: FakeProvider):
+def test_refresh_carries_anonymized_through_for_open_readonly_user(
+    service: AuthService, provider: FakeProvider
+):
+    provider.user = UserInfo(sub="open-1", email="idegen@gmail.com", provider="google")
+    state = _state_from(service.start_login("google"))
+    tokens, _user, _next_url = service.complete_login("google", code="c", state=state)
+
+    refreshed = service.refresh(tokens.refresh_token)
+    claims = service.verify_access_token(refreshed.access_token)
+    assert claims.role == "read_only"
+    assert claims.anonymized is True
+
+
+def test_blocked_login_rejected(service: AuthService, provider: FakeProvider):
+    service.settings.blocked_emails = "idegen@gmail.com"
     provider.user = UserInfo(sub="x", email="idegen@gmail.com", provider="google")
     state = _state_from(service.start_login("google"))
     with pytest.raises(NotAllowedError):

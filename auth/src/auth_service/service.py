@@ -134,7 +134,7 @@ class AuthService:
             code_verifier=pending.code_verifier,
             redirect_uri=self.settings.oauth_redirect_url,
         )
-        user.role = self.resolve_role(user.email)
+        user.role, user.anonymized = self.resolve_access(user.email)
 
         tokens = self.issue_tokens(user)
         self._save_user(user, tokens.access_token)
@@ -152,20 +152,27 @@ class AuthService:
                 exc,
             )
 
-    def resolve_role(self, email: str) -> str:
-        """Whitelistelt e-mail / domain → szerepkör; egyébként `NotAllowedError`."""
+    def resolve_access(self, email: str) -> tuple[str, bool]:
+        """Tiltólista → elutasítás; allowlist → (read_write, valós adat);
+        READONLY_EMAILS/DOMAINS → (read_only, valós adat) — megbízható külső
+        fiókok; egyébként (bármely hitelesített Google fiók) → (read_only,
+        anonimizált adat)."""
         email = email.strip().lower()
-        if email in self.settings.allowed_emails_list:
-            return "read_write"
         domain = email.rsplit("@", 1)[-1]
-        if domain in self.settings.allowed_domains_list:
-            return "read_write"
-        if email in self.settings.readonly_emails_list:
-            return "read_only"
-        if domain in self.settings.readonly_domains_list:
-            return "read_only"
-        logger.warning("Elutasított belépés (nincs a whitelisten): %s", email)
-        raise NotAllowedError(f"A(z) {email} fiókkal nem engedélyezett a belépés")
+        blocked = self.settings.blocked_emails_list
+        blocked_domains = self.settings.blocked_domains_list
+        if email in blocked or domain in blocked_domains:
+            logger.warning("Elutasított belépés (tiltólistán): %s", email)
+            raise NotAllowedError(f"A(z) {email} fiókkal nem engedélyezett a belépés")
+        allowed = self.settings.allowed_emails_list
+        allowed_domains = self.settings.allowed_domains_list
+        if email in allowed or domain in allowed_domains:
+            return "read_write", False
+        readonly = self.settings.readonly_emails_list
+        readonly_domains = self.settings.readonly_domains_list
+        if email in readonly or domain in readonly_domains:
+            return "read_only", False
+        return "read_only", True
 
     def _safe_next_url(self, next_url: str | None) -> str:
         """Open redirect elleni védelem: csak relatív útvonal engedett."""
@@ -205,6 +212,7 @@ class AuthService:
             picture=claims.picture,
             provider=claims.provider or "unknown",
             role=claims.role or "read_write",
+            anonymized=claims.anonymized if claims.anonymized is not None else False,
         )
         access = self.jwt.issue_access_token(user)
         return TokenPair(

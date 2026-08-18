@@ -174,8 +174,9 @@ uv run pytest tests/ -v
 ```
 
 ### Architecture
-- `src/invoice_core/` — `api/main.py` (FastAPI REST, CORS for vision), `services/` (dashboard, invoice, partner, transaction, invoice_file, dividend, tax), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`.
+- `src/invoice_core/` — `api/main.py` (FastAPI REST, CORS for vision), `services/` (dashboard, invoice, partner, transaction, invoice_file, dividend, tax), `service.py` (sync orchestration), `db.py` (SQLAlchemy ORM), `models.py`, `config.py`, `nav_client.py`, `pdf_client.py`, `bank_client.py`, `anonymize.py` (masks names/amounts for the JWT `anonymized: true` tier — see below).
 - DB: PostgreSQL in production, SQLite in-memory for tests. Migrations via Alembic.
+- **Anonymized read-only tier**: when `request.state.user["anonymized"]` is `True` (set by `require_auth` from the JWT — see `auth`'s tiering below), the financial-data GET endpoints (dashboard, invoices, partners, transactions, tax/tax-estimate, dividend) run their response through `anonymize()` before returning: supplier/customer/counterparty names and identifiers become deterministic fake values, and every monetary amount is scaled by a deterministic per-entity factor — real data never leaves the service for that tier. `role == "read_only"` alone does *not* trigger this — the trusted `READONLY_EMAILS`/`READONLY_DOMAINS` tier is also `read_only` but keeps real data.
 - **REST API endpoints**: `/api/v1/dashboard` · `/api/v1/invoices` (with `has_pdf`, `supplier_name` filters) · `/api/v1/invoice-files` + PDF serve · supplier/customer detail · transaction detail + balances · `/api/v1/sync/logs` · `/api/v1/reports/tax` + dividend · `/api/v1/users` (POST upsert + GET list — login records from `auth`, keyed by provider+sub).
 
 ### Sync pipeline and linking logic
@@ -215,7 +216,7 @@ uv run pytest tests/ -v
 
 ## auth — central authentication microservice
 
-Google OAuth 2.0 / OpenID Connect login (authorization code + PKCE + state, email/domain whitelist); issues its own **RS256 JWT** pair (access 15 min, refresh 1 day). The RS256 keypair is regenerated in-memory on every `auth` process startup (not the persisted `auth keygen` files), so a restart rotates the JWKS `kid` and invalidates every previously issued token workspace-wide — every user must log in again after a restart. Only this service talks to Google — every other service validates JWTs **locally** against `/.well-known/jwks.json` (PyJWKClient cache, no per-request network call). Leaf service, no DB of its own (refresh-token revocation is a file-based jti denylist) — on every successful login it best-effort POSTs the user's profile + provider to `invoice-core`'s `/api/v1/users` (using the freshly-issued access token), which is the only service in the workspace holding a database. Spec: `moneypenny/auth-service-spec.md`. `requires-python >=3.11`.
+Google OAuth 2.0 / OpenID Connect login (authorization code + PKCE + state). Login is open to any verified Google account unless blocked (`BLOCKED_EMAILS`/`BLOCKED_DOMAINS`); `resolve_access()` maps the email to a `(role, anonymized)` pair — `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` → `read_write`; `READONLY_EMAILS`/`READONLY_DOMAINS` → `read_only`, real data; any other verified account → `read_only`, `anonymized: true`. Both `role` and `anonymized` are embedded as JWT claims. Issues its own **RS256 JWT** pair (access 15 min, refresh 1 day). The RS256 keypair is regenerated in-memory on every `auth` process startup (not the persisted `auth keygen` files), so a restart rotates the JWKS `kid` and invalidates every previously issued token workspace-wide — every user must log in again after a restart. Only this service talks to Google — every other service validates JWTs **locally** against `/.well-known/jwks.json` (PyJWKClient cache, no per-request network call). Leaf service, no DB of its own (refresh-token revocation is a file-based jti denylist) — on every successful login it best-effort POSTs the user's profile + provider to `invoice-core`'s `/api/v1/users` (using the freshly-issued access token), which is the only service in the workspace holding a database. Spec: `moneypenny/auth-service-spec.md`. `requires-python >=3.11`.
 
 ### Running
 
@@ -241,7 +242,7 @@ uv run pytest tests/ -v
 - Browser gets HttpOnly `mp_access_token` + `mp_refresh_token` cookies (SameSite=Lax; `COOKIE_SECURE=true` behind HTTPS); services also accept `Authorization: Bearer`.
 
 ### Environment (shared root `.env`)
-`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_REDIRECT_URL`, `JWT_PRIVATE_KEY_PATH`/`JWT_PUBLIC_KEY_PATH`, `ACCESS_TOKEN_TTL`/`REFRESH_TOKEN_TTL`, `JWT_AUDIENCE`/`JWT_ISSUER`, `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` (whitelist), `ENABLED_PROVIDERS`, `COOKIE_SECURE`, `VISION_URL`, `API_HOST`/`AUTH_API_PORT` (8007), `LOG_LEVEL`.
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_REDIRECT_URL`, `JWT_PRIVATE_KEY_PATH`/`JWT_PUBLIC_KEY_PATH`, `ACCESS_TOKEN_TTL`/`REFRESH_TOKEN_TTL`, `JWT_AUDIENCE`/`JWT_ISSUER`, `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` (→ `read_write`), `READONLY_EMAILS`/`READONLY_DOMAINS` (→ `read_only`, real data — trusted external accounts), `BLOCKED_EMAILS`/`BLOCKED_DOMAINS` (rejected outright), `ENABLED_PROVIDERS`, `COOKIE_SECURE`, `VISION_URL`, `API_HOST`/`AUTH_API_PORT` (8007), `LOG_LEVEL`.
 
 ### JWT protection in the other services
 - Every backend service (invoice-core, nav-invoice, invoice-file-filter, attachment-downloader, bank, uploader) has a copied `auth.py` module (`jwt_auth.py` in nav-invoice — its `auth.py` is the NAV tokenExchange) wired as an app-level dependency; only `GET /health` is public. Toggle per service with `AUTH_ENABLED` in the shared root `.env`.

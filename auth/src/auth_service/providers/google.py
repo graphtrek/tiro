@@ -108,6 +108,10 @@ class GoogleProvider:
                 signing_key.key,
                 algorithms=["RS256"],
                 audience=self.client_id,
+                # A gepi/konteiner ora es a Google szerver oraja kozotti kis
+                # elteres (masodperces nagysagrend) nelkul is "not yet valid
+                # (iat)" hibat dobna a PyJWT -- toleraljuk ezt clock-skew-t.
+                leeway=60,
             )
         except jwt.PyJWTError as exc:
             raise ProviderError(f"Érvénytelen Google ID token: {exc}") from exc
