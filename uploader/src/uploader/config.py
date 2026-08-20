@@ -12,6 +12,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _WORKSPACE_ROOT = _PROJECT_ROOT.parent
 _LOG_DIR = _PROJECT_ROOT / "logs"
 _STORAGE_DIR = _WORKSPACE_ROOT / "storage" / "bank" / "balance-statements"
+_PDF_STORAGE_DIR = _WORKSPACE_ROOT / "storage" / "bank" / "statements-pdf"
 _ENV_FILE = _WORKSPACE_ROOT / ".env"
 
 
@@ -38,18 +39,15 @@ def configure_logging(log_level: str = "INFO") -> None:
 class Settings(BaseSettings):
     """Uploader mikroszerviz beállítások."""
 
-    model_config = SettingsConfigDict(
-        env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=str(_ENV_FILE), case_sensitive=False, extra="ignore")
 
     storage_dir: str = str(_STORAGE_DIR)
+    pdf_storage_dir: str = str(_PDF_STORAGE_DIR)
     erste_subdir: str = "erste"
     wise_subdir: str = "wise"
     max_file_size_mb: int = 50
     api_host: str = "0.0.0.0"
-    api_port: int = Field(
-        8006, validation_alias=AliasChoices("UPLOADER_API_PORT", "API_PORT")
-    )
+    api_port: int = Field(8006, validation_alias=AliasChoices("UPLOADER_API_PORT", "API_PORT"))
     log_level: str = "INFO"
 
 

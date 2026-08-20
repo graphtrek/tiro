@@ -1,45 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Feltöltés — Moneypenny{% endblock %}
+{% block title %}Bankkivonatok — Moneypenny{% endblock %}
 
 {% block breadcrumb %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
-    <li class="breadcrumb-item active">Feltöltés</li>
+    <li class="breadcrumb-item active">Bankkivonatok</li>
   </ol>
 </nav>
 {% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-3"><i class="bi bi-upload me-2"></i>Bankkivonat feltöltés</h1>
-
-<div class="d-flex flex-wrap gap-2 mb-4">
-  <a href="https://netbank.erstebank.hu/" target="_blank" rel="noopener noreferrer"
-     class="btn btn-outline-secondary d-flex align-items-center gap-2" title="Erste George bejelentkezés (új lap)">
-    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="12" fill="#00274d"/>
-      <text x="12" y="16.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#ffffff">E</text>
-    </svg>
-    <span>Erste George bejelentkezés</span>
-    <i class="bi bi-box-arrow-up-right small text-muted"></i>
-  </a>
-  <a href="https://wise.com/login" target="_blank" rel="noopener noreferrer"
-     class="btn btn-outline-secondary d-flex align-items-center gap-2" title="Wise bejelentkezés (új lap)">
-    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="12" fill="#163300"/>
-      <text x="12" y="16.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#9fe870">W</text>
-    </svg>
-    <span>Wise bejelentkezés</span>
-    <i class="bi bi-box-arrow-up-right small text-muted"></i>
-  </a>
-</div>
+<h1 class="h3 mb-3"><i class="bi bi-receipt me-2"></i>Bankkivonatok (PDF)</h1>
 
 {% if not request.state.user or request.state.user.role != 'read_only' %}
 <!-- Feltöltési sáv -->
 <div class="card shadow-sm mb-4">
   <div class="card-body py-2 px-3">
-    <form id="upload-form"
-          hx-post="/ui/upload/do"
+    <form id="bank-statement-upload-form"
+          hx-post="/ui/bank-statements/upload"
           hx-target="#upload-result"
           hx-swap="innerHTML"
           hx-encoding="multipart/form-data"
@@ -53,12 +32,12 @@
            onclick="document.getElementById('file-input').click()">
         <i class="bi bi-file-earmark-arrow-up text-muted"></i>
         <span class="small text-muted">
-          CSV bankkivonat feltöltése — húzd ide, vagy <span class="text-primary">tallózás</span>
+          PDF bankkivonat feltöltése — húzd ide, vagy <span class="text-primary">tallózás</span>
         </span>
         <span id="drop-filename" class="small fw-semibold text-success d-none"></span>
         <span id="bank-preview-badge"></span>
       </div>
-      <input type="file" id="file-input" name="file" accept=".csv" class="d-none" required>
+      <input type="file" id="file-input" name="file" accept=".pdf" class="d-none" required>
 
       <select name="bank" class="form-select form-select-sm" style="width:auto"
               title="Bank kézi megadása (opcionális)">
@@ -79,7 +58,7 @@
       <span id="upload-spinner" class="htmx-indicator spinner-border spinner-border-sm text-primary" role="status"></span>
 
       <i class="bi bi-info-circle text-muted"
-         title="Erste: <számlaszám>_YYYY-MM-DD_YYYY-MM-DD.csv · Wise: statement_<id>_<currency>_YYYY-MM-DD_YYYY-MM-DD.csv"></i>
+         title="Erste: <IBAN>_YYYYMMDD_YYYYMMDD.pdf · Wise: statement_<id>_<currency>_YYYY-MM-DD_YYYY-MM-DD.pdf"></i>
     </form>
 
     <div id="upload-result" class="mt-2"></div>
@@ -87,10 +66,12 @@
 </div>
 {% endif %}
 
-<!-- Tárolt fájlok -->
-<div hx-get="/ui/upload/files" hx-trigger="load" hx-swap="outerHTML">
-  <div class="text-center text-muted py-4">
-    <div class="spinner-border spinner-border-sm"></div> Betöltés…
+<!-- Tárolt bankkivonatok -->
+<div class="card">
+  <div class="card-body pt-3">
+    <div id="table-container">
+      {% include "partials/bank_statement_table.html" %}
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -106,8 +87,8 @@
 
   function detectBank(filename) {
     if (!filename) return null;
-    if (filename.toLowerCase().startsWith('statement_')) return 'wise';
-    if (/_.+_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/i.test(filename)) return 'erste';
+    if (/^statement_.+_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.pdf$/i.test(filename)) return 'wise';
+    if (/_\d{8}_\d{8}\.pdf$/i.test(filename)) return 'erste';
     return null;
   }
 
@@ -149,10 +130,10 @@
     }
   });
 
-  // Frissítsd a fájllistát sikeres feltöltés után
+  // Frissítsd a táblázatot sikeres feltöltés után
   document.body.addEventListener('htmx:afterSwap', function (e) {
     if (e.detail.target.id === 'upload-result') {
-      htmx.trigger('[hx-get="/ui/upload/files"]', 'load');
+      htmx.trigger('#upload-result [hx-get]', 'load');
     }
   });
 })();

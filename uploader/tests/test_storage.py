@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -9,13 +10,18 @@ import pytest
 from uploader.config import Settings
 from uploader.storage import (
     delete_file,
+    delete_pdf_file,
     get_file_path,
+    get_pdf_file_path,
     get_storage_status,
     list_files,
+    list_pdf_files,
     save_file,
+    save_pdf_file,
 )
 
 CSV_BYTES = b"date,amount\n2026-05-01,100\n"
+PDF_BYTES = b"%PDF-1.4 fake pdf content"
 
 
 def test_save_file_creates_bank_subdir_and_result(settings: Settings):
@@ -111,3 +117,107 @@ def test_get_file_path_sanitizes_path_traversal(settings: Settings):
 
     with pytest.raises(FileNotFoundError):
         get_file_path("erste", "../../../etc/passwd", settings=settings)
+
+
+def test_save_pdf_file_creates_bank_subdir_and_result(settings: Settings):
+    result = save_pdf_file(
+        PDF_BYTES,
+        "HU92116000060000000197860425_20260701_20260731.pdf",
+        "erste",
+        from_date=date(2026, 7, 1),
+        to_date=date(2026, 7, 31),
+        settings=settings,
+    )
+
+    assert result.bank == "erste"
+    assert result.from_date == date(2026, 7, 1)
+    assert result.to_date == date(2026, 7, 31)
+    assert result.overwritten is False
+    assert (
+        Path(settings.pdf_storage_dir)
+        / "erste"
+        / "HU92116000060000000197860425_20260701_20260731.pdf"
+    ).read_bytes() == PDF_BYTES
+
+
+def test_save_pdf_file_existing_without_overwrite_raises(settings: Settings):
+    save_pdf_file(
+        PDF_BYTES,
+        "dup.pdf",
+        "wise",
+        from_date=date(2026, 7, 1),
+        to_date=date(2026, 7, 31),
+        settings=settings,
+    )
+    with pytest.raises(FileExistsError):
+        save_pdf_file(
+            PDF_BYTES,
+            "dup.pdf",
+            "wise",
+            from_date=date(2026, 7, 1),
+            to_date=date(2026, 7, 31),
+            settings=settings,
+        )
+
+
+def test_list_pdf_files_parses_dates(settings: Settings):
+    save_pdf_file(
+        PDF_BYTES,
+        "HU92116000060000000197860425_20260701_20260731.pdf",
+        "erste",
+        from_date=date(2026, 7, 1),
+        to_date=date(2026, 7, 31),
+        settings=settings,
+    )
+    save_pdf_file(
+        PDF_BYTES,
+        "statement_25546267_HUF_2026-07-01_2026-07-31.pdf",
+        "wise",
+        from_date=date(2026, 7, 1),
+        to_date=date(2026, 7, 31),
+        settings=settings,
+    )
+
+    files = list_pdf_files(bank="all", settings=settings)
+    assert {f.filename for f in files} == {
+        "HU92116000060000000197860425_20260701_20260731.pdf",
+        "statement_25546267_HUF_2026-07-01_2026-07-31.pdf",
+    }
+    erste_file = next(f for f in files if f.bank == "erste")
+    assert erste_file.from_date == date(2026, 7, 1)
+    assert erste_file.to_date == date(2026, 7, 31)
+
+
+def test_delete_pdf_file_removes_existing(settings: Settings):
+    save_pdf_file(
+        PDF_BYTES,
+        "HU92116000060000000197860425_20260701_20260731.pdf",
+        "erste",
+        from_date=date(2026, 7, 1),
+        to_date=date(2026, 7, 31),
+        settings=settings,
+    )
+    delete_pdf_file(
+        "erste", "HU92116000060000000197860425_20260701_20260731.pdf", settings=settings
+    )
+
+    assert list_pdf_files(bank="erste", settings=settings) == []
+
+
+def test_delete_pdf_file_missing_raises(settings: Settings):
+    with pytest.raises(FileNotFoundError):
+        delete_pdf_file("erste", "missing.pdf", settings=settings)
+
+
+def test_get_pdf_file_path_sanitizes_path_traversal(settings: Settings):
+    save_pdf_file(
+        PDF_BYTES,
+        "HU92116000060000000197860425_20260701_20260731.pdf",
+        "erste",
+        from_date=date(2026, 7, 1),
+        to_date=date(2026, 7, 31),
+        settings=settings,
+    )
+
+    with pytest.raises(FileNotFoundError):
+        get_pdf_file_path("erste", "../../../etc/passwd", settings=settings)

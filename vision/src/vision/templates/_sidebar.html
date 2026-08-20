@@ -22,6 +22,7 @@
     {% set szamlak_open = '/ui/invoices' in request.url.path
         or '/ui/invoice-files' in request.url.path
         or '/ui/transactions' in request.url.path
+        or '/ui/bank-statements' in request.url.path
         or '/ui/dividend' in request.url.path
         or '/ui/adok' in request.url.path
         or '/ui/fizetes-kalkulator' in request.url.path %}
@@ -46,6 +47,11 @@
         <li>
           <a class="nav-link {% if '/ui/transactions' in request.url.path %}active{% endif %}" href="/ui/transactions">
             <i class="fas fa-university"></i> Bank
+          </a>
+        </li>
+        <li>
+          <a class="nav-link {% if '/ui/bank-statements' in request.url.path %}active{% endif %}" href="/ui/bank-statements">
+            <i class="fas fa-receipt"></i> Bankkivonatok
           </a>
         </li>
         <li>

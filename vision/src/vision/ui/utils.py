@@ -50,6 +50,16 @@ def redirect_if_readonly(request: Request) -> RedirectResponse | None:
     return None
 
 
+def is_anonymized(request: Request) -> bool:
+    """True for the untrusted read-only tier (any verified account not covered
+    by READONLY_EMAILS/READONLY_DOMAINS) — mirrors invoice-core's
+    `should_anonymize()`. `role == 'read_only'` alone does not imply this: the
+    trusted READONLY_EMAILS/READONLY_DOMAINS tier is also read_only but keeps
+    real data."""
+    claims = getattr(request.state, "user", None) or {}
+    return claims.get("anonymized") is True
+
+
 def _parse_leaf(v):
     if isinstance(v, str) and _ISO_DT.match(v):
         try:
