@@ -1,5 +1,5 @@
 ---
-description: Frontend developer for Moneypenny. Implements UI pages in vision (Jinja2 + HTMX + Bootstrap/DataTables, Hungarian) against the invoice-core REST API, plus frontend unit tests, from the orchestrator's task specs. Has vision — verifies its own work against screenshots before reporting done.
+description: Frontend developer for Tiro. Implements UI pages in vision (Jinja2 + HTMX + Bootstrap/DataTables, Hungarian) against the invoice-core REST API, plus frontend unit tests, from the orchestrator's task specs. Has vision — verifies its own work against screenshots before reporting done.
 mode: subagent
 model: openrouter/minimax/minimax-m3
 permission:

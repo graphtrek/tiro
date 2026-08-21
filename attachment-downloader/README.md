@@ -1,6 +1,6 @@
 # attachment-downloader
 
-Moneypenny pipeline microservice #1 (`attachment-downloader`, port 8000). Downloads
+Tiro pipeline microservice #1 (`attachment-downloader`, port 8000). Downloads
 PDF attachments from an email provider for a given date range.
 Exposes a CLI and a REST API consumed by `invoice-file-filter`.
 

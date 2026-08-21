@@ -58,7 +58,7 @@ def auth_header(keypair) -> dict[str, str]:
         "iat": now,
         "exp": now + 900,
         "iss": "auth-service",
-        "aud": "moneypenny",
+        "aud": "tiro",
     }
     token = pyjwt.encode(payload, private_pem, algorithm="RS256")
     return {"Authorization": f"Bearer {token}"}

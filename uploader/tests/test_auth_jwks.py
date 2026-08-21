@@ -110,7 +110,7 @@ def test_verify_jwt_genuinely_invalid_token_still_401(monkeypatch: pytest.Monkey
 class _FakeAuthSettings:
     auth_enabled = True
     auth_service_url = "http://localhost:8007"
-    jwt_audience = "moneypenny"
+    jwt_audience = "tiro"
     jwt_issuer = "auth-service"
 
 

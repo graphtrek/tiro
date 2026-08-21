@@ -560,4 +560,4 @@ CRUD törzsadat a timesheet funkcióhoz: létrehozás/módosítás modal, inakti
 - **Vision Spec**: [[vision-spec.md|Vision Frontend Spec]]
 - **Wise adatok**: [[wise-spec.md|Wise Spec]]
 - **PDF adatok**: [[invoice-file-filter-spec.md|Invoice-File-Filter Spec]]
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

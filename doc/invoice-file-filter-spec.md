@@ -80,7 +80,7 @@ A szolgáltatás **nem** nyer ki strukturált számla-mezőket (számlaszám, ö
 
 ## Hitelesítés (JWT)
 
-Minden API végpont JWT-vel védett (app szintű `require_auth` dependency), kivéve a `GET /health` publikus útvonalat. A token `Authorization: Bearer <token>` fejlécben vagy `mp_access_token` cookie-ban érkezhet; RS256 aláírást ellenőriz a központi auth szerviz (`AUTH_SERVICE_URL`, default `http://localhost:8007`) `.well-known/jwks.json` végpontjáról letöltött kulcsokkal (1 óra cache, ismeretlen `kid` esetén újratöltés). Audience: `moneypenny`, issuer: `auth-service`. A beérkező token továbbadódik az attachment-downloadernek (token passthrough). Teszthez kikapcsolható: `AUTH_ENABLED=false`.
+Minden API végpont JWT-vel védett (app szintű `require_auth` dependency), kivéve a `GET /health` publikus útvonalat. A token `Authorization: Bearer <token>` fejlécben vagy `mp_access_token` cookie-ban érkezhet; RS256 aláírást ellenőriz a központi auth szerviz (`AUTH_SERVICE_URL`, default `http://localhost:8007`) `.well-known/jwks.json` végpontjáról letöltött kulcsokkal (1 óra cache, ismeretlen `kid` esetén újratöltés). Audience: `tiro`, issuer: `auth-service`. A beérkező token továbbadódik az attachment-downloadernek (token passthrough). Teszthez kikapcsolható: `AUTH_ENABLED=false`.
 
 ## Környezeti változók
 
@@ -144,4 +144,4 @@ flowchart TD
   - attachment-downloader meghívása (POST /api/v1/jobs)
   - utolsó 30 nap default paraméterrel
 - **MASTER Orchestrator**: [[invoice-core-spec.md|Invoice-Core Spec]]
-- **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]
+- **Projekt Index**: [[INDEX.md|Tiro - Mikorszervízek Indexe]]

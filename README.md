@@ -1,4 +1,4 @@
-# Moneypenny — Invoice Automation Pipeline
+# Tiro — Invoice Automation Pipeline
 
 A `uv`-based Python monorepo of microservices that automate invoice reconciliation for Hungarian businesses: downloads PDF invoice attachments from Gmail, cross-references them against the NAV Online Számla API, matches them with bank transactions, and presents everything in a web UI.
 

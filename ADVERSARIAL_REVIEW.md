@@ -1,9 +1,9 @@
-# Adversarial Review — Moneypenny
+# Adversarial Review — Tiro
 
 Session Date: 2026-07-26
 Reviewer: Claude Code (Adversarial)
 
-This document records findings from adversarial testing of the Moneypenny invoice automation system, focusing on the 9 fixed defects and general edge cases.
+This document records findings from adversarial testing of the Tiro invoice automation system, focusing on the 9 fixed defects and general edge cases.
 
 ---
 

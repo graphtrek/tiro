@@ -1,5 +1,5 @@
 ---
-description: QA for Moneypenny. Writes and runs end-to-end tests against the real running services, runs the full pytest suites, captures and inspects screenshots, and owns DEFECTS.md. Never fixes product code; only qa may close a defect.
+description: QA for Tiro. Writes and runs end-to-end tests against the real running services, runs the full pytest suites, captures and inspects screenshots, and owns DEFECTS.md. Never fixes product code; only qa may close a defect.
 mode: subagent
 model: openrouter/xiaomi/mimo-v2.5
 permission:

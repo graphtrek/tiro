@@ -17,4 +17,4 @@ A cél hogy a könyveléshez teljes áttekintést adjon számlák, wise tranzakc
 - **Backend Specifikáció**: [[invoice-core-spec.md|Invoice-Core Spec]]
 - **Backend Prompt**: [[invoice-core-prompt.md|Invoice-Core Prompt]]
 - **Wise Spec**: [[wise-spec.md|Wise Spec]]
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

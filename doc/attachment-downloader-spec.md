@@ -15,7 +15,7 @@ related: [INDEX.md, invoice-file-filter-spec.md]
 ---
 
 ## Szerepkör és kontextus
-Te egy Email Integrációs Mérnök vagy. A feladatod e-mail API-n keresztül biztonságosan letölteni és szervezni a számlakonnektált PDF mellékleteket. Ez a szolgáltatás a Moneypenny rendszer adatgyűjtési végpontjaként működik, amely automatizálja a bejövő dokumentumok feldolgozásának kezdetét és gondoskodik az adatok szabványosított kezeléséről.
+Te egy Email Integrációs Mérnök vagy. A feladatod e-mail API-n keresztül biztonságosan letölteni és szervezni a számlakonnektált PDF mellékleteket. Ez a szolgáltatás a Tiro rendszer adatgyűjtési végpontjaként működik, amely automatizálja a bejövő dokumentumok feldolgozásának kezdetét és gondoskodik az adatok szabványosított kezeléséről.
 
 A szolgáltatás több e-mail szolgáltatót támogat (provider architektúra). Jelenleg megvalósított: **Gmail** (Google OAuth2). Az architektúra lehetővé teszi további szolgáltatók (pl. Outlook/Microsoft Graph) egyszerű hozzáadását.
 
@@ -51,7 +51,7 @@ Már letöltött fájlok (sanitizált fájlnév + méret egyezés, a sorszám fi
   - `DELETE /api/v1/cache` - cache törlése (204 No Content)
 
 ## Autentikáció (JWT)
-A REST API végpontjai (a `GET /health` kivételével) JWT-vel védettek, ha `AUTH_ENABLED=true` (a kód defaultja; a gyökér `.env`-ben `ATTACHMENT_DOWNLOADER_AUTH_ENABLED=false` — ez az egyetlen szolgáltatás, amelyet az `invoice-core sync` token nélkül ér el). A token a központi **auth** szerviztől (:8007) származik Google belépés után; `Authorization: Bearer <token>` fejlécben vagy `mp_access_token` HttpOnly cookie-ban érkezhet. A validáció lokális, a JWKS publikus kulcsokkal (RS256, `aud=moneypenny`, `iss=auth-service`, `typ=access`), nincs kérésenkénti hálózati hívás az auth szerviz felé. Token nélkül `401 Unauthorized`, a JWKS elérhetetlensége esetén `503`. Implementáció: `src/attachment_downloader/auth.py` · spec: [[auth-service-spec.md|Auth Service Spec]]
+A REST API végpontjai (a `GET /health` kivételével) JWT-vel védettek, ha `AUTH_ENABLED=true` (a kód defaultja; a gyökér `.env`-ben `ATTACHMENT_DOWNLOADER_AUTH_ENABLED=false` — ez az egyetlen szolgáltatás, amelyet az `invoice-core sync` token nélkül ér el). A token a központi **auth** szerviztől (:8007) származik Google belépés után; `Authorization: Bearer <token>` fejlécben vagy `mp_access_token` HttpOnly cookie-ban érkezhet. A validáció lokális, a JWKS publikus kulcsokkal (RS256, `aud=tiro`, `iss=auth-service`, `typ=access`), nincs kérésenkénti hálózati hívás az auth szerviz felé. Token nélkül `401 Unauthorized`, a JWKS elérhetetlensége esetén `503`. Implementáció: `src/attachment_downloader/auth.py` · spec: [[auth-service-spec.md|Auth Service Spec]]
 
 ## Tech stack
 - Python 3.11+ (uv monorepo, `pyproject.toml`)
@@ -121,4 +121,4 @@ flowchart TD
 - **Meghívva**: [[invoice-file-filter-spec.md|PDF Feldolgozó Spec]]
 - **Lánc elődje**: [[nav-invoice-spec.md|NAV Invoice Spec]]
 - **MASTER Orchestrator**: [[invoice-core-spec.md|Invoice-Core Spec]]
-- **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]
+- **Projekt Index**: [[INDEX.md|Tiro - Mikorszervízek Indexe]]

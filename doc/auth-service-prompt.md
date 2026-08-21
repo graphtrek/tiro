@@ -13,7 +13,7 @@ tags: [auth, google, oauth2, openid-connect, jwt, fastapi, security]
 
 # Auth – Központi Authentication Mikroszerviz - Prompt
 
-Implementálni kell egy robusztus, Python-alapú authentication mikroszervizt, mert a Moneypenny rendszer **minden végponthívását authenticálni kell**.
+Implementálni kell egy robusztus, Python-alapú authentication mikroszervizt, mert a Tiro rendszer **minden végponthívását authenticálni kell**.
 
 A szolgáltatás legyen **bővíthető** (provider architektúra), első körben csak **Google Authentication** (Google OAuth 2.0 / OpenID Connect) támogatással.
 
@@ -34,4 +34,4 @@ A projektstruktúra kövesse a bank projektet.
 - **Védendő szolgáltatások (JWT ellenőrzés)**: [[invoice-core-spec.md|Invoice-Core Spec]] · [[nav-invoice-spec.md|NAV Invoice Spec]] · [[invoice-file-filter-spec.md|Invoice-File-Filter Spec]] · [[attachment-downloader-spec.md|Attachment Downloader Spec]] · [[bank-spec.md|Bank Spec]] · [[uploader-spec.md|Uploader Spec]]
 - **Specifikáció**: [[auth-service-spec.md|Auth Service Spec]]
 - **Login oldal minta**: [NiceAdmin auth-login](https://bootstrapmade.com/content/demo/NiceAdmin/auth-login.html) → `vision/templates/login.html`
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

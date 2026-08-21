@@ -130,7 +130,7 @@ class StorageStatus(BaseModel):
 {
   "filename": "11600006-00000001-97860425_2026-01-01_2026-06-19.csv",
   "bank": "erste",
-  "saved_path": "/moneypenny/storage/bank/balance-statements/erste/11600006-00000001-97860425_2026-01-01_2026-06-19.csv",
+  "saved_path": "/tiro/storage/bank/balance-statements/erste/11600006-00000001-97860425_2026-01-01_2026-06-19.csv",
   "size_bytes": 48320,
   "overwritten": false
 }
@@ -142,7 +142,7 @@ class StorageStatus(BaseModel):
 
 ```json
 {
-  "storage_dir": "/moneypenny/storage/bank/balance-statements",
+  "storage_dir": "/tiro/storage/bank/balance-statements",
   "banks": {
     "erste": [
       {
@@ -150,7 +150,7 @@ class StorageStatus(BaseModel):
         "filename": "11600006-00000001-97860425_2026-01-01_2026-06-19.csv",
         "size_bytes": 48320,
         "modified_at": "2026-06-24T10:30:00",
-        "path": "/moneypenny/storage/bank/balance-statements/erste/11600006-00000001-97860425_2026-01-01_2026-06-19.csv"
+        "path": "/tiro/storage/bank/balance-statements/erste/11600006-00000001-97860425_2026-01-01_2026-06-19.csv"
       }
     ],
     "wise": []
@@ -166,7 +166,7 @@ class StorageStatus(BaseModel):
 Az uploader a [[auth-service-spec.md|központi auth szerviz]] (`:8007`) JWKS kulcsaival validálja a tokeneket — a `require_auth` app-szintű dependency minden végponton fut, kivéve a `PUBLIC_PATHS = {"/health"}`-et.
 
 - **Token forrása**: `Authorization: Bearer <access-token>` fejléc **vagy** `mp_access_token` cookie
-- **Algoritmus**: RS256; ellenőrzött claim-ek: `exp`, `aud` (`moneypenny`), `iss` (`auth-service`), `typ` (`access`)
+- **Algoritmus**: RS256; ellenőrzött claim-ek: `exp`, `aud` (`tiro`), `iss` (`auth-service`), `typ` (`access`)
 - **JWKS**: `{auth_service_url}/.well-known/jwks.json` — a `PyJWKClient` cache-eli (1 óra TTL, ismeretlen `kid` esetén újratöltés), így nincs kérésenkénti hálózati hívás az auth szerviz felé
 - **Hibák**: `401` hiányzó/érvénytelen token; `503` ha az auth szerviz/JWKS nem érhető el (hálózat/TLS hiba)
 - **Kikapcsolás**: `AUTH_ENABLED=false` (tesztekhez) — ilyenkor minden végpont token nélkül hívható
@@ -284,7 +284,7 @@ LOG_LEVEL=INFO
 # JWT / auth (lásd auth.py — az auth szerviz JWKS-ét használja)
 AUTH_ENABLED=true
 AUTH_SERVICE_URL=http://localhost:8007
-JWT_AUDIENCE=moneypenny
+JWT_AUDIENCE=tiro
 JWT_ISSUER=auth-service
 ```
 
@@ -331,4 +331,4 @@ flowchart TD
 - **Prompt**: [[uploader-promp.md|Uploader Prompt]]
 - **Tárolt fájlokat olvassa**: [[bank-spec.md|Bank Spec]] (port 8005)
 - **UI helye**: [[vision-spec.md|Vision Spec]] (port 8009, `/ui/upload` oldal)
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

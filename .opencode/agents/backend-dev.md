@@ -1,5 +1,5 @@
 ---
-description: Backend developer for Moneypenny. Implements the Python/FastAPI microservices (attachment-downloader, invoice-file-filter, nav-invoice, bank, uploader, invoice-core, auth), their CLIs, PostgreSQL persistence and backend unit tests from the orchestrator's task specs.
+description: Backend developer for Tiro. Implements the Python/FastAPI microservices (attachment-downloader, invoice-file-filter, nav-invoice, bank, uploader, invoice-core, auth), their CLIs, PostgreSQL persistence and backend unit tests from the orchestrator's task specs.
 mode: subagent
 model: openrouter/z-ai/glm-5.2
 permission:

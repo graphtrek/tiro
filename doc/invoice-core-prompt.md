@@ -15,5 +15,5 @@ A szolgáltatáshoz készüljön cli és fastapi rest interface.
 ## 🔗 Wiki Linkek
 - **Specifikáció**: [[invoice-core-spec.md|Invoice-Core Spec]]
 - **Meghívja**: [[nav-invoice-prompt.md|NAV Invoice Prompt]] → [[nav-invoice-spec.md|NAV Invoice Spec]]
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]
 

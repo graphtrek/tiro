@@ -1,6 +1,6 @@
 # uploader — Bankkivonat Feltöltő Mikroszerviz
 
-Moneypenny pipeline mikroszerviz (port 8006). Webes felületen keresztül lehetővé teszi az Erste és Wise CSV bankkivonatok feltöltését a `bank` szerviz `balance-statements/` tároló mappájába.
+Tiro pipeline mikroszerviz (port 8006). Webes felületen keresztül lehetővé teszi az Erste és Wise CSV bankkivonatok feltöltését a `bank` szerviz `balance-statements/` tároló mappájába.
 
 **Levél szolgáltatás** — csak fájlrendszert kezel, DB-t nem kezel.
 

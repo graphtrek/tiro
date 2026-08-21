@@ -13,7 +13,7 @@ related: [INDEX.md, invoice-core-spec.md, invoice-file-filter-spec.md]
 ---
 
 ## Szerepkör és kontextus
-Te egy Backend API Integrációs Mérnök vagy. A feladatod a NAV Online Számla API hídjét fejleszteni a `invoice-core` orchestrator és a magyar fiskális hatóság között. Ez a szolgáltatás biztosítja, hogy a vállalati számlák naprakészen legyenek a NAV rendszerben regisztrálva, és az adatok konzisztenciája az egész Moneypenny rendszeren keresztül fenntartott legyen.
+Te egy Backend API Integrációs Mérnök vagy. A feladatod a NAV Online Számla API hídjét fejleszteni a `invoice-core` orchestrator és a magyar fiskális hatóság között. Ez a szolgáltatás biztosítja, hogy a vállalati számlák naprakészen legyenek a NAV rendszerben regisztrálva, és az adatok konzisztenciája az egész Tiro rendszeren keresztül fenntartott legyen.
 
 ## Funkció
 - NAV Online Számla API-tól számlák lekérdezése (query): számlalista (`queryInvoiceDigest`), egyedi számla (`queryInvoiceData`), adószám-ellenőrzés (`queryTaxpayer`)
@@ -86,7 +86,7 @@ Egyedi számlalekérdezés:
 ## Auth
 - **Technikai felhasználó** hitelesítés: SHA-512 jelszó hash, SHA3-512 kérés-aláírás, AES-128 token visszafejtés
 - Konfigurálható endpoint (`test` / `production`)
-- **JWT védelem (06c9d10)**: a REST API minden végpontja (kivéve `/health`) RS256-os access tokent követel — Bearer fejlécben vagy `mp_access_token` cookie-ban. A tokent a központi auth szerviz (:8007) bocsátja ki (`aud=moneypenny`, `iss=auth-service`); a JWKS publikus kulcsokat a szerviz lokálisan cache-eli (1 óra TTL, ismeretlen `kid` esetén újratöltés), így nincs kérésenkénti hálózati hívás. `AUTH_ENABLED=false` esetén a védelem kikapcsolható (teszt).
+- **JWT védelem (06c9d10)**: a REST API minden végpontja (kivéve `/health`) RS256-os access tokent követel — Bearer fejlécben vagy `mp_access_token` cookie-ban. A tokent a központi auth szerviz (:8007) bocsátja ki (`aud=tiro`, `iss=auth-service`); a JWKS publikus kulcsokat a szerviz lokálisan cache-eli (1 óra TTL, ismeretlen `kid` esetén újratöltés), így nincs kérésenkénti hálózati hívás. `AUTH_ENABLED=false` esetén a védelem kikapcsolható (teszt).
 - Memória-cache (TTL konfigurálható, `CACHE_TTL_SECONDS`, default 3600 mp)
 
 ---
@@ -147,7 +147,7 @@ CACHE_TTL_SECONDS=3600      # query cache TTL
 # JWT védelem (központi auth szerviz, :8007)
 AUTH_ENABLED=true           # false = teszt, védelem kikapcsolva
 AUTH_SERVICE_URL=http://localhost:8007
-JWT_AUDIENCE=moneypenny
+JWT_AUDIENCE=tiro
 JWT_ISSUER=auth-service
 ```
 
@@ -387,4 +387,4 @@ flowchart TD
 - **Prompt**: [[nav-invoice-prompt.md|NAV Invoice Prompt]]
 - **Meghívva**: [[invoice-core-spec.md|Invoice-Core (MASTER)]]
 - **Meghívom**: (senki — csak a NAV API-t hívja)
-- **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]
+- **Projekt Index**: [[INDEX.md|Tiro - Mikorszervízek Indexe]]

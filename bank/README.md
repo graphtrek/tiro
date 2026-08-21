@@ -1,6 +1,6 @@
 # bank — Bank Konszolidált Kivonat Mikroszerviz
 
-Moneypenny pipeline mikroszerviz (port 8005). Erste és Wise kézzel letöltött CSV bankkivonatokat olvas be és egységes formátumban adja vissza strukturált JSON-ként az `invoice-core` orchestratornak.
+Tiro pipeline mikroszerviz (port 8005). Erste és Wise kézzel letöltött CSV bankkivonatokat olvas be és egységes formátumban adja vissza strukturált JSON-ként az `invoice-core` orchestratornak.
 
 **Levél szolgáltatás** — CSV fájlokat olvas, DB-t nem kezel.
 

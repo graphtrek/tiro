@@ -1,6 +1,6 @@
 # vision
 
-Moneypenny pipeline microservice #6 (port 8009). **Frontend** for the entire Moneypenny system — calls **invoice-core** (port 8004) REST API and **SrcProfit** (IBKR), and renders all web UI pages.
+Tiro pipeline microservice #6 (port 8009). **Frontend** for the entire Tiro system — calls **invoice-core** (port 8004) REST API and **SrcProfit** (IBKR), and renders all web UI pages.
 
 No database, no CLI, no Alembic — pure aggregator and frontend with SSR templates.
 
@@ -154,7 +154,7 @@ src/vision/
 |----------|---------|-------------|
 | `AUTH_ENABLED` | `true` *(currently `false` in `.env`)* | JWT protection of the UI on/off |
 | `AUTH_SERVICE_URL` | `http://localhost:8007` | Central auth service base URL (JWKS, login, logout) |
-| `JWT_AUDIENCE` | `moneypenny` | Expected `aud` claim |
+| `JWT_AUDIENCE` | `tiro` | Expected `aud` claim |
 | `JWT_ISSUER` | `auth-service` | Expected `iss` claim |
 | `INVOICE_CORE_URL` | `http://localhost:8004` | invoice-core base URL |
 | `SRCPROFIT_URL` | `https://srcprofit2.graphtrek.co` | SrcProfit base URL |

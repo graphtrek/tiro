@@ -1,5 +1,5 @@
 ---
-description: Adversarial reviewer for Moneypenny. Uses the running vision UI and sync pipeline in unscripted, hostile ways to break them, working from the browser's text snapshot, and records every finding in ADVERSARIAL_REVIEW.md. Never fixes, never triages its own findings.
+description: Adversarial reviewer for Tiro. Uses the running vision UI and sync pipeline in unscripted, hostile ways to break them, working from the browser's text snapshot, and records every finding in ADVERSARIAL_REVIEW.md. Never fixes, never triages its own findings.
 mode: subagent
 model: openrouter/deepseek/deepseek-v4-pro
 permission:

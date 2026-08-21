@@ -25,7 +25,7 @@ def test_access_token_roundtrip(jwt_service: JWTService):
     assert claims.email == "imre.tatai@graphtrek.co"
     assert claims.provider == "google"
     assert claims.iss == "auth-service"
-    assert claims.aud == "moneypenny"
+    assert claims.aud == "tiro"
     assert claims.exp - claims.iat == jwt_service.settings.access_token_ttl
 
 

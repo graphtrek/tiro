@@ -14,4 +14,4 @@ A szolgáltatáshoz készüljön cli és fastapi rest interface
 - **Specifikáció**: [[invoice-file-filter-spec.md|PDF Feldolgozó Spec]]
 - **Meghívva**: [[nav-invoice-prompt.md|NAV Invoice Prompt]] → [[nav-invoice-spec.md|NAV Invoice Spec]]
 - **Meghívja**: [[attachment-downloader-prompt.md|Attachment Downloader Prompt]] → [[attachment-downloader-spec.md|Attachment Downloader Spec]]
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

@@ -13,5 +13,5 @@ pl.: 2026-05-001_filename. A szolgáltatáshoz készüljön cli és fastapi rest
 ## 🔗 Wiki Linkek
 - **Specifikáció**: [[attachment-downloader-spec.md|Attachment Downloader Spec]]
 - **Meghívva**: [[invoice-file-filter-prompt.md|PDF Feldolgozó Prompt]] → [[invoice-file-filter-spec.md|PDF Feldolgozó Spec]]
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]
 - **Hívási lánc végpontja**: Nincs outgoing API hívása

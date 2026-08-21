@@ -1,6 +1,6 @@
 # invoice-core
 
-Moneypenny pipeline microservice #4 (port 8004). Master orchestrator — calls **nav-invoice**, **invoice-file-filter**, and **bank**, merges the results, and persists everything to PostgreSQL.
+Tiro pipeline microservice #4 (port 8004). Master orchestrator — calls **nav-invoice**, **invoice-file-filter**, and **bank**, merges the results, and persists everything to PostgreSQL.
 
 Pure **JSON REST backend** — no server-side HTML rendering. The web UI lives in the **vision** service (port 8009) which calls this REST API.
 

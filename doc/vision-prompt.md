@@ -121,4 +121,4 @@ három csomagot kínálnék (A tanácsadás előre tervezett időben):
 - **Fő adatforrás**: [[invoice-core-spec.md|Invoice-Core Spec]] → [[invoice-core-prompt.md|Invoice-Core Prompt]]
 - **UI minta**: [[invoice-core-ui-spec.md|Invoice-Core UI Spec]] → [[invoice-core-ui-prompt.md|Invoice-Core UI Prompt]]
 - **Külső adatforrás**: [SrcProfit](https://srcprofit2.graphtrek.co/) (IBKR befektetések, külső szolgáltatás)
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

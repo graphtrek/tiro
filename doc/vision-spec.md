@@ -1,6 +1,6 @@
 ---
 title: "Specifikáció: Vision – Frontend"
-description: "Teljes Moneypenny webes frontend — invoice-core REST API fogyasztása, SSR UI + tulajdonosi portfólió dashboard"
+description: "Teljes Tiro webes frontend — invoice-core REST API fogyasztása, SSR UI + tulajdonosi portfólió dashboard"
 type: "service-spec"
 status: "megvalósítva"
 port: 8009
@@ -19,7 +19,7 @@ tags: [vision, frontend, fastapi, jinja2, htmx, bootstrap, datatables]
 
 ## Szerepkör és kontextus
 
-A Vision a Moneypenny rendszer **teljes webes frontendja**. Az `invoice-core` (8004) **tiszta JSON REST backend** — saját UI-t nem szolgáltat. A Vision fogyasztja az invoice-core REST API végpontjait, és SSR Jinja2 sablonokkal kiszolgálja a Moneypenny UI oldalait (`/ui/*`): dashboard, számlák, partnerek, bank, adók, sync, controlling (projektek/timesheet/riportok), admin (felhasználók/tevékenység típusok/audit) és fájlfeltöltés.
+A Vision a Tiro rendszer **teljes webes frontendja**. Az `invoice-core` (8004) **tiszta JSON REST backend** — saját UI-t nem szolgáltat. A Vision fogyasztja az invoice-core REST API végpontjait, és SSR Jinja2 sablonokkal kiszolgálja a Tiro UI oldalait (`/ui/*`): dashboard, számlák, partnerek, bank, adók, sync, controlling (projektek/timesheet/riportok), admin (felhasználók/tevékenység típusok/audit) és fájlfeltöltés.
 
 Emellett a Vision felel az **autentikációért is**: minden `/ui/*` oldal a központi auth szerviz (8007) RS256 JWT-jét igényli (HttpOnly cookie vagy Bearer fejléc), a belépés provider-alapú (`/login`). A JWT-t kérésenként lokálisan ellenőrzi az auth szerviz JWKS kulcsaival, és a beérkező token **továbbítja** (token passthrough) a hívott upstream szervizeknek (invoice-core, uploader). Admin felhasználók más felhasználóként léphetnek be (impersonation).
 
@@ -402,7 +402,7 @@ A Vision a **workspace gyökér közös `.env` fájljából** olvas (pydantic-se
 ```bash
 # Auth (JWT — minden /ui/* oldal védett; teszthez kikapcsolható)
 AUTH_ENABLED=true
-JWT_AUDIENCE=moneypenny
+JWT_AUDIENCE=tiro
 JWT_ISSUER=auth-service
 AUTH_SERVICE_URL=http://localhost:8007
 AUTH_PUBLIC_URL=http://localhost:8007   # böngészőből elérhető auth URL (Docker hostname esetén felülírni)
@@ -451,4 +451,4 @@ A log stream + fájl (`logs/vision.log`) formátummal; a JWT validálás certifi
 - **Autentikáció**: [[auth-service-spec.md|Auth Service Spec]]
 - **Bankkivonat fájlok**: [[uploader-spec.md|Uploader Spec]]
 - **Külső adatforrás**: [SrcProfit](https://srcprofit2.graphtrek.co/) (IBKR befektetések)
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

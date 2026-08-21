@@ -31,4 +31,4 @@ A szolgáltatást az invoice-core fogja hívni.
 ## 🔗 Wiki Linkek
 - **Minta projekt**: [[wise-spec.md|Wise Spec]] | [[wise-prompt.md|Wise Prompt]] (projektstruktúra alapja)
 - **Hívó szolgáltatás**: [[invoice-core-spec.md|Invoice-Core Spec]] → [[invoice-core-prompt.md|Invoice-Core Prompt]]
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

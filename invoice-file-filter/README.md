@@ -1,6 +1,6 @@
 # invoice-file-filter
 
-Moneypenny pipeline microservice #2 (port 8001). Calls **attachment-downloader** to download
+Tiro pipeline microservice #2 (port 8001). Calls **attachment-downloader** to download
 invoice PDF attachments, selects invoices among the downloaded files by keyword matching,
 and exposes the result through a **FastAPI** REST API and a **Typer** CLI.
 

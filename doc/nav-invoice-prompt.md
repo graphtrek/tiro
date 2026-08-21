@@ -121,4 +121,4 @@ A külső Python programból történő kommunikációhoz **Technikai felhaszná
 - **Specifikáció**: [[nav-invoice-spec.md|NAV Invoice Spec]]
 - **Meghívva**: [[invoice-core-prompt.md|Invoice-Core Prompt]] → [[invoice-core-spec.md|Invoice-Core Spec]]
 - **Meghívja**: [[invoice-file-filter-prompt.md|PDF Feldolgozó Prompt]] → [[invoice-file-filter-spec.md|PDF Feldolgozó Spec]]
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

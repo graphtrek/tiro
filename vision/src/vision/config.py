@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Auth — minden /ui/* oldal JWT-vel védett (teszthez kikapcsolható)
     auth_enabled: bool = True
-    jwt_audience: str = "moneypenny"
+    jwt_audience: str = "tiro"
     jwt_issuer: str = "auth-service"
 
     # Admin — csak ezek látják a "Belépés e felhasználóként" gombot (UX, nem

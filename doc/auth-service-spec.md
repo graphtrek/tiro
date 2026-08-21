@@ -18,7 +18,7 @@ tags: [auth, google, oauth2, openid-connect, jwt, jwks, fastapi, security]
 
 ## Szerepkör és kontextus
 
-Központi authentication mikroszerviz (Python, **FastAPI**, port **8007**). A Moneypenny rendszer **minden mikroszerviz-végpontja authentikált** — kivétel kizárólag a vision kezdőoldala (`pitch.html`) és az alább felsorolt technikai végpontok.
+Központi authentication mikroszerviz (Python, **FastAPI**, port **8007**). A Tiro rendszer **minden mikroszerviz-végpontja authentikált** — kivétel kizárólag a vision kezdőoldala (`pitch.html`) és az alább felsorolt technikai végpontok.
 
 A mikroszervizes best practice szerint:
 
@@ -94,7 +94,7 @@ Kulcspontok:
 
 | Token | Élettartam | Tartalom |
 |---|---|---|
-| Access token (JWT, RS256) | 15 perc | `sub` (Google user id), `email`, `name`, `picture`, `provider`, `typ: "access"`, `iat`, `exp`, `iss=auth-service`, `aud=moneypenny` — megszemélyesítésnél plusz `impersonator_sub` + `impersonator_email` (az admin sub-ja / e-mailje) |
+| Access token (JWT, RS256) | 15 perc | `sub` (Google user id), `email`, `name`, `picture`, `provider`, `typ: "access"`, `iat`, `exp`, `iss=auth-service`, `aud=tiro` — megszemélyesítésnél plusz `impersonator_sub` + `impersonator_email` (az admin sub-ja / e-mailje) |
 | Refresh token (JWT, RS256) | 30 nap | `sub`, `email`, `name`, `picture`, `provider`, `jti` (visszavonáshoz), `typ: "refresh"`, `iat`, `exp` |
 
 - Aláírás: **RS256** — a privát kulcs csak az auth szerviznél van, a publikus kulcsot a `/.well-known/jwks.json` adja ki (`kid`-del, kulcsrotáció támogatott).
@@ -337,7 +337,7 @@ JWT_PRIVATE_KEY_PATH=./keys/jwt_private.pem
 JWT_PUBLIC_KEY_PATH=./keys/jwt_public.pem
 ACCESS_TOKEN_TTL=900              # 15 perc
 REFRESH_TOKEN_TTL=2592000         # 30 nap
-JWT_AUDIENCE=moneypenny
+JWT_AUDIENCE=tiro
 JWT_ISSUER=auth-service
 
 # Jogosultság — belépés (whitelist)
@@ -403,4 +403,4 @@ flowchart TD
 - **Védett szervizek**: [[invoice-core-spec.md|Invoice-Core]] · [[nav-invoice-spec.md|NAV Invoice]] · [[invoice-file-filter-spec.md|Invoice-File-Filter]] · [[attachment-downloader-spec.md|Attachment Downloader]] · [[bank-spec.md|Bank]] · [[uploader-spec.md|Uploader]]
 - **Login rekord tárolása**: [[invoice-core-spec.md|Invoice-Core]] `POST /api/v1/users` — lásd [[#Felhasználók mentése (invoice-core)]]
 - **Minta projekt**: [[bank-spec.md|Bank Spec]] (projektstruktúra alapja)
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

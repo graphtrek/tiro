@@ -1,7 +1,7 @@
 [project]
 name = "uploader"
 version = "0.1.0"
-description = "CSV bank statement uploader microservice (Erste + Wise) for Moneypenny"
+description = "CSV bank statement uploader microservice (Erste + Wise) for Tiro"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

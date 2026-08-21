@@ -1,15 +1,15 @@
 ---
-title: "Moneypenny - Projekt Index"
+title: "Tiro - Projekt Index"
 description: "Számlázási, banki és tulajdonosi AI mikorszervízek - wiki navigáció"
 language: "HU"
 last_updated: "2026-07-15"
 ---
 
-# 📚 Moneypenny - Wiki Index
+# 📚 Tiro - Wiki Index
 
 ## Összefoglalás
 
-A **Moneypenny** egy nyolc Python mikroszervizből álló pénzügyi automatizálási rendszer, amely a Graphtrek számlázási és vagyonkezelési folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti az Erste és Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva. A **Vision** szerviz tulajdonosi dashboardon aggregálja az invoice-core és SrcProfit (IBKR) adatait.
+A **Tiro** egy nyolc Python mikroszervizből álló pénzügyi automatizálási rendszer, amely a Graphtrek számlázási és vagyonkezelési folyamatát digitalizálja. A rendszer Gmail-fiókból tölti le a PDF számlamellékleteket, OCR/Regex segítségével kinyeri a metaadatokat, lekérdezi a számlák adatait a NAV Online Számla API-ból, letölti az Erste és Wise banki tranzakciókat, majd mindent egy PostgreSQL adatbázisba ment, szállítói, vevői és tranzakció adatokkal összekapcsolva. A **Vision** szerviz tulajdonosi dashboardon aggregálja az invoice-core és SrcProfit (IBKR) adatait.
 
 | #   | Mikroszerviz            | Port | Szerep                                                                     |
 | --- | ----------------------- | ---- | -------------------------------------------------------------------------- |
@@ -133,9 +133,9 @@ MASTER ORCHESTRATOR
 
 - **Meghívva**: (senki — böngészőből nyitják)
 - **Meghívja**: [[invoice-core-spec.md|invoice-core]] REST API (olvas) + [SrcProfit](https://srcprofit2.graphtrek.co/) (IBKR, olvas)
-- **Funkció**: Teljes Moneypenny frontend — az összes `/ui/*` oldalt kiszolgálja, fogyasztja az invoice-core REST API-t; plusz saját tulajdonosi portfólió dashboard (Chart.js, IBKR)
+- **Funkció**: Teljes Tiro frontend — az összes `/ui/*` oldalt kiszolgálja, fogyasztja az invoice-core REST API-t; plusz saját tulajdonosi portfólió dashboard (Chart.js, IBKR)
 - **Saját DB**: nincs — tiszta frontend, read-only aggregátor
-- **REST** (port 8009): `GET /health`, `GET /` (koncepcióoldal), `GET /login` (belépés), `GET /dashboard` (portfólió), `GET /ui/*` (összes Moneypenny UI oldal)
+- **REST** (port 8009): `GET /health`, `GET /` (koncepcióoldal), `GET /login` (belépés), `GET /dashboard` (portfólió), `GET /ui/*` (összes Tiro UI oldal)
 - **CLI**: nincs
 
 ---

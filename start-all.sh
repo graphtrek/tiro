@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts all Moneypenny services defined in .vscode/launch.json.
+# Starts all Tiro services defined in .vscode/launch.json.
 # Logs go to logs/<service>.log. Press Ctrl+C to stop everything.
 
 set -uo pipefail
@@ -88,7 +88,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo ""
-echo -e "${CYAN}Starting Moneypenny services${NC}"
+echo -e "${CYAN}Starting Tiro services${NC}"
 echo ""
 
 # Leaf services (no upstream dependencies)

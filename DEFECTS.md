@@ -1,4 +1,4 @@
-# Moneypenny — Defects
+# Tiro — Defects
 
 Filed by QA against `REQUIREMENTS.md`. Severity: **HIGH** breaks a requirement, **MEDIUM**
 degrades one, **LOW** is cosmetic. Only QA sets `CLOSED`.

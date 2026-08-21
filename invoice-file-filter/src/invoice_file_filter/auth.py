@@ -58,7 +58,7 @@ class AuthSettings(BaseSettings):
 
     auth_enabled: bool = True  # teszthez kikapcsolható: AUTH_ENABLED=false
     auth_service_url: str = "http://localhost:8007"
-    jwt_audience: str = "moneypenny"
+    jwt_audience: str = "tiro"
     jwt_issuer: str = "auth-service"
 
 

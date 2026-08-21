@@ -47,7 +47,7 @@ class AuthSettings(BaseSettings):
         validation_alias=AliasChoices("ATTACHMENT_DOWNLOADER_AUTH_ENABLED", "AUTH_ENABLED"),
     )
     auth_service_url: str = "http://localhost:8007"
-    jwt_audience: str = "moneypenny"
+    jwt_audience: str = "tiro"
     jwt_issuer: str = "auth-service"
 
 

@@ -106,7 +106,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Invoice Core",
-    description="Master orchestrator for the Moneypenny invoice automation pipeline.",
+    description="Master orchestrator for the Tiro invoice automation pipeline.",
     version="0.1.0",
     dependencies=[Depends(require_auth)],
 )

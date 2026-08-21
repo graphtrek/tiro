@@ -259,7 +259,7 @@ szinten van bekötve: **a `GET /health` kivételével minden végpont érvényes
 | Token forrása | `Authorization: Bearer <token>` fejléc **vagy** `mp_access_token` HttpOnly cookie |
 | Algoritmus | RS256 |
 | Publikus kulcsok | `GET {AUTH_SERVICE_URL}/.well-known/jwks.json` — PyJWKClient, 1 óra cache TTL, ismeretlen `kid` esetén automatikus újratöltés |
-| `audience` | `moneypenny` |
+| `audience` | `tiro` |
 | `issuer` | `auth-service` |
 | `typ` claim | `access` kell legyen (refresh token nem elfogadott) |
 | Ellenőrzés | **lokális** — nincs kérésenkénti hálózati hívás az auth szerviz felé |
@@ -384,4 +384,4 @@ flowchart TD
 - **Meghívva**: [[invoice-core-spec.md|Invoice-Core (MASTER)]]
 - **Meghívom**: (senki — CSV fájlokat olvas, DB-t nem kezel)
 - **Minta projekt**: [[wise-spec.md|Wise Spec]] (projektstruktúra alapja)
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

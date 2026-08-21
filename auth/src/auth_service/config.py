@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     jwt_public_key_path: str = str(_KEYS_DIR / "jwt_public.pem")
     access_token_ttl: int = 900  # 15 perc
     refresh_token_ttl: int = 86_400  # 1 nap
-    jwt_audience: str = "moneypenny"
+    jwt_audience: str = "tiro"
     jwt_issuer: str = "auth-service"
 
     # Jogosultság — csak whitelistelt e-mail / domain léphet be

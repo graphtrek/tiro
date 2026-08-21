@@ -12,7 +12,7 @@ This is a multi-project `uv`-based Python workspace. **Each sub-project has its 
 
 | Directory | Purpose |
 |---|---|
-| `doc/` | Obsidian design wiki (Hungarian): specs + prompts for the Moneypenny pipeline |
+| `doc/` | Obsidian design wiki (Hungarian): specs + prompts for the Tiro pipeline |
 | `nav-invoice/` | NAV Online Számla 3.0 REST/XML client (FastAPI + CLI), port 8002 |
 | `attachment-downloader/` | Gmail PDF attachment downloader (FastAPI + CLI), port 8000 |
 | `invoice-file-filter/` | PDF text extraction + invoice filtering (FastAPI + CLI), port 8001 |
@@ -31,7 +31,7 @@ Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs),
 
 ## doc — design wiki (not code)
 
-An Obsidian vault, written in Hungarian, that specs the **"Moneypenny"** invoice-automation system. Files: `*-spec.md` (specifications), `*-prompt.md` (code-generation prompts), `INDEX.md` (navigation hub, uses `[[wikilinks]]`).
+An Obsidian vault, written in Hungarian, that specs the **"Tiro"** invoice-automation system. Files: `*-spec.md` (specifications), `*-prompt.md` (code-generation prompts), `INDEX.md` (navigation hub, uses `[[wikilinks]]`).
 
 Describes four Python microservices, each with a FastAPI REST interface and a Typer/Click CLI:
 
@@ -188,7 +188,7 @@ uv run pytest tests/ -v
 
 ## vision — frontend
 
-Serves all web UI for the Moneypenny system by consuming the `invoice-core` REST API (port 8004) and `SrcProfit` (IBKR). No database. `requires-python >=3.11`.
+Serves all web UI for the Tiro system by consuming the `invoice-core` REST API (port 8004) and `SrcProfit` (IBKR). No database. `requires-python >=3.11`.
 
 ### Running
 

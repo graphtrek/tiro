@@ -19,4 +19,4 @@ Szeretném a bank tranzakciókat feltölteni a storage folder be. Készíts hozz
 - **Specifikáció**: [[uploader-spec.md|Uploader Spec]]
 - **UI**: [[vision-spec.md|Vision Spec]] → [[vision-prompt.md|Vision Prompt]] (a feltöltési felület a vision-ban van)
 - **Célmappa fogyasztója**: [[bank-spec.md|Bank Spec]] → [[bank-prompt.md|Bank Prompt]] (a feltöltött CSV fájlokat a bank szolgáltatás dolgozza fel)
-- **Projekt Index**: [[INDEX.md|Moneypenny Index]]
+- **Projekt Index**: [[INDEX.md|Tiro Index]]

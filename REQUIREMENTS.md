@@ -1,8 +1,8 @@
-# Moneypenny — Requirements
+# Tiro — Requirements
 
 ## Summary
 
-Moneypenny automates invoice bookkeeping for a Hungarian business. It downloads invoice PDFs
+Tiro automates invoice bookkeeping for a Hungarian business. It downloads invoice PDFs
 from Gmail, cross-references them against the NAV (Hungarian tax authority) Online Számla API,
 reconciles them against bank transactions from Erste and Wise, and presents the result — invoices,
 suppliers, customers, bank transactions, dividends, tax payments — in a single web UI with a
@@ -57,7 +57,7 @@ is no shared virtual environment. Configuration is one shared root `.env` (see
   `token.json` generated and persisted on first successful login. Provider is pluggable
   (`providers/gmail/`, Outlook is a documented future provider) behind a common `EmailClient`
   protocol.
-- Leaf service: no outbound calls to any other Moneypenny service, no database.
+- Leaf service: no outbound calls to any other Tiro service, no database.
 
 ### invoice-file-filter — PDF triage and text extraction
 

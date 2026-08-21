@@ -1,6 +1,6 @@
 # Auth – Központi Authentication Mikroszerviz (port 8007)
 
-Google OAuth 2.0 / OpenID Connect belépés a Moneypenny rendszerhez. Sikeres
+Google OAuth 2.0 / OpenID Connect belépés a Tiro rendszerhez. Sikeres
 belépés után saját kiállítású **RS256 JWT**-t ad (access + refresh); a többi
 mikroszerviz soha nem hívja a Google-t, kizárólag a JWT-t validálja lokálisan a
 `/.well-known/jwks.json` publikus kulcsaival.

@@ -72,7 +72,7 @@ def _auth_header(
         "iat": now,
         "exp": now + 900,
         "iss": "auth-service",
-        "aud": "moneypenny",
+        "aud": "tiro",
     }
     if role:
         payload["role"] = role

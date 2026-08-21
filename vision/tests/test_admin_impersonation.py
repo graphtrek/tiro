@@ -50,7 +50,7 @@ def make_token(private_pem: bytes, **overrides) -> str:
         "iat": now,
         "exp": now + 900,
         "iss": "auth-service",
-        "aud": "moneypenny",
+        "aud": "tiro",
     }
     payload.update(overrides)
     return pyjwt.encode(payload, private_pem, algorithm="RS256")

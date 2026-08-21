@@ -13,7 +13,7 @@ related: [INDEX.md, nav-invoice-spec.md, bank-spec.md]
 ---
 
 ## Szerepkör és kontextus
-Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Moneypenny automata számlázási rendszer szíveként koordináld a mikroszervizek összes interakcióját. Ez a szolgáltatás a kritikus adatbázis hub, amely garantálja a szállító, vevő és számlainformációk konzisztenciáját a teljes rendszerben, biztosítva az idempotenciát és az adatintegritást.
+Te egy Backend Orchestrációs Mérnök vagy. A feladatod a Tiro automata számlázási rendszer szíveként koordináld a mikroszervizek összes interakcióját. Ez a szolgáltatás a kritikus adatbázis hub, amely garantálja a szállító, vevő és számlainformációk konzisztenciáját a teljes rendszerben, biztosítva az idempotenciát és az adatintegritást.
 
 > **Architektúra (2026-06-22)**: Az invoice-core **tiszta JSON REST backend**. Nem kezel UI-t, nem rendel Jinja2 sablonokat. Az összes webes felület a [[vision-spec.md|vision]] (port 8009) szervizben él, amely az itt leírt REST API-t fogyasztja. CORS engedélyezve `http://localhost:8009` (vision) számára.
 
@@ -543,4 +543,4 @@ flowchart TD
 - **Meghívja**: [[bank-spec.md|Bank Spec]]
   - `GET /balance-statement/all` (paraméter nélkül) — Erste + Wise CSV konszolidált tranzakciók
   - Levél szolgáltatás — DB-t nem kezel
-- **Projekt Index**: [[INDEX.md|Moneypenny - Mikorszervízek Indexe]]
+- **Projekt Index**: [[INDEX.md|Tiro - Mikorszervízek Indexe]]

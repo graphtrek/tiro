@@ -21,7 +21,7 @@ from invoice_core.services.dividend_service import calculate_dividend
 from invoice_core.timeutil import today
 
 app = typer.Typer(
-    help="Invoice Core — master orchestrator for the Moneypenny pipeline.",
+    help="Invoice Core — master orchestrator for the Tiro pipeline.",
     no_args_is_help=True,
 )
 console = Console()

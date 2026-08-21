@@ -1,7 +1,7 @@
 [project]
 name = "invoice-core"
 version = "0.1.0"
-description = "Master orchestrator microservice for Moneypenny invoice automation pipeline"
+description = "Master orchestrator microservice for Tiro invoice automation pipeline"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
