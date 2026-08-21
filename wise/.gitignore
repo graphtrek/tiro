@@ -1,8 +1,0 @@
-.env
-*.pem
-wise_browser_session.json
-logs/
-balance-statements/
-__pycache__/
-*.pyc
-.venv/
