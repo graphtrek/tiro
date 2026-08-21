@@ -34,7 +34,6 @@ attachment-downloader (:8000)   invoice-file-filter (:8001)
 | `attachment-downloader` | 8000 | Downloads PDF invoice attachments from Gmail |
 | `invoice-file-filter` | 8001 | Filters PDFs that look like invoices, extracts their text (+ OCR fallback) |
 | `nav-invoice` | 8002 | NAV Online Számla 3.0 REST/XML client (technical-user auth) |
-| `wise` | 8003 | Direct Wise API bank-statement sync — **on hold**, superseded by `bank` |
 | `invoice-core` | 8004 | Master orchestrator: PostgreSQL persistence, reconciliation, JSON REST API |
 | `bank` | 8005 | Consolidated bank-statement service — reads manually downloaded Erste + Wise CSVs |
 | `uploader` | 8006 | Web upload of bank-statement CSVs into `bank`'s storage folder |
@@ -245,12 +244,9 @@ is no shared virtual environment. Configuration is one shared root `.env` (see
 
 ## Out of scope / known limitations
 
-- `wise` (direct Wise API sync, port 8003) is **on hold**: Wise's partner program isn't available
-  to this business, so online balance-statement download doesn't work. `bank` (manually
-  downloaded CSVs) is the supported path for both Erste and Wise data; `wise` should not be
-  extended further while this holds.
-- No bank API integration exists for Erste; statements are downloaded by hand from its web
-  portal and uploaded via `uploader`.
+- No direct bank API integration exists for Erste or Wise (Wise's partner program isn't available
+  to this business); statements for both are downloaded by hand and uploaded via `uploader`,
+  and `bank` is the only supported path for reading them.
 - Authentication is fully implemented but **disabled by default** in every service's config
   (`AUTH_ENABLED=false`); enabling it requires configuring Google OAuth credentials in `auth` and
   running `auth keygen` once before flipping the flag workspace-wide.

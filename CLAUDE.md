@@ -17,7 +17,6 @@ This is a multi-project `uv`-based Python workspace. **Each sub-project has its 
 | `attachment-downloader/` | Gmail PDF attachment downloader (FastAPI + CLI), port 8000 |
 | `invoice-file-filter/` | PDF text extraction + invoice filtering (FastAPI + CLI), port 8001 |
 | `invoice-core/` | Master orchestrator — PostgreSQL persistence, pure JSON REST backend (FastAPI + CLI), port 8004 |
-| `wise/` | Wise bank-statement download/sync (FastAPI + CLI), port 8003 — **on hold** (no Wise partner program; use `bank/` instead) |
 | `bank/` | Consolidated bank statement service — Erste + Wise CSV, port 8005 |
 | `vision/` | Frontend — serves all web UI by consuming invoice-core REST API + SrcProfit (FastAPI), port 8009 |
 | `auth/` | Central authentication — Google OAuth 2.0/OIDC login + RS256 JWT issuance (FastAPI + CLI), port 8007 |
@@ -34,7 +33,7 @@ Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs),
 
 An Obsidian vault, written in Hungarian, that specs the **"Moneypenny"** invoice-automation system. Files: `*-spec.md` (specifications), `*-prompt.md` (code-generation prompts), `INDEX.md` (navigation hub, uses `[[wikilinks]]`).
 
-Describes five Python microservices, each with a FastAPI REST interface and a Typer/Click CLI:
+Describes four Python microservices, each with a FastAPI REST interface and a Typer/Click CLI:
 
 | # | Service | Port | Role |
 |---|---|---|---|
@@ -42,11 +41,10 @@ Describes five Python microservices, each with a FastAPI REST interface and a Ty
 | 3 | `nav-invoice` | 8002 | NAV Online Számla API query |
 | 2 | `invoice-file-filter` | 8001 | PDF metadata extraction (OCR/Regex) |
 | 1 | `attachment-downloader` | 8000 | Gmail PDF attachment download |
-| 5 | `wise` | 8003 | Wise bank-statement download/sync |
 
-**Flow**: entry point `POST /api/v1/sync` on `invoice-core` → synchronously calls `nav-invoice` → `invoice-file-filter` → `attachment-downloader`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. `wise` is an independent entry point (own `POST /sync`) that writes Wise transactions directly into `invoice-core`'s PostgreSQL.
+**Flow**: entry point `POST /api/v1/sync` on `invoice-core` → synchronously calls `nav-invoice` → `invoice-file-filter` → `attachment-downloader`. The pipeline downloads PDF invoice attachments from Gmail, extracts metadata, cross-references against the NAV Online Számla API, and persists everything (invoices, suppliers, customers) to PostgreSQL. Bank reconciliation is handled separately by the `bank/` service (Erste + Wise CSV import), which writes transactions directly into `invoice-core`'s PostgreSQL.
 
-**Status**: All five microservices are fully implemented in this workspace.
+**Status**: All four microservices are fully implemented in this workspace.
 
 ## nav-invoice — NAV Online Számla 3.0 client
 
@@ -250,34 +248,3 @@ uv run pytest tests/ -v
 - vision uses a middleware instead: public `/`, `/pitch`, `/login`, `/logout`, `/static/*`, `/health`; other pages redirect browsers to `/login?next=…` (API calls get 401 JSON). The login page (NiceAdmin-style, provider buttons from `GET /auth/providers`) silently refreshes via `POST /auth/refresh` when a valid refresh cookie exists.
 - Token passthrough: vision and invoice-core (and invoice-file-filter → attachment-downloader) forward the incoming Bearer token to downstream services via a `TokenPassthrough` requests-auth hook + `current_token` ContextVar.
 
-## wise — Wise bank-statement service
-
-Downloads Wise balance statements via the Wise API and exposes structured transactions as JSON. Leaf service — calls only the Wise API, holds no DB. `requires-python >=3.11`.
-
-### Running
-
-```bash
-cd wise
-uv sync
-
-# REST API (port 8003)
-python run_api.py
-# or: uv run uvicorn wise_invoice.api.main:app --host 0.0.0.0 --port 8003 --reload
-
-# CLI (installed as `wise-invoice` script)
-uv run wise-invoice status
-uv run wise-invoice balances
-uv run wise-invoice sync --start 2026-05-01 --end 2026-05-31 [--currency HUF] [--json]
-uv run wise-invoice balance-statements [--from DATE] [--currency HUF] [--json]
-uv run wise-invoice import statement_<id>_<currency>_<from>_<to>.csv
-
-# Tests
-uv run pytest tests/ -v
-```
-
-### Architecture
-- `src/wise_invoice/` — `api/main.py` (FastAPI: `POST /sync`, `GET /balance-statements`, `GET /balances`, etc.), `cli/main.py` (Typer), `client.py` (WiseClient — Bearer auth + retry), `sync.py`, `csv_import.py` (manual CSV fallback), `config.py`, `models.py`.
-- SCA required for balance-statement download: generate RSA keypair, upload public key to Wise dashboard, set `WISE_SCA_PRIVATE_KEY_PATH` in `.env`. Manual CSV download (`balance-statements/`) is the fallback.
-
-### Environment
-`WISE_API_KEY`, `WISE_PROFILE_ID`, `WISE_ACCOUNT_CURRENCY` (default `EUR`), `WISE_SANDBOX`, `WISE_SCA_PRIVATE_KEY_PATH`, `BALANCE_STATEMENTS_DIR`, `API_HOST`/`API_PORT` (8003), `LOG_LEVEL`, `REQUEST_TIMEOUT`, `MAX_RETRIES`.

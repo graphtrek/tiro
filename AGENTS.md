@@ -20,7 +20,6 @@
 | `vision`         | 8009  | Web frontend — consumes invoice-core REST API|
 | `e2e`            | —     | End-to-end QA tests (pytest + Playwright)    |
 || `vault-agent`    | 8010    | Chat with Obsidian vaults (Pydantic AI)      |
-| `banking`        | —     | Internal banking logic utility library       |
 
 ## nav-invoice — NAV Online Számla 3.0 client
 - **Layout**: `src/nav_invoice/` (config, models, crypto, client, auth, query), `api/main.py` (FastAPI), `cli/main.py` (Click), `tests/`. `requires-python >=3.11`.
@@ -63,11 +62,6 @@
 - **Run**: `cd uploader && uv run uvicorn uploader.api.main:app --port 8006 --reload`.
 - **Env**: `UPLOADER_API_PORT` (8006), `STORAGE_DIR` (`../storage/bank/balance-statements`).
 
-## wise — Wise bank-statement service (deprecated)
-- **Status**: On hold. Use `bank/` instead.
-- **Layout**: `src/wise_invoice/` (api/main.py, cli/main.py, client.py, sync.py, csv_import.py), `tests/`.
-- **SCA**: RSA keypair required for balance-statement downloads (`WISE_SCA_PRIVATE_KEY_PATH`).
-
 ## vision — frontend
 - **Layout**: `src/vision/` (api/main.py, ui/router.py + invoice_router.py, utils.py (dict_to_ns()), clients/invoice_core.py + srcprofit.py, templates/ + static/), `tests/`. `requires-python >=3.11`.
 - **Run**: `cd vision && uv run uvicorn vision.api.main:app --port 8009 --reload`. Open `http://localhost:8009/ui/`.
@@ -85,10 +79,6 @@
 - **Run**: `cd vault-agent && uv run python cli.py <path>`. Web: `uv run python web.py` (serves http://127.0.0.1:8010).
 - **Layout**: `cli.py`, `main.py`, `web.py`, `system_prompt.md`, `tests/`. Uses `VAULT_PATH`/`VAULT_NAME` (from `.env`).
 - **Models**: Defaults to local (LM Studio). Cloud: `MODEL=openrouter:anthropic/claude-sonnet-4.6` or `deepseek:deepseek-reasoner`.
-
-## banking — banking utility library
-- **Purpose**: Internal Python library for banking logic (auth validation, transaction categorization). Not a standalone service.
-- **Layout**: `src/banking/`, `tests/`. `requires-python >=3.11`.
 
 ## Conventions
 - **Naming**: Python modules use snake_case. CLI scripts installed as console_scripts in `pyproject.toml`.
