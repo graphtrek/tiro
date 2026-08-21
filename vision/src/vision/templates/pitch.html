@@ -1,33 +1,37 @@
 <!DOCTYPE html>
-<html lang="hu" data-bs-theme="dark">
+<html lang="hu" data-bs-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Vision — Tulajdonosi AI Platform</title>
+  <title>Tiro — A digitális cégtitkár</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:       #09090b;
-      --surface:  #111117;
-      --border:   rgba(255,255,255,0.07);
-      --border-h: rgba(255,255,255,0.14);
-      --text:     #f1f5f9;
-      --muted:    #6b7280;
-      --subtle:   #374151;
-      --accent:   #818cf8;
-      --accent2:  #34d399;
-      --cyan:     #22d3ee;
-      --purple:   #a78bfa;
-      --amber:    #fbbf24;
-      --red:      #f87171;
-      --orange:   #fb923c;
+      --bg:       #ece6d8;
+      --surface:  #e2dcef;
+      --border:   rgba(30,20,60,0.12);
+      --border-h: rgba(30,20,60,0.22);
+      --text:     #201738;
+      --muted:    #5c5468;
+      --subtle:   #948ba0;
+      --accent:   #5b4be0;
+      --accent2:  #17a750;
+      --cyan:     #0891b2;
+      --purple:   #c026d3;
+      --amber:    #d97e0a;
+      --red:      #dc2626;
+      --orange:   #ea580c;
     }
 
     html { font-size: 16px; scroll-behavior: smooth; }
     body {
-      background: var(--bg);
+      background:
+        radial-gradient(1100px 560px at 12% -8%, rgba(8,145,178,0.10), transparent 60%),
+        radial-gradient(1000px 520px at 100% 8%, rgba(192,38,212,0.09), transparent 60%),
+        radial-gradient(900px 500px at 50% 100%, rgba(217,126,10,0.08), transparent 60%),
+        var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       line-height: 1.65;
@@ -47,7 +51,7 @@
     /* ── Navbar ── */
     .nav-bar {
       position: sticky; top: 0; z-index: 100;
-      background: rgba(9,9,11,0.85);
+      background: rgba(236,230,216,0.85);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
@@ -61,12 +65,13 @@
     .nav-links a { color: var(--muted); font-size: 0.9rem; transition: color 0.15s; }
     .nav-links a:hover { color: var(--text); }
     .btn-nav {
-      background: var(--accent);
-      color: #fff; font-size: 0.875rem; font-weight: 600;
-      padding: 0.45rem 1.1rem; border-radius: 0.45rem;
-      transition: opacity 0.15s, transform 0.1s;
+      background: #e6defb;
+      border: 1.5px solid var(--accent);
+      color: var(--text); font-size: 0.875rem; font-weight: 700;
+      padding: 0.4rem 1.1rem; border-radius: 0.45rem;
+      transition: background 0.15s, transform 0.1s;
     }
-    .btn-nav:hover { opacity: 0.88; transform: translateY(-1px); color: #fff; }
+    .btn-nav:hover { background: #d9cdfb; transform: translateY(-1px); color: var(--text); }
 
     /* ── Hero ── */
     .hero {
@@ -76,42 +81,35 @@
     }
     .hero-glow {
       position: absolute; pointer-events: none;
-      top: -10%; left: 50%; transform: translateX(-50%);
-      width: 900px; height: 600px;
-      background: radial-gradient(ellipse at 50% 30%, rgba(99,102,241,0.18) 0%, rgba(34,211,238,0.08) 40%, transparent 70%);
+      top: -15%; left: 50%; transform: translateX(-50%);
+      width: 1100px; height: 700px;
+      background:
+        radial-gradient(ellipse 380px 320px at 25% 35%, rgba(91,75,224,0.20), transparent 70%),
+        radial-gradient(ellipse 380px 320px at 75% 25%, rgba(8,145,178,0.17), transparent 70%),
+        radial-gradient(ellipse 420px 320px at 50% 75%, rgba(234,88,12,0.13), transparent 70%),
+        radial-gradient(ellipse 300px 260px at 85% 70%, rgba(192,38,212,0.13), transparent 70%);
     }
     .hero-pill {
       display: inline-flex; align-items: center; gap: 0.45rem;
-      border: 1px solid rgba(129,140,248,0.35);
-      background: rgba(129,140,248,0.08);
+      border: 1px solid rgba(91,75,224,0.4);
+      background: rgba(91,75,224,0.12);
       color: var(--accent);
       border-radius: 2rem; padding: 0.35rem 1rem;
       font-size: 0.82rem; font-weight: 600; letter-spacing: 0.05em;
       text-transform: uppercase; margin-bottom: 2.25rem;
     }
-    .hero h1 {
-      font-size: clamp(2.8rem, 7vw, 5rem);
-      font-weight: 900;
-      letter-spacing: -0.04em;
-      line-height: 1.06;
-      margin-bottom: 1.5rem;
-    }
-    .hero h1 .grad {
-      background: linear-gradient(135deg, #818cf8 0%, #34d399 50%, #22d3ee 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .hero-sub {
-      color: var(--muted);
-      font-size: clamp(1rem, 2vw, 1.2rem);
-      max-width: 560px;
+    .hero-quote {
+      font-size: clamp(1.6rem, 3.4vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.35;
+      color: var(--text);
+      max-width: 780px;
       margin: 0 auto 2.75rem;
-      line-height: 1.7;
     }
     .hero-actions { display: flex; gap: 0.85rem; justify-content: center; flex-wrap: wrap; }
     .btn-primary-hero {
-      background: linear-gradient(135deg, #6366f1, #818cf8);
+      background: linear-gradient(135deg, #5b4be0, #0891b2);
       color: #fff; font-weight: 700; font-size: 1rem;
       padding: 0.85rem 2rem; border-radius: 0.6rem; border: none;
       display: inline-flex; align-items: center; gap: 0.4rem;
@@ -126,7 +124,7 @@
       display: inline-flex; align-items: center; gap: 0.4rem;
       transition: border-color 0.2s, color 0.2s;
     }
-    .btn-ghost:hover { border-color: rgba(255,255,255,0.25); color: var(--text); }
+    .btn-ghost:hover { border-color: rgba(30,20,60,0.3); color: var(--text); }
 
     /* ── Trust / Stats bar ── */
     .stats-bar {
@@ -166,9 +164,32 @@
       border-radius: 0.75rem; padding: 1.1rem 1.25rem;
       transition: border-color 0.2s, background 0.2s;
     }
-    .q-item:hover { border-color: rgba(129,140,248,0.35); background: #13131b; }
+    .q-item:hover { border-color: rgba(91,75,224,0.4); background: #ded6f0; }
     .q-item i { color: var(--accent); font-size: 1.1rem; flex-shrink: 0; margin-top: 0.15rem; }
-    .q-item span { font-size: 0.98rem; color: #c4cde0; font-weight: 500; }
+    .q-item span { font-size: 0.98rem; color: var(--text); font-weight: 500; }
+
+    /* ── Who was Tiro (story section) ── */
+    .tiro-story-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 4rem;
+      align-items: center;
+    }
+    .tiro-illustration {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .tiro-illustration svg {
+      width: 100%;
+      max-width: 320px;
+      height: auto;
+    }
+    @media (max-width: 900px) {
+      .tiro-story-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+      .tiro-illustration { order: -1; max-width: 260px; margin: 0 auto; }
+    }
 
     /* ── Bento feature grid ── */
     .bento {
@@ -185,7 +206,7 @@
       transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
       position: relative; overflow: hidden;
     }
-    .bento-card:hover { border-color: var(--border-h); transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,0,0,0.4); }
+    .bento-card:hover { border-color: var(--border-h); transform: translateY(-3px); box-shadow: 0 16px 40px rgba(91,75,224,0.18), 0 4px 14px rgba(30,20,60,0.1); }
     .bento-card::before {
       content: '';
       position: absolute; top: 0; left: 0; right: 0; height: 1px;
@@ -207,19 +228,19 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 1.4rem; margin-bottom: 1.25rem;
     }
-    .bc-title { font-size: 1.1rem; font-weight: 800; color: #f1f5f9; margin-bottom: 0.6rem; }
+    .bc-title { font-size: 1.1rem; font-weight: 800; color: var(--text); margin-bottom: 0.6rem; }
     .bc-body  { font-size: 0.95rem; color: var(--muted); line-height: 1.65; }
     .bc-list  { list-style: none; margin-top: 0.75rem; }
     .bc-list li { font-size: 0.92rem; color: var(--muted); padding: 0.28rem 0; display: flex; align-items: flex-start; gap: 0.6rem; }
     .bc-list li::before { content: '▸'; flex-shrink: 0; font-size: 0.7rem; margin-top: 0.3rem; }
 
-    .bc-accent  { background: rgba(129,140,248,0.08); color: var(--accent); }   .bc-accent::before { background: linear-gradient(90deg, transparent, var(--accent), transparent); }
-    .bc-cyan    { background: rgba(34,211,238,0.08);  color: var(--cyan); }     .bc-cyan::before   { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
-    .bc-green   { background: rgba(52,211,153,0.08);  color: var(--accent2); }  .bc-green::before  { background: linear-gradient(90deg, transparent, var(--accent2), transparent); }
-    .bc-amber   { background: rgba(251,191,36,0.08);  color: var(--amber); }    .bc-amber::before  { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
-    .bc-purple  { background: rgba(167,139,250,0.08); color: var(--purple); }   .bc-purple::before { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
-    .bc-orange  { background: rgba(251,146,60,0.08);  color: var(--orange); }   .bc-orange::before { background: linear-gradient(90deg, transparent, var(--orange), transparent); }
-    .bc-red     { background: rgba(248,113,113,0.08); color: var(--red); }      .bc-red::before    { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+    .bc-accent  { background: rgba(91,75,224,0.14); color: var(--accent); }   .bc-accent::before { background: linear-gradient(90deg, transparent, var(--accent), transparent); }
+    .bc-cyan    { background: rgba(8,145,178,0.14);  color: var(--cyan); }     .bc-cyan::before   { background: linear-gradient(90deg, transparent, var(--cyan), transparent); }
+    .bc-green   { background: rgba(23,167,80,0.14);  color: var(--accent2); }  .bc-green::before  { background: linear-gradient(90deg, transparent, var(--accent2), transparent); }
+    .bc-amber   { background: rgba(217,126,10,0.14); color: var(--amber); }    .bc-amber::before  { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
+    .bc-purple  { background: rgba(192,38,212,0.14); color: var(--purple); }   .bc-purple::before { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
+    .bc-orange  { background: rgba(234,88,12,0.14); color: var(--orange); }   .bc-orange::before { background: linear-gradient(90deg, transparent, var(--orange), transparent); }
+    .bc-red     { background: rgba(220,38,38,0.14);  color: var(--red); }      .bc-red::before    { background: linear-gradient(90deg, transparent, var(--red), transparent); }
 
     .bc-list li::before { color: inherit; }
 
@@ -232,71 +253,17 @@
     }
     .int-card:hover { transform: translateY(-3px); }
     .int-icon { font-size: 2rem; margin-bottom: 0.6rem; }
-    .int-name { font-size: 0.92rem; font-weight: 700; color: #e2e8f4; }
+    .int-name { font-size: 0.92rem; font-weight: 700; color: var(--text); }
     .int-status { font-size: 0.75rem; margin-top: 0.25rem; }
-    .status-live { color: #4ade80; }
+    .status-live { color: #15803d; }
     .status-soon { color: var(--subtle); }
 
-    /* ── How it works ── */
-    .steps { display: flex; flex-direction: column; gap: 0; }
-    .step {
-      display: flex; gap: 1.5rem; align-items: flex-start;
-      padding: 2rem 0; border-bottom: 1px solid var(--border);
-      position: relative;
+    /* ── Open source ── */
+    .code-snippet {
+      background: #09090b; border: 1px solid var(--border); border-radius: 0.6rem;
+      padding: 0.9rem 1.25rem; margin: 1.5rem auto 0; max-width: 420px;
+      font-family: ui-monospace, monospace; font-size: 0.88rem; color: #a1a8b8; text-align: left;
     }
-    .step:last-child { border-bottom: none; }
-    .step-num {
-      width: 40px; height: 40px; border-radius: 50%;
-      font-weight: 900; font-size: 0.9rem; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      border: 1.5px solid;
-    }
-    .sn-1 { background: rgba(34,211,238,0.1);   border-color: rgba(34,211,238,0.4);   color: var(--cyan);   }
-    .sn-2 { background: rgba(129,140,248,0.1);  border-color: rgba(129,140,248,0.4);  color: var(--accent); }
-    .sn-3 { background: rgba(167,139,250,0.1);  border-color: rgba(167,139,250,0.4);  color: var(--purple); }
-    .sn-4 { background: rgba(52,211,153,0.1);   border-color: rgba(52,211,153,0.4);   color: var(--accent2);}
-    .step-content strong { display: block; font-size: 1.05rem; color: var(--text); margin-bottom: 0.4rem; }
-    .step-content p { color: var(--muted); font-size: 0.97rem; line-height: 1.65; }
-
-    /* ── Pricing ── */
-    .price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
-    .price-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 1.2rem; padding: 2.25rem;
-      display: flex; flex-direction: column;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .price-card:hover { transform: translateY(-4px); box-shadow: 0 20px 56px rgba(0,0,0,0.35); }
-    .price-card.featured {
-      border-color: rgba(129,140,248,0.4);
-      background: linear-gradient(160deg, #0d0f28 0%, var(--surface) 100%);
-      box-shadow: 0 0 0 1px rgba(129,140,248,0.15), 0 8px 32px rgba(99,102,241,0.12);
-    }
-    .featured-tag {
-      display: inline-block;
-      font-size: 0.7rem; font-weight: 800; letter-spacing: 0.07em;
-      text-transform: uppercase; color: var(--accent);
-      background: rgba(129,140,248,0.12); border: 1px solid rgba(129,140,248,0.3);
-      border-radius: 2rem; padding: 0.2rem 0.75rem; margin-bottom: 1rem;
-    }
-    .plan-name { font-size: 1.15rem; font-weight: 800; color: #e2e8f4; margin-bottom: 1rem; }
-    .plan-price { font-size: 2.4rem; font-weight: 900; letter-spacing: -0.03em; line-height: 1; }
-    .plan-price em { font-size: 1rem; color: var(--muted); font-style: normal; font-weight: 500; }
-    .plan-period { font-size: 0.88rem; color: var(--muted); margin-top: 0.35rem; margin-bottom: 1.75rem; }
-    .plan-divider { border: none; border-top: 1px solid var(--border); margin: 0 0 1.5rem; }
-    .plan-features { list-style: none; flex: 1; }
-    .plan-features li { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.45rem 0; font-size: 0.95rem; color: #94a3b8; }
-    .plan-features li i { color: #22c55e; font-size: 1rem; flex-shrink: 0; margin-top: 0.1rem; }
-    .plan-features li strong { color: var(--text); }
-    .btn-plan {
-      margin-top: 2rem; padding: 0.8rem; border-radius: 0.6rem;
-      font-size: 0.95rem; font-weight: 700; text-align: center;
-      transition: opacity 0.2s, transform 0.15s;
-    }
-    .btn-plan-outline { border: 1.5px solid var(--border-h); color: var(--muted); }
-    .btn-plan-outline:hover { border-color: rgba(255,255,255,0.25); color: var(--text); }
-    .btn-plan-filled { background: var(--accent); color: #fff; border: none; }
-    .btn-plan-filled:hover { opacity: 0.88; transform: translateY(-1px); color: #fff; }
 
     /* ── CTA ── */
     .cta-section {
@@ -307,7 +274,10 @@
     .cta-section::before {
       content: '';
       position: absolute; inset: 0;
-      background: radial-gradient(ellipse 70% 60% at 50% 100%, rgba(99,102,241,0.12) 0%, transparent 65%);
+      background:
+        radial-gradient(ellipse 60% 55% at 20% 100%, rgba(8,145,178,0.12) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 55% at 80% 100%, rgba(192,38,212,0.10) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 50% at 50% 100%, rgba(91,75,224,0.12) 0%, transparent 65%);
       pointer-events: none;
     }
     .cta-section h2 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 900; letter-spacing: -0.03em; margin-bottom: 1rem; }
@@ -319,14 +289,15 @@
       padding: 1.75rem 1.5rem; text-align: center;
       color: var(--subtle); font-size: 0.88rem;
     }
-    footer a { color: #4a5f78; transition: color 0.15s; }
-    footer a:hover { color: var(--muted); }
+    footer a { color: var(--accent); transition: color 0.15s; }
+    footer a:hover { color: var(--purple); }
 
     /* ── Responsive ── */
     @media (max-width: 640px) {
       .hero { padding: 6rem 0 5rem; }
       section { padding: 4rem 0; }
       .nav-links .hide-mob { display: none; }
+      .brand-divider, .brand-sub { display: none !important; }
     }
   </style>
 </head>
@@ -334,15 +305,23 @@
 
 <!-- Navbar -->
 <nav class="nav-bar">
-  <a href="/" class="nav-logo">
-    <i class="bi bi-eye"></i>
-    <span>Vision</span>
-  </a>
+  <div style="display:flex;align-items:center;gap:0.85rem">
+    <a href="/" class="nav-logo">
+      <i class="bi bi-vector-pen"></i>
+      <span>Tiro</span>
+    </a>
+    <span class="brand-divider" style="width:1px;height:20px;background:var(--border-h)"></span>
+    <a href="https://graphtrek.co/" target="_blank" rel="noopener" class="brand-sub"
+       style="display:flex;align-items:center;gap:0.45rem;font-size:0.85rem;font-weight:700;color:var(--muted)">
+      <img src="/static/images/graphtrek-logo.png" alt="Graphtrek" style="width:20px;height:20px;border-radius:0.3rem">
+      <span>Graphtrek Kft.</span>
+    </a>
+  </div>
   <div class="nav-links">
+    <a href="#opensource" class="hide-mob">Nyílt forráskód</a>
     <a href="#features" class="hide-mob">Funkciók</a>
-    <a href="#pricing" class="hide-mob">Árazás</a>
-    <a href="#workflow" class="hide-mob">Hogyan működik</a>
-    <a href="/ui/" class="btn-nav"><i class="bi bi-speedometer2 me-1"></i>Demo</a>
+    <a href="#tiro-story" class="hide-mob">Ki volt Tiro?</a>
+    <a href="/ui/" class="btn-nav"><i class="bi bi-speedometer2 me-1"></i>Nézd meg</a>
   </div>
 </nav>
 
@@ -350,21 +329,31 @@
 <section class="hero">
   <div class="hero-glow"></div>
   <div class="container" style="position:relative">
-    <div class="hero-pill"><i class="bi bi-stars"></i>Privát AI · Tulajdonosi szint</div>
-    <h1>
-      Pénzügyi átláthatóság<br>
-      <span class="grad">minden szintről — azonnal</span>
+    <div class="hero-pill"><i class="bi bi-stars"></i>Nyílt forráskódú · AI cégtitkár</div>
+    <h1 class="hero-quote">
+      <span style="color:var(--accent)">Tiro</span>
+      <span style="color:var(--cyan)">intézte</span>
+      <span style="color:var(--accent2)">ura</span>
+      <span style="color:var(--amber)">feljegyzéseit,</span>
+      <span style="color:var(--purple)">levelezését</span>
+      <span style="color:var(--orange)">és</span>
+      <span style="color:var(--accent)">ügyeit,</span>
+      <span style="color:var(--cyan)">hogy</span>
+      <span style="color:var(--accent2)">Cicero</span>
+      <span style="color:var(--amber)">államférfiként</span>
+      <span style="color:var(--purple)">dolgozhasson.</span>
+      <span style="display:block;margin-top:1.25rem;color:var(--muted);font-weight:600;font-size:1.05rem;line-height:1.6">
+        Ezt a szerepet tölti be ez az alkalmazás
+        is — csendben, megbízhatóan intézi a számokat, hogy azzal
+        foglalkozhass, amiben a legjobb vagy.
+      </span>
     </h1>
-    <p class="hero-sub">
-      Erste, Wise, IBKR és NAV Online Számla egy dashboardon.
-      AI-alapú válaszok a legfontosabb tulajdonosi kérdésekre, valós adatokból.
-    </p>
     <div class="hero-actions">
       <a href="/ui/" class="btn-primary-hero">
         <i class="bi bi-speedometer2"></i>Élő Dashboard
       </a>
-      <a href="#pricing" class="btn-ghost">
-        Árazás <i class="bi bi-arrow-down ms-1"></i>
+      <a href="https://github.com/graphtrek/tiro" class="btn-ghost" target="_blank" rel="noopener">
+        <i class="bi bi-github me-1"></i>GitHub
       </a>
     </div>
   </div>
@@ -387,7 +376,7 @@
         <div class="stat-label">Élő tranzakciós adatok</div>
       </div>
       <div>
-        <div class="stat-val" style="color:var(--amber)">7</div>
+        <div class="stat-val" style="color:var(--amber)">9</div>
         <div class="stat-label">Intelligencia terület</div>
       </div>
     </div>
@@ -402,14 +391,8 @@
         <span class="section-eyebrow">A probléma</span>
         <h2 class="section-h2">A számok ott vannak.<br>A válasz sehol.</h2>
         <p class="section-lead mt-3">
-          A tulajdonos nem ERP-t akar. Választ akar — azonnal, magyarul,
-          a saját céges adataiból.
-        </p>
-        <p class="section-lead mt-2" style="font-size:0.9rem">
-          Hasonló megoldások: <strong style="color:var(--text)">Puzzle</strong>,
-          <strong style="color:var(--text)">Runway Financial</strong>,
-          <strong style="color:var(--text)">Mosaic</strong> —
-          magyar tulajdonosi struktúrára szabva: <strong style="color:var(--accent)">Vision</strong>.
+          A tulajdonos nem ERP-t akar. Egy cégtitkárt akar, aki összerakja
+          a képet — azonnal, magyarul, a saját céges adataiból.
         </p>
       </div>
       <div class="q-grid">
@@ -433,14 +416,98 @@
   </div>
 </section>
 
+<!-- Who was Tiro -->
+<section id="tiro-story" class="section-alt">
+  <div class="container">
+    <div class="tiro-story-grid">
+      <div class="tiro-illustration">
+        <svg viewBox="0 0 240 280" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="120" cy="140" r="110" fill="url(#tiroGlow)" opacity="0.6"/>
+          <defs>
+            <radialGradient id="tiroGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#5b4be0" stop-opacity="0.22"/>
+              <stop offset="100%" stop-color="#0891b2" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+
+          <!-- wax tablet diptych -->
+          <rect x="35" y="70" width="80" height="150" rx="10" fill="#3d2b66" stroke="#d97e0a" stroke-width="2.5"/>
+          <rect x="125" y="70" width="80" height="150" rx="10" fill="#3d2b66" stroke="#d97e0a" stroke-width="2.5"/>
+          <rect x="47" y="84" width="56" height="122" rx="4" fill="rgba(217,126,10,0.16)" stroke="rgba(217,126,10,0.4)" stroke-width="1"/>
+          <rect x="137" y="84" width="56" height="122" rx="4" fill="rgba(217,126,10,0.16)" stroke="rgba(217,126,10,0.4)" stroke-width="1"/>
+
+          <!-- Tironian-note-like shorthand marks scratched into the wax -->
+          <g stroke="#d97e0a" stroke-width="2" stroke-linecap="round" opacity="0.85">
+            <path d="M55 100 q10 -8 18 0"/>
+            <path d="M55 116 l16 6"/>
+            <path d="M55 132 q14 6 18 -4"/>
+            <path d="M55 150 l18 0"/>
+            <path d="M55 166 q10 10 18 0"/>
+            <path d="M55 184 l16 -8"/>
+          </g>
+          <g stroke="#d97e0a" stroke-width="2" stroke-linecap="round" opacity="0.65">
+            <path d="M145 100 l16 4"/>
+            <path d="M145 118 q10 8 18 -2"/>
+            <path d="M145 138 l18 6"/>
+            <path d="M145 156 q12 -8 18 2"/>
+            <path d="M145 176 l16 6"/>
+          </g>
+
+          <!-- hinge -->
+          <rect x="112" y="76" width="16" height="138" fill="#2c2150" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+
+          <!-- stylus -->
+          <rect x="25" y="55" width="190" height="10" rx="5" fill="#5b4be0" transform="rotate(-18 120 60)"/>
+          <circle cx="30" cy="45" r="7" fill="#17a750" transform="rotate(-18 120 60)"/>
+
+          <!-- laurel sprig -->
+          <g stroke="#17a750" stroke-width="2" fill="none" stroke-linecap="round">
+            <path d="M100 235 q20 -15 40 0"/>
+            <path d="M108 232 l-6 -10 M116 236 l-4 -12 M124 236 l4 -12 M132 232 l6 -10"/>
+          </g>
+        </svg>
+      </div>
+      <div>
+        <span class="section-eyebrow">A név mögött</span>
+        <h2 class="section-h2">Ki volt Tiro?</h2>
+        <p class="section-lead mt-3" style="max-width:560px">
+          Marcus Tullius Tiro Kr. e. 103 körül született — rabszolgaként,
+          Cicero apjának háztartásában. Alig két évvel volt fiatalabb
+          Marcus Tullius Cicerónál, a híres szónoknál és államférfinál,
+          és vele együtt nevelkedett. Felnőttként Cicero titkára,
+          íródeákja lett.
+        </p>
+        <p class="section-lead mt-2" style="max-width:560px">
+          Kr. e. 63 körül Tiro kidolgozta a <strong style="color:var(--text)">Tironi
+          jegyeket</strong> (notae Tironianae) — az első latin gyorsírási
+          rendszert. Ezzel szóról szóra le tudta jegyezni Cicero beszédeit
+          valós időben, köztük a híres Catilina-beszédeket a szenátusban.
+          Cicero Kr. e. 53-ban felszabadította.
+        </p>
+        <p class="section-lead mt-2" style="max-width:560px">
+          Cicero Kr. e. 43-as meggyilkolása után Tiro gyűjtötte össze,
+          szerkesztette és adta ki ura leveleit és beszédeit — így maradtak
+          fenn az utókornak —, és megírta Cicero életrajzát is. Állítólag
+          közel száz évet élt. Ma <strong style="color:var(--accent)">a
+          gyorsírás atyjaként</strong> tartják számon: a Tironi jegyek több
+          mint ezer évig használatban maradtak, és a mai
+          <strong style="color:var(--text)">„&amp;"</strong> jel is az egyik
+          Tiro-féle rövidítésből ered.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Features bento -->
-<section class="section-alt" id="features">
+<section id="features">
   <div class="container">
     <div class="text-center mb-5">
       <span class="section-eyebrow">A megoldás</span>
-      <h2 class="section-h2">7 területen ad azonnali választ</h2>
+      <h2 class="section-h2">9 területen ad azonnali választ</h2>
       <p class="section-lead mx-auto mt-2">
-        Nem szoftvert adunk el — pénzügyi átláthatóságot mint szolgáltatást.
+        Nem szoftvert adunk el — egy digitális cégtitkárt, aki elvégzi
+        a papírmunkát.
       </p>
     </div>
     <div class="bento">
@@ -479,11 +546,14 @@
 
       <div class="bento-card bc-8">
         <div class="bc-icon bc-orange"><i class="bi bi-robot"></i></div>
-        <div class="bc-title">AI CFO Owner Chat</div>
-        <div class="bc-body">Természetes nyelven kérdezheti a saját adatait — privát AI modellel, adatszivárgás nélkül.</div>
+        <div class="bc-title" style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
+          AI CFO Owner Chat
+          <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--orange);background:rgba(234,88,12,0.12);border:1px solid rgba(234,88,12,0.32);border-radius:1rem;padding:0.18rem 0.65rem">Következő fejlesztés</span>
+        </div>
+        <div class="bc-body">Természetes nyelven kérdezheted majd a saját adataidat — privát AI modellel, adatszivárgás nélkül.</div>
         <div style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.5rem">
-          {% for q in ["Mikor volt a legmagasabb Wise bevételünk?","Miért csökkent a profitunk Q3-ban?","Melyik ügyfél fizet a legtöbbet?"] %}
-          <div style="background:rgba(251,146,60,0.07);border:1px solid rgba(251,146,60,0.2);border-radius:0.5rem;padding:0.55rem 0.85rem;font-size:0.88rem;color:#d4c4a8">
+          {% for q in ["Mikor volt a legmagasabb bevételünk és miért?","Miért csökkent a profitunk Q3-ban?","Melyik ügyfél fizet a legtöbbet?"] %}
+          <div style="background:rgba(234,88,12,0.1);border:1px solid rgba(234,88,12,0.28);border-radius:0.5rem;padding:0.55rem 0.85rem;font-size:0.88rem;color:#7c3a0f">
             <i class="bi bi-chat-left-text me-1" style="color:var(--orange)"></i>{{ q }}
           </div>
           {% endfor %}
@@ -520,12 +590,34 @@
         </ul>
       </div>
 
+      <div class="bento-card bc-6">
+        <div class="bc-icon bc-cyan"><i class="bi bi-calculator"></i></div>
+        <div class="bc-title">Bér- és fizetéskalkulátor</div>
+        <div class="bc-body">Nettó/bruttó bérszámfejtés, járulékok és adók automatikus kiszámítása magyar szabályozás szerint.</div>
+        <ul class="bc-list">
+          <li>Bruttó ↔ nettó átváltás</li>
+          <li>Munkáltatói terhek kimutatása</li>
+          <li>Cafeteria és kedvezmények kezelése</li>
+        </ul>
+      </div>
+
+      <div class="bento-card bc-6">
+        <div class="bc-icon bc-purple"><i class="bi bi-stopwatch"></i></div>
+        <div class="bc-title">Munkaidő és projektkövetés</div>
+        <div class="bc-body">Munkatársak és alvállalkozók rögzítik a ledolgozott órákat, projektenként és ügyfelenként csoportosítva.</div>
+        <ul class="bc-list">
+          <li>Napi/heti óra-rögzítés</li>
+          <li>Projekt szintű kimutatás</li>
+          <li>Alvállalkozói elszámolás alapja</li>
+        </ul>
+      </div>
+
     </div>
   </div>
 </section>
 
 <!-- Integrations -->
-<section>
+<section class="section-alt">
   <div class="container text-center">
     <span class="section-eyebrow">Integrációk</span>
     <h2 class="section-h2">Minden forrásból közvetlenül</h2>
@@ -534,12 +626,11 @@
     </p>
     <div class="int-grid">
       {% for icon, name, live, color in [
-        ("bi-bank2",             "Erste Bank",   true,  "#34d399"),
-        ("bi-currency-exchange", "Wise",         true,  "#22d3ee"),
-        ("bi-graph-up-arrow",    "IBKR",         true,  "#818cf8"),
-        ("bi-file-earmark-text", "NAV Számla",   true,  "#fb923c"),
-        ("bi-receipt",           "Kulcs-Soft",   false, "#a78bfa"),
-        ("bi-plug",              "EnableBanking", false, "#fbbf24"),
+        ("bi-bank2",             "Erste Bank",   true,  "#17a750"),
+        ("bi-currency-exchange", "Wise",         true,  "#0891b2"),
+        ("bi-graph-up-arrow",    "IBKR",         true,  "#5b4be0"),
+        ("bi-file-earmark-text", "NAV Számla",   true,  "#ea580c"),
+        ("bi-envelope-paper",    "Gmail",        true,  "#dc2626"),
       ] %}
       <div class="int-card" style="border-color: {{ color }}22">
         <div class="int-icon" style="color:{{ color }}"><i class="bi {{ icon }}"></i></div>
@@ -553,122 +644,30 @@
   </div>
 </section>
 
-<!-- How it works -->
-<section class="section-alt" id="workflow">
-  <div class="container">
-    <div style="display:grid;grid-template-columns:1fr 2fr;gap:4rem;align-items:start">
-      <div>
-        <span class="section-eyebrow">Hogyan működik</span>
-        <h2 class="section-h2">AI + emberi szakértelem</h2>
-        <p class="section-lead mt-3">
-          A rendszer nem helyettesíti a tanácsadót — előkészíti a kérdést,
-          hogy a tanácsadói óra valódi értéket teremtsen.
-        </p>
-      </div>
-      <div class="steps">
-        {% for num, cls, title, body in [
-          ("1", "sn-1", "Tulajdonos kérdez", "Természetes nyelvű kérdés az AI dashboardon — magyarul, saját számokból."),
-          ("2", "sn-2", "AI azonnal válaszol", "Privát, hosztolt AI modell. Az adatok nem hagyják el a rendszert."),
-          ("3", "sn-3", "Online tanácsadó egyeztet", "Ha az AI bizonytalanná tesz, a kérdés és a kontextus automatikusan eljut az online tanácsadóhoz előre egyeztetett időpontban."),
-          ("4", "sn-4", "Speciális szakértő", "Komplex ügyeknél: Adótanácsadó / Ügyvéd / CFO — a releváns adatokkal együtt, egyeztetett időpontban."),
-        ] %}
-        <div class="step">
-          <div class="step-num {{ cls }}">{{ num }}</div>
-          <div class="step-content">
-            <strong>{{ title }}</strong>
-            <p>{{ body }}</p>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Target -->
-<section>
+<!-- Open source -->
+<section id="opensource">
   <div class="container">
     <div class="text-center mb-5">
-      <span class="section-eyebrow">Célcsoport</span>
-      <h2 class="section-h2">Kinek szól?</h2>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem">
-      {% for icon, title, desc, color in [
-        ("bi-buildings",   "Több-céges tulajdonos",
-         "Több Kft.-t üzemeltet, és naponta több rendszerbe kell belépni a teljes kép összerakásához.", "#22d3ee"),
-        ("bi-briefcase",   "Befektető cégvezető",
-         "IBKR portfólió és operatív cégek egyidejű követése — összesített vagyonkép azonnali szükséglete.", "#818cf8"),
-        ("bi-diagram-3",   "Startup portfólió menedzser",
-         "Az általa menedzselt startupok pillanatnyi pénzügyi helyzetéről egyetlen nézetben tájékozódik.", "#a78bfa"),
-      ] %}
-      <div class="bento-card" style="border-color: {{ color }}22; padding: 2rem">
-        <div class="bc-icon" style="background:{{ color }}14;color:{{ color }}"><i class="bi {{ icon }}"></i></div>
-        <div class="bc-title">{{ title }}</div>
-        <div class="bc-body mt-2">{{ desc }}</div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-</section>
-
-<!-- Pricing -->
-<section class="section-alt" id="pricing">
-  <div class="container">
-    <div class="text-center mb-5">
-      <span class="section-eyebrow">Árazás</span>
-      <h2 class="section-h2">Nem szoftvert — <em style="font-style:normal;color:var(--accent)">szolgáltatást</em> fizet</h2>
-      <p class="section-lead mx-auto mt-2">
-        A platform ingyenes. Az értéket a tanácsadói idő és az AI által előkészített kontextus adja.
+      <span class="section-eyebrow">Nyílt forráskód</span>
+      <h2 class="section-h2">Ingyenes. <em style="font-style:normal;color:var(--accent)">Nyílt forráskódú.</em> A tiéd.</h2>
+      <p class="section-lead mx-auto mt-2" style="max-width:960px;font-size:1rem;white-space:nowrap">
+        A Tiro teljes forráskódja szabadon letölthető és módosítható a GitHubon — nincs licencdíj, nincs rejtett előfizetés.
       </p>
     </div>
-    <div class="price-grid">
-
-      <div class="price-card">
-        <div class="plan-name">Starter</div>
-        <div class="plan-price">149 000 <em>Ft</em></div>
-        <div class="plan-period">/ hónap</div>
-        <hr class="plan-divider">
-        <ul class="plan-features">
-          <li><i class="bi bi-check-circle-fill"></i>1 cég integrálva</li>
-          <li><i class="bi bi-check-circle-fill"></i>Teljes Vision dashboard</li>
-          <li><i class="bi bi-check-circle-fill"></i>Cash-flow előrejelzés</li>
-          <li><i class="bi bi-check-circle-fill"></i>Havi e-mail összefoglaló</li>
-          <li><i class="bi bi-check-circle-fill"></i><strong>1 óra</strong> online tanácsadó / hó</li>
-        </ul>
-        <a href="#" class="btn-plan btn-plan-outline">Megrendelés</a>
+    <div class="bento-card" style="max-width:720px;margin:0 auto;text-align:center;padding:3rem 2.5rem">
+      <div class="bc-icon bc-accent" style="margin:0 auto 1.25rem"><i class="bi bi-github"></i></div>
+      <div class="bc-title" style="font-size:1.3rem">github.com/graphtrek/tiro</div>
+      <div class="bc-body mt-2">
+        Klónozd, futtasd helyben, vagy nyiss pull requestet — a projekt mindenki
+        számára nyitott, aki szeretné jobbá tenni a kisvállalkozók pénzügyi
+        adminisztrációját.
       </div>
-
-      <div class="price-card featured">
-        <div class="featured-tag">Legkedveltebb</div>
-        <div class="plan-name">Growth</div>
-        <div class="plan-price">249 000 <em>Ft</em></div>
-        <div class="plan-period">/ hónap</div>
-        <hr class="plan-divider">
-        <ul class="plan-features">
-          <li><i class="bi bi-check-circle-fill"></i>3 cég integrálva</li>
-          <li><i class="bi bi-check-circle-fill"></i>Minden Starter funkció</li>
-          <li><i class="bi bi-check-circle-fill"></i>Projekt profitabilitás</li>
-          <li><i class="bi bi-check-circle-fill"></i>AI CFO Chat (korlátlan)</li>
-          <li><i class="bi bi-check-circle-fill"></i><strong>1 óra</strong> CFO meeting / hó</li>
-        </ul>
-        <a href="#" class="btn-plan btn-plan-filled">Megrendelés</a>
+      <div class="code-snippet">git clone https://github.com/graphtrek/tiro.git</div>
+      <div class="hero-actions mt-4">
+        <a href="https://github.com/graphtrek/tiro" class="btn-primary-hero" target="_blank" rel="noopener">
+          <i class="bi bi-github"></i>Megnyitás GitHubon
+        </a>
       </div>
-
-      <div class="price-card">
-        <div class="plan-name">Executive</div>
-        <div class="plan-price">499 000 <em>Ft</em></div>
-        <div class="plan-period">/ hónap</div>
-        <hr class="plan-divider">
-        <ul class="plan-features">
-          <li><i class="bi bi-check-circle-fill"></i>Korlátlan cég</li>
-          <li><i class="bi bi-check-circle-fill"></i>Minden Growth funkció</li>
-          <li><i class="bi bi-check-circle-fill"></i>Dedikált privát AI modell</li>
-          <li><i class="bi bi-check-circle-fill"></i>Adóoptimalizálási riportok</li>
-          <li><i class="bi bi-check-circle-fill"></i><strong>1 óra</strong> CFO + Jogász + Felsővezető / hó</li>
-        </ul>
-        <a href="#" class="btn-plan btn-plan-outline">Megrendelés</a>
-      </div>
-
     </div>
   </div>
 </section>
@@ -676,11 +675,14 @@
 <!-- CTA -->
 <div class="cta-section">
   <div class="container" style="position:relative">
-    <h2>Kész megnézni a saját számait?</h2>
-    <p>Az élő dashboard azonnal elérhető — valós banki és számlás adatokkal.</p>
+    <h2>Kész átadni a papírmunkát Tirónak?</h2>
+    <p>Az élő dashboard azonnal elérhető, a forráskód pedig a tiéd — ingyen és korlátlanul.</p>
     <div class="hero-actions">
       <a href="/ui/" class="btn-primary-hero" style="padding:0.9rem 2.5rem;font-size:1.05rem">
         <i class="bi bi-speedometer2"></i>Élő Dashboard megnyitása
+      </a>
+      <a href="https://github.com/graphtrek/tiro" class="btn-ghost" style="padding:0.9rem 2.5rem;font-size:1.05rem" target="_blank" rel="noopener">
+        <i class="bi bi-github"></i>GitHub repó
       </a>
     </div>
   </div>
@@ -688,9 +690,17 @@
 
 <!-- Footer -->
 <footer>
-  <span>Vision</span> — Tulajdonosi AI Platform &nbsp;·&nbsp;
+  <span>Tiro</span> — AI cégtitkár &nbsp;·&nbsp;
   <a href="/">Főoldal</a> &nbsp;·&nbsp;
-  <a href="/ui/">Dashboard</a>
+  <a href="/ui/">Dashboard</a> &nbsp;·&nbsp;
+  <a href="https://github.com/graphtrek/tiro" target="_blank" rel="noopener">GitHub</a>
+  <div style="margin-top:0.85rem;display:flex;align-items:center;justify-content:center;gap:0.4rem">
+    <span style="color:var(--subtle)">Készítette</span>
+    <a href="https://graphtrek.co/" target="_blank" rel="noopener"
+       style="display:inline-flex;align-items:center;gap:0.4rem;font-weight:800;color:var(--text)">
+      <img src="/static/images/graphtrek-logo.png" alt="Graphtrek" style="width:18px;height:18px;border-radius:0.3rem">Graphtrek
+    </a>
+  </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
