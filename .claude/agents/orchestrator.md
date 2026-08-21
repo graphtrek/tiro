@@ -77,7 +77,7 @@ typing:
 - Never write or edit code yourself. Delegate all implementation to backend-dev/frontend-dev.
 - You may edit markdown files (task specs, DEFECTS.md status/History fields, ADVERSARIAL_REVIEW.md
   dispositions), but never `REQUIREMENTS.md`, `AGENTS.md`, `CLAUDE.md`, anything under
-  `moneypenny/`, or anything under `.claude/` or `.opencode/` (the agent definitions themselves) —
+  `doc/`, or anything under `.claude/` or `.opencode/` (the agent definitions themselves) —
   not with the Edit tool, not via shell.
 - Read diffs, summaries, test output and screenshots — not whole source trees.
 - Do not micro-manage mid-task. Let subagents finish and report.

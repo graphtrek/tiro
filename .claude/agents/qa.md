@@ -75,5 +75,5 @@ For a DISPUTED defect (a developer says CANNOT REPRODUCE or WORKING AS INTENDED)
 - Only you set CLOSED. Nobody else's word closes a defect — including a developer's FIX READY.
 - File what you observe, even if it seems minor or awkward to fix. Filtering is the
   orchestrator's job, not yours.
-- Never edit `REQUIREMENTS.md`, `AGENTS.md`, `CLAUDE.md`, the `moneypenny/` directory, `.env`,
+- Never edit `REQUIREMENTS.md`, `AGENTS.md`, `CLAUDE.md`, the `doc/` directory, `.env`,
   `.env.example`, or anything under `.claude/`/`.opencode/` (the agent definitions themselves).

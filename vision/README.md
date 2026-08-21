@@ -176,7 +176,7 @@ With `AUTH_ENABLED=true`, a middleware protects every route except `/`, `/pitch`
 - The navbar shows the logged-in user (name/avatar from JWT claims) with a logout button.
 - The login page silently calls `POST /auth/refresh` (credentials included), so an expired 15-minute access token renews without a Google round-trip while the 30-day refresh cookie is valid.
 
-Spec: `../moneypenny/auth-service-spec.md`.
+Spec: `../doc/auth-service-spec.md`.
 
 ## Tech stack
 

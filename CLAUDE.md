@@ -12,7 +12,7 @@ This is a multi-project `uv`-based Python workspace. **Each sub-project has its 
 
 | Directory | Purpose |
 |---|---|
-| `moneypenny/` | Obsidian design wiki (Hungarian): specs + prompts for the Moneypenny pipeline |
+| `doc/` | Obsidian design wiki (Hungarian): specs + prompts for the Moneypenny pipeline |
 | `nav-invoice/` | NAV Online Számla 3.0 REST/XML client (FastAPI + CLI), port 8002 |
 | `attachment-downloader/` | Gmail PDF attachment downloader (FastAPI + CLI), port 8000 |
 | `invoice-file-filter/` | PDF text extraction + invoice filtering (FastAPI + CLI), port 8001 |
@@ -29,7 +29,7 @@ Root files: `python-for-ai.code-workspace` (VS Code workspace + launch configs),
 - Run a command in the project's env: `cd <project> && uv run <cmd>`, or `source <project>/.venv/bin/activate` first.
 - Each service exposes both a **FastAPI** app under `api/` and a **CLI** (Click/Typer) under `cli/`, backed by a typed core package. Config via `pydantic-settings` reading the shared root `.env`. Tests under `tests/` (`uv run pytest`).
 
-## moneypenny — design wiki (not code)
+## doc — design wiki (not code)
 
 An Obsidian vault, written in Hungarian, that specs the **"Moneypenny"** invoice-automation system. Files: `*-spec.md` (specifications), `*-prompt.md` (code-generation prompts), `INDEX.md` (navigation hub, uses `[[wikilinks]]`).
 
@@ -214,7 +214,7 @@ uv run pytest tests/ -v
 
 ## auth — central authentication microservice
 
-Google OAuth 2.0 / OpenID Connect login (authorization code + PKCE + state). Login is open to any verified Google account unless blocked (`BLOCKED_EMAILS`/`BLOCKED_DOMAINS`); `resolve_access()` maps the email to a `(role, anonymized)` pair — `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` → `read_write`; `READONLY_EMAILS`/`READONLY_DOMAINS` → `read_only`, real data; any other verified account → `read_only`, `anonymized: true`. Both `role` and `anonymized` are embedded as JWT claims. Issues its own **RS256 JWT** pair (access 15 min, refresh 1 day). The RS256 keypair is regenerated in-memory on every `auth` process startup (not the persisted `auth keygen` files), so a restart rotates the JWKS `kid` and invalidates every previously issued token workspace-wide — every user must log in again after a restart. Only this service talks to Google — every other service validates JWTs **locally** against `/.well-known/jwks.json` (PyJWKClient cache, no per-request network call). Leaf service, no DB of its own (refresh-token revocation is a file-based jti denylist) — on every successful login it best-effort POSTs the user's profile + provider to `invoice-core`'s `/api/v1/users` (using the freshly-issued access token), which is the only service in the workspace holding a database. Spec: `moneypenny/auth-service-spec.md`. `requires-python >=3.11`.
+Google OAuth 2.0 / OpenID Connect login (authorization code + PKCE + state). Login is open to any verified Google account unless blocked (`BLOCKED_EMAILS`/`BLOCKED_DOMAINS`); `resolve_access()` maps the email to a `(role, anonymized)` pair — `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` → `read_write`; `READONLY_EMAILS`/`READONLY_DOMAINS` → `read_only`, real data; any other verified account → `read_only`, `anonymized: true`. Both `role` and `anonymized` are embedded as JWT claims. Issues its own **RS256 JWT** pair (access 15 min, refresh 1 day). The RS256 keypair is regenerated in-memory on every `auth` process startup (not the persisted `auth keygen` files), so a restart rotates the JWKS `kid` and invalidates every previously issued token workspace-wide — every user must log in again after a restart. Only this service talks to Google — every other service validates JWTs **locally** against `/.well-known/jwks.json` (PyJWKClient cache, no per-request network call). Leaf service, no DB of its own (refresh-token revocation is a file-based jti denylist) — on every successful login it best-effort POSTs the user's profile + provider to `invoice-core`'s `/api/v1/users` (using the freshly-issued access token), which is the only service in the workspace holding a database. Spec: `doc/auth-service-spec.md`. `requires-python >=3.11`.
 
 ### Running
 

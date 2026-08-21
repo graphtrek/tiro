@@ -5,7 +5,7 @@ Wired via the `anonymized: bool` JWT claim issued by the `auth` service
 *not* sufficient — the trusted `READONLY_EMAILS`/`READONLY_DOMAINS` tier is
 also `read_only` but must keep seeing real data; only sessions whose token
 carries `anonymized: true` get masked data. See
-`moneypenny/`-adjacent design doc discussed with the user for the full
+`doc/`-adjacent design doc discussed with the user for the full
 rationale (any verified Google login is now allowed in, but the unknown/open
 tier must not see real partner names or real financial figures).
 

@@ -251,7 +251,7 @@ belépés után. A token `Authorization: Bearer <token>` fejlécben vagy
 továbbadja); az ellenőrzés lokális a JWKS publikus kulcsokkal. Token nélkül a
 válasz `401 Unauthorized`.
 
-Implementáció: `src/uploader/auth.py` · specifikáció: `../moneypenny/auth-service-spec.md`.
+Implementáció: `src/uploader/auth.py` · specifikáció: `../doc/auth-service-spec.md`.
 
 ## Vision UI
 

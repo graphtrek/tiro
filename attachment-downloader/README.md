@@ -164,7 +164,7 @@ Logs are written to stdout and `logs/attachment-downloader.log`.
 
 ## Authentication (JWT)
 
-With `AUTH_ENABLED=true`, every endpoint except `GET /health` requires a valid JWT issued by the central **auth** service (:8007) after a Google login (this is separate from the Gmail OAuth credentials above, which are for reading the mailbox). The token arrives as an `Authorization: Bearer <token>` header or an `mp_access_token` HttpOnly cookie (invoice-file-filter forwards it automatically); validation is local against the JWKS public keys. Without a token the response is `401 Unauthorized`. Implementation: `src/attachment_downloader/auth.py` · spec: `../moneypenny/auth-service-spec.md`.
+With `AUTH_ENABLED=true`, every endpoint except `GET /health` requires a valid JWT issued by the central **auth** service (:8007) after a Google login (this is separate from the Gmail OAuth credentials above, which are for reading the mailbox). The token arrives as an `Authorization: Bearer <token>` header or an `mp_access_token` HttpOnly cookie (invoice-file-filter forwards it automatically); validation is local against the JWKS public keys. Without a token the response is `401 Unauthorized`. Implementation: `src/attachment_downloader/auth.py` · spec: `../doc/auth-service-spec.md`.
 
 ## Architecture
 

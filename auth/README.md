@@ -11,7 +11,7 @@ felhasználó profilját és a login providert az `invoice-core` (:8004)
 invoice-core nem érhető el, a hiba csak logolva van, a bejelentkezés nem hiúsul
 meg. Bázis URL: `INVOICE_CORE_URL` (`.env`).
 
-Specifikáció: `../moneypenny/auth-service-spec.md`
+Specifikáció: `../doc/auth-service-spec.md`
 
 > **Jelenlegi állapot**: minden védett szerviz `.env`-jében `AUTH_ENABLED=false`
 > — a védelem bekapcsolásához előbb a Google OAuth-ot kell beállítani (lásd

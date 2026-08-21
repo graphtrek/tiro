@@ -1,7 +1,7 @@
 """JWT validálás a központi auth szerviz (:8007) JWKS kulcsaival.
 
 Projektenként bemásolt modul (nincs közös package a workspace-ben) — a mintát
-a moneypenny/auth-service-spec.md írja le. A tokent kérésenként lokálisan
+a doc/auth-service-spec.md írja le. A tokent kérésenként lokálisan
 validáljuk: a JWKS publikus kulcsokat a PyJWKClient tölti le és cache-eli
 (1 óra TTL, ismeretlen `kid` esetén újratöltés), így nincs kérésenkénti
 hálózati hívás az auth szerviz felé.

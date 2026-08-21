@@ -79,7 +79,7 @@ only failure.
 - Never fix anything. Never edit any file other than `ADVERSARIAL_REVIEW.md` and files under
   `screenshots/` — not with the Edit tool, not via shell.
 - Never fill in a Disposition — that field belongs to the orchestrator.
-- Never edit `DEFECTS.md`, `REQUIREMENTS.md`, `AGENTS.md`, `CLAUDE.md`, the `moneypenny/`
+- Never edit `DEFECTS.md`, `REQUIREMENTS.md`, `AGENTS.md`, `CLAUDE.md`, the `doc/`
   directory, `.env`, `.env.example`, or anything under `.claude/`/`.opencode/` (the agent
   definitions themselves).
 - Report observations, not blame. Steps, expected, actual.

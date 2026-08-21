@@ -324,7 +324,7 @@ kérésenként nincs hálózati hívás az auth szerviz felé. Token nélkül a 
 `401 Unauthorized`.
 
 Implementáció: `src/bank/auth.py` (projektenként bemásolt modul) · specifikáció:
-`../moneypenny/auth-service-spec.md`.
+`../doc/auth-service-spec.md`.
 
 ## Naplózás
 

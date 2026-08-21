@@ -91,7 +91,7 @@ Key variables for `attachment-downloader`: place OAuth2 `credentials.json` in th
 
 The `auth` service (:8007) handles Google OAuth 2.0 / OpenID Connect login and issues RS256 JWTs (15-min access + 30-day refresh, HttpOnly cookies). Every other service validates tokens locally against its JWKS; vision redirects browsers to `/login`, the backends return `401`.
 
-**Currently disabled**: every service's `.env` has `AUTH_ENABLED=false`. To enable, configure `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `auth/.env`, run `uv run auth keygen` once, then flip `AUTH_ENABLED=true` per service. Details: `auth/README.md` and `moneypenny/auth-service-spec.md`.
+**Currently disabled**: every service's `.env` has `AUTH_ENABLED=false`. To enable, configure `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `auth/.env`, run `uv run auth keygen` once, then flip `AUTH_ENABLED=true` per service. Details: `auth/README.md` and `doc/auth-service-spec.md`.
 
 ## Development
 

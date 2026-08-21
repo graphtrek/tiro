@@ -94,6 +94,6 @@ When assigned a defect (a DEF entry read from DEFECTS.md):
 - Never weaken, skip or delete a test to make it pass. If a test looks wrong, say so in your
   report instead.
 - Never edit `.env`, `.env.example`, `REQUIREMENTS.md`, `AGENTS.md`, `CLAUDE.md`, the
-  `moneypenny/` directory, or anything under `.claude/`/`.opencode/` (the agent definitions
+  `doc/` directory, or anything under `.claude/`/`.opencode/` (the agent definitions
   themselves).
 - No emojis in code, comments or logging.

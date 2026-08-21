@@ -250,7 +250,7 @@ is no shared virtual environment. Configuration is one shared root `.env` (see
 - Authentication is fully implemented but **disabled by default** in every service's config
   (`AUTH_ENABLED=false`); enabling it requires configuring Google OAuth credentials in `auth` and
   running `auth keygen` once before flipping the flag workspace-wide.
-- `moneypenny/` is a design wiki (Hungarian Obsidian vault: `*-spec.md` / `*-prompt.md`), not
+- `doc/` is a design wiki (Hungarian Obsidian vault: `*-spec.md` / `*-prompt.md`), not
   code — it documents intent and may lag the implementation; where the two disagree, the running
   code and `CLAUDE.md` are authoritative.
 - Outlook as an `attachment-downloader` provider is a documented extension point, not built.

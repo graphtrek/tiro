@@ -60,7 +60,7 @@ válasz `401 Unauthorized`.
 
 > Implementáció: `src/nav_invoice/jwt_auth.py` — itt szándékosan **nem**
 > `auth.py` a neve, mert az a NAV `tokenExchange` (belépés) modulja.
-> Specifikáció: `../moneypenny/auth-service-spec.md`.
+> Specifikáció: `../doc/auth-service-spec.md`.
 
 ## Használat
 
