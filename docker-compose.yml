@@ -20,8 +20,8 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     environment:
-      PGADMIN_DEFAULT_EMAIL: imre.tatai@graphtrek.co
-      PGADMIN_DEFAULT_PASSWORD: graphtrek
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
       # Must be True for Google OAuth2 login below to take effect — desktop
       # mode (False) auto-authenticates the browser and skips login entirely.
       PGADMIN_CONFIG_SERVER_MODE: "True"

@@ -2,6 +2,7 @@
 """Enable Banking client — AIS flow: auth → session → transactions."""
 
 import json
+import os
 import time
 import webbrowser
 from pathlib import Path
@@ -12,7 +13,7 @@ import requests
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 BASE_URL = "https://api.enablebanking.com"
-APP_ID = "***REMOVED-SECRET***"
+APP_ID = os.environ["ENABLEBANKING_APP_ID"]
 REDIRECT_URL = "https://localhost:8004/"
 KEY_PATH = Path(__file__).parent / "enablebanking.pem"
 
