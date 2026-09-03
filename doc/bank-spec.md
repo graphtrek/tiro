@@ -2,7 +2,7 @@
 title: "Specifikáció: Bank Konszolidált Kivonat Mikroszerviz"
 description: "Erste és Wise CSV bankkivonatok egységes feldolgozása és strukturált JSON visszaadása az invoice-core számára"
 language: "HU"
-last_updated: "2026-08-09"
+last_updated: "2026-09-03"
 related: [INDEX.md, wise-spec.md, invoice-core-spec.md, bank-prompt.md]
 ---
 
@@ -267,6 +267,7 @@ szinten van bekötve: **a `GET /health` kivételével minden végpont érvényes
 - Hiányzó / érvénytelen token → `401 Unauthorized`
 - JWKS lekérési hiba (auth szerviz nem fut / TLS hiba) → `503` — a certifi-alapú SSLContext biztosítja a TLS trust store-ot
 - `AUTH_ENABLED=false` esetén a JWT ellenőrzés kikapcsol (tesztekhez)
+- **`read_only` szerep (c6c9bd3)**: ha a JWT `role` claim-je `read_only`, a `require_auth` a nem-GET/HEAD/OPTIONS metódusú kéréseket `403`-mal elutasítja (`"Csak olvasási jogosultság — írási művelet nem engedélyezett"`) — a bank szerviz jelenleg csak GET végpontokat expose-ol, így ez a korlátozás a gyakorlatban nem érint egyetlen meglévő végpontot sem
 
 ---
 

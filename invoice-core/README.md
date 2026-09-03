@@ -46,10 +46,12 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `POST` | `/api/v1/sync/match` | Match existing bank transactions to invoice files (no fetching) |
 | `GET`  | `/api/v1/sync/logs` | Recent sync log entries (query: `limit`) |
 | `GET`  | `/api/v1/sync/pending` | Durable count of invoices/bank transactions still missing a supplier or customer match: `{"unmatched_invoices": n, "unmatched_transactions": n}` |
+| `GET`  | `/api/v1/audit-log` | Admin audit trail of user mutations (filter: `user_email`, `page`, `date_from`, `date_to`; `limit` default 200, max 1000) — feeds the vision `/ui/admin/audit` page |
 | `GET`  | `/api/v1/invoices/count` | Total invoice count `{"count": n}` |
 | `GET`  | `/api/v1/invoices` | Invoice list (filter: `date_from`, `date_to`, `status`, `direction`, `has_pdf`, `supplier_name`) |
 | `GET`  | `/api/v1/invoices/{invoice_id:int}` | Invoice detail by integer PK — includes linked bank transactions plus the full NAV enrichment: `detail` (partner snapshot + category/delivery date/currency/exchange rate/amounts, excludes `raw_xml`), `lines`, `vat_summary` |
 | `GET`  | `/api/v1/invoices/{invoice_number}` | Invoice by invoice number string |
+| `PATCH`| `/api/v1/invoices/{invoice_id:int}` | Partial update — `note`, `payment_status_locked`, `payment_status` (all optional, only sent fields are applied); `404` if not found, `422` on an invalid status |
 | `PUT`  | `/api/v1/invoices/{invoice_id}/supplier` | Link an invoice to an existing supplier — sets `supplier_locked=True`; body: `{"supplier_id": int}`; `404` if invoice or supplier not found |
 | `DELETE` | `/api/v1/invoices/{invoice_id}/supplier` | Unlink an invoice's supplier (`supplier_id` → `NULL`) — **also** sets `supplier_locked=True`, so auto-sync never re-fills it |
 | `PUT`  | `/api/v1/invoices/{invoice_id}/customer` | Link an invoice to an existing customer — sets `customer_locked=True`; body: `{"customer_id": int}`; `404` if invoice or customer not found |
@@ -60,6 +62,7 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `DELETE` | `/api/v1/transactions/{txn_id}/customer` | Unlink a bank transaction's customer (`customer_id` → `NULL`) — **also** sets `customer_locked=True` |
 | `GET`  | `/api/v1/invoice-files` | Invoice file list (filter: `linked` = `yes`/`no`; `filename` = substring search) |
 | `GET`  | `/api/v1/invoice-files/{file_id:int}/pdf` | Serve PDF file inline |
+| `PATCH`| `/api/v1/invoice-files/{file_id:int}` | Soft-delete a PDF file (`is_deleted=true` — row and file stay on disk, just disappear from lists); `404` if not found, `409` if already deleted |
 | `GET`  | `/api/v1/partners/suppliers` | Supplier list |
 | `GET`  | `/api/v1/partners/suppliers/summary` | Aggregate supplier stats |
 | `GET`  | `/api/v1/partners/suppliers/{supplier_id:int}` | Supplier detail with invoices and transactions |
@@ -74,8 +77,11 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/transactions` | Bank transaction list (filter: `date_from`, `date_to`, `linked`, `partner_name`, `amount_min`, `amount_max`); each row includes `invoice_ids: list[int]` and `invoice_numbers: list[str]` |
 | `GET`  | `/api/v1/transactions/balances` | Latest balance per bank |
 | `GET`  | `/api/v1/transactions/{transaction_id:int}` | Transaction detail; includes `invoice_ids: list[int]` and `invoice_numbers: list[str]` (may contain multiple entries for split-payment transactions) |
-| `GET`  | `/api/v1/reports/dividend` | Annual dividend/tax calculation (query: `year`, `kiva_rate`) |
+| `GET`  | `/api/v1/reports/dividend` | Annual dividend/tax calculation (query: `year`, `kiva_rate` — stands in for the TAO rate, since a company pays either TAO or KIVA, never both; `hipa_rate`) |
 | `GET`  | `/api/v1/reports/tax` | Tax payment report by month and type (query: `year`) |
+| `GET`  | `/api/v1/reports/tax-estimate` | Monthly tax estimate (query: `year`, `tao_rate`, `hipa_rate`, `szja_rate`, `szocho_rate`) — projects the current year's remaining months from the average of actual months (`is_projected=true` rows) |
+| `GET`  | `/api/v1/reports/tax-estimate/overrides` | Saved per-month manual overrides for the tax estimate (query: `year`) |
+| `PUT`  | `/api/v1/reports/tax-estimate/overrides` | Save manual overrides for the tax estimate |
 | `GET`  | `/api/v1/reports/timesheet` | Timesheet report over `timesheet_entry` (query: `report_type` — `project` \| `person` \| `customer` \| `activity_type`, required; `date_from`, `date_to`, `customer_id`, `project_id`, `user_id`, `activity_type_id`, all optional); `project_id` is required when `report_type=project`; `400` if missing or `report_type` unknown |
 | `PUT`  | `/api/v1/invoices/{invoice_id}/invoice-file` | Manually link an invoice to a PDF file — sets `invoice_file_locked=True`; body: `{"invoice_file_id": int}` |
 | `DELETE` | `/api/v1/invoices/{invoice_id}/invoice-file` | Remove manual PDF link from an invoice — clears `invoice_file_locked` so auto-sync may re-link |
@@ -83,8 +89,14 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `DELETE` | `/api/v1/transactions/{txn_id}/invoice-file` | Remove manual PDF link from a bank transaction — clears `invoice_file_locked` |
 | `PUT`  | `/api/v1/invoices/{invoice_id}/transactions/{txn_id}` | Add a bank transaction to an invoice's payment set (M2M, `manual=True`) |
 | `DELETE` | `/api/v1/invoices/{invoice_id}/transactions/{txn_id}` | Remove a bank transaction from an invoice's payment set |
-| `POST` | `/api/v1/users` | Upsert a login record by `(provider, sub)` — called by the `auth` service on every successful login |
+| `POST` | `/api/v1/users` | Upsert a login record by `(provider, sub)` — called by the `auth` service on every successful login; **exempt** from the `read_only` write block (see "Authentication (JWT)" below) so read-only users still get a `user` row on login |
 | `GET`  | `/api/v1/users` | List saved users, most recent login first |
+| `POST` | `/api/v1/vacation-requests` | Create a vacation/availability entry (`user_id`, `kind` — `vacation`/`out_of_office`/`note`, `start_date`, `end_date`, `note`); `409` if `end_date < start_date` or `user_id` unknown |
+| `GET`  | `/api/v1/vacation-requests` | List entries (optional `user_id` filter — omitted returns everyone's, for the team-calendar view) |
+| `PUT`  | `/api/v1/vacation-requests/{id}` | Update an entry (required `user_id` query — another user's entry 404s); `409` on an invalid date range |
+| `DELETE` | `/api/v1/vacation-requests/{id}` | Delete an entry (required `user_id` query); `404` if not found/not owned |
+| `GET`  | `/api/v1/fizetes-kalkulator` | Fizetés Calculator's saved input state (`net_wage`, `revenue`, `revenue_touched`) — returns the page's defaults if nothing is saved yet |
+| `PUT`  | `/api/v1/fizetes-kalkulator` | Save the state (upsert — single shared row, not per-user) |
 | `POST` | `/api/v1/activity-types` | Create an activity type; `409` if `name` is already taken (case-insensitive) |
 | `GET`  | `/api/v1/activity-types` | List activity types, ordered by name |
 | `PUT`  | `/api/v1/activity-types/{activity_type_id}` | Update `name` + `is_active`; `404` if not found, `409` on name conflict |
@@ -242,6 +254,11 @@ With `AUTH_ENABLED=true`, every endpoint except `GET /health` requires a valid J
 
 The incoming Bearer token is passed through to downstream calls (nav-invoice, invoice-file-filter, bank) via `TokenPassthrough` in `src/invoice_core/auth.py`.
 
+**Role and anonymization tiers.** Two separate things are decided from the JWT claims:
+
+- **`role == "read_only"` — write block**: every non-`GET`/`HEAD`/`OPTIONS` request gets `403`, except `("POST", "/api/v1/users")` — the login-record upsert the `auth` service itself makes, so read-only users still land in the `user` table on login.
+- **`anonymized: true` (checked via the `should_anonymize(request)` helper) — data masking**: this is *not* the same thing as `role == "read_only"` — the `READONLY_EMAILS`/`READONLY_DOMAINS` tier (see `../doc/auth-service-spec.md`) is also `read_only` but sees real data; only the `anonymized` claim being `True` triggers masking. When it does, the response goes through `anonymize()` before returning: supplier/customer/counterparty names and identifiers become deterministic fake values, every amount is scaled by a deterministic per-entity factor, and free-text fields (e.g. `vacation_request.note`, timesheet `description`) become generic placeholder text. Coverage spans dashboard, invoices, invoice files, partners (list/detail/summary), transactions (list/balances/detail), reports (dividend, tax, tax-estimate + overrides, timesheet), projects, timesheet entries, and the Fizetés Calculator state. `sync/pending`, `audit-log`, `users`, and `activity-types` GET endpoints are **not** anonymized (no partner names or amounts in them).
+
 The `invoice-core sync`/`sync-nav`/`sync-pdf`/`sync-bank`/`sync-match` **CLI** commands carry no user token by default (there is no incoming HTTP request to forward one from) — pass one explicitly with `--token <jwt>`, or export it once as `MP_SERVICE_TOKEN` (`--token` wins if both are given). Either sets the same `current_token` context variable the API's `TokenPassthrough` hook reads, so the CLI reuses the existing auth mechanism rather than a second one. Get a token the same way vision does (`POST /auth/{provider}/login` → `/auth/{provider}/callback`, or `POST /auth/refresh` with a saved refresh token) — invoice-core itself never talks to Google or holds JWT signing keys. Without a token, each stage that calls a downstream service still degrades cleanly (a clear per-stage error plus a `sync_log` row), and the error text now says to supply `--token`/`MP_SERVICE_TOKEN`. Spec: `../doc/auth-service-spec.md`.
 
 ## Database
@@ -263,10 +280,13 @@ PostgreSQL in production, SQLite in-memory for tests.
 | `bank_transaction` | Bank transactions (Erste + Wise CSV via bank service); linked to supplier, customer, and invoice_file; connected to invoices via the junction table; `invoice_file_locked` (bool) — when `True`, auto-sync skips re-assigning `invoice_file_id`; `supplier_locked`/`customer_locked` (bool) — same as on `invoice`, guards the derive-from-invoice / counterparty-name / bank-fee auto-linking in `sync_bank` and `sync_match` |
 | `sync_log` | One row per sync run: mode, counts, errors, start/finish timestamps |
 | `user` | Login records pushed (best-effort) by the `auth` service on every login: `provider`, `sub`, `email`, `name`, `picture`, `last_login_at`; unique on `(provider, sub)` — this is the only table not populated by the sync pipeline |
+| `vacation_request` | Vacation/availability planner: `user_id` (FK → user), `kind` (`vacation` / `out_of_office` / `note`), `start_date`, `end_date`, `note`. Any logged-in user can list everyone's entries (team calendar) but only edit/delete their own. Managed via the vision `/ui/controlling/vacation` page; `note` is one of the free-text fields masked under the anonymized tier |
+| `fizetes_kalkulator_state` | Single shared row (no `user_id` — internal company tool, not per-user) persisting the Fizetés Calculator's input fields (`net_wage`, `revenue`, `revenue_touched`) across browsers/devices, replacing the old localStorage-only state. The actual wage-vs-dividend optimization math runs client-side in vision |
+| `audit_log` | One row per successful (2xx) user-initiated mutation: `user_email`, `impersonator_email` (set during support impersonation), `method`, `path`, `page` (Hungarian menu label), `record` (human-readable id), `label` (the UI action name, from the `X-Audit-Label` header), `action` (create/update/delete), `changes` (JSON field-level diff on updates), `status_code`. Written by the `record_audit_log` middleware; GETs, `/api/v1/sync*` (covered by `sync_log` instead), and `/api/v1/users` are never audited. Feeds `GET /api/v1/audit-log` / vision's `/ui/admin/audit` page |
 | `activity_type` | Admin master data for the Timesheet feature: `name` (unique), `is_active` (soft-deactivate). Managed via the vision `/ui/admin/activity-types` page; not touched by the sync pipeline. Delete is still unconditional (the vision page's usage-count check is hardcoded to `0` — not yet wired to `timesheet_entry`) |
-| `project` | Controlling master data: `customer_id` (FK → customer), `sequence_no` (per-customer, auto-incrementing), `short_name`, `code` (unique, server-composed `{customer} - {seq:03d} - {short_name}`), `owner_id` (FK → user), `is_active`. Managed via the vision `/ui/controlling/projects` page; not touched by the sync pipeline |
+| `project` | Controlling master data: `customer_id` (FK → customer), `sequence_no` (per-customer, auto-incrementing), `short_name`, `code` (unique, server-composed `{customer} - {seq:03d} - {short_name}`), `owner_id` (FK → user), `status` (`OPEN`/`CLOSED`/`ONHOLD`, replacing the old `is_active` bool — only `OPEN` projects accept new time entries), `start_date` (timesheet entries can't predate it), `project_type` (`OTLET`/`SZAMLAZHATO`/`PRESALES`). Managed via the vision `/ui/controlling/projects` page; not touched by the sync pipeline |
 | `project_permitted_user` | Junction table — many-to-many link between `project` and `user`: which users may log time against a project (enforced by `timesheet_service` on create/update) |
-| `timesheet_entry` | Controlling data: `user_id` (FK → user, who logged it), `project_id` (FK → project), `activity_type_id` (FK → activity_type), `entry_date`, `hours` (float, must be a positive multiple of 0.5), `participants` (free text — may include people outside the `user` table), `description`. `project_week` is not stored — computed as `floor((entry_date - project.created_at.date()).days / 7) + 1`. Written via the vision `/ui/controlling/timesheet` page (own-records only); read cross-user (no ownership scoping, no role check) by the vision `/ui/controlling/reports` page via `report_service`; not touched by the sync pipeline |
+| `timesheet_entry` | Controlling data: `user_id` (FK → user, who logged it), `project_id` (FK → project), `activity_type_id` (FK → activity_type), `entry_date`, `hours` (float, must be a positive multiple of 0.5), `participants` (free text — may include people outside the `user` table), `description`. `project_week` is not stored — computed on calendar weeks (Monday–Sunday), anchored on the project's first logged entry (`project.first_entry_date`, falling back to `project.created_at` if none yet): `(entry_monday - anchor_monday).days // 7 + 1`. Written via the vision `/ui/controlling/timesheet` page (own-records only); read cross-user (no ownership scoping, no role check) by the vision `/ui/controlling/reports` page via `report_service`; not touched by the sync pipeline |
 
 ### Alembic migrations
 
@@ -292,6 +312,15 @@ uv run alembic revision --autogenerate -m "describe change"
 | `p5q6r7s8t9u0` | `invoice_detail` / `invoice_line` / `invoice_vat_summary` tables — full NAV `queryInvoiceData` enrichment (category, delivery date, currency/exchange rate, amounts, line items, VAT breakdown) |
 | `q6r7s8t9u0v1` | `invoice_detail` partner snapshot columns (`supplier_name`/`supplier_tax_number`/`supplier_address`/`supplier_bank_account`, `customer_*`) — sourced from the NAV digest independent of local supplier/customer matching |
 | `r7s8t9u0v1w2` | `supplier_locked` / `customer_locked` (bool, default `False`) on `invoice` and `bank_transaction` — a manual supplier/customer link *or unlink* now survives future sync runs, matching the existing `invoice_file_locked` protection |
+| `s8t9u0v1w2x3` | `sync_log.warnings` — per-run partner-matching warnings (unmatched NAV digest / counterparty) |
+| `t9u0v1w2x3y4` | `audit_log` table — admin audit trail of user mutations |
+| `u0v1w2x3y4z5` | `audit_log.label` — UI action name (from `X-Audit-Label` header) |
+| `v1w2x3y4z5a6` | `audit_log.record` / `impersonator_email` — human-readable record id + support-impersonation tracking |
+| `w2x3y4z5a6b7` | `supplier.bank_accounts` / `customer.bank_accounts` — accumulated known bank accounts for partner matching |
+| `x3y4z5a6b7c8` | `supplier.known_names` / `customer.known_names` — accumulated confirmed counterparty names for partner matching |
+| `y4z5a6b7c8d9` | Tax estimate manual overrides (per month/type) |
+| `z5a6b7c8d9e0` | `fizetes_kalkulator_state` table — Fizetés Calculator persisted input state |
+| `b7c8d9e0f1a2` | `vacation_request` table — vacation/availability planner |
 
 ## Code structure
 
@@ -307,6 +336,9 @@ src/invoice_core/
 │   ├── dividend_service.py  ← Annual dividend/tax calculation (KIVA, SZJA, SZOCHO)
 │   ├── tax_service.py       ← Tax payment report: filters bank transactions by NAV/HIPA/Iparkamara account numbers
 │   ├── user_service.py      ← Upsert/list login records pushed by the auth service
+│   ├── vacation_service.py  ← CRUD for vacation/availability entries (own-record scoping on write, team-wide read)
+│   ├── fizetes_kalkulator_service.py ← Get/save the Fizetés Calculator's single shared input state
+│   ├── audit_service.py     ← Reads the audit_log table (filters: user_email, page, date range) for the admin Audit page
 │   ├── activity_type_service.py ← Admin CRUD for Timesheet activity types (create/list/update/delete)
 │   ├── project_service.py   ← Controlling CRUD for projects (sequence numbering, code composition, permitted users)
 │   ├── timesheet_service.py ← Controlling CRUD for timesheet entries (own-records scoping, project-permission + hours-step validation)

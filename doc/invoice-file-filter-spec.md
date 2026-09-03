@@ -2,7 +2,7 @@
 title: "Specifikáció: PDF Számla Feldolgozó Mikroszerviz"
 description: "PDF számlákat kiválogató és fájl-metaadatokat szolgáltató mikroszerviz"
 language: "HU"
-last_updated: "2026-08-09"
+last_updated: "2026-09-03"
 related: [INDEX.md, nav-invoice-spec.md, attachment-downloader-spec.md]
 ---
 
@@ -82,6 +82,8 @@ A szolgáltatás **nem** nyer ki strukturált számla-mezőket (számlaszám, ö
 
 Minden API végpont JWT-vel védett (app szintű `require_auth` dependency), kivéve a `GET /health` publikus útvonalat. A token `Authorization: Bearer <token>` fejlécben vagy `mp_access_token` cookie-ban érkezhet; RS256 aláírást ellenőriz a központi auth szerviz (`AUTH_SERVICE_URL`, default `http://localhost:8007`) `.well-known/jwks.json` végpontjáról letöltött kulcsokkal (1 óra cache, ismeretlen `kid` esetén újratöltés). Audience: `tiro`, issuer: `auth-service`. A beérkező token továbbadódik az attachment-downloadernek (token passthrough). Teszthez kikapcsolható: `AUTH_ENABLED=false`.
 
+`role == "read_only"` esetén a GET/HEAD/OPTIONS-tól eltérő metódusok `403`-at kapnak ("Csak olvasási jogosultság — írási művelet nem engedélyezett") — ez a `POST /api/v1/invoices/extract` és a `POST`/`DELETE /api/v1/pdf/words/cache` végpontokat érinti.
+
 ## Környezeti változók
 
 | Változó | Default | Leírás |
@@ -96,6 +98,7 @@ Minden API végpont JWT-vel védett (app szintű `require_auth` dependency), kiv
 | `DOWNLOAD_TIMEOUT` | `120` | attachment-downloader hívás timeout (s) |
 | `EXTRACT_WORKERS` | `4` | Párhuzamos PDF/OCR feldolgozás szálszáma |
 | `INVOICE_FILE_FILTER_API_PORT` / `API_PORT` | `8001` | FastAPI port |
+| `INVOICE_FILE_FILTER_LOG_LEVEL` / `LOG_LEVEL` | `INFO` | Naplózási szint — ez az egyetlen szerviz, ahol a `LOG_LEVEL` a közös defaulttól eltérően (DEBUG-ra) felülírható, OCR/kinyerés hibakereséshez |
 | `AUTH_ENABLED` | `true` | JWT validálás be/ki |
 | `AUTH_SERVICE_URL` | `http://localhost:8007` | Központi auth szerviz (JWKS) |
 

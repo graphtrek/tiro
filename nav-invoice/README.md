@@ -58,6 +58,10 @@ belépés után. A token `Authorization: Bearer <token>` fejlécben vagy
 továbbadja); az ellenőrzés lokális a JWKS publikus kulcsokkal. Token nélkül a
 válasz `401 Unauthorized`.
 
+**`read_only` szerep**: ha a JWT `role` claim-je `read_only`, a nem-GET/HEAD/OPTIONS
+kérések `403`-mal elutasítódnak — ez a `POST /report` és `POST /cache/clear`
+végpontokat érinti.
+
 > Implementáció: `src/nav_invoice/jwt_auth.py` — itt szándékosan **nem**
 > `auth.py` a neve, mert az a NAV `tokenExchange` (belépés) modulja.
 > Specifikáció: `../doc/auth-service-spec.md`.
@@ -229,11 +233,43 @@ curl "http://localhost:8002/invoices/SZAMLA-2026-001?direction=INBOUND"
 curl -s "http://localhost:8002/invoices/SZAMLA-2026-001" | jq -r .invoice_xml
 ```
 
-Sikeres válasz:
+Sikeres válasz — a dekódolt XML mellett a business XML-ből kinyert
+`InvoiceDetailData` mezőket is tartalmazza (amik a digestből nem érhetők el):
+
 ```json
 {
   "szamlaszam": "SZAMLA-2026-001",
-  "invoice_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>..."
+  "invoice_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>...",
+  "supplier_address": "1234 Budapest, Fő u. 1.",
+  "customer_address": "5678 Debrecen, Kossuth u. 2.",
+  "supplier_bank_account": "11600006-00000001-97860425",
+  "customer_bank_account": null,
+  "payment_method": "TRANSFER",
+  "payment_due_date": "2026-05-29",
+  "invoice_category": "NORMAL",
+  "delivery_date": "2026-05-15",
+  "currency_code": "HUF",
+  "exchange_rate": null,
+  "invoice_appearance": "ELECTRONIC",
+  "invoice_net_amount": 100000.0,
+  "invoice_vat_amount": 27000.0,
+  "invoice_gross_amount": 127000.0,
+  "lines": [
+    {
+      "line_number": 1,
+      "line_description": "Szoftverfejlesztési szolgáltatás",
+      "quantity": 1.0,
+      "unit_of_measure": "PIECE",
+      "unit_price": 100000.0,
+      "line_net_amount": 100000.0,
+      "line_vat_rate": 0.27,
+      "line_vat_amount": 27000.0,
+      "line_gross_amount": 127000.0
+    }
+  ],
+  "vat_summary": [
+    {"vat_rate": 0.27, "vat_rate_net_amount": 100000.0, "vat_rate_vat_amount": 27000.0}
+  ]
 }
 ```
 

@@ -5,7 +5,7 @@ type: "service-spec"
 status: "megvalósítva"
 port: 8007
 language: "HU"
-last_updated: "2026-08-09"
+last_updated: "2026-09-03"
 related: [INDEX.md, auth-service-prompt.md, vision-spec.md, invoice-core-spec.md, bank-spec.md]
 tags: [auth, google, oauth2, openid-connect, jwt, jwks, fastapi, security]
 ---
@@ -94,14 +94,45 @@ Kulcspontok:
 
 | Token | Élettartam | Tartalom |
 |---|---|---|
-| Access token (JWT, RS256) | 15 perc | `sub` (Google user id), `email`, `name`, `picture`, `provider`, `typ: "access"`, `iat`, `exp`, `iss=auth-service`, `aud=tiro` — megszemélyesítésnél plusz `impersonator_sub` + `impersonator_email` (az admin sub-ja / e-mailje) |
-| Refresh token (JWT, RS256) | 30 nap | `sub`, `email`, `name`, `picture`, `provider`, `jti` (visszavonáshoz), `typ: "refresh"`, `iat`, `exp` |
+| Access token (JWT, RS256) | 15 perc | `sub` (Google user id), `email`, `name`, `picture`, `provider`, `role`, `anonymized`, `typ: "access"`, `iat`, `exp`, `iss=auth-service`, `aud=tiro` — megszemélyesítésnél plusz `impersonator_sub` + `impersonator_email` (az admin sub-ja / e-mailje) |
+| Refresh token (JWT, RS256) | 1 nap | `sub`, `email`, `name`, `picture`, `provider`, `role`, `anonymized`, `jti` (visszavonáshoz), `typ: "refresh"`, `iat`, `exp` |
 
 - Aláírás: **RS256** — a privát kulcs csak az auth szerviznél van, a publikus kulcsot a `/.well-known/jwks.json` adja ki (`kid`-del, kulcsrotáció támogatott).
+- **A kulcspár minden szerverindításkor újragenerálódik memóriában** (nem a perzisztált `auth keygen` fájlokat írja felül a lemezen — `JWTService(regenerate_keys=True)` induláskor mindig friss RSA kulcspárt generál a régi felülírásával) — ez minden újraindításkor **más `kid`-et** eredményez a JWKS-ben, így az összes korábban kiadott access/refresh token érvénytelenné válik: **minden felhasználónak újra be kell lépnie egy `auth` restart után**, workspace-szinten.
 - A védett szervizek a JWKS-t indításkor letöltik és cache-elik (TTL, pl. 1 óra); ismeretlen `kid` esetén újratöltés.
 - Refresh flow: `POST /auth/refresh` a refresh tokennel → új access token. **A refresh token nem rotálódik** — ugyanaz a token jön vissza a válaszban.
 - Logout: `POST /auth/logout` → cookie törlés + a refresh token `jti`-jének visszavonása. A visszavont `jti`-k **fájl alapú denylistbe** kerülnek (`keys/revoked_jti.txt`, `DENYLIST_PATH` env) — nincs DB.
 - A vision login oldala fetch-csel hívja a `POST /auth/refresh`-et (silent login) — ezért a szerviz CORS middleware-je engedélyezi a vision origin-t (`allow_credentials=True`).
+
+---
+
+## Jogosultsági szintek (role + anonymized)
+
+Sikeres OAuth belépéskor (`complete_login`) a `resolve_access(email)` az e-mail /
+domain alapján `(role, anonymized)` párt rendel a felhasználóhoz — ez kerül be
+mindkét token (`access`, `refresh`) `role` / `anonymized` claim-jébe:
+
+| Sorrend | Feltétel | `role` | `anonymized` |
+|---|---|---|---|
+| 1 | `BLOCKED_EMAILS` / `BLOCKED_DOMAINS` találat | — | belépés elutasítva (`NotAllowedError`) |
+| 2 | `ALLOWED_EMAILS` / `ALLOWED_DOMAINS` találat | `read_write` | `false` |
+| 3 | `READONLY_EMAILS` / `READONLY_DOMAINS` találat (megbízható külső fiók) | `read_only` | `false` (valós adat) |
+| 4 | bármely más érvényes (`email_verified`) Google fiók | `read_only` | `true` (anonimizált adat) |
+
+- A `role`/`anonymized` claim-eket a védett szervizek a JWT-ből olvassák
+  (`request.state.user["role"]`, `["anonymized"]`) — nincs kérésenkénti
+  visszakérdezés az auth szerviz felé.
+- A `read_only` szerepkör önmagában **nem** jelenti az anonimizálást — a
+  `READONLY_EMAILS`/`READONLY_DOMAINS` lista megbízható, valós adatot látó
+  külső fiókokat sorol fel; az anonimizálás kizárólag az `anonymized: true`
+  claim alapján dől el (lásd [[invoice-core-spec.md|Invoice-Core Spec]] →
+  `anonymize()`, a pénzügyi GET végpontek erre az `invoice-core`-ban futnak rá).
+- `POST /api/v1/users` (invoice-core, felhasználó upsert) **kivétel** a
+  `read_only` írási korlátozás alól — minden bejelentkezett felhasználó saját
+  login-rekordja mindig menthető.
+- A megszemélyesítés (`POST /auth/impersonate`) a célfelhasználó saját
+  `role`/`anonymized` értékét örökli — az admin nem szerez több jogot a
+  megszemélyesített identitásban, mint amennyi a célfelhasználónak van.
 
 ---
 
@@ -175,6 +206,8 @@ class UserInfo(BaseModel):
     name: str | None
     picture: str | None      # avatar URL
     provider: str            # "google"
+    role: str = "read_write" # "read_write" | "read_only" — resolve_access() tölti ki
+    anonymized: bool = False # True → invoice-core anonimizált választ ad
 
 class TokenPair(BaseModel):
     access_token: str
@@ -200,6 +233,8 @@ class JWTClaims(BaseModel):
     picture: str | None = None
     provider: str | None = None
     jti: str | None = None   # refresh tokennél, visszavonáshoz
+    role: str | None = None       # "read_write" | "read_only"
+    anonymized: bool | None = None  # True → invoice-core anonimizált választ ad
     impersonator_sub: str | None = None    # megszemélyesítésnél: az admin sub-ja
     impersonator_email: str | None = None  # megszemélyesítésnél: az admin e-mailje
 ```
@@ -336,13 +371,21 @@ OAUTH_REDIRECT_URL=http://localhost:8007/auth/google/callback
 JWT_PRIVATE_KEY_PATH=./keys/jwt_private.pem
 JWT_PUBLIC_KEY_PATH=./keys/jwt_public.pem
 ACCESS_TOKEN_TTL=900              # 15 perc
-REFRESH_TOKEN_TTL=2592000         # 30 nap
+REFRESH_TOKEN_TTL=86400           # 1 nap
 JWT_AUDIENCE=tiro
 JWT_ISSUER=auth-service
 
-# Jogosultság — belépés (whitelist)
+# Jogosultság — belépés (whitelist) → role=read_write, anonymized=false
 ALLOWED_EMAILS=imre.tatai@graphtrek.co
 ALLOWED_DOMAINS=graphtrek.co
+
+# Megbízható külső fiókok — role=read_only, anonymized=false (valós adat)
+READONLY_EMAILS=
+READONLY_DOMAINS=
+
+# Tiltólista — ezekkel az e-mail címekkel / domainekkel nem lehet belépni
+BLOCKED_EMAILS=
+BLOCKED_DOMAINS=
 
 # Admin — ezek az e-mailek indíthatnak megszemélyesítést (POST /auth/impersonate)
 ADMIN_EMAILS=imre.tatai@graphtrek.co

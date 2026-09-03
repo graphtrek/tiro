@@ -2,7 +2,7 @@
 title: "Tiro - Projekt Index"
 description: "Számlázási, banki és tulajdonosi AI mikorszervízek - wiki navigáció"
 language: "HU"
-last_updated: "2026-07-15"
+last_updated: "2026-09-03"
 ---
 
 # 📚 Tiro - Wiki Index
@@ -18,7 +18,7 @@ A **Tiro** egy nyolc Python mikroszervizből álló pénzügyi automatizálási 
 | 2   | `invoice-file-filter`   | 8001 | PDF metaadat kinyerés (OCR/Regex)                                          |
 | 1   | `attachment-downloader` | 8000 | Gmail PDF mellékletek letöltése                                            |
 | 4   | `bank`                  | 8005 | Erste + Wise CSV konszolidáció – egységes bankkivonat API                  |
-| 7   | `uploader`              | 8006 | CSV bankkivonat feltöltés a bank storage mappájába; UI a vision-ben        |
+| 7   | `uploader`              | 8006 | CSV + PDF bankkivonat feltöltés a bank/PDF storage mappákba; UI a vision-ben |
 | 6   | `vision`                | 8009 | Frontend – teljes webes UI + SrcProfit (IBKR) aggregáció                   |
 | 8   | `auth`                  | 8007 | Központi authentication – Google OAuth 2.0 / OIDC belépés, JWT kiállítás   |
 
@@ -119,12 +119,12 @@ MASTER ORCHESTRATOR
 ### 7️⃣ Uploader – Bankkivonat Feltöltő
 **[[uploader-spec.md|📄 Specifikáció]]** | **[[uploader-promp.md|💭 Prompt]]**
 
-- **Meghívva**: böngészőből, a vision `/ui/upload` oldalán keresztül
+- **Meghívva**: böngészőből, a vision `/ui/upload` (CSV) és `/ui/bank-statements` (PDF) oldalain keresztül
 - **Meghívja**: (senki — csak fájlrendszert kezel)
-- **Funkció**: Erste / Wise CSV bankkivonatok feltöltése, bankdetektálás fájlnévből, mentés a bank szerviz storage mappájába
+- **Funkció**: Erste / Wise CSV bankkivonatok feltöltése (bankdetektálás fájlnévből, mentés a bank szerviz storage mappájába) + Erste / Wise PDF bankkivonatok feltöltése/archiválása külön storage-ba (REST/UI-only, nincs CLI hozzá)
 - **Saját DB**: nincs — leaf szerviz, fájlrendszer I/O
-- **REST** (port 8006): `GET /health`, `GET /api/v1/files`, `POST /api/v1/upload`, `DELETE /api/v1/files/{bank}/{filename}`
-- **CLI**: `uploader status`, `uploader list`, `uploader upload <fájl>`, `uploader delete`
+- **REST** (port 8006): `GET /health`, `GET /api/v1/files`, `POST /api/v1/upload`, `DELETE /api/v1/files/{bank}/{filename}`, `GET /api/v1/pdf/files`, `POST /api/v1/pdf/upload`, `GET /api/v1/pdf/files/{bank}/{filename}/download`, `DELETE /api/v1/pdf/files/{bank}/{filename}`
+- **CLI**: `uploader status`, `uploader list`, `uploader upload <fájl>`, `uploader delete` (csak a CSV ágra — a PDF feltöltésnek nincs CLI-je)
 
 ---
 
@@ -133,7 +133,7 @@ MASTER ORCHESTRATOR
 
 - **Meghívva**: (senki — böngészőből nyitják)
 - **Meghívja**: [[invoice-core-spec.md|invoice-core]] REST API (olvas) + [SrcProfit](https://srcprofit2.graphtrek.co/) (IBKR, olvas)
-- **Funkció**: Teljes Tiro frontend — az összes `/ui/*` oldalt kiszolgálja, fogyasztja az invoice-core REST API-t; plusz saját tulajdonosi portfólió dashboard (Chart.js, IBKR)
+- **Funkció**: Teljes Tiro frontend — az összes `/ui/*` oldalt kiszolgálja (számlák, bank, controlling, timesheet, szabadság, fizetés kalkulátor, PDF bankkivonatok stb.), fogyasztja az invoice-core és uploader REST API-kat; plusz saját tulajdonosi portfólió dashboard (Chart.js, IBKR). `read_only` szerepkörnél admin oldalak elrejtve/tiltva, anonymized szintnél a PDF bankkivonat-fájlnevek is álcázva.
 - **Saját DB**: nincs — tiszta frontend, read-only aggregátor
 - **REST** (port 8009): `GET /health`, `GET /` (koncepcióoldal), `GET /login` (belépés), `GET /dashboard` (portfólió), `GET /ui/*` (összes Tiro UI oldal)
 - **CLI**: nincs
@@ -422,4 +422,4 @@ ENABLED_PROVIDERS=google
 
 ---
 
-**Utolsó frissítés**: 2026-07-15
+**Utolsó frissítés**: 2026-09-03

@@ -238,16 +238,19 @@ Written to stdout and `logs/invoice-file-filter.log`.
 | `INVOICE_KEYWORDS` | `["invoice","bill","szamla","számla","számviteli bizonylat"]` | JSON array of detection keywords (case-insensitive, diacritics-folded) |
 | `API_HOST` | `0.0.0.0` | FastAPI bind address |
 | `API_PORT` | `8001` | FastAPI port |
-| `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` |
 | `OCR_ENABLED` | `true` | Enable Tesseract OCR fallback for scanned PDFs |
 | `OCR_LANGUAGE` | `hun+eng` | Tesseract language(s) — `+`-separated Tesseract lang codes |
 | `OCR_MIN_CHARS` | `50` | pdfplumber char count below which OCR is attempted |
-| `AUTH_ENABLED` | `true` *(currently `false` in `.env`)* | JWT validation on/off |
+| `EXTRACT_WORKERS` | `4` | Thread count for parallel PDF/OCR processing |
+| `LOG_LEVEL` / `INVOICE_FILE_FILTER_LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` — this is the one service where `LOG_LEVEL` can be overridden independently of the shared default (e.g. to `DEBUG` for OCR/extraction troubleshooting) via the `INVOICE_FILE_FILTER_LOG_LEVEL` alias |
+| `AUTH_ENABLED` | `true` | JWT validation on/off |
 | `AUTH_SERVICE_URL` | `http://localhost:8007` | Central auth service base URL (JWKS) |
 
 ## Authentication (JWT)
 
 With `AUTH_ENABLED=true`, every endpoint except `GET /health` requires a valid JWT issued by the central **auth** service (:8007) after a Google login. The token arrives as an `Authorization: Bearer <token>` header or an `mp_access_token` HttpOnly cookie (invoice-core forwards it automatically); validation is local against the JWKS public keys. Without a token the response is `401 Unauthorized`. The incoming token is passed through to attachment-downloader (`TokenPassthrough` in `src/invoice_file_filter/auth.py`). Spec: `../doc/auth-service-spec.md`.
+
+Users with `role == "read_only"` get `403` on any non-GET/HEAD/OPTIONS request — this affects `POST /api/v1/invoices/extract` and the `POST`/`DELETE /api/v1/pdf/words/cache` endpoints.
 
 ## Pipeline
 

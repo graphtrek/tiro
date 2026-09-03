@@ -25,7 +25,7 @@ attachment-downloader (:8000)   invoice-file-filter (:8001)
 | `nav-invoice` | 8002 | NAV Online Számla 3.0 REST/XML client |
 | `invoice-core` | 8004 | Master orchestrator — PostgreSQL persistence, reconciliation, JSON REST API |
 | `bank` | 8005 | Consolidated bank statement service (Erste + Wise CSV) |
-| `uploader` | 8006 | Bank statement CSV upload into the bank service's storage |
+| `uploader` | 8006 | Bank statement CSV + PDF upload into the bank service's storage |
 | `auth` | 8007 | Central authentication — Google OAuth 2.0/OIDC login, RS256 JWT issuance + JWKS |
 | `vision` | 8009 | Web frontend — consumes invoice-core REST API |
 
@@ -69,9 +69,16 @@ Triggered via `POST /api/v1/sync` on invoice-core (or the Sync page in the UI):
 - **Manual PDF link** — lock a PDF file to an invoice; sync will not re-assign it
 - **Manual transaction link** — link/unlink bank transactions to invoices from the detail page
 
+## Other UI features
+
+- **Vacation requests** — request/approve/track vacation, persisted in invoice-core (`/ui/controlling/vacation`)
+- **Fizetés Calculator** — payment/salary calculator with saved state (`/ui/fizetes-kalkulator`)
+- **PDF bank statements** — upload/browse/download Erste + Wise statement PDFs via uploader (`/ui/bank-statements`), separate from the CSV import under `/ui/upload`
+- **Read-only / anonymized roles** — accounts outside `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` get a read-only UI; unlisted verified accounts additionally see anonymized names/amounts on financial pages
+
 ## Environment
 
-Each service reads its own `.env` file. Copy `.env.example` as a starting point.
+Configuration is a single **shared root `.env`** (copy `.env.example` to `.env` at the repo root) — every service's `config.py` points there instead of a per-service `.env`, and Docker Compose reads the same file for every container. Most keys are shared plain names (`DB_USER`, `GOOGLE_CLIENT_ID`, `JWT_*`, ...). A few keys genuinely differ per service — `API_PORT` always, plus `AUTH_ENABLED`/`LOG_LEVEL`/`REQUEST_TIMEOUT` for one exception service each — those use a `<SERVICE>_<KEY>` prefixed override (e.g. `NAV_INVOICE_API_PORT`) that falls back to the shared plain key.
 
 Key variables for `invoice-core`:
 
@@ -89,9 +96,11 @@ Key variables for `attachment-downloader`: place OAuth2 `credentials.json` in th
 
 ## Authentication
 
-The `auth` service (:8007) handles Google OAuth 2.0 / OpenID Connect login and issues RS256 JWTs (15-min access + 30-day refresh, HttpOnly cookies). Every other service validates tokens locally against its JWKS; vision redirects browsers to `/login`, the backends return `401`.
+The `auth` service (:8007) handles Google OAuth 2.0 / OpenID Connect login and issues RS256 JWTs (15-min access + 1-day refresh, HttpOnly cookies). Every other service validates tokens locally against its JWKS; vision redirects browsers to `/login`, the backends return `401`. The RS256 keypair regenerates in-memory on every `auth` process restart, rotating the JWKS `kid` and invalidating every previously issued token workspace-wide — everyone must log in again after a restart.
 
-**Currently disabled**: every service's `.env` has `AUTH_ENABLED=false`. To enable, configure `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in `auth/.env`, run `uv run auth keygen` once, then flip `AUTH_ENABLED=true` per service. Details: `auth/README.md` and `doc/auth-service-spec.md`.
+Login maps the email to a `(role, anonymized)` pair via `resolve_access()`: `ALLOWED_EMAILS`/`ALLOWED_DOMAINS` → `read_write`; `READONLY_EMAILS`/`READONLY_DOMAINS` → `read_only` with real data; any other verified account → `read_only` with `anonymized: true` (invoice-core masks names/amounts on its financial-data GET endpoints for that tier). `BLOCKED_EMAILS`/`BLOCKED_DOMAINS` reject login outright.
+
+**Currently enabled** (`AUTH_ENABLED=true` in the shared root `.env`) for every service except `attachment-downloader`, which overrides back to `false` (leaf service, no user token). To (re)configure, set `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in the root `.env`, run `uv run auth keygen` once in `auth/`, then toggle `AUTH_ENABLED` as needed. Details: `auth/README.md` and `doc/auth-service-spec.md`.
 
 ## Development
 

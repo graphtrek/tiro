@@ -60,12 +60,15 @@ Filter forms use HTMX partial updates so filtered views stay responsive without 
 | Projektek (Projects) | `/ui/controlling/projects` | CRUD for projects — real data. Client (customer FK), auto-incrementing per-customer sequence number, auto-composed project code (`{customer} - {seq:03d} - {short_name}`), owner, active/closed status, and permitted-users checkboxes (who may log time on the project — enforced by the Timesheet page). Hours-worked column is still hardcoded `0` — not yet wired to `timesheet_entry` |
 | Timesheet | `/ui/controlling/timesheet` | CRUD for the logged-in user's own timesheet entries — real data. Date, Projekt (datalist restricted to active projects the user owns or is permitted on), Ügyfél/Project gazda/Projekt hét shown as read-only previews derived from the selected project (`project_week` is server-computed, not stored), Tevékenység típus (from active activity types), 0.5-hour-step óra select, free-text Résztvevők and Tevékenység description. "Zárolás" (week lock) button is present but disabled — no admin/role concept exists yet to gate it |
 | Riportok (Reports) | `/ui/controlling/reports` | Real data — 4 report types over `timesheet_entry`: Projekt riport (heti + kumulált, per-activity-type pivot, running cumulative total) and Személy/Ügyfél/Tevékenység típus riport, which list one row per timesheet entry (Dátum, Nap, Hét, Résztvevők, Óra, plus a Személy/Tevékenység típus column only when that filter is left unset — otherwise it's shown in the header instead), followed by an "Összesítés" summary card with the grouped totals + per-activity-type pivot. Every report shows a header strip (Projekt/Ügyfél/Személy/Tevékenység típus/Időszak). Filters: dátumtartomány (projekt kezdete óta / aktuális hónap / aktuális hét / egyéni), ügyfél, projekt, személy, tevékenység típus. Project report defaults to the first project when none is selected. Export (Excel/PDF/Print) is client-side via DataTables Buttons — exports whatever's currently filtered/sorted, plus the header strip and (for non-project reports) the Összesítés section read straight from the DOM. PDF export gets custom styling (branded header/title, zebra striping, bolded summary rows, page-numbered footer) via a `customize` callback that's wrapped in try/catch so a styling failure degrades to a plain PDF instead of blocking the download. The mockup's separate "Heti export" Excel-block report type remains unimplemented |
+| Szabadság (Vacation) | `/ui/controlling/vacation` | Vacation request management — real data, calls invoice-core's `/api/v1/vacation-requests` CRUD |
 
 ### Vision-specific pages
 
 | Page | URL | Description |
 |------|-----|-------------|
 | Portfólió | `/dashboard` | KPI cards + 4 Chart.js charts (cash-flow, invoice status, IBKR holdings, top suppliers) |
+| Fizetés Kalkulátor | `/ui/fizetes-kalkulator` | Payment calculator with server-persisted state — calls invoice-core's `/api/v1/fizetes-kalkulator` GET/PUT (lives in `invoice_router.py`, not a separate router) |
+| PDF Bankkivonatok | `/ui/bank-statements` | Upload/list/download/delete PDF-format Erste/Wise bank statements via the `uploader` service's `/api/v1/pdf/*` endpoints — separate from the CSV `/ui/upload` page; filenames are masked when the JWT's `anonymized` claim is set |
 | Home / Pitch | `/` | Startup-pitch landing page (standalone dark theme, no sidebar); `/pitch` redirects here |
 | Login | `/login` | NiceAdmin-style login page — provider buttons from the auth service (`GET /auth/providers`), silent re-login via refresh cookie |
 | Logout | `/logout` | Revokes the refresh token at the auth service, clears cookies, redirects to `/login` |
@@ -91,10 +94,12 @@ src/vision/
 │   └── dashboard_service.py   # Aggregation for /dashboard: KPIs, cash-flow, supplier join, IBKR total
 ├── ui/
 │   ├── router.py              # Vision-specific routes: /dashboard, /pitch, /
-│   ├── invoice_router.py      # Invoice-core UI routes: all /ui/* (43 routes)
+│   ├── invoice_router.py      # Invoice-core UI routes: all /ui/* incl. /ui/fizetes-kalkulator (52 routes)
 │   ├── admin_router.py        # Admin pages: /ui/admin/users, /ui/admin/activity-types (real data, calls invoice-core CRUD)
-│   ├── controlling_router.py  # Controlling pages: /ui/controlling/projects + /timesheet (real data, calls invoice-core CRUD) + /reports (real data, calls invoice-core GET /api/v1/reports/timesheet)
-│   └── utils.py               # dict_to_ns() — converts API JSON dicts to SimpleNamespace for dot-access
+│   ├── controlling_router.py  # Controlling pages: /ui/controlling/projects + /timesheet + /vacation (real data, calls invoice-core CRUD) + /reports (real data, calls invoice-core GET /api/v1/reports/timesheet)
+│   ├── uploader_router.py     # CSV bank-statement upload UI: /ui/upload (calls uploader's /api/v1/* endpoints)
+│   ├── bank_statements_router.py # PDF bank-statement upload UI: /ui/bank-statements (calls uploader's /api/v1/pdf/* endpoints)
+│   └── utils.py               # dict_to_ns() (JSON→SimpleNamespace); redirect_if_readonly(), is_anonymized() — role/anonymized JWT-claim helpers used by admin/uploader/bank-statements routers
 ├── api/
 │   └── main.py                # FastAPI app, /health, HTTP logging middleware
 ├── templates/
@@ -122,6 +127,10 @@ src/vision/
 │   ├── controlling_projects.html # Controlling: projects CRUD (HTMX forms, client-side code/sequence preview)
 │   ├── controlling_timesheet.html # Controlling: own timesheet entries CRUD (HTMX forms, client-side project-week preview)
 │   ├── controlling_reports.html  # Controlling: reports — real filters + 4 report types, DataTables Buttons export
+│   ├── controlling_vacation.html # Controlling: vacation request CRUD (HTMX forms)
+│   ├── fizetes_kalkulator.html # Payment calculator (server-persisted state)
+│   ├── upload.html            # CSV bank-statement upload (uploader service)
+│   ├── bank_statements.html   # PDF bank-statement upload/list/download/delete (uploader service)
 │   └── partials/              # HTMX partial responses (no base.html extension)
 │       ├── invoice_table.html
 │       ├── invoice_detail_modal.html # edit-invoice modal (note, payment-status lock, …)
@@ -131,7 +140,9 @@ src/vision/
 │       ├── invoice_file_table.html
 │       ├── picker_partners.html      # supplier/customer picker + inline create-and-link form, used from invoice_detail.html
 │       ├── sync_result.html
-│       └── pending_sync_card.html    # durable pending-partner-match count, included on sync.html and OOB-refreshed after each sync run
+│       ├── pending_sync_card.html    # durable pending-partner-match count, included on sync.html and OOB-refreshed after each sync run
+│       ├── vacation_content.html     # vacation request list/form partial
+│       └── bank_statement_table.html # PDF bank-statement file list partial (used by bank_statements.html)
 └── static/
     └── custom.css             # HTMX indicator + sidebar + KPI + DataTables styles
 ```
@@ -174,7 +185,9 @@ With `AUTH_ENABLED=true`, a middleware protects every route except `/`, `/pitch`
 - Tokens are accepted as an `Authorization: Bearer` header or the `mp_access_token` HttpOnly cookie set by the auth service (:8007) after Google login. Validation is local (RS256 against the auth service's JWKS, cached 1h).
 - The incoming Bearer token is forwarded to invoice-core/uploader calls (`TokenPassthrough` in `src/vision/auth.py`).
 - The navbar shows the logged-in user (name/avatar from JWT claims) with a logout button.
-- The login page silently calls `POST /auth/refresh` (credentials included), so an expired 15-minute access token renews without a Google round-trip while the 30-day refresh cookie is valid.
+- The login page silently calls `POST /auth/refresh` (credentials included), so an expired 15-minute access token renews without a Google round-trip while the refresh cookie is valid (1 day).
+- **Role gating**: `redirect_if_readonly()` (`src/vision/ui/utils.py`) blocks write actions for `role == "read_only"` — admin pages (`/ui/admin/*`), CSV upload (`/ui/upload`), the payment-calculator save, and vacation-request writes redirect away instead of executing.
+- **Anonymized tier**: `is_anonymized()` checks the JWT's `anonymized` claim (distinct from `role` — `read_only` alone does not imply it). When set, PDF bank-statement filenames on `/ui/bank-statements` are masked before rendering; the invoice-core-backed pages get their data pre-anonymized by invoice-core itself (see `doc/invoice-core-spec.md`).
 
 Spec: `../doc/auth-service-spec.md`.
 

@@ -1,11 +1,11 @@
 ---
 title: "Specifikáció: Uploader – Bankkivonat Feltöltő Szolgáltatás"
-description: "Erste és Wise CSV bankkivonatok feltöltése a bank szerviz storage mappájába; UI a vision-ben, backend neve uploader"
+description: "Erste és Wise CSV bankkivonatok feltöltése a bank szerviz storage mappájába, plusz Erste/Wise PDF bankkivonatok feltöltése/kezelése; UI a vision-ben, backend neve uploader"
 type: "service-spec"
 status: "implementált"
 port: 8006
 language: "HU"
-last_updated: "2026-08-09"
+last_updated: "2026-09-03"
 depends_on: [bank-spec.md, vision-spec.md, auth-service-spec.md]
 related: [INDEX.md, bank-spec.md, bank-prompt.md, vision-spec.md, vision-prompt.md, uploader-promp.md, auth-service-spec.md]
 tags: [uploader, bank, erste, wise, csv, storage, fastapi, vision, upload, jwt, docker]
@@ -19,17 +19,20 @@ tags: [uploader, bank, erste, wise, csv, storage, fastapi, vision, upload, jwt, 
 
 ## Szerepkör és kontextus
 
-Az Uploader egy önálló leaf mikroszerviz, amely webes felületen keresztül lehetővé teszi az Erste és Wise CSV bankkivonatok feltöltését a bank szerviz `balance-statements/` tároló mappájába. Nincs adatbázisa — csak fájlrendszert kezel.
+Az Uploader egy önálló leaf mikroszerviz, amely webes felületen keresztül lehetővé teszi az Erste és Wise **CSV** bankkivonatok feltöltését a bank szerviz `balance-statements/` tároló mappájába, **plusz** az Erste és Wise **PDF** bankkivonatok (a bank saját formátumú kivonat-PDF-jei) feltöltését és kezelését egy külön `statements-pdf/` mappában. Nincs adatbázisa — csak fájlrendszert kezel.
 
-**Probléma**: A `bank` szerviz azt feltételezi, hogy a CSV kivonatok a `balance-statements/erste/` ill. `balance-statements/wise/` alkönyvtárba kerülnek. Az Uploader webes feltöltési UI-t biztosít ehhez — így nem kell kézzel másolni a fájlokat a storage mappába.
+**Probléma**: A `bank` szerviz azt feltételezi, hogy a CSV kivonatok a `balance-statements/erste/` ill. `balance-statements/wise/` alkönyvtárba kerülnek. Az Uploader webes feltöltési UI-t biztosít ehhez — így nem kell kézzel másolni a fájlokat a storage mappába. A PDF kivonatok (emberi olvasásra szánt, letölthető/megőrzendő dokumentumok) egy párhuzamos, a `bank` szerviz feldolgozási láncától független tárolóba kerülnek — a `bank` szerviz és a sync pipeline **nem** olvassa őket, kizárólag archívum/letöltés célra szolgálnak.
 
-**UI elhelyezése**: A feltöltési felület a `vision` szervizben van (`/ui/upload`). A vision közvetlenül az uploader REST API-ját hívja multipart file upload-hoz.
+**UI elhelyezése**: A CSV feltöltési felület a `vision` szervizben van (`/ui/upload`), a PDF kivonatok kezelése egy külön oldalon (`/ui/bank-statements`). A vision mindkét esetben közvetlenül az uploader REST API-ját hívja multipart file upload-hoz.
 
 **Hívási lánc**:
 ```
 Böngésző → Vision (/ui/upload) → Uploader (POST /api/v1/upload) → balance-statements/{bank}/*.csv
                                                                          ↓
                                                                Bank szerviz olvassa
+
+Böngésző → Vision (/ui/bank-statements) → Uploader (POST /api/v1/pdf/upload) → statements-pdf/{bank}/*.pdf
+                                                                                     (archívum — senki más nem olvassa)
 ```
 
 ---
@@ -47,6 +50,17 @@ Detektálási logika (prioritás sorrendben; a mintaillesztés kis- és nagybet�
 1. Ha a fájlnév `statement_`-tal kezdődik → **Wise**
 2. Ha a fájlnév dátum-mintájú végű (`_YYYY-MM-DD_YYYY-MM-DD.csv`, regex: `.+_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$`) és nem `statement_`-tal kezdődik → **Erste**
 3. Egyéb → `None`, a feltöltés `400` hibával elutasítva
+
+### PDF kivonatok
+
+A PDF kivonatok neve nem egyezik a CSV sémával — a `parse_pdf_statement()` egyszerre azonosítja a bankot **és** a kivonat időszakát (`from_date`/`to_date`) a fájlnévből:
+
+| Bank | Fájlnév-séma | Példa | Dátumformátum |
+|---|---|---|---|
+| Wise | `statement_<balanceId>_<currency>_<YYYY-MM-DD>_<YYYY-MM-DD>.pdf` | `statement_25546267_HUF_2026-01-01_2026-06-17.pdf` | kötőjeles ISO dátum |
+| Erste | `<számlaszám/IBAN>_<YYYYMMDD>_<YYYYMMDD>.pdf` | `11600006-00000001-97860425_20260101_20260619.pdf` | kötőjel nélküli dátum |
+
+Detektálás: előbb a Wise minta (`statement_` prefix), utána az Erste minta (`..._<8 számjegy>_<8 számjegy>.pdf`) próbálkozik; ha egyik sem illik, a feltöltés `400`-zal elutasítva. A CSV-detektálástól eltérően itt a `bank` mező explicit megadása **nem** kerüli meg a fájlnév-parszolást — `from_date`/`to_date` mindig a fájlnévből származik.
 
 ---
 
@@ -83,6 +97,32 @@ class StorageStatus(BaseModel):
     total_files: int
 ```
 
+### `PdfUploadResult`
+
+```python
+class PdfUploadResult(BaseModel):
+    filename: str
+    bank: str               # "erste" | "wise"
+    from_date: date         # a fájlnévből kiolvasott kivonat-időszak eleje
+    to_date: date           # a fájlnévből kiolvasott kivonat-időszak vége
+    saved_path: str
+    size_bytes: int
+    overwritten: bool
+```
+
+### `PdfStatementFile`
+
+```python
+class PdfStatementFile(BaseModel):
+    bank: str               # "erste" | "wise"
+    filename: str
+    from_date: date
+    to_date: date
+    size_bytes: int
+    modified_at: datetime
+    path: str
+```
+
 ---
 
 ## REST API (port 8006)
@@ -98,6 +138,10 @@ class StorageStatus(BaseModel):
 | `POST` | `/api/v1/upload` | CSV feltöltése (multipart/form-data) |
 | `GET` | `/api/v1/files/{bank}/{filename}/download` | fájl letöltése (`text/csv`); `404` ha nem létezik |
 | `DELETE` | `/api/v1/files/{bank}/{filename}` | fájl törlése → `204`; `404` ha nem létezik |
+| `GET` | `/api/v1/pdf/files` | tárolt PDF bankkivonatok listája (minden bank) |
+| `POST` | `/api/v1/pdf/upload` | PDF bankkivonat feltöltése (multipart/form-data) |
+| `GET` | `/api/v1/pdf/files/{bank}/{filename}/download` | PDF letöltése (`application/pdf`); `404` ha nem létezik |
+| `DELETE` | `/api/v1/pdf/files/{bank}/{filename}` | PDF törlése → `204`; `404` ha nem létezik |
 
 ### `POST /api/v1/upload`
 
@@ -159,6 +203,34 @@ class StorageStatus(BaseModel):
 }
 ```
 
+### `POST /api/v1/pdf/upload`
+
+**Request**: `multipart/form-data`
+
+| Mező | Típus | Kötelező | Leírás |
+|---|---|---|---|
+| `file` | `UploadFile` | igen | PDF fájl (a fájlnév `.pdf` végződésű legyen) |
+| `bank` | `str` | nem | `erste` \| `wise` — ha megadva, felülírja az automatikus bank-detektálást (a `from_date`/`to_date` ekkor is a fájlnévből származik) |
+| `overwrite` | `bool` | nem (default: `false`) | létező fájl felülírása |
+
+**Validáció (sorrendben)**: hiányzó fájlnév → `400`; nem `.pdf` végződés → `400`; méret > `MAX_FILE_SIZE_MB` → `400`; `parse_pdf_statement()` nem ismeri fel a fájlnevet (sem Erste, sem Wise minta) → `400`; `overwrite=false` és azonos nevű fájl már létezik → `400`.
+
+**Response** `200 OK`: `PdfUploadResult`
+
+```json
+{
+  "filename": "statement_25546267_HUF_2026-01-01_2026-06-17.pdf",
+  "bank": "wise",
+  "from_date": "2026-01-01",
+  "to_date": "2026-06-17",
+  "saved_path": "/tiro/storage/bank/statements-pdf/wise/statement_25546267_HUF_2026-01-01_2026-06-17.pdf",
+  "size_bytes": 184320,
+  "overwritten": false
+}
+```
+
+`GET /api/v1/pdf/files` ugyanígy `PdfStatementFile` listát ad vissza — egy sík lista, szemben a CSV `GET /api/v1/files` bank-kulcsos `StorageStatus` struktúrájával.
+
 ---
 
 ## JWT hitelesítés
@@ -185,6 +257,8 @@ uploader delete <bank> <fájlnév>           # fájl törlése
 ```
 
 A CLI közvetlenül a storage mappát kezeli — **nem igényel JWT-t**; a `-v`/`--verbose` globális kapcsoló DEBUG naplózást kapcsol be.
+
+> A PDF-kivonat funkcióhoz (lásd lentebb) **nincs CLI parancs** — csak a REST API-n és a Vision UI-n keresztül kezelhető.
 
 ---
 
@@ -230,6 +304,22 @@ class UploaderClient:
 
 A kliens HTTP hibánál `{"error": ...}` dictet, hálózati hibánál `None`-t ad vissza.
 
+### PDF bankkivonatok oldala (`/ui/bank-statements`)
+
+Külön route-modul (`ui/bank_statements_router.py`, `prefix="/ui"`) — az `/ui/upload` CSV-feltöltő oldaltól függetlenül kezeli a PDF-eket, de ugyanazt az uploader REST API-t hívja (`UploaderClient` PDF metódusai: `upload_pdf_statement`, `list_pdf_statements`, `delete_pdf_statement`).
+
+| Method | Endpoint | Leírás |
+|---|---|---|
+| `GET` | `/ui/bank-statements` | PDF bankkivonatok oldala (`bank_statements.html`) |
+| `POST` | `/ui/bank-statements/upload` | HTMX: feltöltés végrehajtása, eredmény alert partial |
+| `GET` | `/ui/bank-statements/table` | HTMX partial: tárolt PDF-ek táblázata (`partials/bank_statement_table.html`) |
+| `GET` | `/ui/bank-statements/{bank}/{filename}/download` | streamelt letöltés az uploader-től (`403` anonimizált nézetben) |
+| `DELETE` | `/ui/bank-statements/{bank}/{filename}` | HTMX: törlés, majd a táblázat rerenderelése |
+
+**Anonimizált (`anonymized: true`) nézet**: a fájlnevek (amik számlaszámot/IBAN-t tartalmaznak) determinisztikus álnévre cserélődnek (`_fake_statement_filename()` — SHA-256 alapú, invoice-core `fake_identifier()` mintájára), és a letöltés `403`-mal el van tiltva — a valódi bankszámla-adat így az anonimizált tier alól sem szivárog ki.
+
+A `_sidebar.html` a `/ui/upload` mellett külön menüpontot tartalmaz a `/ui/bank-statements`-hez.
+
 ---
 
 ## Projektstruktúra
@@ -240,9 +330,9 @@ uploader/
 │   ├── __init__.py
 │   ├── auth.py            # JWT validálás az auth szerviz JWKS kulcsaival
 │   ├── config.py          # pydantic-settings, közös gyökér .env
-│   ├── models.py          # UploadResult, StorageFile, StorageStatus
-│   ├── detector.py        # bankdetektálás fájlnévből
-│   ├── storage.py         # fájl mentés / lista / törlés / letöltés
+│   ├── models.py          # UploadResult, StorageFile, StorageStatus, PdfUploadResult, PdfStatementFile
+│   ├── detector.py        # bankdetektálás fájlnévből (CSV) + parse_pdf_statement() (PDF: bank + időszak)
+│   ├── storage.py         # fájl mentés / lista / törlés / letöltés (CSV: balance-statements/, PDF: statements-pdf/)
 │   ├── api/
 │   │   └── main.py        # FastAPI app
 │   └── cli/
@@ -274,7 +364,8 @@ A konfiguráció a **közös gyökér `.env`-ből** töltődik (`<workspace>/.en
 
 ```env
 # Megegyezik a bank szerviz BALANCE_STATEMENTS_DIR-jével
-STORAGE_DIR=../storage/bank/balance-statements   # az uploader és bank közös könyvtár (default)
+STORAGE_DIR=../storage/bank/balance-statements   # az uploader és bank közös könyvtár (default), CSV
+PDF_STORAGE_DIR=../storage/bank/statements-pdf   # PDF kivonatok archívuma (default) — csak az uploader olvassa/írja
 ERSTE_SUBDIR=erste
 WISE_SUBDIR=wise
 MAX_FILE_SIZE_MB=50
@@ -288,7 +379,7 @@ JWT_AUDIENCE=tiro
 JWT_ISSUER=auth-service
 ```
 
-> **Fontos**: `STORAGE_DIR` ugyanaz a könyvtár, mint a `bank` szerviz `BALANCE_STATEMENTS_DIR`-je (`<workspace>/storage/bank/balance-statements`). Dev környezetben relatív elérési úttal konfigurálható; prodban abszolút út ajánlott.
+> **Fontos**: `STORAGE_DIR` ugyanaz a könyvtár, mint a `bank` szerviz `BALANCE_STATEMENTS_DIR`-je (`<workspace>/storage/bank/balance-statements`). Dev környezetben relatív elérési úttal konfigurálható; prodban abszolút út ajánlott. `PDF_STORAGE_DIR` ezzel szemben egy elkülönített archívum-mappa (`<workspace>/storage/bank/statements-pdf`) — ezt a `bank` szerviz **nem** olvassa.
 
 A naplózás (`LOG_LEVEL`) stream + fájl (`uploader/logs/uploader.log`) formában történik.
 
@@ -307,6 +398,7 @@ Minden tétel elkészült (e2e520a → 1606239 közötti commitok):
 7. ✅ Vision UI (`ui/uploader_router.py`): `/ui/upload`, HTMX upload/delete/list, `clients/uploader.py`
 8. ✅ Docker (21d44bf) + tesztek (1606239: conftest, api, auth_jwks, detector, storage)
 9. ✅ Közös gyökér `.env` (340075c)
+10. ✅ PDF bankkivonat feltöltés/kezelés (cf550b9): `api/main.py` `/api/v1/pdf/*` végpontok, `models.PdfUploadResult`/`PdfStatementFile`, `detector.parse_pdf_statement()`, `storage.py` `statements-pdf/` ág, Vision `ui/bank_statements_router.py` (`/ui/bank-statements`) + anonimizált fájlnév-maszkolás
 
 ---
 
@@ -322,6 +414,11 @@ flowchart TD
     BK[bank :8005] -->|read CSV| S
     IC[invoice-core :8004] -->|GET /balance-statement/all| BK
     A[auth :8007] -->|JWKS / JWT validálás| U
+
+    B -->|GET /ui/bank-statements| V
+    V -->|POST /api/v1/pdf/upload| U
+    V -->|GET /api/v1/pdf/files| U
+    U -->|write PDF| P[(storage/bank/statements-pdf/erste/ vagy wise/ — archívum, senki más nem olvassa)]
 ```
 
 ---

@@ -2,13 +2,13 @@
 title: "Specifikáció: Invoice-Core Felhasználói Felület"
 description: "HTMX/Jinja2/Bootstrap/DataTables alapú könyvelési áttekintő felület — shared service layer architektúrával"
 language: "HU"
-last_updated: "2026-08-09"
+last_updated: "2026-09-03"
 related: [invoice-core-ui-prompt.md, invoice-core-spec.md, vision-spec.md, invoice-file-filter-spec.md]
 ---
 
 # Invoice-Core Felhasználói Felület — Specifikáció
 
-> ✅ **Aktuális állapot (2026-08-09)**: Az invoice-core UI a [[vision-spec.md|vision]] (port 8009) szervizben fut. Az invoice-core tiszta JSON REST backend (port 8004) — nem kezel Jinja2 sablonokat, statikus fájlokat vagy `/ui/` routert. Ez a spec a **jelenlegi** UI-t dokumentálja: a vision `src/vision/ui/` routerei (`invoice_router.py`, `uploader_router.py`, `controlling_router.py`, `admin_router.py`) a `clients/invoice_core.py` REST kliensen keresztül fogyasztják az invoice-core API-t. Az egyes szervizek belső felépítését a [[vision-spec.md|Vision Spec]] és az [[invoice-core-spec.md|Invoice-Core Spec]] írja le.
+> ✅ **Aktuális állapot (2026-09-03)**: Az invoice-core UI a [[vision-spec.md|vision]] (port 8009) szervizben fut. Az invoice-core tiszta JSON REST backend (port 8004) — nem kezel Jinja2 sablonokat, statikus fájlokat vagy `/ui/` routert. Ez a spec a **jelenlegi**, invoice-core REST API-val fogyasztott UI-t dokumentálja: a vision `src/vision/ui/` routerei közül `invoice_router.py`, `controlling_router.py`, `admin_router.py` (az `uploader_router.py` a CSV feltöltést, a `bank_statements_router.py` a PDF bankkivonat feltöltést szolgálja ki — mindkettő az uploader szervizt (port 8006) fogyasztja, nem invoice-core-ot, lásd [[vision-spec.md|Vision Spec]]) a `clients/invoice_core.py` REST kliensen keresztül fogyasztják az invoice-core API-t. Az egyes szervizek belső felépítését a [[vision-spec.md|Vision Spec]] és az [[invoice-core-spec.md|Invoice-Core Spec]] írja le.
 
 > 🔗 **Kapcsolódás**: [[invoice-core-spec.md|Invoice-Core Spec]] | [[vision-spec.md|Vision Frontend Spec]]
 
@@ -416,6 +416,19 @@ A **partner oszlop** a tranzakció iránya szerint linkel: DEBIT → kapcsolt sz
 
 ---
 
+### 10b. Fizetés Calculator (`GET /ui/fizetes-kalkulator`, `POST /ui/fizetes-kalkulator`)
+
+Bér-vs-osztalék optimalizáló számológép (kívánt nettó bér + árbevétel bemenetből
+számolja a legkedvezőbb bér/osztalék felosztást) — a tényleges számítás
+kliens-oldali JavaScript, a szerver csak a beviteli mezőket (`net_wage`,
+`revenue`, `revenue_touched`) perzisztálja (`GET`/`PUT
+/api/v1/fizetes-kalkulator`, egyetlen közös sor, nem felhasználónkénti), hogy
+böngészők/eszközök között ne vesszen el. Mentés: teljes oldal POST →
+`saved=1`/`error=` query paraméterrel redirect vissza ugyanoda (nem HTMX
+partial).
+
+---
+
 ### 11. Adók (`GET /ui/adok`)
 
 Év választó formmal. **KPI kártyák** típusonként: NAV ÁFA, NAV Bírság, NAV SZJA, NAV Szochó, NAV TAO, NAV TB, HIPA, HIPA-Késedelmi, Iparkamara.
@@ -487,6 +500,25 @@ A `project_week` szerver-számított (calendar week, az első rögzített bejegy
 **Szűrők**: `report_type`, `date_range` (projekt kezdete óta / aktuális hónap / aktuális hét / egyéni `date_from`–`date_to`), **ügyfél és projekt összekapcsolt szűrők** (a projekt választó csak az adott ügyfél projektjeit kínálja, `data-customer-id` alapján), `user_id`, tevékenység típus.
 
 **Export** (DataTables Buttons): Excel / PDF / Nyomtatás — a ténylegesen szűrt/rendezett táblát exportálja; a nem-projekt riportoknál az Összesítés szekció is belekerül (`customizeData` a DOM-ból), a PDF egyedi stílust kap (`stylePdf` — márkaszín fejléc, zebra-csíkozás, összesítő sorok kiemelése, oldalszámos lábléc; hiba esetén try/catch-csel stílus nélküli PDF).
+
+---
+
+### 16b. Controlling — Szabadság (`GET /ui/controlling/vacation`, `POST /ui/controlling/vacation`, `POST /ui/controlling/vacation/{id}`, `DELETE /ui/controlling/vacation/{id}`)
+
+**Csapat-naptár nézet**: minden bejelentkezett felhasználó látja az összes
+bejegyzést (`GET /api/v1/vacation-requests` szűrő nélkül), de csak a sajátját
+módosíthatja/törölheti (`row.is_own`, kliens-oldalon számolva a bejelentkezett
+felhasználó id-ja alapján).
+
+**Bejegyzés típusok** (`kind`): Szabadság (`vacation`, zöld badge) | Nem
+elérhető (`out_of_office`, sárga) | Megjegyzés (`note`, szürke).
+
+**Létrehozás/módosítás modal**: típus, kezdő/záró dátum, szabad szöveges
+megjegyzés. Validációs hiba (pl. záró dátum < kezdő dátum) a modal saját hiba
+slotjába renderelődik (`vac-error-new` / `vac-error-edit-{id}`,
+`partials/timesheet_form_error.html` sablonnal), siker esetén `204` +
+`HX-Redirect` a listára (ugyanaz a minta, mint a Timesheet oldalnál, lásd
+fent).
 
 ---
 

@@ -1,9 +1,15 @@
 # Auth – Központi Authentication Mikroszerviz (port 8007)
 
 Google OAuth 2.0 / OpenID Connect belépés a Tiro rendszerhez. Sikeres
-belépés után saját kiállítású **RS256 JWT**-t ad (access + refresh); a többi
-mikroszerviz soha nem hívja a Google-t, kizárólag a JWT-t validálja lokálisan a
-`/.well-known/jwks.json` publikus kulcsaival.
+belépés után saját kiállítású **RS256 JWT**-t ad (access 15 perc, refresh 1
+nap); a többi mikroszerviz soha nem hívja a Google-t, kizárólag a JWT-t
+validálja lokálisan a `/.well-known/jwks.json` publikus kulcsaival.
+
+> **Fontos**: a kulcspár minden szerverindításkor újragenerálódik memóriában
+> (nem a lemezen perzisztált `auth keygen` fájlokat használja) — ez minden
+> újraindításkor más JWKS `kid`-et eredményez, tehát az összes korábban
+> kiadott token érvénytelenné válik. Egy `auth` restart után **minden
+> felhasználónak újra be kell lépnie**.
 
 Nincs saját adatbázisa — minden sikeres bejelentkezéskor best-effort elmenti a
 felhasználó profilját és a login providert az `invoice-core` (:8004)
@@ -13,9 +19,10 @@ meg. Bázis URL: `INVOICE_CORE_URL` (`.env`).
 
 Specifikáció: `../doc/auth-service-spec.md`
 
-> **Jelenlegi állapot**: minden védett szerviz `.env`-jében `AUTH_ENABLED=false`
-> — a védelem bekapcsolásához előbb a Google OAuth-ot kell beállítani (lásd
-> lent), majd szervizenként `AUTH_ENABLED=true`-ra állítani a kapcsolót.
+> **Jelenlegi állapot**: a közös root `.env`-ben `AUTH_ENABLED=true` — minden
+> szerviz JWT-védett, kivéve az `attachment-downloader`-t, amely
+> `ATTACHMENT_DOWNLOADER_AUTH_ENABLED=false`-tal felülírja a shared default-ot
+> (leaf szerviz, a sync CLI hívja, nincs user token).
 
 ## Beüzemelés
 
@@ -58,7 +65,24 @@ uv run pytest tests/ -v
 | `POST` | `/auth/verify` | – | token introspekció |
 | `POST` | `/auth/logout` | ✅ | cookie törlés + refresh token visszavonás |
 | `GET` | `/auth/me` | ✅ | bejelentkezett felhasználó |
+| `POST` | `/auth/impersonate` | ✅ admin (`ADMIN_EMAILS`) | megszemélyesítés: access token egy másik felhasználóként (`{"email": "..."}`) — 403 nem adminnál, 404 ha nincs ilyen felhasználó; nincs refresh token a válaszban |
 | `GET` | `/settings` | ✅ | aktív konfiguráció (titkok nélkül) |
+
+## Jogosultsági szintek (role + anonymized)
+
+Belépéskor a `resolve_access(email)` `(role, anonymized)` párt rendel a
+felhasználóhoz, ez kerül a JWT `role`/`anonymized` claim-jeibe:
+
+1. `BLOCKED_EMAILS` / `BLOCKED_DOMAINS` találat → belépés elutasítva
+2. `ALLOWED_EMAILS` / `ALLOWED_DOMAINS` találat → `role=read_write`, `anonymized=false`
+3. `READONLY_EMAILS` / `READONLY_DOMAINS` találat → `role=read_only`, `anonymized=false` (megbízható külső fiók, valós adat)
+4. bármely más érvényes Google fiók → `role=read_only`, `anonymized=true` (invoice-core anonimizált választ ad)
+
+A `read_only` szerep önmagában nem jelenti az anonimizálást — az kizárólag az
+`anonymized: true` claim alapján dől el az `invoice-core`-ban. A
+`POST /api/v1/users` kivétel a `read_only` írási korlátozás alól. A
+megszemélyesítés a célfelhasználó saját `role`/`anonymized` értékét örökli.
+Részletek: `../doc/auth-service-spec.md` → „Jogosultsági szintek”.
 
 ## Védett szervizek
 

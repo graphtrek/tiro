@@ -323,6 +323,11 @@ aláírás a `/.well-known/jwks.json` publikus kulcsaival + `exp`/`aud`/`iss`) �
 kérésenként nincs hálózati hívás az auth szerviz felé. Token nélkül a válasz
 `401 Unauthorized`.
 
+**`read_only` szerep**: ha a JWT `role` claim-je `read_only`, a nem-GET/HEAD/OPTIONS
+kérések `403`-mal elutasítódnak — a bank szerviz jelenleg csak GET végpontokat
+expose-ol, így ez a korlátozás a gyakorlatban nem érint egyetlen meglévő
+végpontot sem.
+
 Implementáció: `src/bank/auth.py` (projektenként bemásolt modul) · specifikáció:
 `../doc/auth-service-spec.md`.
 

@@ -5,7 +5,7 @@ type: "service-spec"
 status: "megvalósítva"
 port: 8009
 language: "HU"
-last_updated: "2026-08-09"
+last_updated: "2026-09-03"
 depends_on: [invoice-core-spec.md, auth-service-spec.md, uploader-spec.md, srcprofit]
 related: [INDEX.md, vision-prompt.md, invoice-core-spec.md]
 tags: [vision, frontend, fastapi, jinja2, htmx, bootstrap, datatables]
@@ -19,9 +19,11 @@ tags: [vision, frontend, fastapi, jinja2, htmx, bootstrap, datatables]
 
 ## Szerepkör és kontextus
 
-A Vision a Tiro rendszer **teljes webes frontendja**. Az `invoice-core` (8004) **tiszta JSON REST backend** — saját UI-t nem szolgáltat. A Vision fogyasztja az invoice-core REST API végpontjait, és SSR Jinja2 sablonokkal kiszolgálja a Tiro UI oldalait (`/ui/*`): dashboard, számlák, partnerek, bank, adók, sync, controlling (projektek/timesheet/riportok), admin (felhasználók/tevékenység típusok/audit) és fájlfeltöltés.
+A Vision a Tiro rendszer **teljes webes frontendja**. Az `invoice-core` (8004) **tiszta JSON REST backend** — saját UI-t nem szolgáltat. A Vision fogyasztja az invoice-core REST API végpontjait, és SSR Jinja2 sablonokkal kiszolgálja a Tiro UI oldalait (`/ui/*`): dashboard, számlák, bankkivonatok (CSV tranzakciók + PDF kivonatok), partnerek, adók, fizetés kalkulátor, sync, controlling (projektek/timesheet/szabadság/riportok), admin (felhasználók/tevékenység típusok/audit) és fájlfeltöltés.
 
 Emellett a Vision felel az **autentikációért is**: minden `/ui/*` oldal a központi auth szerviz (8007) RS256 JWT-jét igényli (HttpOnly cookie vagy Bearer fejléc), a belépés provider-alapú (`/login`). A JWT-t kérésenként lokálisan ellenőrzi az auth szerviz JWKS kulcsaival, és a beérkező token **továbbítja** (token passthrough) a hívott upstream szervizeknek (invoice-core, uploader). Admin felhasználók más felhasználóként léphetnek be (impersonation).
+
+**Szerepkör-alapú UI korlátozás** (`request.state.user.role` / `.anonymized` JWT claim, lásd [[auth-service-spec.md|Auth Service Spec]]): `read_only` szerepkörnél az admin szekció (felhasználók, tevékenység típusok, audit, sync, feltöltés) teljesen el van rejtve a sidebar-ból **és** direkt URL-behíváskor is `/ui/`-re redirectel (`redirect_if_readonly()` a `ui/utils.py`-ban) — nem csak UI-szinten van elrejtve. Az anonymizált tier (`anonymized: true` claim — a nem megbízható read-only felhasználók) esetén a Vision saját maga is anonymizál egyes mezőket, amikre az invoice-core `anonymize()` rétege nem terjed ki — pl. a bankkivonat PDF fájlnevek (`is_anonymized(request)` + `_fake_statement_filename()` determinisztikus, sha256-alapú álnevesítés a `bank_statements_router.py`-ban).
 
 **Nincs saját DB, nincs Alembic, nincs CLI** — tiszta frontend aggregátor.
 
@@ -58,11 +60,12 @@ src/vision/
 │   └── uploader.py            ← UploaderClient — /api/v1/upload, /api/v1/files (port 8006)
 ├── ui/
 │   ├── router.py              ← Auth + home oldalak: /, /pitch, /login, /logout, /stop-impersonation
-│   ├── invoice_router.py      ← Invoice-core UI oldalak: /ui/* (49 route, incl. /ui/ dashboard)
+│   ├── invoice_router.py      ← Invoice-core UI oldalak: /ui/* (52 route, incl. /ui/ dashboard, /ui/fizetes-kalkulator)
 │   ├── admin_router.py        ← Admin oldalak: /ui/admin/users (+ impersonate), /ui/admin/activity-types, /ui/admin/audit
-│   ├── controlling_router.py  ← Controlling oldalak: /ui/controlling/projects + /timesheet + /reports (valós adat, invoice-core CRUD-ot hív)
-│   ├── uploader_router.py     ← Feltöltés oldalak: /ui/upload (+ /do, /files, letöltés, törlés)
-│   └── utils.py               ← dict_to_ns() (JSON dict → SimpleNamespace, ISO dátum auto-parse), local_today(), current_user()
+│   ├── controlling_router.py  ← Controlling oldalak: /ui/controlling/projects + /timesheet + /vacation (Szabadság) + /reports (valós adat, invoice-core CRUD-ot hív)
+│   ├── uploader_router.py     ← CSV feltöltés oldalak: /ui/upload (+ /do, /files, letöltés, törlés)
+│   ├── bank_statements_router.py ← PDF bankkivonat oldalak: /ui/bank-statements (+ /upload, /table, letöltés, törlés) — uploader PDF végpontjait fogyasztja
+│   └── utils.py               ← dict_to_ns() (JSON dict → SimpleNamespace, ISO dátum auto-parse), local_today(), current_user(), redirect_if_readonly(), is_anonymized()
 ├── api/
 │   └── main.py                ← FastAPI app, /health, JWT auth middleware, HTTP logging middleware
 ├── templates/
@@ -83,13 +86,16 @@ src/vision/
 │   ├── transactions.html      ← Bank tranzakció lista
 │   ├── dividend.html          ← Osztalék/adó kalkuláció
 │   ├── adok.html              ← Adófizetési pivot + Becsült adók
+│   ├── fizetes_kalkulator.html ← Fizetés Calculator — nettó bér / árbevétel state, mentés
 │   ├── sync.html              ← Sync vezérlőpult
-│   ├── upload.html            ← Bankkivonat feltöltés (bank detektálás előnézet, felülírás)
+│   ├── upload.html            ← CSV bankkivonat feltöltés (bank detektálás előnézet, felülírás)
+│   ├── bank_statements.html   ← PDF bankkivonat feltöltés + lista (letöltés/törlés) — uploader PDF tárolóján
 │   ├── admin_users.html       ← Admin: felhasználók listája + megszemélyesítés gomb (adminoknak)
 │   ├── admin_activity_types.html ← Admin: tevékenység típusok CRUD (HTMX form-okkal)
 │   ├── admin_audit.html       ← Admin: audit napló (changes oszlop, megszemélyesítő badge)
 │   ├── controlling_projects.html ← Controlling: projektek CRUD (start_date, project_type, first_entry_date, owner-gating)
 │   ├── controlling_timesheet.html ← Controlling: timesheet shell oldal → partials/timesheet_content.html
+│   ├── controlling_vacation.html ← Controlling: Szabadság shell oldal → partials/vacation_content.html
 │   ├── controlling_reports.html  ← Controlling: riportok — valós szűrők + 4 riporttípus, fejléc-sáv, heti alakulás chart, stílusozott PDF export, DataTables Buttons export
 │   └── partials/              ← HTMX részleges válaszok (nem terjesztik ki base.html-t)
 │       ├── invoice_table.html
@@ -106,7 +112,9 @@ src/vision/
 │       ├── pending_sync_card.html    ← állandó „függőben lévő párosítás" számláló, sync.html-ba include-olva + OOB frissítve
 │       ├── timesheet_content.html    ← timesheet tábla + modálok + projekt hét előnézet (naptári hetek)
 │       ├── timesheet_form_error.html ← validációs hiba partial a modál hibaslotjába
-│       └── upload_files.html         ← feltöltött fájlok táblázata (HTMX)
+│       ├── vacation_content.html     ← szabadság/távollét kérelmek táblája + modálok
+│       ├── upload_files.html         ← feltöltött CSV fájlok táblázata (HTMX)
+│       └── bank_statement_table.html ← feltöltött PDF bankkivonatok táblázata (HTMX)
 └── static/
     └── custom.css             ← HTMX indicator + sidebar + KPI + DataTables + dashboard stílusok
 ```
@@ -173,6 +181,11 @@ Társai a `ui/utils.py`-ban: `local_today()` (budapesti üzleti dátum a szűrő
 | Timesheet rekord létrehozás | `POST /api/v1/timesheet-entries` | — |
 | Timesheet rekord módosítás/törlés | `PUT/DELETE /api/v1/timesheet-entries/{id}` | `user_id` (kötelező query param) |
 | Timesheet riport | `GET /api/v1/reports/timesheet` | `report_type` (`project`\|`person`\|`customer`\|`activity_type`, kötelező), `date_from`, `date_to`, `customer_id`, `project_id`, `user_id`, `activity_type_id` |
+| Szabadság/távollét kérelmek | `GET /api/v1/vacation-requests` | `user_id` (opcionális) |
+| Szabadság kérelem létrehozás | `POST /api/v1/vacation-requests` | `user_id`, `kind` (`vacation`\|`out_of_office`\|`note`), `start_date`, `end_date`, `note` |
+| Szabadság kérelem módosítás/törlés | `PUT/DELETE /api/v1/vacation-requests/{id}` | `user_id` (kötelező query param) |
+| Fizetés Calculator állapot | `GET /api/v1/fizetes-kalkulator` | — (`net_wage`, `revenue`, `revenue_touched`) |
+| Fizetés Calculator mentés | `PUT /api/v1/fizetes-kalkulator` | `net_wage`, `revenue`, `revenue_touched` |
 
 > A módosító hívások (PATCH/PUT/POST/DELETE) `X-Audit-Label` fejlécet küldenek a felhasználó által kattintott gomb/menüpont emberi olvasható nevével (percent-encoded) — ebből készül az audit napló „Gomb" oszlopa.
 
@@ -189,10 +202,14 @@ Társai a `ui/utils.py`-ban: `local_today()` (budapesti üzleti dátum a szűrő
 
 | Adat | Endpoint | Megjegyzés |
 |---|---|---|
-| Fájl feltöltés | `POST /api/v1/upload` | multipart `file` + `bank` (opcionális) + `overwrite` |
-| Fájllista | `GET /api/v1/files` | tárolt fájlok bank/bázis szerint |
-| Fájl törlés | `DELETE /api/v1/files/{bank}/{filename}` | — |
-| Fájl letöltés | `GET /api/v1/files/{bank}/{filename}/download` | Vision redirecteli |
+| CSV fájl feltöltés | `POST /api/v1/upload` | multipart `file` + `bank` (opcionális) + `overwrite` |
+| CSV fájllista | `GET /api/v1/files` | tárolt fájlok bank/bázis szerint |
+| CSV fájl törlés | `DELETE /api/v1/files/{bank}/{filename}` | — |
+| CSV fájl letöltés | `GET /api/v1/files/{bank}/{filename}/download` | Vision redirecteli |
+| PDF fájl feltöltés | `POST /api/v1/pdf/upload` | multipart `file` + `bank` (opcionális) + `overwrite` |
+| PDF fájllista | `GET /api/v1/pdf/files` | tárolt PDF bankkivonatok |
+| PDF fájl törlés | `DELETE /api/v1/pdf/files/{bank}/{filename}` | — |
+| PDF fájl letöltés | `GET /api/v1/pdf/files/{bank}/{filename}/download` | Vision proxyzza (streaming); anonymizált tiernél `403` (letöltés letiltva), lista viszont látszik álnevesített fájlnévvel |
 
 ### Auth szerviz (port 8007) — belépés és megszemélyesítés
 
@@ -208,7 +225,7 @@ Társai a `ui/utils.py`-ban: `local_today()` (budapesti üzleti dátum a szűrő
 
 ## Oldalak
 
-### Invoice-Core UI oldalak (`/ui/*` — 49 route)
+### Invoice-Core UI oldalak (`/ui/*` — 52 route)
 
 | Oldal | URL | Leírás |
 |---|---|---|
@@ -224,6 +241,7 @@ Társai a `ui/utils.py`-ban: `local_today()` (budapesti üzleti dátum a szűrő
 | Bank tranzakciók | `/ui/transactions` | Tranzakció lista — szűrhető dátum, linked státusz, partner, összeg szerint; bank egyenlegek kártyák; a partner oszlop a tranzakció iránya szerint a kapcsolt szállítóra (DEBIT) vagy vevőre (CREDIT) linkel, illetve „nincs partner" jelzést ad; tranzakció részlet offcanvas (PDF/számla/partner kapcsolás) |
 | Osztalék | `/ui/dividend` | Éves osztalék/adó kalkuláció: bevétel, kiadás, KIVA, SZJA, SZOCHO — havi bontás (`year` query) |
 | Adók | `/ui/adok` | Adófizetési pivot hónap és típus szerint (NAV ÁFA, SZJA, TAO, Szochó, TB, Bírság, HIPA, Iparkamara) + **„Becsült adók"** tábla (a `tax-estimate` riportból, csak a még nem telt hónapokra, a „Havi bontás"-ban ténylegesen aktív adónemekre vetítve) |
+| Fizetés Calculator | `/ui/fizetes-kalkulator` | Nettó bér / árbevétel alapú fizetés-kalkuláció, szerviz-oldalon perzisztált állapottal (`net_wage`, `revenue`, `revenue_touched`) |
 | Sync | `/ui/sync` | Szinkron indítás mód-választással; szinkron napló accordion; állandó „függőben lévő partner-párosítás" kártya (hány számla/tranzakció vár még szállítóra/vevőre, az utolsó futástól függetlenül) |
 
 **UI tech**: Jinja2 SSR, HTMX 2.x (boost + partial swap + OOB), Bootstrap 5.3 (Bootswatch Yeti, sötét/világos váltás), DataTables 2.x (+ Responsive, + Buttons export) — nincs build lépés.
@@ -243,14 +261,16 @@ Filter formok HTMX partial frissítéssel működnek (szűrt nézetek nem reload
 | Oldal | URL | Leírás |
 |---|---|---|
 | Projektek | `/ui/controlling/projects` | Projektek CRUD — valós adat. Ügyfél (customer FK), ügyfelenként növekvő sorszám, automatikusan összeállított project kód (`{ügyfél} - {sorszám:03d} - {short_name}`), gazda, aktív/lezárt státusz, **kezdés dátuma (`start_date`)**, **projekt típus (`project_type`: Ötlet / Számlázható / PreSales, színes badge)** és rögzítésre jogosultak checkbox lista. Az első rögzített bejegyzés dátuma (`first_entry_date`) is megjelenik (a projekt hét számítás horgonya). Csak a projekt gazdája szerkesztheti a kezdés dátumát/típust (owner-gating) |
+| Szabadság | `/ui/controlling/vacation` | Szabadság/távollét kérelmek CRUD (`kind`: szabadság / távollét / megjegyzés — `vacation`\|`out_of_office`\|`note`, `start_date`, `end_date`, `note`); csak a bejelentkezett felhasználó saját kérelmei szerkeszthetők/törölhetők; `read_only` szerepkörnél a létrehozás gomb rejtett |
 | Timesheet | `/ui/controlling/timesheet` | Saját timesheet rekordok CRUD — valós adat, HTMX partial (`timesheet_content.html`). **Projekt scope szűrő: Engedélyezett projektek / Saját projektek / Összes projekt** (`project_scope` query). Dátum, Projekt (csak aktív és a felhasználó számára jogosult projektek), Ügyfél/Project gazda/Projekt hét mezők a kiválasztott projektből származó, csak-olvasható előnézetek. A **Projekt hét naptári hetek szerint** számítódik (hétfő–vasárnap), a projekt első rögzített bejegyzéséhez rögzítve (W1) — a kliens-oldali előnézet és a szerver ugyanazzal a logikával számol. Tevékenység típus (aktív típusokból), 0,5 órás lépésű Óra select, szabad szöveges Résztvevők és Tevékenység leírás. **Dátum validáció**: hiba esetén a hibaüzenet a modál saját hibaslotjába (`#ts-error-new` / `#ts-error-edit-{id}`) kerül, a modál nyitva marad; siker esetén HX-Redirect a listára (a DataTables Responsive újra-inicializálási hibáinak elkerülésére). Csak a bejelentkezett felhasználó saját rekordjai szerkeszthetők/törölhetők. A felhasználó azonosítása JWT `email` claim alapján történik (`current_user()`), a `client.get_users()` listában keresve egyezést |
 | Riportok | `/ui/controlling/reports` | Valós adat — 4 riporttípus a `timesheet_entry` felett: Projekt riport (heti + kumulált, tevékenység típusonkénti bontással, futó összeggel, **Heti alakulás chart**), Személy riport, Ügyfél riport, Tevékenység típus riport. Az utóbbi három soronkénti listát mutat (Dátum, Nap, Hét, Résztvevők, **Leírás**, Óra, plusz Személy/Ügyfél/Tevékenység típus oszlop a riporttípustól függően), a tábla alatt egy külön „Összesítés" kártyával (tevékenység típusonkénti pivot oszlopokkal). Fejléc-sáv minden riportnál: Projekt / Ügyfél / Személy / Tevékenység típus / Időszak. Szűrők: dátumtartomány (projekt kezdete óta / aktuális hónap / aktuális hét / egyéni), ügyfél, projekt, személy, tevékenység típus — **az ügyfél és a projekt választó dinamikusan össze van kötve** (projekt választó csak az adott ügyfél projektjeit kínálja). Projekt riportnál projekt hiányában automatikusan az első projekt kerül kiválasztásra; az időtartam alapján a heti statisztika granularitása napi/havi/éves lehet. Export (Excel/PDF/Nyomtatás) kliens-oldali DataTables Buttons-szal — a ténylegesen szűrt/rendezett táblát exportálja, a fejléc-sávot (`messageTop`) és az Összesítés szekciót is (`exportOptions.customizeData`, a DOM-ból olvasva). **A PDF export a bejegyzés-részlet helyett az Összesítés táblát helyezi előtérbe** (projekt riportnál a heti táblát), egyedi stílussal (`customize` callback: márkaszín fejléc/cím, zebra-csíkozás, kiemelt összesítő sorok, lábléc oldalszámmal); a stílusozás try/catch-csel védett, hiba esetén sima PDF-et exportál |
 
-### Feltöltés (`/ui/upload` — uploader szerviz)
+### Feltöltés (uploader szerviz)
 
 | Oldal | URL | Leírás |
 |---|---|---|
-| Feltöltés | `/ui/upload` | Bankkivonat (CSV) feltöltés az uploader szervizre (8006): fájl választás kliens-oldali **bank detektálási előnézettel**, opcionális bank felülírás, „létező fájl felülírása" checkbox; HTMX feltöltés eredmény alerttel, alatta a tárolt fájlok táblázata (letöltés/törlés gombokkal) |
+| CSV feltöltés | `/ui/upload` | Bankkivonat (CSV) feltöltés az uploader szervizre (8006): fájl választás kliens-oldali **bank detektálási előnézettel**, opcionális bank felülírás, „létező fájl felülírása" checkbox; HTMX feltöltés eredmény alerttel, alatta a tárolt fájlok táblázata (letöltés/törlés gombokkal) |
+| PDF bankkivonatok | `/ui/bank-statements` | PDF-formátumú bankkivonatok feltöltése/kezelése az uploader PDF végpontjain keresztül (`bank_statements_router.py`) — külön a CSV-alapú `/ui/upload` oldaltól; HTMX feltöltés + fájltábla (`partials/bank_statement_table.html`, letöltés/törlés); anonymizált tiernél a fájlnevek determinisztikusan álnevesítve, letöltés `403` |
 
 ### Auth és Vision saját oldalak
 
@@ -299,7 +319,7 @@ A dashboard KPI-jei és listái az invoice-core `GET /api/v1/dashboard` válasz�
 
 ## REST Interface
 
-A teljes route-térkép (76 UI route + `/health`; a zárójelben a kezelő router):
+A teljes route-térkép (88 UI route + `/health`; a zárójelben a kezelő router):
 
 ```
 GET    /health                                     → {"status": "ok", "timestamp": "..."}
@@ -311,7 +331,7 @@ GET    /login                                      → login.html (query: next, 
 GET    /logout                                     → logout (refresh visszavonás + cookie törlés) → /login
 GET    /stop-impersonation                         → access cookie visszaállítása az adminra → /ui/
 
-# Dashboard + invoice-core UI (ui/invoice_router.py — 49 route)
+# Dashboard + invoice-core UI (ui/invoice_router.py — 52 route)
 GET    /ui/                                        → ui_dashboard.html
 GET    /ui/invoices                                → invoices.html / partials/invoice_table.html (query: date_from, date_to, payment_status, has_pdf, supplier_name)
 GET    /ui/invoices/{id:int}                       → invoice_detail.html
@@ -359,15 +379,24 @@ GET    /ui/picker/invoices                         → partials/picker_invoices.
 GET    /ui/picker/transactions                     → partials/picker_transactions.html (query: invoice_id)
 GET    /ui/dividend                                → dividend.html (query: year)
 GET    /ui/adok                                    → adok.html (query: year)
+GET    /ui/fizetes-kalkulator                      → fizetes_kalkulator.html (query: saved, error)
+POST   /ui/fizetes-kalkulator                      → mentés (PUT /api/v1/fizetes-kalkulator) → redirect (303)
 GET    /ui/sync                                    → sync.html
 POST   /ui/sync/trigger                            → partials/sync_result.html (HTMX + OOB badge frissítés)
 
-# Feltöltés (ui/uploader_router.py)
+# CSV feltöltés (ui/uploader_router.py)
 GET    /ui/upload                                  → upload.html
 POST   /ui/upload/do                               → feltöltés eredmény alert (HTMX partial)
 GET    /ui/upload/files                            → partials/upload_files.html (HTMX)
 GET    /ui/upload/files/{bank}/{filename}/download → redirect → uploader letöltés
 DELETE /ui/upload/files/{bank}/{filename}          → fájl törlés (HTMX)
+
+# PDF bankkivonatok (ui/bank_statements_router.py)
+GET    /ui/bank-statements                         → bank_statements.html
+POST   /ui/bank-statements/upload                  → feltöltés eredmény (HTMX partial)
+GET    /ui/bank-statements/table                   → partials/bank_statement_table.html (HTMX)
+GET    /ui/bank-statements/{bank}/{filename}/download → proxy streaming (uploader-tól); anonymizált tiernél 403
+DELETE /ui/bank-statements/{bank}/{filename}       → fájl törlés (HTMX)
 
 # Admin (ui/admin_router.py)
 GET    /ui/admin/users                             → admin_users.html
@@ -388,6 +417,10 @@ GET    /ui/controlling/timesheet                   → controlling_timesheet.htm
 POST   /ui/controlling/timesheet                   → létrehozás (hiba → partials/timesheet_form_error.html a modálba; siker → HX-Redirect)
 POST   /ui/controlling/timesheet/{id}              → módosítás (ugyanaz a válasz-szerződés)
 DELETE /ui/controlling/timesheet/{id}              → törlés (hiba → teljes oldal re-render; siker → HX-Redirect)
+GET    /ui/controlling/vacation                    → controlling_vacation.html / partials/vacation_content.html
+POST   /ui/controlling/vacation                    → létrehozás
+POST   /ui/controlling/vacation/{id}                → módosítás
+DELETE /ui/controlling/vacation/{id}                → törlés
 GET    /ui/controlling/reports                     → controlling_reports.html (query: report_type, date_range, date_from, date_to, customer_id, project_id, user_id, activity_type_id)
 ```
 
@@ -434,12 +467,13 @@ A log stream + fájl (`logs/vision.log`) formátummal; a JWT validálás certifi
 2. `clients/invoice_core.py` + `clients/uploader.py` + `clients/srcprofit.py` — requests sync kliensek, token továbbadással
 3. `ui/utils.py` — `dict_to_ns()`, `local_today()`, `current_user()`
 4. `base.html` + `_macros.html` + `_sidebar.html` + `_navbar.html` — Bootstrap CDN, HTMX, DataTables, Chart.js, `hx-boost`, sötét/világos téma
-5. `ui/invoice_router.py` — a `/ui/*` oldalak (49 route), `InvoiceCoreClient` hívásokkal, HTMX partial szűrőkkel
-6. `ui/controlling_router.py` — projektek + timesheet + riportok (valós invoice-core CRUD)
+5. `ui/invoice_router.py` — a `/ui/*` oldalak (52 route, incl. Fizetés Calculator), `InvoiceCoreClient` hívásokkal, HTMX partial szűrőkkel
+6. `ui/controlling_router.py` — projektek + timesheet + szabadság + riportok (valós invoice-core CRUD)
 7. `ui/admin_router.py` — felhasználók (+ impersonation), tevékenység típusok, audit napló
-8. `ui/uploader_router.py` — bankkivonat feltöltés oldal
-9. `ui/router.py` — auth oldalak (`/login`, `/logout`, `/stop-impersonation`) + home (`/` → pitch)
-10. `api/main.py` — FastAPI app, auth middleware, mindkét router csatolása, `/health`
+8. `ui/uploader_router.py` — CSV bankkivonat feltöltés oldal
+9. `ui/bank_statements_router.py` — PDF bankkivonat feltöltés/kezelés oldal (uploader PDF végpontjai)
+10. `ui/router.py` — auth oldalak (`/login`, `/logout`, `/stop-impersonation`) + home (`/` → pitch)
+11. `api/main.py` — FastAPI app, auth middleware, összes router csatolása, `/health`
 
 ---
 

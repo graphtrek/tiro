@@ -2,7 +2,7 @@
 title: "Specifikáció: Számla Adatbázis Mikroszerviz"
 description: "Számlákat és partnereket kezelő adatbázis mikroszerviz (MASTER orchestrator)"
 language: "HU"
-last_updated: "2026-08-09"
+last_updated: "2026-09-03"
 related: [INDEX.md, nav-invoice-spec.md, bank-spec.md]
 ---
 
@@ -252,6 +252,34 @@ amit nem a sync pipeline tölt fel, hanem egy másik szerviz push-olja. A
 60 másodpercenként maximum egyszer felhasználónként — `touch_last_login`), így az
 "Utolsó belépés" az utolsó aktivitást tükrözi, nem csak az OAuth login pillanatát.
 
+### vacation_request (szabadság/elérhetőség tervező)
+- id (PK)
+- user_id (FK → user)
+- kind (str enum: `vacation` | `out_of_office` | `note` — "Szabadság" / "Nem elérhető" / "Megjegyzés")
+- start_date, end_date (dátum — `end_date` nem lehet korábbi mint `start_date`)
+- note (nullable, szabad szöveg)
+- created_at, updated_at
+
+Bármely bejelentkezett felhasználó összes bejegyzést listázhatja (csapat-naptár
+jelleggel), de csak a sajátját módosíthatja/törölheti (`user_id` query — más
+felhasználó rekordja `404`-et ad, ugyanaz a minta mint a `timesheet_entry`-nél).
+A [[vision-spec.md|vision]] `/ui/controlling/vacation` ("Szabadság") oldala
+jeleníti meg csapat-naptárként; `note` mezőben szabad szöveges bejegyzésnél az
+anonymizált rétegben a szöveg is generikus placeholderre cserélődik (lásd "Auth
+és jogosultsági rétegek" lentebb), nem csak a nevek/összegek.
+
+### fizetes_kalkulator_state (Fizetés Calculator — megosztott állapot)
+- id (PK)
+- net_wage (float — kívánt nettó bér)
+- revenue (float — árbevétel)
+- revenue_touched (bool — a felhasználó kézzel módosította-e az árbevétel mezőt)
+
+Egyetlen közös sor (nincs `user_id` — belső céges eszköz, nem felhasználónkénti
+állapot). A tényleges bér-vs-osztalék optimalizáló számítás kliens-oldalon
+(JavaScript) fut a [[vision-spec.md|vision]] `/ui/fizetes-kalkulator` oldalán;
+ez a tábla csak a beviteli mezők értékét perzisztálja, hogy böngészők/eszközök
+között ne vesszen el (a korábbi localStorage-only állapot helyett).
+
 ### audit_log (admin audit — felhasználói módosítások naplója)
 - id (PK)
 - user_email (a módosítást végző felhasználó)
@@ -483,8 +511,12 @@ részletes soronkénti listázáshoz, a `rows`-t pedig az alatta megjelenő
 | `GET`  | `/api/v1/reports/dividend` | Éves osztalék/adó kalkuláció (`year`, `kiva_rate` — TAO ráta helyére, `hipa_rate` paraméterek) |
 | `GET`  | `/api/v1/reports/tax` | Adófizetési kimutatás hónap és típus szerint (`year` param; `gross_revenue` = éves beérkező összeg) |
 | `GET`  | `/api/v1/reports/tax-estimate` | Havi adó-becslés (`year`, `tao_rate`, `hipa_rate`, `szja_rate`, `szocho_rate` paraméterek) — az aktuális év hátralévő hónapjait a tényleges hónapok átlagával vetíti előre (`is_projected=true` sorok) |
-| `POST` | `/api/v1/users` | Login rekord upsert (provider+sub alapján) — az auth szerviz hívja minden sikeres bejelentkezéskor |
+| `POST` | `/api/v1/users` | Login rekord upsert (provider+sub alapján) — az auth szerviz hívja minden sikeres bejelentkezéskor; **kivétel a `read_only` írás-tiltás alól** (lásd "Auth és jogosultsági rétegek") |
 | `GET`  | `/api/v1/users` | Bejelentkezett felhasználók listája (utolsó belépés szerint csökkenő) |
+| `POST` | `/api/v1/vacation-requests` | Szabadság/elérhetőség bejegyzés létrehozása (`user_id`, `kind`, `start_date`, `end_date`, `note`); 409 ha `end_date < start_date` vagy ismeretlen `user_id` |
+| `GET`  | `/api/v1/vacation-requests` | Bejegyzések listája (`user_id` opcionális szűrő — nélküle mindenkié, csapat-naptár nézet) |
+| `PUT`  | `/api/v1/vacation-requests/{id}` | Bejegyzés módosítása (kötelező `user_id` query — más felhasználó rekordja 404); 409 érvénytelen dátumtartománynál |
+| `DELETE` | `/api/v1/vacation-requests/{id}` | Bejegyzés törlése (kötelező `user_id` query); 404 ha nem létezik/nem a sajátja |
 | `POST` | `/api/v1/activity-types` | Új tevékenység típus létrehozása (409, ha a név már foglalt — kis-nagybetűtől függetlenül) |
 | `GET`  | `/api/v1/activity-types` | Tevékenység típusok listája (név szerint) |
 | `PUT`  | `/api/v1/activity-types/{id}` | Tevékenység típus módosítása (név + `is_active`); 404 ha nem létezik, 409 névütközésnél |
@@ -498,6 +530,37 @@ részletes soronkénti listázáshoz, a `rows`-t pedig az alatta megjelenő
 | `PUT`  | `/api/v1/timesheet-entries/{id}` | Rekord módosítása (kötelező `user_id` query — más felhasználó rekordja 404, nem 403); ugyanaz a validáció mint létrehozásnál |
 | `DELETE` | `/api/v1/timesheet-entries/{id}` | Rekord törlése (kötelező `user_id` query); 404 ha nem létezik/nem a sajátja |
 | `GET`  | `/api/v1/reports/timesheet` | Timesheet riport — `report_type` (`project`\|`person`\|`customer`\|`activity_type`, kötelező), `date_from`, `date_to`, `customer_id`, `project_id`, `user_id`, `activity_type_id` (mind opcionális); `project_id` kötelező, ha `report_type=project`; 400 ha hiányzik vagy ismeretlen a `report_type` |
+| `GET`  | `/api/v1/fizetes-kalkulator` | Fizetés Calculator elmentett beviteli állapota (`net_wage`, `revenue`, `revenue_touched`) — nincs mentett sor esetén az oldal alapértelmezett értékeit adja vissza |
+| `PUT`  | `/api/v1/fizetes-kalkulator` | Állapot mentése (upsert — egyetlen közös sor, nem felhasználónkénti) |
+
+## Auth és jogosultsági rétegek (JWT)
+
+Az `invoice-core/src/invoice_core/auth.py` (projektenként bemásolt modul, minta:
+[[auth-service-spec.md|Auth Service Spec]]) validálja lokálisan a JWT-t
+(JWKS, RS256) minden végponton a `GET /health` kivételével. A claims-ből két
+jogosultsági réteg dől el:
+
+- **`role == "read_only"` — írás-tiltás**: minden nem-GET/HEAD/OPTIONS kérés
+  `403`-at kap, **kivéve** a `("POST", "/api/v1/users")` párost — ez a login
+  rekord upsert, amit az auth szerviz állít elő (nem a hívó), így az olvasás-
+  only felhasználók bejelentkezéskor is bekerülnek a `user` táblába.
+- **`anonymized: true` (a `should_anonymize(request)` helper) — adatmaszkolás**:
+  ez **nem** ugyanaz, mint a `read_only` szerep — a `READONLY_EMAILS`/
+  `READONLY_DOMAINS` tier (lásd [[auth-service-spec.md|Auth Spec]]) is
+  `read_only`, de valós adatot lát; csak az `anonymized` claim `True` értéke
+  vált ki maszkolást. Ha igaz, a válasz az `anonymize()` függvényen megy át,
+  mielőtt visszaadódna: szállító/vevő/counterparty nevek és azonosítók
+  determinisztikus álnevekre cserélődnek, minden pénzösszeg egy entitásonkénti
+  determinisztikus szorzóval torzul, a szabad szöveges mezők (pl.
+  `vacation_request.note`, timesheet `description`) pedig generikus
+  placeholder szövegre. A lefedettség immár jóval túlmutat a pénzügyi
+  alapadatokon: dashboard, számlák, PDF fájlok, partnerek (lista, részletek,
+  szállítói összesítő), tranzakciók (lista, egyenlegek, részletek), riportok
+  (osztalék, adó, adó-becslés + felülbírálatok, timesheet), projektek,
+  timesheet bejegyzések és a Fizetés Calculator állapota is torzul ezen a
+  rétegen. A `sync/pending`, `audit-log`, `users` és `activity-types` GET
+  végpontok **nem** mennek át `should_anonymize`-on (nincs bennük partner-név
+  vagy pénzösszeg).
 
 ## Tech stack
 - Python 3.10+

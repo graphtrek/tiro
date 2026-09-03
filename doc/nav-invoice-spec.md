@@ -2,7 +2,7 @@
 title: "Specifikáció: NAV Online Számla Mikorszerviz"
 description: "NAV Online Számla API integrációs mikroszerviz"
 language: "HU"
-last_updated: "2026-08-09"
+last_updated: "2026-09-03"
 related: [INDEX.md, invoice-core-spec.md, invoice-file-filter-spec.md]
 ---
 
@@ -87,6 +87,7 @@ Egyedi számlalekérdezés:
 - **Technikai felhasználó** hitelesítés: SHA-512 jelszó hash, SHA3-512 kérés-aláírás, AES-128 token visszafejtés
 - Konfigurálható endpoint (`test` / `production`)
 - **JWT védelem (06c9d10)**: a REST API minden végpontja (kivéve `/health`) RS256-os access tokent követel — Bearer fejlécben vagy `mp_access_token` cookie-ban. A tokent a központi auth szerviz (:8007) bocsátja ki (`aud=tiro`, `iss=auth-service`); a JWKS publikus kulcsokat a szerviz lokálisan cache-eli (1 óra TTL, ismeretlen `kid` esetén újratöltés), így nincs kérésenkénti hálózati hívás. `AUTH_ENABLED=false` esetén a védelem kikapcsolható (teszt).
+- **`read_only` szerep (c6c9bd3)**: ha a JWT `role` claim-je `read_only`, a `require_auth` a nem-GET/HEAD/OPTIONS metódusú kéréseket `403`-mal elutasítja (`"Csak olvasási jogosultság — írási művelet nem engedélyezett"`) — ez a szerviz esetében a `POST /report` és `POST /cache/clear` végpontokat érinti.
 - Memória-cache (TTL konfigurálható, `CACHE_TTL_SECONDS`, default 3600 mp)
 
 ---
