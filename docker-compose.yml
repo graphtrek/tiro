@@ -116,6 +116,7 @@ services:
       API_PORT: 8006
       AUTH_SERVICE_URL: http://auth:8007
       STORAGE_DIR: /data/bank-storage
+      PDF_STORAGE_DIR: /data/bank-storage/statements-pdf
     ports:
       - "127.0.0.1:8006:8006"
     volumes:
