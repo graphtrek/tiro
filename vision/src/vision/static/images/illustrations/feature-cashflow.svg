@@ -1,0 +1,21 @@
+<svg viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="196" rx="120" ry="14" fill="#5b4be0" opacity="0.07"/>
+  <path d="M60 30 C110 -6 220 -6 262 40 C300 82 292 150 240 180 C188 210 90 204 54 160 C20 118 24 58 60 30 Z" fill="#eaf6f6"/>
+
+  <!-- clipboard -->
+  <rect x="96" y="46" width="128" height="150" rx="14" fill="#ffffff" stroke="rgba(30,20,60,0.10)" stroke-width="1.5"/>
+  <rect x="132" y="36" width="56" height="18" rx="8" fill="#0891b2"/>
+
+  <!-- chart area -->
+  <rect x="114" y="72" width="92" height="100" rx="6" fill="#f4f8f8"/>
+  <path d="M120 150 L146 128 L166 140 L188 100 L200 112"
+        stroke="#17a750" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="200" cy="112" r="6" fill="#17a750"/>
+  <rect x="120" y="160" width="16" height="4" rx="2" fill="#c9c3e0"/>
+  <rect x="120" y="168" width="30" height="4" rx="2" fill="#c9c3e0"/>
+
+  <!-- coin -->
+  <circle cx="234" cy="150" r="24" fill="#d97e0a"/>
+  <circle cx="234" cy="150" r="24" fill="none" stroke="#b3660a" stroke-width="2" opacity="0.5"/>
+  <text x="234" y="157" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#ffffff" text-anchor="middle">Ft</text>
+</svg>

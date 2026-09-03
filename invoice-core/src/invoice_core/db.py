@@ -401,6 +401,12 @@ class Project(Base):
     code = Column(String, nullable=False, unique=True, index=True)
     owner_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     start_date = Column(Date, nullable=False)
+    # NULL means the project has no planned end date -- treated as T&M
+    # (Time & Materials) rather than a fixed-scope project.
+    planned_end_date = Column(Date, nullable=True)
+    # Contracted number of man-days (IFUA-style day-rate contracts) -- compared
+    # against actual worked days (usage_hours / 8) for ROI/planning tracking.
+    planned_days = Column(Float, nullable=True)
     # native_enum=False: VARCHAR in both PostgreSQL and SQLite (test-compat)
     project_type = Column(
         SAEnum(_ProjectType, native_enum=False),
@@ -412,6 +418,8 @@ class Project(Base):
         nullable=False,
         default=_ProjectStatus.OPEN,
     )
+    goal = Column(String, nullable=True)
+    deliverable = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

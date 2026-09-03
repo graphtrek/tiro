@@ -57,6 +57,8 @@ def create_project(db: Session, payload: ProjectIn) -> Project:
     owner = db.query(User).filter(User.id == payload.owner_id).one_or_none()
     if owner is None:
         raise ValueError("Project gazda nem található")
+    if owner.role == "read_only":
+        raise ValueError("Project gazda nem lehet read only jogosultságú felhasználó")
 
     sequence_no = _next_sequence_no(db, payload.customer_id)
     code = _compose_code(sequence_no, payload.short_name)
@@ -71,7 +73,11 @@ def create_project(db: Session, payload: ProjectIn) -> Project:
         owner_id=payload.owner_id,
         status=payload.status,
         start_date=payload.start_date,
+        planned_end_date=payload.planned_end_date,
+        planned_days=payload.planned_days,
         project_type=payload.project_type,
+        goal=payload.goal,
+        deliverable=payload.deliverable,
         permitted_users=_permitted_users(db, payload.permitted_user_ids),
     )
     db.add(record)
@@ -91,6 +97,10 @@ def update_project(db: Session, project_id: int, payload: ProjectUpdate) -> Proj
     owner = db.query(User).filter(User.id == payload.owner_id).one_or_none()
     if owner is None:
         raise ValueError("Project gazda nem található")
+    # Allow keeping an already-assigned read-only owner unchanged (pre-existing
+    # state), but block switching to a *new* read-only owner.
+    if owner.role == "read_only" and payload.owner_id != record.owner_id:
+        raise ValueError("Project gazda nem lehet read only jogosultságú felhasználó")
 
     # Changing the customer re-anchors the per-customer sequence; otherwise keep it,
     # so renaming the short_name alone doesn't bump the sequence number.
@@ -110,7 +120,11 @@ def update_project(db: Session, project_id: int, payload: ProjectUpdate) -> Proj
     record.owner_id = payload.owner_id
     record.status = payload.status
     record.start_date = payload.start_date
+    record.planned_end_date = payload.planned_end_date
+    record.planned_days = payload.planned_days
     record.project_type = payload.project_type
+    record.goal = payload.goal
+    record.deliverable = payload.deliverable
     record.permitted_users = _permitted_users(db, payload.permitted_user_ids)
 
     db.commit()

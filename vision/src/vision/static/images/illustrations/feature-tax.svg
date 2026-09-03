@@ -1,0 +1,23 @@
+<svg viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="196" rx="120" ry="14" fill="#d97e0a" opacity="0.08"/>
+  <path d="M64 34 C118 -6 214 -4 254 42 C292 86 282 146 230 176 C178 204 92 200 56 158 C22 118 16 60 64 34 Z" fill="#fbf1e0"/>
+
+  <!-- piggy bank -->
+  <ellipse cx="150" cy="140" rx="70" ry="48" fill="#d97e0a"/>
+  <circle cx="205" cy="118" r="14" fill="#d97e0a"/>
+  <path d="M96 130 q-14 -4 -16 -16 q10 2 18 8 Z" fill="#d97e0a"/>
+  <circle cx="196" cy="112" r="4" fill="#2c2150"/>
+  <rect x="140" y="104" width="24" height="6" rx="3" fill="#b3660a"/>
+  <rect x="118" y="170" width="10" height="16" rx="3" fill="#b3660a"/>
+  <rect x="168" y="170" width="10" height="16" rx="3" fill="#b3660a"/>
+  <rect x="140" y="98" width="4" height="10" fill="#17a750"/>
+  <circle cx="142" cy="94" r="8" fill="#17a750"/>
+
+  <!-- percent badge -->
+  <circle cx="248" cy="72" r="26" fill="#ffffff" stroke="rgba(30,20,60,0.10)" stroke-width="1.5"/>
+  <text x="248" y="80" font-family="Arial, sans-serif" font-size="20" font-weight="800" fill="#17a750" text-anchor="middle">%</text>
+
+  <!-- coin -->
+  <circle cx="72" cy="176" r="18" fill="#5b4be0"/>
+  <text x="72" y="182" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#ffffff" text-anchor="middle">Ft</text>
+</svg>

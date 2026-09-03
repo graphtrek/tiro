@@ -1,0 +1,25 @@
+<svg viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="160" cy="196" rx="120" ry="14" fill="#ea580c" opacity="0.07"/>
+  <path d="M62 36 C116 -4 216 -2 256 44 C294 88 284 148 232 176 C180 204 92 200 56 158 C22 118 16 62 62 36 Z" fill="#fdeee3"/>
+
+  <!-- chat bubble (owner) -->
+  <rect x="60" y="54" width="150" height="70" rx="18" fill="#ffffff" stroke="rgba(30,20,60,0.10)" stroke-width="1.5"/>
+  <path d="M78 124 l0 20 l22 -20 Z" fill="#ffffff" stroke="rgba(30,20,60,0.10)" stroke-width="1.5"/>
+  <rect x="80" y="72" width="90" height="7" rx="3.5" fill="#c9c3e0"/>
+  <rect x="80" y="86" width="112" height="7" rx="3.5" fill="#c9c3e0"/>
+  <rect x="80" y="100" width="64" height="7" rx="3.5" fill="#c9c3e0"/>
+
+  <!-- reply bubble (Tiro AI) -->
+  <rect x="132" y="128" width="128" height="56" rx="16" fill="#ea580c"/>
+  <path d="M244 184 l0 16 l18 -16 Z" fill="#ea580c"/>
+  <rect x="150" y="144" width="86" height="7" rx="3.5" fill="#ffffff" opacity="0.9"/>
+  <rect x="150" y="158" width="60" height="7" rx="3.5" fill="#ffffff" opacity="0.7"/>
+
+  <!-- sparkle -->
+  <g fill="#5b4be0">
+    <path d="M246 46 l4 10 l10 4 l-10 4 l-4 10 l-4 -10 l-10 -4 l10 -4 Z"/>
+  </g>
+  <g fill="#0891b2">
+    <path d="M46 150 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 l7 -3 Z"/>
+  </g>
+</svg>

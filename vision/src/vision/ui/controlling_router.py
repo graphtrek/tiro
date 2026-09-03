@@ -104,9 +104,23 @@ def create_project(
     start_date: str = Form(...),
     project_type: str = Form(...),
     permitted_user_ids: list[int] = Form([]),
+    goal: str | None = Form(None),
+    deliverable: str | None = Form(None),
+    planned_end_date: str | None = Form(None),
+    planned_days: str | None = Form(None),
 ):
     result = _client().create_project(
-        customer_id, short_name, owner_id, status, start_date, project_type, permitted_user_ids
+        customer_id,
+        short_name,
+        owner_id,
+        status,
+        start_date,
+        project_type,
+        permitted_user_ids,
+        goal,
+        deliverable,
+        planned_end_date or None,
+        float(planned_days) if planned_days else None,
     )
     return _projects_page(request, error=result.get("error"))
 
@@ -122,6 +136,10 @@ def update_project(
     start_date: str = Form(...),
     project_type: str = Form(...),
     permitted_user_ids: list[int] = Form([]),
+    goal: str | None = Form(None),
+    deliverable: str | None = Form(None),
+    planned_end_date: str | None = Form(None),
+    planned_days: str | None = Form(None),
 ):
     result = _client().update_project(
         project_id,
@@ -132,6 +150,10 @@ def update_project(
         start_date,
         project_type,
         permitted_user_ids,
+        goal,
+        deliverable,
+        planned_end_date or None,
+        float(planned_days) if planned_days else None,
     )
     return _projects_page(request, error=result.get("error"))
 
@@ -533,6 +555,12 @@ def _reports_page(
     projects = client.get_projects()
     users = client.get_users()
     activity_types = [a for a in client.get_activity_types() if a["is_active"]]
+
+    customers_with_timesheets = {p["customer_id"] for p in projects if p["usage_hours"] > 0}
+    customers = [c for c in customers if c["id"] in customers_with_timesheets]
+
+    users_with_timesheets = {e["user_id"] for e in client.get_timesheet_entries()}
+    users = [u for u in users if u["id"] in users_with_timesheets]
 
     if report_type not in _REPORT_TYPES:
         report_type = "project"

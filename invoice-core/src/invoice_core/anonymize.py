@@ -75,6 +75,8 @@ IDENTIFIER_KEYS = {
     "bank_transaction_id",
     "bank_txn_external_id",
     "short_name",
+    "goal",
+    "deliverable",
 }
 
 # `words` is the PDF's full extracted text (pdfplumber/OCR output --

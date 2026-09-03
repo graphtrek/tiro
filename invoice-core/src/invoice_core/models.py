@@ -243,8 +243,12 @@ class ProjectIn(BaseModel):
     owner_id: int
     status: ProjectStatus = ProjectStatus.OPEN
     start_date: date
+    planned_end_date: date | None = None
+    planned_days: float | None = None
     project_type: ProjectType
     permitted_user_ids: list[int] = Field(default_factory=list)
+    goal: str | None = None
+    deliverable: str | None = None
 
 
 class ProjectUpdate(BaseModel):
@@ -253,8 +257,12 @@ class ProjectUpdate(BaseModel):
     owner_id: int
     status: ProjectStatus
     start_date: date
+    planned_end_date: date | None = None
+    planned_days: float | None = None
     project_type: ProjectType
     permitted_user_ids: list[int] = Field(default_factory=list)
+    goal: str | None = None
+    deliverable: str | None = None
 
 
 class ProjectOut(BaseModel):
@@ -270,10 +278,14 @@ class ProjectOut(BaseModel):
     owner_name: str
     status: ProjectStatus
     start_date: date
+    planned_end_date: date | None
+    planned_days: float | None
     project_type: ProjectType
     permitted_user_ids: list[int]
     usage_hours: float
     first_entry_date: date | None
+    goal: str | None
+    deliverable: str | None
     created_at: datetime
     updated_at: datetime
 

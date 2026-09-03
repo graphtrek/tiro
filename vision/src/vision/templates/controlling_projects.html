@@ -40,12 +40,14 @@
     <table id="projects-table" class="table table-hover table-sm">
       <thead>
         <tr>
-          <th>Project kód</th>
+          <th>Azonosító / rövid név</th>
           <th>Ügyfél</th>
           <th>Project gazda</th>
           <th>Típus</th>
           <th>Kezdés dátuma</th>
+          <th>Tervezett végdátum</th>
           <th>Státusz</th>
+          <th class="text-end">Terv. napszám</th>
           <th class="text-end">Óra</th>
           <th></th>
         </tr>
@@ -54,7 +56,7 @@
         {% for row in rows %}
         {% set is_owner = current_user and current_user.id == row.owner_id and (not request.state.user or request.state.user.role != 'read_only') %}
         <tr class="{% if row.status == 'CLOSED' %}text-muted{% endif %}">
-          <td><strong>{{ row.code }}</strong></td>
+          <td><strong title="{{ row.goal or '' }}">{{ row.short_name }}</strong></td>
           <td>{{ row.customer_name }}</td>
           <td>{{ row.owner_name }}</td>
           <td>
@@ -64,11 +66,25 @@
           </td>
           <td>{{ row.start_date }}</td>
           <td>
+            {% if row.planned_end_date %}
+            {{ row.planned_end_date }}
+            {% else %}
+            <span class="badge bg-info text-dark" title="Nincs tervezett végdátum: T&amp;M, nem fix scope-ú projekt">T&amp;M</span>
+            {% endif %}
+          </td>
+          <td>
             <span class="badge {{ project_status_badges.get(row.status, 'bg-secondary') }}">
               {{ project_status_labels.get(row.status, row.status) }}
             </span>
           </td>
-          <td class="text-end">{{ ("%g" % row.usage_hours)|replace(".", ",") }}</td>
+          <td class="text-end">
+            {% if row.planned_days %}
+            {{ ("%g" % row.planned_days)|replace(".", ",") }}
+            {% else %}
+            <span class="text-muted">–</span>
+            {% endif %}
+          </td>
+          <td class="text-end" title="Ledolgozott nap (8 órás nap): {{ ("%g" % (row.usage_hours / 8))|replace(".", ",") }}">{{ ("%g" % row.usage_hours)|replace(".", ",") }}</td>
           <td class="text-end text-nowrap">
             {% if is_owner %}
             <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
@@ -118,8 +134,8 @@
         { targets: 0, responsivePriority: 1 },
         { targets: 1, responsivePriority: 2 },
         { targets: -1, searchable: false, orderable: false, responsivePriority: 1 },
-        { targets: [2, 3, 4, 5], responsivePriority: 10001 },
-        { targets: 6, className: "text-end", responsivePriority: 10001 },
+        { targets: [2, 3, 4, 5, 6], responsivePriority: 10001 },
+        { targets: [7, 8], className: "text-end", responsivePriority: 10001 },
       ],
     });
   })();
@@ -154,9 +170,9 @@
               <label class="form-label">Project gazda <span class="text-danger">*</span></label>
               <select name="owner_id" class="form-select" required>
                 <option value="" disabled selected>Válasszon…</option>
-                {% for u in users %}<option value="{{ u.id }}">{{ u.name or u.email }}</option>{% endfor %}
+                {% for u in users if u.role != 'read_only' %}<option value="{{ u.id }}">{{ u.name or u.email }}</option>{% endfor %}
               </select>
-              <div class="form-text">A jövőben a költséghely-felelős</div>
+              <div class="form-text">A jövőben a költséghely-felelős — read only jogosultsággal nem lehet</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Státusz</label>
@@ -170,6 +186,16 @@
             <div class="col-md-6">
               <label class="form-label">Kezdés dátuma <span class="text-danger">*</span></label>
               <input type="date" name="start_date" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tervezett végdátum</label>
+              <input type="date" name="planned_end_date" class="form-control">
+              <div class="form-text">Ha üresen marad: T&amp;M, nem fix scope-ú projekt</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tervezett napszám</label>
+              <input type="number" name="planned_days" class="form-control" step="0.5" min="0" placeholder="pl. 20">
+              <div class="form-text">Hány napra szerződtünk — a ledolgozott nappal (Óra/8) összevetve</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Típus <span class="text-danger">*</span></label>
@@ -189,6 +215,14 @@
               <label class="form-label">Project kód</label>
               <input class="form-control pr-code" disabled>
               <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Projekt célja</label>
+              <textarea name="goal" class="form-control" rows="2" placeholder="Rövid leírás a projekt céljáról…"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Projekt leszállítandó(k)</label>
+              <textarea name="deliverable" class="form-control" rows="2" placeholder="Mikor tekinthető sikeresnek a projekt, milyen eredményterméket kell átadni…"></textarea>
             </div>
             <div class="col-12">
               <label class="form-label">Rögzítésre jogosultak (permitted_users)</label>
@@ -249,9 +283,10 @@
               <label class="form-label">Project gazda <span class="text-danger">*</span></label>
               <select name="owner_id" class="form-select" required {% if not is_owner %}disabled{% endif %}>
                 {% for u in users %}
-                <option value="{{ u.id }}" {% if u.id == row.owner_id %}selected{% endif %}>{{ u.name or u.email }}</option>
+                <option value="{{ u.id }}" {% if u.id == row.owner_id %}selected{% endif %} {% if u.role == 'read_only' and u.id != row.owner_id %}disabled{% endif %}>{{ u.name or u.email }}</option>
                 {% endfor %}
               </select>
+              <div class="form-text">Read only jogosultságú felhasználó nem választható project gazdának</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Státusz</label>
@@ -265,6 +300,16 @@
             <div class="col-md-6">
               <label class="form-label">Kezdés dátuma <span class="text-danger">*</span></label>
               <input type="date" name="start_date" class="form-control" value="{{ row.start_date }}" required {% if not is_owner %}disabled{% endif %}>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tervezett végdátum</label>
+              <input type="date" name="planned_end_date" class="form-control" value="{{ row.planned_end_date or '' }}" {% if not is_owner %}disabled{% endif %}>
+              <div class="form-text">Ha üresen marad: T&amp;M, nem fix scope-ú projekt</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tervezett napszám</label>
+              <input type="number" name="planned_days" class="form-control" step="0.5" min="0" value="{{ row.planned_days if row.planned_days is not none else '' }}" {% if not is_owner %}disabled{% endif %}>
+              <div class="form-text">Hány napra szerződtünk — a ledolgozott nappal (Óra/8) összevetve</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Típus <span class="text-danger">*</span></label>
@@ -283,6 +328,14 @@
               <label class="form-label">Project kód</label>
               <input class="form-control pr-code" value="{{ row.code }}" disabled>
               <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Projekt célja</label>
+              <textarea name="goal" class="form-control" rows="2" {% if not is_owner %}disabled{% endif %}>{{ row.goal or '' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Projekt leszállítandó(k)</label>
+              <textarea name="deliverable" class="form-control" rows="2" placeholder="Mikor tekinthető sikeresnek a projekt, milyen eredményterméket kell átadni…" {% if not is_owner %}disabled{% endif %}>{{ row.deliverable or '' }}</textarea>
             </div>
             <div class="col-12">
               <label class="form-label">Rögzítésre jogosultak (permitted_users)</label>
