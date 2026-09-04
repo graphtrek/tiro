@@ -72,12 +72,19 @@ services:
       # Exception to the shared AUTH_ENABLED=true default in .env — this
       # service is still called unauthenticated by the invoice-core sync CLI.
       AUTH_ENABLED: "false"
+      # Read the Gmail OAuth files from the mounted secrets/ directory instead
+      # of the repo root (root .env keeps the bare filenames for local runs).
+      GOOGLE_CREDENTIALS_FILE: secrets/credentials.json
+      GOOGLE_TOKEN_FILE: secrets/token.json
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
       - downloads-data:/app/downloads
-      - ./attachment-downloader/credentials.json:/app/credentials.json:ro
-      - ./attachment-downloader/token.json:/app/token.json
+      # Mount the *directory*, never the individual files: a bind mount whose
+      # host path is missing is auto-created by Docker as an empty directory,
+      # which previously turned /app/token.json into a dir (IsADirectoryError).
+      # Both files are gitignored — copy them onto the host before `up`.
+      - ./attachment-downloader/secrets:/app/secrets
     depends_on:
       - auth
     restart: unless-stopped

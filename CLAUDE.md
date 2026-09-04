@@ -114,6 +114,8 @@ uv run pytest tests/ -v
 ### Auth
 Place OAuth2 desktop `credentials.json` in the project root; `token.json` is generated on first successful auth. Override paths via `GOOGLE_CREDENTIALS_FILE` / `GOOGLE_TOKEN_FILE` in `.env`. Neither credential file is committed.
 
+**Under Docker**, both files are read from `attachment-downloader/secrets/` instead (the compose `environment:` block overrides the two path vars, and the whole directory — not the individual files — is bind-mounted to `/app/secrets`). Copy both files onto the host there *before* `docker compose up`: the OAuth browser flow cannot run inside the container, so `token.json` has to be minted on a machine with a browser. Mounting the files individually is what caused `IsADirectoryError: /app/token.json` — Docker auto-creates a *directory* for a missing bind-mount source.
+
 ## invoice-file-filter — PDF extraction + invoice filtering
 
 Calls attachment-downloader, selects PDFs that are invoices by keyword matching, extracts text (pdfplumber + optional Tesseract OCR fallback) and exposes the result. `requires-python >=3.11`.
