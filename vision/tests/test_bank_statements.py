@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import ClassVar
 
 import jwt as pyjwt
 import pytest
@@ -34,6 +35,37 @@ SAMPLE_FILES = [
         "path": "/tmp/wise/statement_25546267_HUF_2026-07-01_2026-07-31.pdf",
     },
 ]
+
+SAMPLE_CSV_STORAGE = {
+    "storage_dir": "/tmp/balance-statements",
+    "banks": {
+        "erste": [
+            {
+                "bank": "erste",
+                "filename": "11600006-00000001-97860425_2026-07-01_2026-07-31.csv",
+                "size_bytes": 4321,
+                "modified_at": "2026-08-19T22:10:05.725694Z",
+                "path": "/tmp/erste/11600006-00000001-97860425_2026-07-01_2026-07-31.csv",
+            }
+        ],
+        "wise": [
+            {
+                "bank": "wise",
+                "filename": "statement_25546267_HUF_2026-07-01_2026-07-31.csv",
+                "size_bytes": 2109,
+                "modified_at": "2026-08-19T22:11:05.725694Z",
+                "path": "/tmp/wise/statement_25546267_HUF_2026-07-01_2026-07-31.csv",
+            }
+        ],
+    },
+    "total_files": 2,
+}
+
+
+@pytest.fixture(autouse=True)
+def no_csv_statements(monkeypatch):
+    """Alapértelmezésben nincs CSV — az egyes tesztek felülírják, ha kellenek."""
+    monkeypatch.setattr(UploaderClient, "list_files", lambda self: None)
 
 
 @pytest.fixture(scope="module")
@@ -221,3 +253,113 @@ def test_delete_rerenders_table(monkeypatch, client, auth_header):
 
     assert response.status_code == 200
     assert "bank-statement-table" in response.text
+
+
+def test_page_lists_csv_statements_with_download_links(monkeypatch, client, auth_header):
+    monkeypatch.setattr(UploaderClient, "list_pdf_statements", lambda self: SAMPLE_FILES)
+    monkeypatch.setattr(UploaderClient, "list_files", lambda self: SAMPLE_CSV_STORAGE)
+
+    response = client.get("/ui/bank-statements", headers=auth_header)
+
+    assert response.status_code == 200
+    # CSV kivonatok a PDF-ek mellett, letöltési linkkel
+    assert "11600006-00000001-97860425_2026-07-01_2026-07-31.csv" in response.text
+    assert "statement_25546267_HUF_2026-07-01_2026-07-31.csv" in response.text
+    assert (
+        "/ui/bank-statements/csv/erste/"
+        "11600006-00000001-97860425_2026-07-01_2026-07-31.csv/download" in response.text
+    )
+    assert (
+        "/ui/bank-statements/csv/wise/"
+        "statement_25546267_HUF_2026-07-01_2026-07-31.csv/download" in response.text
+    )
+    # a PDF letöltés útvonala változatlan
+    assert f"/ui/bank-statements/erste/{SAMPLE_FILES[0]['filename']}/download" in response.text
+
+
+def test_csv_download_proxies_uploader(monkeypatch, client, auth_header):
+    called = {}
+
+    class _FakeResponse:
+        status_code = 200
+        headers: ClassVar[dict[str, str]] = {
+            "content-type": "text/csv",
+            "content-disposition": 'attachment; filename="x.csv"',
+            "set-cookie": "leak=1",
+        }
+
+        def raise_for_status(self):
+            pass
+
+        def iter_content(self, chunk_size=8192):
+            yield b"datum;osszeg\n"
+
+        def close(self):
+            pass
+
+    def fake_get(self, url, **kwargs):
+        called["url"] = url
+        return _FakeResponse()
+
+    monkeypatch.setattr("requests.Session.get", fake_get)
+
+    response = client.get(
+        "/ui/bank-statements/csv/erste/"
+        "11600006-00000001-97860425_2026-07-01_2026-07-31.csv/download",
+        headers=auth_header,
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"datum;osszeg\n"
+    assert response.headers["content-type"] == "text/csv"
+    # csak a whitelistelt fejlécek jutnak vissza
+    assert "set-cookie" not in response.headers
+    assert called["url"].endswith(
+        "/api/v1/files/erste/11600006-00000001-97860425_2026-07-01_2026-07-31.csv/download"
+    )
+
+
+def test_csv_download_blocked_for_anonymized(client, anonymized_auth_header):
+    response = client.get(
+        "/ui/bank-statements/csv/erste/"
+        "11600006-00000001-97860425_2026-07-01_2026-07-31.csv/download",
+        headers=anonymized_auth_header,
+    )
+
+    assert response.status_code == 403
+
+
+def test_page_anonymized_fakes_csv_filenames(monkeypatch, client, anonymized_auth_header):
+    monkeypatch.setattr(UploaderClient, "list_pdf_statements", lambda self: [])
+    monkeypatch.setattr(UploaderClient, "list_files", lambda self: SAMPLE_CSV_STORAGE)
+
+    response = client.get("/ui/bank-statements", headers=anonymized_auth_header)
+
+    assert response.status_code == 200
+    # a valódi számlaszámot hordozó CSV fájlnév sem renderelődik
+    assert "11600006-00000001-97860425_2026-07-01_2026-07-31.csv" not in response.text
+    assert "statement_25546267_HUF_2026-07-01_2026-07-31.csv" not in response.text
+    assert ".csv" in response.text  # a fake név megtartja a kiterjesztést
+    assert "/download" not in response.text
+
+
+def test_csv_delete_rerenders_table(monkeypatch, client, auth_header):
+    deleted = {}
+
+    def fake_delete(self, bank, filename):
+        deleted["args"] = (bank, filename)
+        return True
+
+    monkeypatch.setattr(UploaderClient, "delete_file", fake_delete)
+    monkeypatch.setattr(UploaderClient, "list_pdf_statements", lambda self: [])
+    monkeypatch.setattr(UploaderClient, "list_files", lambda self: None)
+
+    response = client.request(
+        "DELETE",
+        "/ui/bank-statements/csv/wise/statement_25546267_HUF_2026-07-01_2026-07-31.csv",
+        headers=auth_header,
+    )
+
+    assert response.status_code == 200
+    assert "bank-statement-table" in response.text
+    assert deleted["args"] == ("wise", "statement_25546267_HUF_2026-07-01_2026-07-31.csv")

@@ -18,6 +18,8 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(prefix="/ui/controlling", tags=["controlling-ui"])
 
+_HOURS_PER_DAY = 8
+
 _HU_WEEKDAYS = ["hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap"]
 
 _PROJECT_SCOPES = ["permitted", "my", "all"]
@@ -508,6 +510,10 @@ def _fmt_hours(v: float) -> str:
 def _format_report_hours(report: dict) -> None:
     if "weeks" in report:
         for row in report["weeks"]:
+            # Ledolgozott nap 8 órás nappal számolva — ugyanaz a konvenció, mint a
+            # Projektek oldal "Ledolgozott nap" tooltipjénél.
+            row["week_days"] = _fmt_hours(round(row["week_hours"] / _HOURS_PER_DAY, 2))
+            row["cumulative_days"] = _fmt_hours(round(row["cumulative_hours"] / _HOURS_PER_DAY, 2))
             row["week_hours"] = _fmt_hours(row["week_hours"])
             row["cumulative_hours"] = _fmt_hours(row["cumulative_hours"])
             row["by_activity_type"] = {k: _fmt_hours(v) for k, v in row["by_activity_type"].items()}
@@ -669,7 +675,9 @@ def _reports_page(
         ],
         "active_week_count": len(active_weeks),
         "avg_active_week_hours": (
-            _fmt_hours(report["total_hours"] / len(active_weeks)) if active_weeks else "0"
+            # Az átlag osztás eredménye, a felvitt órákkal ellentétben, tetszőleges
+            # tizedesjegy-sorral jöhet ki (12,1111) — egy tizedesre kerekítve jelenik meg.
+            _fmt_hours(round(report["total_hours"] / len(active_weeks), 1)) if active_weeks else "0"
         ),
         "longest_week_hours": (
             _fmt_hours(week_totals[longest_week_no]) if longest_week_no is not None else "0"

@@ -349,8 +349,10 @@
         <tr>
         {% if project_detail %}
           <th>Projekt hét</th>
-          <th class="text-end report-hours-col">Heti összesítő (óra)</th>
+          <th class="text-end report-hours-col">Heti (óra)</th>
+          <th class="text-end">Heti (nap)</th>
           <th class="text-end">Kumulált (óra)</th>
+          <th class="text-end">Kumulált (nap)</th>
           {% for name in report.activity_type_names %}<th class="text-end">{{ name }}</th>{% endfor %}
           <th></th>
         {% else %}
@@ -370,9 +372,11 @@
         {% if project_detail %}
         {% for w in report.weeks %}
         <tr>
-          <td>W{{ w.project_week }}</td>
+          <td data-order="{{ w.project_week }}">W{{ w.project_week }}</td>
           <td class="text-end">{{ w.week_hours }}</td>
+          <td class="text-end">{{ w.week_days }}</td>
           <td class="text-end">{{ w.cumulative_hours }}</td>
+          <td class="text-end">{{ w.cumulative_days }}</td>
           {% for name in report.activity_type_names %}<td class="text-end">{{ w.by_activity_type.get(name, "0") }}</td>{% endfor %}
           <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/ui/controlling/timesheet" title="Timesheet"><i class="bi bi-box-arrow-up-right"></i></a></td>
         </tr>
@@ -382,7 +386,7 @@
         <tr>
           <td>{{ e.entry_date }}</td>
           <td>{{ e.weekday }}</td>
-          <td>W{{ e.project_week }}</td>
+          <td data-order="{{ e.project_week }}">W{{ e.project_week }}</td>
           {% if show_project_col %}<td>{{ e.project_code }}</td>{% endif %}
           {% if show_person_col %}<td>{{ e.user_name }}</td>{% endif %}
           {% if show_activity_type_col %}<td>{{ e.activity_type_name }}</td>{% endif %}
@@ -432,7 +436,7 @@
         <tr>
           <td>{{ e.entry_date }}</td>
           <td>{{ e.weekday }}</td>
-          <td>W{{ e.project_week }}</td>
+          <td data-order="{{ e.project_week }}">W{{ e.project_week }}</td>
           {% if show_person_col %}<td>{{ e.user_name }}</td>{% endif %}
           {% if show_activity_type_col %}<td>{{ e.activity_type_name }}</td>{% endif %}
           <td>{{ e.participants }}</td>
@@ -530,8 +534,14 @@
         });
         return out;
       }
+      // A DataTable-lé tett táblák lapozáskor csak az aktuális oldal sorait
+      // tartják a DOM-ban, ezért onnan az API adja az összes (szűrt) sort,
+      // a képernyőn látható rendezési sorrendben.
+      var bodyRows = ($.fn.DataTable && $.fn.DataTable.isDataTable(table))
+        ? $(table).DataTable().rows({ search: "applied", order: "applied" }).nodes().toArray()
+        : Array.prototype.slice.call(table.querySelectorAll("tbody tr"));
       var rows = [expandRow(table.querySelectorAll("thead th"))];
-      Array.prototype.forEach.call(table.querySelectorAll("tbody tr"), function(tr) {
+      bodyRows.forEach(function(tr) {
         rows.push(expandRow(tr.querySelectorAll("td")));
       });
       var footCells = table.querySelectorAll("tfoot td");
@@ -671,7 +681,9 @@
     }
 
     new DataTable("#report-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      // A hu.json nem hoz "decimal" kulcsot, e nélkül a DataTables a "13,5"-öt
+      // szövegként rendezné ("13,5" < "2") minden óra/nap oszlopban.
+      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", decimal: "," },
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50],
       order: [[0, "asc"]],
@@ -695,6 +707,37 @@
         if (el) el.textContent = sum.toLocaleString("hu-HU");
       },
     });
+
+    {% if project_detail %}
+    // A "Bejegyzések" tábla is rendezhető — a "Hét" oszlop a cellák data-order
+    // attribútumából numerikusan rendeződik (W2 < W10), nem szövegként.
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable("#report-detail-table")) {
+      $("#report-detail-table").DataTable().destroy();
+    }
+    var detailTable = document.getElementById("report-detail-table");
+    if (detailTable) {
+      var detailHoursIdx = detailTable.querySelectorAll("thead th").length - 1;
+      new DataTable("#report-detail-table", {
+        language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", decimal: "," },
+        pageLength: 15,
+        lengthMenu: [10, 15, 25, 50],
+        order: [[0, "asc"]],
+        responsive: true,
+        columnDefs: [
+          { targets: "_all", responsivePriority: 3 },
+          { targets: 0, responsivePriority: 1 },
+        ],
+        drawCallback: function() {
+          // A lábléc a keresővel szűkített halmaz összegét mutassa, különben a
+          // szűrt táblához a teljes időszak összóraszáma tartozna.
+          var sum = this.api().column(detailHoursIdx, { search: "applied" }).data().toArray()
+            .reduce(function(a, b) { return a + hours(b); }, 0);
+          var cell = detailTable.querySelector("tfoot td:last-child");
+          if (cell) cell.textContent = sum.toLocaleString("hu-HU");
+        },
+      });
+    }
+    {% endif %}
 
     document.getElementById("export-excel").onclick = function(e) { e.preventDefault(); $("#report-table").DataTable().button(0).trigger(); };
     document.getElementById("export-pdf").onclick = function(e) { e.preventDefault(); $("#report-table").DataTable().button(1).trigger(); };
