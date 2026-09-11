@@ -14,6 +14,7 @@ from invoice_core.db import (
     TaxEstimateOverride,
     _InvoiceDirection,
 )
+from invoice_core.services.szocho import szocho_cap
 from invoice_core.timeutil import today
 
 STANDARD_VAT_RATE = 0.27  # Hungarian standard VAT rate, used to derive net from a gross override
@@ -151,6 +152,7 @@ class TaxEstimateMonthRow:
     szja_tax: float
     szocho_tax: float
     total: float
+    szocho_base: float = 0.0
     is_override: bool = False
 
 
@@ -161,6 +163,7 @@ class TaxEstimateReport:
     hipa_rate: float
     szja_rate: float
     szocho_rate: float
+    szocho_cap: float
     monthly: list[TaxEstimateMonthRow]
     totals: TaxEstimateMonthRow
 
@@ -182,7 +185,10 @@ def _tax_row(
     hipa_tax = max(0.0, revenue * hipa_rate)
     net_profit = gross_profit - tao_tax - hipa_tax
     szja_tax = max(0.0, net_profit * szja_rate)
-    szocho_tax = max(0.0, net_profit * szocho_rate)
+    # Uncapped here on purpose: the szocho cap is annual, so it can only be
+    # allocated once every month of the year is known -- see _apply_szocho_cap.
+    szocho_base = max(0.0, net_profit)
+    szocho_tax = szocho_base * szocho_rate
     total = vat_payable + tao_tax + hipa_tax + szja_tax + szocho_tax
     return TaxEstimateMonthRow(
         month=month,
@@ -196,7 +202,27 @@ def _tax_row(
         szja_tax=szja_tax,
         szocho_tax=szocho_tax,
         total=total,
+        szocho_base=szocho_base,
     )
+
+
+def _apply_szocho_cap(rows: list[TaxEstimateMonthRow], szocho_rate: float, cap: float) -> None:
+    """Re-charge each month's szocho against the annual cap, earliest month first.
+
+    The rows arrive with szocho on their full dividend base; the cap (24x the
+    monthly minimum wage, see `services.szocho`) applies to the year as a whole,
+    so it is consumed in month order and every month past the point where it
+    runs out becomes szocho-free. Each row's `total` is adjusted by the same
+    delta, in place.
+    """
+    remaining = cap
+    for row in rows:
+        charged = max(0.0, min(row.szocho_base, remaining))
+        remaining -= charged
+        szocho_tax = charged * szocho_rate
+        row.total += szocho_tax - row.szocho_tax
+        row.szocho_tax = szocho_tax
+        row.szocho_base = charged
 
 
 def get_estimate_overrides(db: Session, year: int) -> dict[int, float]:
@@ -242,6 +268,9 @@ def get_tax_estimate(
     `InvoiceVatSummary`), TAO/KIVA and HIPA (from gross profit / revenue),
     and SZJA/SZOCHÓ on the resulting dividend base — mirroring
     `dividend_service.calculate_dividend`'s yearly formula, applied per month.
+    SZOCHÓ is then re-charged across the year against its annual cap
+    (`services.szocho`): the earliest months consume the cap and later months
+    fall szocho-free once it is used up.
 
     For the current year, months after "now" have no invoices yet, so they're
     filled with the trailing average of the year's actual (nonzero) months and
@@ -383,6 +412,9 @@ def get_tax_estimate(
                 )
             monthly.append(row)
 
+    cap = szocho_cap(year)
+    _apply_szocho_cap(monthly, szocho_rate, cap)
+
     totals = TaxEstimateMonthRow(
         month="Összesen",
         is_projected=False,
@@ -395,6 +427,7 @@ def get_tax_estimate(
         szja_tax=sum(row.szja_tax for row in monthly),
         szocho_tax=sum(row.szocho_tax for row in monthly),
         total=sum(row.total for row in monthly),
+        szocho_base=sum(row.szocho_base for row in monthly),
     )
 
     return TaxEstimateReport(
@@ -403,6 +436,7 @@ def get_tax_estimate(
         hipa_rate=hipa_rate,
         szja_rate=szja_rate,
         szocho_rate=szocho_rate,
+        szocho_cap=cap,
         monthly=monthly,
         totals=totals,
     )

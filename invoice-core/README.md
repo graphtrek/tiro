@@ -79,7 +79,7 @@ CORS is enabled for `http://localhost:8009` (vision frontend).
 | `GET`  | `/api/v1/transactions/{transaction_id:int}` | Transaction detail; includes `invoice_ids: list[int]` and `invoice_numbers: list[str]` (may contain multiple entries for split-payment transactions) |
 | `GET`  | `/api/v1/reports/dividend` | Annual dividend/tax calculation (query: `year`, `kiva_rate` — stands in for the TAO rate, since a company pays either TAO or KIVA, never both; `hipa_rate`) |
 | `GET`  | `/api/v1/reports/tax` | Tax payment report by month and type (query: `year`) |
-| `GET`  | `/api/v1/reports/tax-estimate` | Monthly tax estimate (query: `year`, `tao_rate`, `hipa_rate`, `szja_rate`, `szocho_rate`) — projects the current year's remaining months from the average of actual months (`is_projected=true` rows) |
+| `GET`  | `/api/v1/reports/tax-estimate` | Monthly tax estimate (query: `year`, `tao_rate`, `hipa_rate`, `szja_rate`, `szocho_rate`) — projects the current year's remaining months from the average of actual months (`is_projected=true` rows); SZOCHO is charged only up to its annual cap (24x the monthly minimum wage), consumed earliest month first |
 | `GET`  | `/api/v1/reports/tax-estimate/overrides` | Saved per-month manual overrides for the tax estimate (query: `year`) |
 | `PUT`  | `/api/v1/reports/tax-estimate/overrides` | Save manual overrides for the tax estimate |
 | `GET`  | `/api/v1/reports/timesheet` | Timesheet report over `timesheet_entry` (query: `report_type` — `project` \| `person` \| `customer` \| `activity_type`, required; `date_from`, `date_to`, `customer_id`, `project_id`, `user_id`, `activity_type_id`, all optional); `project_id` is required when `report_type=project`; `400` if missing or `report_type` unknown |
@@ -334,6 +334,7 @@ src/invoice_core/
 │   ├── transaction_service.py ← Bank transaction list with filters
 │   ├── invoice_file_service.py ← PDF file list
 │   ├── dividend_service.py  ← Annual dividend/tax calculation (KIVA, SZJA, SZOCHO)
+│   ├── szocho.py            ← Annual SZOCHO cap (24x minimálbér) shared by both tax services
 │   ├── tax_service.py       ← Tax payment report: filters bank transactions by NAV/HIPA/Iparkamara account numbers
 │   ├── user_service.py      ← Upsert/list login records pushed by the auth service
 │   ├── vacation_service.py  ← CRUD for vacation/availability entries (own-record scoping on write, team-wide read)

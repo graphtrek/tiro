@@ -153,6 +153,7 @@ AMOUNT_KEYS = {
     "hipa_tax",
     "szja_tax",
     "szocho_tax",
+    "szocho_base",
     "invoice_net_amount",
     "invoice_vat_amount",
     "invoice_gross_amount",

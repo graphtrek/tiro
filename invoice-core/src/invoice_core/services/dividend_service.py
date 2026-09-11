@@ -7,6 +7,7 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from invoice_core.db import Invoice, _InvoiceDirection
+from invoice_core.services.szocho import capped_szocho, szocho_cap
 
 
 @dataclass
@@ -31,6 +32,8 @@ class DividendReport:
     szja_rate: float
     szja_tax: float
     szocho_rate: float
+    szocho_cap: float
+    szocho_base: float
     szocho_tax: float
     net_dividend_without_szocho: float
     net_dividend_with_szocho: float
@@ -60,9 +63,11 @@ def calculate_dividend(
       (net árbevétel) as a simplification — the real HIPA base allows deducting
       COGS/materials/subcontractor costs, which this system doesn't track separately.
     - szja_rate: "személyi jövedelemadó" (personal income tax on dividends).
-    - szocho_rate: "szociális hozzájárulási adó" (social contribution tax on dividends,
-      capped in reality but not modeled here — see the two "net_dividend_*" fields
-      for the estimate with and without this tax).
+    - szocho_rate: "szociális hozzájárulási adó" (social contribution tax on dividends).
+      Only the part of the dividend base that fits under the annual szocho cap
+      (24x the monthly minimum wage — see `services.szocho`) is charged; above it
+      the dividend is szocho-free. The shareholder's wage income eats into the same
+      cap but isn't modeled here, so `szocho_tax` is an upper bound.
     """
     rows = (
         db.query(Invoice.invoice_date, Invoice.direction, Invoice.amount_net)
@@ -96,7 +101,9 @@ def calculate_dividend(
     hipa_tax = max(0.0, revenue * hipa_rate)
     net_profit = gross_profit - tao_tax - hipa_tax
     szja_tax = max(0.0, net_profit * szja_rate)
-    szocho_tax = max(0.0, net_profit * szocho_rate)
+    cap = szocho_cap(year)
+    szocho_base = max(0.0, min(net_profit, cap))
+    szocho_tax = capped_szocho(net_profit, szocho_rate, year)
     net_dividend_without_szocho = net_profit - szja_tax
     net_dividend_with_szocho = net_profit - szja_tax - szocho_tax
 
@@ -123,6 +130,8 @@ def calculate_dividend(
         szja_rate=szja_rate,
         szja_tax=szja_tax,
         szocho_rate=szocho_rate,
+        szocho_cap=cap,
+        szocho_base=szocho_base,
         szocho_tax=szocho_tax,
         net_dividend_without_szocho=net_dividend_without_szocho,
         net_dividend_with_szocho=net_dividend_with_szocho,

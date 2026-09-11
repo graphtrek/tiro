@@ -131,7 +131,10 @@
               <td class="text-end text-danger" id="fc-dividend-szja">—</td>
             </tr>
             <tr>
-              <td>Osztalék szocho (13%)</td>
+              <td>
+                Osztalék szocho (13%)
+                <div class="text-muted small" id="fc-dividend-szocho-note"></div>
+              </td>
               <td class="text-end text-warning" id="fc-dividend-szocho">—</td>
             </tr>
             <tr>
@@ -157,7 +160,10 @@
       árbevétel 5%-ának megfelelő (de legalább 100 000 Ft) egyéb átlagos költsége (rezsi, könyvelés,
       stb.) és 2%-os HIPA (helyi iparűzési adó) fizetési kötelezettsége is van. A tervezett árbevétel mezőben ennél
       magasabb összeget megadva a fennmaradó eredmény társasági adóját (TAO 9%) és a kifizethető
-      osztalék terheit (SZJA 15% + szocho 13%) is kiszámítja.
+      osztalék terheit (SZJA 15% + szocho 13%) is kiszámítja. Az osztalék szochójára 2026-ban éves
+      plafon vonatkozik: a minimálbér (322 800 Ft) 24-szerese, azaz 7 747 200 Ft — a magánszemély
+      bérjövedelme ebbe beleszámít, és csak a plafonból megmaradó rész után kell osztalék szochót
+      fizetni (évi legfeljebb 1 007 136 Ft).
     </p>
   </div>
 </div>
@@ -177,12 +183,31 @@
   var TAO_RATE = 0.09;
   var DIVIDEND_SZJA_RATE = 0.15;
   var DIVIDEND_SZOCHO_RATE = 0.13;
+  // 2026: a szocho éves plafonja a minimálbér 24-szerese (322 800 x 24 = 7 747 200 Ft).
+  // A plafon a magánszemély szochoköteles jövedelmére együttesen vonatkozik: a bérjövedelem
+  // elsőbbséget élvez, és csak az abból megmaradó keret után kell az osztalék szochóját megfizetni.
+  var MIN_WAGE_MONTHLY = 322800;
+  var SZOCHO_CAP_MULTIPLIER = 24;
+  var SZOCHO_CAP_ANNUAL = MIN_WAGE_MONTHLY * SZOCHO_CAP_MULTIPLIER;
+  var MONTHS_PER_YEAR = 12;
 
   var revenueTouchedInput = document.getElementById('fc-revenue-touched');
   var revenueTouched = revenueTouchedInput.value === 'true';
 
   function fmt(value) {
     return Math.round(value).toLocaleString('hu-HU') + ' Ft';
+  }
+
+  // A szocho-plafon állapotát magyarázó sor az osztalék szocho alatt.
+  function szochoCapNote(remainingCapAnnual, dividendBase, dividendSzochoBase) {
+    var cap = 'Éves plafon: ' + fmt(SZOCHO_CAP_ANNUAL) + ' (minimálbér ' + SZOCHO_CAP_MULTIPLIER + '×)';
+    if (remainingCapAnnual <= 0) {
+      return cap + ' — a bérjövedelem kimeríti, az osztalék után nincs szocho.';
+    }
+    if (dividendSzochoBase >= dividendBase) {
+      return cap + ' — a bér és az osztalék együtt a plafon alatt marad.';
+    }
+    return cap + ' — ebből az osztaléknak csak ~' + fmt(dividendSzochoBase) + '/hó része szochoköteles.';
   }
 
   function recalc() {
@@ -224,7 +249,13 @@
     var tao = Math.max(0, resultAfterCosts * TAO_RATE);
     var dividendBase = Math.max(0, resultAfterCosts - tao);
     var dividendSzja = dividendBase * DIVIDEND_SZJA_RATE;
-    var dividendSzocho = dividendBase * DIVIDEND_SZOCHO_RATE;
+
+    // Szocho-plafon: az éves bruttó bér már elhasználja a keret egy részét, az osztaléknak
+    // csak a maradékra jutó hányada szochoköteles. Havi szinten számolunk, ezért a keretet
+    // is havi összegre bontjuk vissza.
+    var remainingCapAnnual = Math.max(0, SZOCHO_CAP_ANNUAL - grossWage * MONTHS_PER_YEAR);
+    var dividendSzochoBase = Math.min(dividendBase, remainingCapAnnual / MONTHS_PER_YEAR);
+    var dividendSzocho = dividendSzochoBase * DIVIDEND_SZOCHO_RATE;
     var netDividend = dividendBase - dividendSzja - dividendSzocho;
     var totalNet = netWage + netDividend;
 
@@ -242,6 +273,9 @@
     document.getElementById('fc-dividend-base').textContent = '~' + fmt(dividendBase);
     document.getElementById('fc-dividend-szja').textContent = '~' + fmt(dividendSzja);
     document.getElementById('fc-dividend-szocho').textContent = '~' + fmt(dividendSzocho);
+    document.getElementById('fc-dividend-szocho-note').textContent = szochoCapNote(
+      remainingCapAnnual, dividendBase, dividendSzochoBase
+    );
     document.getElementById('fc-net-dividend').textContent = '~' + fmt(netDividend);
     document.getElementById('fc-total-net').innerHTML = '~' + fmt(totalNet) + '<span class="fw-normal text-muted">/hó</span>';
   }

@@ -111,6 +111,10 @@
         <div class="card-title text-center">Nettó felvehető<br><small class="text-muted">SZOCHO levonással ({{ (report.szocho_rate * 100) | int }}%)</small></div>
         <div class="kpi-value text-warning text-center">{{ amount_fmt(report.net_dividend_with_szocho) }}</div>
         <div class="text-muted small text-center mt-2">SZJA + SZOCHO: − {{ amount_fmt(report.szja_tax + report.szocho_tax) }}</div>
+        {% if report.szocho_cap %}
+        <div class="text-muted small text-center">SZOCHO-alap a plafonig: {{ amount_fmt(report.szocho_base) }}
+          <br>éves plafon: {{ amount_fmt(report.szocho_cap) }}</div>
+        {% endif %}
       </div>
     </div>
   </div>
