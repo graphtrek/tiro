@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Starts all Tiro services defined in .vscode/launch.json.
-# Logs go to logs/<service>.log. Press Ctrl+C to stop everything.
+# Logs go to logs/<service>.log, and are also fanned into a combined,
+# tagged and timestamped logs/all.log. Press Ctrl+C to stop everything.
 
 set -uo pipefail
 
@@ -9,14 +10,23 @@ LOGS="$ROOT/logs"
 mkdir -p "$LOGS"
 rm -f "$LOGS"/*.log
 
+ALL_LOG="$LOGS/all.log"
+: >"$ALL_LOG"
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# Distinct per-service colors for the [name] tag in the combined logs/all.log,
+# assigned round-robin in start order.
+TAG_COLORS=('\033[0;32m' '\033[0;33m' '\033[0;34m' '\033[0;35m' '\033[0;36m' '\033[0;91m' '\033[0;94m' '\033[0;95m')
+COLOR_IDX=0
+
 PIDS=()
 NAMES=()
+TAIL_PIDS=()
 
 start() {
     local name=$1 dir=$2 python=$3 script=$4
@@ -32,6 +42,15 @@ start() {
     PIDS+=("$pid")
     NAMES+=("$name")
     printf "  ${GREEN}%-34s${NC} pid %-6s  logs/%s.log\n" "$name" "$pid" "$name"
+
+    # Fan this service's log into the consolidated logs/all.log, tagged,
+    # timestamped, and colorized per-service (the tag only, not the message).
+    local tag_color="${TAG_COLORS[$((COLOR_IDX % ${#TAG_COLORS[@]}))]}"
+    COLOR_IDX=$((COLOR_IDX + 1))
+    ( tail -n +1 -F "$log" 2>/dev/null | while IFS= read -r line; do
+          printf "${tag_color}[%s] [%s]${NC} %s\n" "$(date '+%H:%M:%S')" "$name" "$line"
+      done ) >>"$ALL_LOG" &
+    TAIL_PIDS+=("$!")
 }
 
 # Recursively gather a PID and all its descendants into ALL_PIDS.
@@ -58,6 +77,9 @@ cleanup() {
     ALL_PIDS=()
     for i in "${!PIDS[@]}"; do
         collect_tree "${PIDS[$i]}"
+    done
+    for pid in "${TAIL_PIDS[@]}"; do
+        collect_tree "$pid"
     done
 
     for pid in "${ALL_PIDS[@]}"; do
@@ -107,6 +129,7 @@ start "invoice-core (8004)"          "invoice-core"          "invoice-core/.venv
 start "vision (8009)"                "vision"                "vision/.venv/bin/python"                "vision/run_api.py"
 
 echo ""
+printf "  ${CYAN}%-34s${NC}          logs/all.log (combined)\n" "all services"
 echo -e "${GREEN}All services started. Press Ctrl+C to stop.${NC}"
 echo ""
 
