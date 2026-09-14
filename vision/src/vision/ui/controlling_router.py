@@ -648,7 +648,11 @@ def _reports_page(
     for e in entries_raw:
         week_totals[e["project_week"]] = week_totals.get(e["project_week"], 0.0) + e["hours"]
     active_weeks = [h for h in week_totals.values() if h > 0]
-    longest_week_no = max(week_totals, key=week_totals.get, default=None)
+
+    day_totals: dict[str, float] = {}
+    for e in entries_raw:
+        day_totals[e["entry_date"]] = day_totals.get(e["entry_date"], 0.0) + e["hours"]
+    active_days = [h for h in day_totals.values() if h > 0]
 
     if entries_raw:
         entry_dates = [date.fromisoformat(e["entry_date"]) for e in entries_raw]
@@ -679,10 +683,10 @@ def _reports_page(
             # tizedesjegy-sorral jöhet ki (12,1111) — egy tizedesre kerekítve jelenik meg.
             _fmt_hours(round(report["total_hours"] / len(active_weeks), 1)) if active_weeks else "0"
         ),
-        "longest_week_hours": (
-            _fmt_hours(week_totals[longest_week_no]) if longest_week_no is not None else "0"
+        "active_day_count": len(active_days),
+        "avg_day_hours": (
+            _fmt_hours(round(report["total_hours"] / len(active_days), 1)) if active_days else "0"
         ),
-        "longest_week_no": longest_week_no,
     }
 
     _format_report_hours(report)
