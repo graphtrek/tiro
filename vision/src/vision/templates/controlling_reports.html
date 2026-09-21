@@ -1,19 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Riportok — Tiro{% endblock %}
+{% import "_macros.html" as macros with context %}
+{% block title %}{{ t("Riportok") }} — Tiro{% endblock %}
 
 {% block breadcrumb %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
     <li class="breadcrumb-item">Controlling</li>
-    <li class="breadcrumb-item active">Riportok</li>
+    <li class="breadcrumb-item active">{{ t("Riportok") }}</li>
   </ol>
 </nav>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
-  <h1 class="h3 mb-0"><i class="bi bi-bar-chart-line me-2"></i>Riportok</h1>
+  <h1 class="h3 mb-0"><i class="bi bi-bar-chart-line me-2"></i>{{ t("Riportok") }}</h1>
   <div class="ms-auto d-flex gap-2">
     <div class="dropdown">
       <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
@@ -22,21 +23,21 @@
       <ul class="dropdown-menu dropdown-menu-end">
         <li><a class="dropdown-item" href="#" id="export-excel"><i class="bi bi-file-earmark-excel me-2"></i>Excel</a></li>
         <li><a class="dropdown-item" href="#" id="export-pdf"><i class="bi bi-file-earmark-pdf me-2"></i>PDF</a></li>
-        <li><a class="dropdown-item" href="#" id="export-print"><i class="bi bi-printer me-2"></i>Nyomtatás</a></li>
+        <li><a class="dropdown-item" href="#" id="export-print"><i class="bi bi-printer me-2"></i>{{ t("Nyomtatás") }}</a></li>
       </ul>
     </div>
   </div>
 </div>
 
-<p class="text-muted">Lekérdezések és exportok — az eredmény kereshető táblázatként jelenik meg.</p>
+<p class="text-muted">{{ t("Lekérdezések és exportok — az eredmény kereshető táblázatként jelenik meg.") }}</p>
 
 <div class="card mb-4">
-  <div class="card-header"><strong>Riportválasztó és szűrők</strong></div>
+  <div class="card-header"><strong>{{ t("Riportválasztó és szűrők") }}</strong></div>
   <div class="card-body">
     <form method="get" action="/ui/controlling/reports">
       <div class="row g-3">
         <div class="col-md-4">
-          <label class="form-label">Riport típus</label>
+          <label class="form-label">{{ t("Riport típus") }}</label>
           <select class="form-select" name="report_type">
             {% for rt in report_types %}
             <option value="{{ rt }}" {% if report_type == rt %}selected{% endif %}>{{ report_type_labels[rt] }}</option>
@@ -44,7 +45,7 @@
           </select>
         </div>
         <div class="col-md-4">
-          <label class="form-label">Dátumtartomány</label>
+          <label class="form-label">{{ t("Dátumtartomány") }}</label>
           <select class="form-select" name="date_range">
             {% for dr in date_ranges %}
             <option value="{{ dr }}" {% if date_range == dr %}selected{% endif %}>{{ date_range_labels[dr] }}</option>
@@ -52,44 +53,44 @@
           </select>
         </div>
         <div class="col-md-2">
-          <label class="form-label">Egyéni dátumtól</label>
+          <label class="form-label">{{ t("Egyéni dátumtól") }}</label>
           <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}">
         </div>
         <div class="col-md-2">
-          <label class="form-label">Egyéni dátumig</label>
+          <label class="form-label">{{ t("Egyéni dátumig") }}</label>
           <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}">
         </div>
         <div class="col-md-3">
-          <label class="form-label">Ügyfél</label>
+          <label class="form-label">{{ t("Ügyfél") }}</label>
           <select class="form-select" name="customer_id" id="report-filter-customer">
-            <option value="" {% if not customer_id %}selected{% endif %}>mind</option>
+            <option value="" {% if not customer_id %}selected{% endif %}>{{ t("mind") }}</option>
             {% for c in customers %}
             <option value="{{ c.id }}" {% if customer_id == c.id %}selected{% endif %}>{{ c.name }}</option>
             {% endfor %}
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label">Projekt</label>
+          <label class="form-label">{{ t("Projekt") }}</label>
           <select class="form-select" name="project_id" id="report-filter-project">
-            <option value="" {% if not project_id %}selected{% endif %}>mind</option>
+            <option value="" {% if not project_id %}selected{% endif %}>{{ t("mind") }}</option>
             {% for p in projects %}
             <option value="{{ p.id }}" data-customer-id="{{ p.customer_id }}" {% if project_id == p.id %}selected{% endif %}>{{ p.code }}</option>
             {% endfor %}
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label">Személy</label>
+          <label class="form-label">{{ t("Személy") }}</label>
           <select class="form-select" name="user_id">
-            <option value="" {% if not user_id %}selected{% endif %}>mind</option>
+            <option value="" {% if not user_id %}selected{% endif %}>{{ t("mind") }}</option>
             {% for u in users %}
             <option value="{{ u.id }}" {% if user_id == u.id %}selected{% endif %}>{{ u.name or u.email }}</option>
             {% endfor %}
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label">Tevékenység típus</label>
+          <label class="form-label">{{ t("Tevékenység típus") }}</label>
           <select class="form-select" name="activity_type_id">
-            <option value="" {% if not activity_type_id %}selected{% endif %}>mind</option>
+            <option value="" {% if not activity_type_id %}selected{% endif %}>{{ t("mind") }}</option>
             {% for a in activity_types %}
             <option value="{{ a.id }}" {% if activity_type_id == a.id %}selected{% endif %}>{{ a.name }}</option>
             {% endfor %}
@@ -97,7 +98,7 @@
         </div>
       </div>
       <div class="d-flex align-items-center justify-content-end mt-3">
-        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-play-fill me-1"></i>Riport futtatása</button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-play-fill me-1"></i>{{ t("Riport futtatása") }}</button>
       </div>
     </form>
   </div>
@@ -144,35 +145,38 @@
 {% set show_activity_type_col = not activity_type_id %}
 {% set show_project_col = not project_detail and not project_id %}
 {% set base_cols = 5 + (1 if show_person_col else 0) + (1 if show_activity_type_col else 0) + (1 if show_project_col else 0) %}
-{% set summary_label = "Személy" if report_type == "person" else ("Ügyfél" if report_type == "customer" else ("Projekt" if report_type == "project" else "Tevékenység típus")) %}
+{% set summary_label = t("Személy") if report_type == "person" else (t("Ügyfél") if report_type == "customer" else (t("Projekt") if report_type == "project" else t("Tevékenység típus"))) %}
 
 <div class="card mb-4">
   <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <strong>Heti alakulás</strong> <span class="text-muted small">({{ summary_label }} szerint színezve)</span>
+    <strong>{{ t("Heti alakulás") }}</strong>
+    <span class="text-muted small">
+      {% if request.state.lang == "en" %}(colored by {{ summary_label }}){% else %}({{ summary_label }} szerint színezve){% endif %}
+    </span>
     <div class="btn-group btn-group-sm" role="group" id="chartGranularity" data-default="{{ weekly_stats.default_granularity }}">
-      <button type="button" class="btn btn-outline-secondary" data-granularity="day">Napi</button>
-      <button type="button" class="btn btn-outline-secondary" data-granularity="week">Heti</button>
-      <button type="button" class="btn btn-outline-secondary" data-granularity="month">Havi</button>
-      <button type="button" class="btn btn-outline-secondary" data-granularity="all">Összes</button>
+      <button type="button" class="btn btn-outline-secondary" data-granularity="day">{{ t("Napi") }}</button>
+      <button type="button" class="btn btn-outline-secondary" data-granularity="week">{{ t("Heti") }}</button>
+      <button type="button" class="btn btn-outline-secondary" data-granularity="month">{{ t("Havi") }}</button>
+      <button type="button" class="btn btn-outline-secondary" data-granularity="all">{{ t("Összes") }}</button>
     </div>
   </div>
   <div class="card-body pt-3">
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-3">
-        <div class="text-muted small text-uppercase">Összesen</div>
-        <div class="fs-4 fw-semibold">{{ report.total_hours }} óra</div>
+        <div class="text-muted small text-uppercase">{{ t("Összesen") }}</div>
+        <div class="fs-4 fw-semibold">{{ report.total_hours }} {{ t("óra") }}</div>
       </div>
       <div class="col-6 col-md-3">
-        <div class="text-muted small text-uppercase">Napok száma</div>
+        <div class="text-muted small text-uppercase">{{ t("Napok száma") }}</div>
         <div class="fs-4 fw-semibold">{{ weekly_stats.active_day_count }}</div>
       </div>
       <div class="col-6 col-md-3">
-        <div class="text-muted small text-uppercase">Átlag / aktív hét</div>
-        <div class="fs-4 fw-semibold">{{ weekly_stats.avg_active_week_hours }} óra</div>
+        <div class="text-muted small text-uppercase">{{ t("Átlag / aktív hét") }}</div>
+        <div class="fs-4 fw-semibold">{{ weekly_stats.avg_active_week_hours }} {{ t("óra") }}</div>
       </div>
       <div class="col-6 col-md-3">
-        <div class="text-muted small text-uppercase">Átlag / Nap</div>
-        <div class="fs-4 fw-semibold">{{ weekly_stats.avg_day_hours }} óra</div>
+        <div class="text-muted small text-uppercase">{{ t("Átlag / Nap") }}</div>
+        <div class="fs-4 fw-semibold">{{ weekly_stats.avg_day_hours }} {{ t("óra") }}</div>
       </div>
     </div>
     <div class="chart-container">
@@ -196,9 +200,13 @@
     var SERIES_COLORS = [1, 2, 3, 4, 5, 6, 7].map(function (n) {
       return css.getPropertyValue('--series-' + n).trim();
     });
-    var OTHER_LABEL = 'Egyéb';
+    var OTHER_LABEL = {{ t("Egyéb")|tojson }};
 
-    var HU_MONTHS = ['jan', 'feb', 'márc', 'ápr', 'máj', 'jún', 'júl', 'aug', 'szept', 'okt', 'nov', 'dec'];
+    var HU_MONTHS = [
+      {{ t("jan")|tojson }}, {{ t("feb")|tojson }}, {{ t("márc")|tojson }}, {{ t("ápr")|tojson }},
+      {{ t("máj")|tojson }}, {{ t("jún")|tojson }}, {{ t("júl")|tojson }}, {{ t("aug")|tojson }},
+      {{ t("szept")|tojson }}, {{ t("okt")|tojson }}, {{ t("nov")|tojson }}, {{ t("dec")|tojson }}
+    ];
 
     function bucketKey(entry, granularity) {
       if (granularity === 'day') return entry.entry_date;
@@ -216,7 +224,7 @@
         var ym = key.split('-');
         return HU_MONTHS[parseInt(ym[1], 10) - 1] + ' ' + ym[0];
       }
-      if (granularity === 'all') return 'Összes';
+      if (granularity === 'all') return {{ t("Összes")|tojson }};
       return 'W' + parseInt(key, 10);
     }
 
@@ -297,7 +305,7 @@
           legend: { display: seriesCount > 1, labels: { color: mutedColor, boxWidth: 12 } },
           tooltip: {
             callbacks: {
-              label: function (ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' óra'; }
+              label: function (ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + ' ' + {{ t("óra")|tojson }}; }
             }
           }
         },
@@ -333,13 +341,13 @@
 
 <div class="card">
   <div class="card-header">
-    <div><strong>Eredmény — {{ report_type_labels[report_type] }}</strong></div>
+    <div><strong>{{ t("Eredmény") }} — {{ report_type_labels[report_type] }}</strong></div>
     <div class="d-flex flex-wrap gap-3 text-muted small mt-1">
-      <span><i class="bi bi-kanban me-1"></i>Projekt: {{ header_project_label }}</span>
-      <span><i class="bi bi-building me-1"></i>Ügyfél: {{ header_customer_label }}</span>
-      <span><i class="bi bi-person me-1"></i>Személy: {{ header_person_label }}</span>
-      <span><i class="bi bi-tags me-1"></i>Tevékenység típus: {{ header_activity_type_label }}</span>
-      <span><i class="bi bi-calendar-range me-1"></i>Időszak: {{ header_period_label }}</span>
+      <span><i class="bi bi-kanban me-1"></i>{{ t("Projekt") }}: {{ header_project_label }}</span>
+      <span><i class="bi bi-building me-1"></i>{{ t("Ügyfél") }}: {{ header_customer_label }}</span>
+      <span><i class="bi bi-person me-1"></i>{{ t("Személy") }}: {{ header_person_label }}</span>
+      <span><i class="bi bi-tags me-1"></i>{{ t("Tevékenység típus") }}: {{ header_activity_type_label }}</span>
+      <span><i class="bi bi-calendar-range me-1"></i>{{ t("Időszak") }}: {{ header_period_label }}</span>
     </div>
   </div>
   <div class="card-body pt-3">
@@ -347,23 +355,23 @@
       <thead>
         <tr>
         {% if project_detail %}
-          <th>Projekt hét</th>
-          <th class="text-end report-hours-col">Heti (óra)</th>
-          <th class="text-end">Heti (nap)</th>
-          <th class="text-end">Kumulált (óra)</th>
-          <th class="text-end">Kumulált (nap)</th>
+          <th>{{ t("Projekt hét") }}</th>
+          <th class="text-end report-hours-col">{{ t("Heti (óra)") }}</th>
+          <th class="text-end">{{ t("Heti (nap)") }}</th>
+          <th class="text-end">{{ t("Kumulált (óra)") }}</th>
+          <th class="text-end">{{ t("Kumulált (nap)") }}</th>
           {% for name in report.activity_type_names %}<th class="text-end">{{ name }}</th>{% endfor %}
           <th></th>
         {% else %}
-          <th>Dátum</th>
-          <th>Nap</th>
-          <th>Hét</th>
-          {% if show_project_col %}<th>Projekt</th>{% endif %}
-          {% if show_person_col %}<th>Személy</th>{% endif %}
-          {% if show_activity_type_col %}<th>Tevékenység típus</th>{% endif %}
-          <th>Résztvevők</th>
-          <th>Leírás</th>
-          <th class="text-end report-hours-col">Óra</th>
+          <th>{{ t("Dátum") }}</th>
+          <th>{{ t("Nap") }}</th>
+          <th>{{ t("Hét") }}</th>
+          {% if show_project_col %}<th>{{ t("Projekt") }}</th>{% endif %}
+          {% if show_person_col %}<th>{{ t("Személy") }}</th>{% endif %}
+          {% if show_activity_type_col %}<th>{{ t("Tevékenység típus") }}</th>{% endif %}
+          <th>{{ t("Résztvevők") }}</th>
+          <th>{{ t("Leírás") }}</th>
+          <th class="text-end report-hours-col">{{ t("Óra") }}</th>
         {% endif %}
         </tr>
       </thead>
@@ -399,35 +407,35 @@
       {% if not project_detail %}
       <tfoot>
         <tr class="table-light fw-semibold">
-          <td colspan="{{ base_cols }}">Összesen</td>
+          <td colspan="{{ base_cols }}">{{ t("Összesen") }}</td>
           <td class="text-end">{{ report.total_hours }}</td>
         </tr>
       </tfoot>
       {% endif %}
     </table>
     <div class="d-flex justify-content-between text-muted small mt-2">
-      <span>Órák a szűrt sorokban: <strong id="report-sum">0</strong> óra</span>
-      {% if project_detail %}<span>Heti sor → Timesheet az adott projektre szűrve</span>{% endif %}
+      <span>{{ t("Órák a szűrt sorokban:") }} <strong id="report-sum">0</strong> {{ t("óra") }}</span>
+      {% if project_detail %}<span>{{ t("Heti sor → Timesheet az adott projektre szűrve") }}</span>{% endif %}
     </div>
   </div>
 </div>
 
 {% if project_detail %}
 <div class="card mt-4">
-  <div class="card-header"><strong>Bejegyzések</strong> <span class="text-muted small">(napi részletek)</span></div>
+  <div class="card-header"><strong>{{ t("Bejegyzések") }}</strong> <span class="text-muted small">({{ t("napi részletek") }})</span></div>
   <div class="card-body pt-3">
     <div class="table-responsive">
     <table id="report-detail-table" class="table table-sm mb-0">
       <thead>
         <tr>
-          <th>Dátum</th>
-          <th>Nap</th>
-          <th>Hét</th>
-          {% if show_person_col %}<th>Személy</th>{% endif %}
-          {% if show_activity_type_col %}<th>Tevékenység típus</th>{% endif %}
-          <th>Résztvevők</th>
-          <th>Leírás</th>
-          <th class="text-end">Óra</th>
+          <th>{{ t("Dátum") }}</th>
+          <th>{{ t("Nap") }}</th>
+          <th>{{ t("Hét") }}</th>
+          {% if show_person_col %}<th>{{ t("Személy") }}</th>{% endif %}
+          {% if show_activity_type_col %}<th>{{ t("Tevékenység típus") }}</th>{% endif %}
+          <th>{{ t("Résztvevők") }}</th>
+          <th>{{ t("Leírás") }}</th>
+          <th class="text-end">{{ t("Óra") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -446,7 +454,7 @@
       </tbody>
       <tfoot>
         <tr class="fw-semibold">
-          <td colspan="{{ base_cols }}">Összesen</td>
+          <td colspan="{{ base_cols }}">{{ t("Összesen") }}</td>
           <td class="text-end">{{ report.total_hours }}</td>
         </tr>
       </tfoot>
@@ -459,8 +467,10 @@
 {% if not project_detail %}
 <div class="card mt-4">
   <div class="card-header">
-    <strong>Összesítés</strong>
-    <span class="text-muted small">({{ summary_label }} szerint)</span>
+    <strong>{{ t("Összesítés") }}</strong>
+    <span class="text-muted small">
+      {% if request.state.lang == "en" %}(by {{ summary_label }}){% else %}({{ summary_label }} szerint){% endif %}
+    </span>
   </div>
   <div class="card-body pt-3">
     <div class="table-responsive">
@@ -468,8 +478,8 @@
       <thead>
         <tr>
           <th>{{ summary_label }}</th>
-          <th class="text-end">Összesen (óra)</th>
-          <th class="text-end">Bejegyzések száma</th>
+          <th class="text-end">{{ t("Összesen (óra)") }}</th>
+          <th class="text-end">{{ t("Bejegyzések száma") }}</th>
           {% if report_type != "activity_type" %}{% for name in report.activity_type_names %}<th class="text-end">{{ name }}</th>{% endfor %}{% endif %}
         </tr>
       </thead>
@@ -487,7 +497,7 @@
       </tbody>
       <tfoot>
         <tr class="fw-semibold">
-          <td>Mindösszesen</td>
+          <td>{{ t("Mindösszesen") }}</td>
           <td class="text-end">{{ report.total_hours }}</td>
           <td></td>
           {% if report_type != "activity_type" %}{% for name in report.activity_type_names %}<td></td>{% endfor %}{% endif %}
@@ -507,11 +517,11 @@
     function hours(s) { return parseFloat(String(s).replace(",", ".")) || 0; }
     var hoursColIdx = document.querySelector("#report-table thead th.report-hours-col").cellIndex;
     var reportTitle = {{ report_type_labels[report_type] | tojson }};
-    var reportMeta = "Projekt: " + {{ header_project_label | tojson }}
-      + "  |  Ügyfél: " + {{ header_customer_label | tojson }}
-      + "  |  Személy: " + {{ header_person_label | tojson }}
-      + "  |  Tevékenység típus: " + {{ header_activity_type_label | tojson }}
-      + "  |  Időszak: " + {{ header_period_label | tojson }};
+    var reportMeta = {{ t("Projekt")|tojson }} + ": " + {{ header_project_label | tojson }}
+      + "  |  " + {{ t("Ügyfél")|tojson }} + ": " + {{ header_customer_label | tojson }}
+      + "  |  " + {{ t("Személy")|tojson }} + ": " + {{ header_person_label | tojson }}
+      + "  |  " + {{ t("Tevékenység típus")|tojson }} + ": " + {{ header_activity_type_label | tojson }}
+      + "  |  " + {{ t("Időszak")|tojson }} + ": " + {{ header_period_label | tojson }};
 
     // Read an on-screen table (Összesítés summary / Bejegyzések entry detail) so
     // exports carry it too — single source of truth is the rendered DOM, not a
@@ -566,8 +576,8 @@
       data.body.push(pad([title]));
       rows.forEach(function(row) { data.body.push(pad(row)); });
     }
-    function withSummary(data) { appendSection(data, "Összesítés", readTableRows("report-summary-table")); }
-    function withEntries(data) { appendSection(data, "Bejegyzések", readTableRows("report-detail-table")); }
+    function withSummary(data) { appendSection(data, {{ t("Összesítés")|tojson }}, readTableRows("report-summary-table")); }
+    function withEntries(data) { appendSection(data, {{ t("Bejegyzések")|tojson }}, readTableRows("report-detail-table")); }
     var excelPrintExportOptions = {% if project_detail %}{ customizeData: withEntries }{% else %}{ customizeData: withSummary }{% endif %};
     // PDF handles the extra section entirely in stylePdf() below, as its own
     // table block, rather than through customizeData: pdfMake derives a table's
@@ -612,7 +622,7 @@
             table: {
               headerRows: 1,
               body: rows.map(function (row, i) {
-                var isTotal = row[0] === "Összesen" || row[0] === "Mindösszesen";
+                var isTotal = row[0] === {{ t("Összesen")|tojson }} || row[0] === {{ t("Mindösszesen")|tojson }};
                 return row.map(function (cell) {
                   return {
                     text: cell,
@@ -637,7 +647,7 @@
         (tableBlock.table.body || []).forEach(function (row) {
           var first = row[0];
           var label = typeof first === "string" ? first : (first && first.text);
-          if (label === "Összesen") {
+          if (label === {{ t("Összesen")|tojson }}) {
             row.forEach(function (cell, idx) {
               var text = typeof cell === "string" ? cell : ((cell && cell.text) || "");
               row[idx] = { text: text, bold: true, color: BRAND };
@@ -650,7 +660,7 @@
         // rollup table above, so they're appended as their own table block.
         var entryRows = readTableRows("report-detail-table");
         if (entryRows.length > 1) {
-          doc.content.push({ text: "Bejegyzések", style: "title", fontSize: 12, margin: [0, 16, 0, 6] });
+          doc.content.push({ text: {{ t("Bejegyzések")|tojson }}, style: "title", fontSize: 12, margin: [0, 16, 0, 6] });
           doc.content.push(buildTable(entryRows));
         }
         {% else %}
@@ -659,9 +669,9 @@
         // as its own table block right before it instead of merged in.
         var summaryRows = readTableRows("report-summary-table");
         doc.content.splice(doc.content.indexOf(tableBlock), 0,
-          { text: "Összesítés", style: "title", fontSize: 12, margin: [0, 0, 0, 6] },
+          { text: {{ t("Összesítés")|tojson }}, style: "title", fontSize: 12, margin: [0, 0, 0, 6] },
           buildTable(summaryRows),
-          { text: "Eredmény", style: "title", fontSize: 12, margin: [0, 16, 0, 6] }
+          { text: {{ t("Eredmény")|tojson }}, style: "title", fontSize: 12, margin: [0, 16, 0, 6] }
         );
         {% endif %}
 
@@ -669,7 +679,7 @@
           return {
             margin: [24, 12, 24, 0],
             columns: [
-              { text: "Tiro — Controlling riport", fontSize: 7, color: "#9aa2b1" },
+              { text: {{ t("Tiro — Controlling riport")|tojson }}, fontSize: 7, color: "#9aa2b1" },
               { text: currentPage + " / " + pageCount, fontSize: 7, color: "#9aa2b1", alignment: "right" },
             ],
           };
@@ -682,7 +692,11 @@
     new DataTable("#report-table", {
       // A hu.json nem hoz "decimal" kulcsot, e nélkül a DataTables a "13,5"-öt
       // szövegként rendezné ("13,5" < "2") minden óra/nap oszlopban.
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", decimal: "," },
+      language: {
+        {% if request.state.lang == "hu" %}url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json",{% endif %}
+        decimal: ",",
+        emptyTable: {{ t("Nincs találat")|tojson }},
+      },
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50],
       order: [[0, "asc"]],
@@ -717,7 +731,11 @@
     if (detailTable) {
       var detailHoursIdx = detailTable.querySelectorAll("thead th").length - 1;
       new DataTable("#report-detail-table", {
-        language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", decimal: "," },
+        language: {
+          {% if request.state.lang == "hu" %}url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json",{% endif %}
+          decimal: ",",
+          emptyTable: {{ t("Nincs találat")|tojson }},
+        },
         pageLength: 15,
         lengthMenu: [10, 15, 25, 50],
         order: [[0, "asc"]],

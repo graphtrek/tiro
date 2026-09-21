@@ -11,7 +11,7 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-4"><i class="bi bi-arrow-repeat me-2"></i>Szinkronizálás</h1>
+<h1 class="h3 mb-4"><i class="bi bi-arrow-repeat me-2"></i>{{ t("Szinkronizálás") }}</h1>
 
 <div id="pending-sync-card">
   {% include "partials/pending_sync_card.html" %}
@@ -21,7 +21,7 @@
   {% if not request.state.user or request.state.user.role != 'read_only' %}
   <div class="col-12 col-lg-5">
     <div class="card shadow-sm">
-      <div class="card-header"><strong>Sync indítása</strong></div>
+      <div class="card-header"><strong>{{ t("Sync indítása") }}</strong></div>
       <div class="card-body">
         <form hx-post="/ui/sync/trigger"
               hx-target="#sync-result"
@@ -30,22 +30,22 @@
               hx-disabled-elt="find button[type=submit]">
 
           <div class="mb-3">
-            <label class="form-label">Dátumtól</label>
+            <label class="form-label">{{ t("Dátumtól") }}</label>
             <input type="date" name="date_from" class="form-control">
           </div>
           <div class="mb-3">
-            <label class="form-label">Dátumig</label>
+            <label class="form-label">{{ t("Dátumig") }}</label>
             <input type="date" name="date_to" class="form-control">
           </div>
           <div class="mb-3">
-            <label class="form-label">Sync mód</label>
+            <label class="form-label">{{ t("Sync mód") }}</label>
             <div class="d-flex flex-column gap-1">
               {% for mode, label in [
-                ('full', 'Teljes (NAV + PDF + Bank + összekapcsolás)'),
-                ('nav_only', 'Csak NAV számlák'),
-                ('pdf_only', 'Csak PDF fájlok'),
-                ('bank_only', 'Csak bank tranzakciók (Erste + Wise CSV)'),
-                ('match_only', 'Csak összekapcsolás'),
+                ('full', t('Teljes (NAV + PDF + Bank + összekapcsolás)')),
+                ('nav_only', t('Csak NAV számlák')),
+                ('pdf_only', t('Csak PDF fájlok')),
+                ('bank_only', t('Csak bank tranzakciók (Erste + Wise CSV)')),
+                ('match_only', t('Csak összekapcsolás')),
               ] %}
               <div class="form-check">
                 <input class="form-check-input" type="radio" name="sync_mode" value="{{ mode }}"
@@ -57,13 +57,13 @@
           </div>
 
           <button type="submit" class="btn btn-primary w-100">
-            <i class="bi bi-arrow-repeat me-1"></i>Sync indítása
+            <i class="bi bi-arrow-repeat me-1"></i>{{ t("Sync indítása") }}
           </button>
         </form>
 
         <div id="sync-spinner" class="htmx-indicator my-3 text-center">
           <div class="spinner-border text-primary" role="status"></div>
-          <div class="mt-2 text-muted">Szinkronizálás folyamatban...</div>
+          <div class="mt-2 text-muted">{{ t("Szinkronizálás folyamatban...") }}</div>
         </div>
       </div>
     </div>
@@ -76,7 +76,7 @@
     <!-- Sync napló -->
     {% if sync_logs %}
     <div class="card shadow-sm mt-3">
-      <div class="card-header"><strong>Sync napló (utolsó {{ sync_logs | length }} futás)</strong></div>
+      <div class="card-header"><strong>{{ t("Sync napló") }} ({{ t("utolsó") }} {{ sync_logs | length }} {{ t("futás") }})</strong></div>
       <div class="card-body p-0">
         <div class="accordion accordion-flush" id="syncLogAccordion">
           {% for log in sync_logs %}
@@ -86,10 +86,10 @@
                       data-bs-toggle="collapse" data-bs-target="#log-{{ log.id }}">
                 <span class="me-2 text-muted small">{{ log.started_at.strftime('%Y-%m-%d %H:%M') }}</span>
                 {% if log.error_count > 0 %}
-                  <span class="badge bg-danger me-1">{{ log.error_count }} hiba</span>
+                  <span class="badge bg-danger me-1">{{ log.error_count }} {{ t("hiba") }}</span>
                 {% endif %}
                 {% if log.warning_count > 0 %}
-                  <span class="badge bg-warning text-dark me-1">{{ log.warning_count }} figyelmeztetés</span>
+                  <span class="badge bg-warning text-dark me-1">{{ log.warning_count }} {{ t("figyelmeztetés") }}</span>
                 {% endif %}
                 {% if log.error_count == 0 and log.warning_count == 0 %}
                   <span class="badge bg-success me-1">OK</span>
@@ -101,13 +101,13 @@
             <div id="log-{{ log.id }}" class="accordion-collapse collapse" data-bs-parent="#syncLogAccordion">
               <div class="accordion-body py-2">
                 <div class="row g-2">
-                  <div class="col-6"><small class="text-muted">NAV számla:</small> {{ log.invoice_count }}</div>
+                  <div class="col-6"><small class="text-muted">{{ t("NAV számla") }}:</small> {{ log.invoice_count }}</div>
                   <div class="col-6"><small class="text-muted">Bank:</small> {{ log.bank_count }}</div>
                   {% if log.duration_s is not none %}
-                  <div class="col-6"><small class="text-muted">Időtartam:</small> {{ "%.1f"|format(log.duration_s) }}s</div>
+                  <div class="col-6"><small class="text-muted">{{ t("Időtartam") }}:</small> {{ "%.1f"|format(log.duration_s) }}s</div>
                   {% endif %}
                   {% if log.finished_at %}
-                  <div class="col-6"><small class="text-muted">Befejezve:</small> {{ log.finished_at.strftime('%H:%M:%S') }}</div>
+                  <div class="col-6"><small class="text-muted">{{ t("Befejezve") }}:</small> {{ log.finished_at.strftime('%H:%M:%S') }}</div>
                   {% endif %}
                 </div>
                 {% if log.errors %}

@@ -201,8 +201,12 @@ def test_customers_empty_state_has_no_placeholder_row(monkeypatch, client, auth_
     # no manual fallback row baked into the server-rendered HTML
     assert "<td" not in response.text.split("<tbody>", 1)[1].split("</tbody>", 1)[0]
     # DataTable is configured with an explicit empty-table message, matching
-    # the pattern already used by suppliers/invoices/files/bank tables
-    assert 'emptyTable: "Nincs találat"' in response.text
+    # the pattern already used by suppliers/invoices/files/bank tables. The
+    # message is now rendered via `{{ t(...)|tojson }}` (see the i18n
+    # language-selector work), so Jinja's `tojson` (ensure_ascii=True)
+    # unicode-escapes the accented characters in the HTML source — the
+    # rendered/executed JS string value is unchanged.
+    assert 'emptyTable: "Nincs tal\\u00e1lat"' in response.text
 
 
 def test_customers_nonempty_state_renders_rows(monkeypatch, client, auth_header):

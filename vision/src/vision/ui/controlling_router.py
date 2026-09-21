@@ -4,17 +4,13 @@ calling invoice-core)."""
 from __future__ import annotations
 
 from datetime import date, timedelta
-from pathlib import Path
 
 from fastapi import APIRouter, Form, Request, Response
-from fastapi.templating import Jinja2Templates
 
 from vision.clients.invoice_core import InvoiceCoreClient
+from vision.ui.templating import templates
 from vision.ui.utils import current_user as _resolve_current_user
 from vision.ui.utils import local_today
-
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(prefix="/ui/controlling", tags=["controlling-ui"])
 

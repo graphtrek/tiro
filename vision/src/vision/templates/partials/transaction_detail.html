@@ -1,26 +1,26 @@
-{% from "_macros.html" import amount_fmt %}
+{% from "_macros.html" import amount_fmt with context %}
 {% if error %}
 <div class="alert alert-danger py-2" role="alert">
   <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
 </div>
 {% endif %}
 <dl class="row mb-0 small">
-  <dt class="col-5 text-muted">Tranzakció ID</dt>
+  <dt class="col-5 text-muted">{{ t("Tranzakció ID") }}</dt>
   <dd class="col-7 font-monospace">{{ tx.transaction_id }}</dd>
 
   <dt class="col-5 text-muted">Bank</dt>
   <dd class="col-7">{{ tx.bank | upper }}</dd>
 
-  <dt class="col-5 text-muted">Dátum</dt>
+  <dt class="col-5 text-muted">{{ t("Dátum") }}</dt>
   <dd class="col-7">{{ tx.transaction_date.strftime('%Y-%m-%d %H:%M') if tx.transaction_date else '—' }}</dd>
 
-  <dt class="col-5 text-muted">Összeg</dt>
+  <dt class="col-5 text-muted">{{ t("Összeg") }}</dt>
   <dd class="col-7 fw-bold">
     {% if tx.direction == 'DEBIT' %}<span class="text-danger">−</span>{% else %}<span class="text-success">+</span>{% endif %}
     {{ amount_fmt(tx.amount, tx.currency) }}
   </dd>
 
-  <dt class="col-5 text-muted">Irány</dt>
+  <dt class="col-5 text-muted">{{ t("Irány") }}</dt>
   <dd class="col-7">
     {% if tx.direction == 'CREDIT' %}
       <span class="inv-status paid">CREDIT</span>
@@ -29,46 +29,46 @@
     {% endif %}
   </dd>
 
-  <dt class="col-5 text-muted">Egyenleg</dt>
+  <dt class="col-5 text-muted">{{ t("Egyenleg") }}</dt>
   <dd class="col-7">{{ amount_fmt(tx.balance, tx.currency) }}</dd>
 
-  <dt class="col-5 text-muted">Leírás</dt>
+  <dt class="col-5 text-muted">{{ t("Leírás") }}</dt>
   <dd class="col-7">{{ tx.description or '—' }}</dd>
 
-  <dt class="col-5 text-muted">Referencia</dt>
+  <dt class="col-5 text-muted">{{ t("Referencia") }}</dt>
   <dd class="col-7">{{ tx.payment_reference or '—' }}</dd>
 
-  <dt class="col-5 text-muted">Típus</dt>
+  <dt class="col-5 text-muted">{{ t("Típus") }}</dt>
   <dd class="col-7">{{ tx.transaction_type or '—' }}</dd>
 
-  <dt class="col-5 text-muted">Kategória</dt>
+  <dt class="col-5 text-muted">{{ t("Kategória") }}</dt>
   <dd class="col-7">{{ tx.category or '—' }}</dd>
 </dl>
 
 <hr class="my-3">
 <h6 class="text-muted mb-2">Partner</h6>
 <dl class="row mb-0 small">
-  <dt class="col-5 text-muted">Partner neve</dt>
+  <dt class="col-5 text-muted">{{ t("Partner neve") }}</dt>
   <dd class="col-7">{{ tx.counterparty_name or '—' }}</dd>
 
-  <dt class="col-5 text-muted">Számlaszám</dt>
+  <dt class="col-5 text-muted">{{ t("Bankszámlaszám") }}</dt>
   <dd class="col-7 font-monospace">{{ tx.counterparty_account or '—' }}</dd>
 
   <dt class="col-5 text-muted">IBAN</dt>
   <dd class="col-7 font-monospace">{{ tx.counterparty_iban or '—' }}</dd>
 
   {% if tx.counterparty_bank_code %}
-  <dt class="col-5 text-muted">Bankkód</dt>
+  <dt class="col-5 text-muted">{{ t("Bankkód") }}</dt>
   <dd class="col-7 font-monospace">{{ tx.counterparty_bank_code }}</dd>
   {% endif %}
 
   {% if tx.counterparty_address %}
-  <dt class="col-5 text-muted">Partner címe</dt>
+  <dt class="col-5 text-muted">{{ t("Partner címe") }}</dt>
   <dd class="col-7">{{ tx.counterparty_address }}</dd>
   {% endif %}
 
   {% if tx.sender_address %}
-  <dt class="col-5 text-muted">Küldő címe</dt>
+  <dt class="col-5 text-muted">{{ t("Küldő címe") }}</dt>
   <dd class="col-7">{{ tx.sender_address }}</dd>
   {% endif %}
 </dl>
@@ -76,34 +76,34 @@
 {% if tx.fees %}
 <hr class="my-3">
 <dl class="row mb-0 small">
-  <dt class="col-5 text-muted">Díjak összesen</dt>
+  <dt class="col-5 text-muted">{{ t("Díjak összesen") }}</dt>
   <dd class="col-7">{{ amount_fmt(tx.fees, tx.currency) }}</dd>
 </dl>
 {% endif %}
 
 {% if tx.exchange_rate or tx.exchange_to_currency or tx.card_last_four or tx.note %}
 <hr class="my-3">
-<h6 class="text-muted mb-2">Deviza / kártya</h6>
+<h6 class="text-muted mb-2">{{ t("Deviza / kártya") }}</h6>
 <dl class="row mb-0 small">
   {% if tx.exchange_rate %}
-  <dt class="col-5 text-muted">Árfolyam</dt>
+  <dt class="col-5 text-muted">{{ t("Árfolyam") }}</dt>
   <dd class="col-7">{{ tx.exchange_rate }}{% if tx.exchange_to_currency %} → {{ tx.exchange_to_currency }}{% endif %}</dd>
   {% endif %}
   {% if tx.card_last_four %}
-  <dt class="col-5 text-muted">Kártya</dt>
+  <dt class="col-5 text-muted">{{ t("Kártya") }}</dt>
   <dd class="col-7 font-monospace">•••• {{ tx.card_last_four }}</dd>
   {% endif %}
   {% if tx.note %}
-  <dt class="col-5 text-muted">Megjegyzés</dt>
+  <dt class="col-5 text-muted">{{ t("Megjegyzés") }}</dt>
   <dd class="col-7">{{ tx.note }}</dd>
   {% endif %}
 </dl>
 {% endif %}
 
 <hr class="my-3">
-<h6 class="text-muted mb-2">Kapcsolatok</h6>
+<h6 class="text-muted mb-2">{{ t("Kapcsolatok") }}</h6>
 <dl class="row mb-0 small">
-  <dt class="col-5 text-muted">Számla</dt>
+  <dt class="col-5 text-muted">{{ t("Számla") }}</dt>
   <dd class="col-7">
     {% if tx.invoice_ids %}
       {% for i in range(tx.invoice_ids | length) %}
@@ -113,7 +113,7 @@
           <form hx-post="/ui/transactions/{{ tx.id }}/invoices/{{ tx.invoice_ids[i] }}/unlink"
                 hx-target="#tx-offcanvas-body" hx-swap="innerHTML" class="d-inline m-0">
             <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 lh-1"
-                    title="Kapcsolat törlése" style="font-size:0.7rem">
+                    title="{{ t('Kapcsolat törlése') }}" style="font-size:0.7rem">
               <i class="bi bi-x-lg"></i>
             </button>
           </form>
@@ -127,13 +127,13 @@
     <button class="btn btn-outline-primary btn-sm py-0 px-1 mt-1"
             data-bs-toggle="modal" data-bs-target="#pickerModal"
             data-picker-url="/ui/picker/invoices?txn_id={{ tx.id }}"
-            title="Számla kapcsolása">
-      <i class="bi bi-link-45deg"></i> Számla kapcsolása
+            title="{{ t('Számla kapcsolása') }}">
+      <i class="bi bi-link-45deg"></i> {{ t("Számla kapcsolása") }}
     </button>
     {% endif %}
   </dd>
 
-  <dt class="col-5 text-muted">PDF fájl</dt>
+  <dt class="col-5 text-muted">{{ t("PDF fájl") }}</dt>
   <dd class="col-7">
     {% if tx.invoice_file_id and tx.invoice_file_filename %}
       <div class="d-flex align-items-center gap-1 flex-wrap">
@@ -142,7 +142,7 @@
           {{ tx.invoice_file_filename }}
         </a>
         {% if tx.invoice_file_locked %}
-          <span class="badge bg-warning text-dark" title="Manuálisan kapcsolva">
+          <span class="badge bg-warning text-dark" title="{{ t('Manuálisan kapcsolva') }}">
             <i class="bi bi-lock-fill"></i>
           </span>
         {% endif %}
@@ -150,7 +150,7 @@
         <form hx-post="/ui/transactions/{{ tx.id }}/invoice-file/unlink"
               hx-target="#tx-offcanvas-body" hx-swap="innerHTML" class="d-inline m-0">
           <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 lh-1"
-                  title="PDF kapcsolat törlése" style="font-size:0.7rem">
+                  title="{{ t('PDF kapcsolat törlése') }}" style="font-size:0.7rem">
             <i class="bi bi-x-lg"></i>
           </button>
         </form>
@@ -162,14 +162,14 @@
       <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-1"
               data-bs-toggle="modal" data-bs-target="#pickerModal"
               data-picker-url="/ui/picker/invoice-files?source_type=transaction&source_id={{ tx.id }}"
-              title="PDF kapcsolása">
-        <i class="bi bi-link-45deg"></i> PDF kapcsolása
+              title="{{ t('PDF kapcsolása') }}">
+        <i class="bi bi-link-45deg"></i> {{ t("PDF kapcsolása") }}
       </button>
       {% endif %}
     {% endif %}
   </dd>
 
-  <dt class="col-5 text-muted">Szállító</dt>
+  <dt class="col-5 text-muted">{{ t("Szállító") }}</dt>
   <dd class="col-7">
     {% if tx.supplier_id and tx.supplier_name %}
       <div class="d-flex align-items-center gap-1">
@@ -178,7 +178,7 @@
         <form hx-post="/ui/transactions/{{ tx.id }}/supplier/unlink"
               hx-target="#tx-offcanvas-body" hx-swap="innerHTML" class="d-inline m-0">
           <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 lh-1"
-                  title="Szállító leválasztása" style="font-size:0.7rem">
+                  title="{{ t('Szállító leválasztása') }}" style="font-size:0.7rem">
             <i class="bi bi-x-lg"></i>
           </button>
         </form>
@@ -190,14 +190,14 @@
       <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-1"
               data-bs-toggle="modal" data-bs-target="#pickerModal"
               data-picker-url="/ui/picker/partners?kind=supplier&source_type=transaction&source_id={{ tx.id }}"
-              title="Szállító kapcsolása">
-        <i class="bi bi-link-45deg"></i> Szállító kapcsolása
+              title="{{ t('Szállító kapcsolása') }}">
+        <i class="bi bi-link-45deg"></i> {{ t("Szállító kapcsolása") }}
       </button>
       {% endif %}
     {% endif %}
   </dd>
 
-  <dt class="col-5 text-muted">Vevő</dt>
+  <dt class="col-5 text-muted">{{ t("Vevő") }}</dt>
   <dd class="col-7">
     {% if tx.customer_id and tx.customer_name %}
       <div class="d-flex align-items-center gap-1">
@@ -206,7 +206,7 @@
         <form hx-post="/ui/transactions/{{ tx.id }}/customer/unlink"
               hx-target="#tx-offcanvas-body" hx-swap="innerHTML" class="d-inline m-0">
           <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1 lh-1"
-                  title="Vevő leválasztása" style="font-size:0.7rem">
+                  title="{{ t('Vevő leválasztása') }}" style="font-size:0.7rem">
             <i class="bi bi-x-lg"></i>
           </button>
         </form>
@@ -218,8 +218,8 @@
       <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-1"
               data-bs-toggle="modal" data-bs-target="#pickerModal"
               data-picker-url="/ui/picker/partners?kind=customer&source_type=transaction&source_id={{ tx.id }}"
-              title="Vevő kapcsolása">
-        <i class="bi bi-link-45deg"></i> Vevő kapcsolása
+              title="{{ t('Vevő kapcsolása') }}">
+        <i class="bi bi-link-45deg"></i> {{ t("Vevő kapcsolása") }}
       </button>
       {% endif %}
     {% endif %}
@@ -228,9 +228,9 @@
 
 <hr class="my-3">
 <dl class="row mb-0 small text-muted">
-  <dt class="col-5">Létrehozva</dt>
+  <dt class="col-5">{{ t("Létrehozva") }}</dt>
   <dd class="col-7">{{ tx.created_at.strftime('%Y-%m-%d %H:%M') if tx.created_at else '—' }}</dd>
 
-  <dt class="col-5">Módosítva</dt>
+  <dt class="col-5">{{ t("Módosítva") }}</dt>
   <dd class="col-7">{{ tx.updated_at.strftime('%Y-%m-%d %H:%M') if tx.updated_at else '—' }}</dd>
 </dl>

@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import requests
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from vision.auth import current_token
 from vision.clients.invoice_core import InvoiceCoreClient
 from vision.config import get_settings
+from vision.ui.templating import templates
 from vision.ui.utils import dict_to_ns, redirect_if_readonly
-
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(prefix="/ui/admin", tags=["admin-ui"])
 

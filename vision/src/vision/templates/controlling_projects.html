@@ -1,27 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Projektek — Tiro{% endblock %}
+{% import "_macros.html" as macros with context %}
+{% block title %}{{ t("Projektek") }} — Tiro{% endblock %}
 
 {% block breadcrumb %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
     <li class="breadcrumb-item">Controlling</li>
-    <li class="breadcrumb-item active">Projektek</li>
+    <li class="breadcrumb-item active">{{ t("Projektek") }}</li>
   </ol>
 </nav>
 {% endblock %}
 
 {% block content %}
-{% set project_type_labels = {"OTLET": "Ötlet", "SZAMLAZHATO": "Számlázható", "PRESALES": "PreSales"} %}
+{% set project_type_labels = {"OTLET": t("Ötlet"), "SZAMLAZHATO": t("Számlázható"), "PRESALES": "PreSales"} %}
 {% set project_type_badges = {"OTLET": "bg-warning text-dark", "SZAMLAZHATO": "bg-success", "PRESALES": "bg-info text-dark"} %}
 {% set project_status_labels = {"OPEN": "Open", "CLOSED": "Closed", "ONHOLD": "OnHold"} %}
 {% set project_status_badges = {"OPEN": "bg-success", "CLOSED": "bg-secondary", "ONHOLD": "bg-warning text-dark"} %}
 <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
-  <h1 class="h3 mb-0"><i class="bi bi-kanban me-2"></i>Projektek</h1>
+  <h1 class="h3 mb-0"><i class="bi bi-kanban me-2"></i>{{ t("Projektek") }}</h1>
   {% if not request.state.user or request.state.user.role != 'read_only' %}
   <div class="ms-auto d-flex gap-2">
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newProjectModal">
-      <i class="bi bi-plus-lg me-1"></i>Új
+      <i class="bi bi-plus-lg me-1"></i>{{ t("Új") }}
     </button>
   </div>
   {% endif %}
@@ -33,22 +34,22 @@
 </div>
 {% endif %}
 
-<p class="text-muted">Projektek listája és kezelése — csak Open státuszú projektre rögzíthető új idő.</p>
+<p class="text-muted">{{ t("Projektek listája és kezelése — csak Open státuszú projektre rögzíthető új idő.") }}</p>
 
 <div class="card">
   <div class="card-body pt-3">
     <table id="projects-table" class="table table-hover table-sm">
       <thead>
         <tr>
-          <th>Azonosító / rövid név</th>
-          <th>Ügyfél</th>
-          <th>Project gazda</th>
-          <th>Típus</th>
-          <th>Kezdés dátuma</th>
-          <th>Tervezett végdátum</th>
-          <th>Státusz</th>
-          <th class="text-end">Terv. napszám</th>
-          <th class="text-end">Óra</th>
+          <th>{{ t("Azonosító / rövid név") }}</th>
+          <th>{{ t("Ügyfél") }}</th>
+          <th>{{ t("Project gazda") }}</th>
+          <th>{{ t("Típus") }}</th>
+          <th>{{ t("Kezdés dátuma") }}</th>
+          <th>{{ t("Tervezett végdátum") }}</th>
+          <th>{{ t("Státusz") }}</th>
+          <th class="text-end">{{ t("Terv. napszám") }}</th>
+          <th class="text-end">{{ t("Óra") }}</th>
           <th></th>
         </tr>
       </thead>
@@ -69,7 +70,7 @@
             {% if row.planned_end_date %}
             {{ row.planned_end_date }}
             {% else %}
-            <span class="badge bg-info text-dark" title="Nincs tervezett végdátum: T&amp;M, nem fix scope-ú projekt">T&amp;M</span>
+            <span class="badge bg-info text-dark" title="{{ t('Nincs tervezett végdátum: T&M, nem fix scope-ú projekt') }}">T&amp;M</span>
             {% endif %}
           </td>
           <td>
@@ -84,29 +85,29 @@
             <span class="text-muted">–</span>
             {% endif %}
           </td>
-          <td class="text-end" title="Ledolgozott nap (8 órás nap): {{ ("%g" % (row.usage_hours / 8))|replace(".", ",") }}">{{ ("%g" % row.usage_hours)|replace(".", ",") }}</td>
+          <td class="text-end" title="{{ t('Ledolgozott nap (8 órás nap):') }} {{ ("%g" % (row.usage_hours / 8))|replace(".", ",") }}">{{ ("%g" % row.usage_hours)|replace(".", ",") }}</td>
           <td class="text-end text-nowrap">
             {% if is_owner %}
-            <button class="btn btn-sm btn-outline-secondary" title="Módosít" data-bs-toggle="modal"
+            <button class="btn btn-sm btn-outline-secondary" title="{{ t('Módosít') }}" data-bs-toggle="modal"
                     data-bs-target="#editProjectModal{{ row.id }}">
               <i class="bi bi-pencil"></i>
             </button>
             {% else %}
-            <button class="btn btn-sm btn-outline-secondary" title="Megtekintés" data-bs-toggle="modal"
+            <button class="btn btn-sm btn-outline-secondary" title="{{ t('Megtekintés') }}" data-bs-toggle="modal"
                     data-bs-target="#editProjectModal{{ row.id }}">
               <i class="bi bi-eye"></i>
             </button>
             {% endif %}
             {% if not request.state.user or request.state.user.role != 'read_only' %}
             {% if row.first_entry_date %}
-            <button class="btn btn-sm btn-outline-danger" title="Nem törölhető: a projekthez már vannak rögzített timesheet bejegyzések" disabled>
+            <button class="btn btn-sm btn-outline-danger" title="{{ t('Nem törölhető: a projekthez már vannak rögzített timesheet bejegyzések') }}" disabled>
               <i class="bi bi-trash"></i>
             </button>
             {% else %}
-            <button class="btn btn-sm btn-outline-danger" title="Töröl"
+            <button class="btn btn-sm btn-outline-danger" title="{{ t('Töröl') }}"
                     hx-delete="/ui/controlling/projects/{{ row.id }}"
                     hx-target="body" hx-push-url="true"
-                    hx-confirm="Biztosan törli? '{{ row.code }}'">
+                    hx-confirm="{{ t('Biztosan törli?') }} '{{ row.code }}'">
               <i class="bi bi-trash"></i>
             </button>
             {% endif %}
@@ -125,7 +126,7 @@
       $("#projects-table").DataTable().destroy();
     }
     new DataTable("#projects-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      {{ macros.datatables_language() }},
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50],
       order: [[0, "asc"]],
@@ -148,84 +149,84 @@
     <div class="modal-content">
       <form class="project-form" hx-post="/ui/controlling/projects" hx-target="body" hx-push-url="true">
         <div class="modal-header py-2">
-          <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új projekt</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+          <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>{{ t("Új projekt") }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('Bezárás') }}"></button>
         </div>
         <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">Ügyfél <span class="text-danger">*</span></label>
-              <input class="form-control pr-client-input" list="pr-clients-new" placeholder="Kezdjen gépelni…" autocomplete="off" required>
+              <label class="form-label">{{ t("Ügyfél") }} <span class="text-danger">*</span></label>
+              <input class="form-control pr-client-input" list="pr-clients-new" placeholder="{{ t('Kezdjen gépelni…') }}" autocomplete="off" required>
               <input type="hidden" name="customer_id" class="pr-client-id" required>
               <datalist id="pr-clients-new">
                 {% for c in customers %}<option value="{{ c.name }}" data-id="{{ c.id }}">{% endfor %}
               </datalist>
-              <div class="form-text">Ügyfelenként külön sorszámozás (Ügyfelek törzsadat)</div>
+              <div class="form-text">{{ t("Ügyfelenként külön sorszámozás (Ügyfelek törzsadat)") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Azonosító / rövid név <span class="text-danger">*</span></label>
-              <input name="short_name" class="form-control pr-short-name" placeholder="pl. FVM" required>
+              <label class="form-label">{{ t("Azonosító / rövid név") }} <span class="text-danger">*</span></label>
+              <input name="short_name" class="form-control pr-short-name" placeholder="{{ t('pl. FVM') }}" required>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Project gazda <span class="text-danger">*</span></label>
+              <label class="form-label">{{ t("Project gazda") }} <span class="text-danger">*</span></label>
               <select name="owner_id" class="form-select" required>
-                <option value="" disabled selected>Válasszon…</option>
+                <option value="" disabled selected>{{ t("Válasszon…") }}</option>
                 {% for u in users if u.role != 'read_only' %}<option value="{{ u.id }}">{{ u.name or u.email }}</option>{% endfor %}
               </select>
-              <div class="form-text">A jövőben a költséghely-felelős — read only jogosultsággal nem lehet</div>
+              <div class="form-text">{{ t("A jövőben a költséghely-felelős — read only jogosultsággal nem lehet") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Státusz</label>
+              <label class="form-label">{{ t("Státusz") }}</label>
               <select name="status" class="form-select">
                 <option value="OPEN" selected>Open</option>
                 <option value="ONHOLD">OnHold</option>
                 <option value="CLOSED">Closed</option>
               </select>
-              <div class="form-text">Csak Open státuszú projektre rögzíthető új idő</div>
+              <div class="form-text">{{ t("Csak Open státuszú projektre rögzíthető új idő") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Kezdés dátuma <span class="text-danger">*</span></label>
+              <label class="form-label">{{ t("Kezdés dátuma") }} <span class="text-danger">*</span></label>
               <input type="date" name="start_date" class="form-control" required>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Tervezett végdátum</label>
+              <label class="form-label">{{ t("Tervezett végdátum") }}</label>
               <input type="date" name="planned_end_date" class="form-control">
-              <div class="form-text">Ha üresen marad: T&amp;M, nem fix scope-ú projekt</div>
+              <div class="form-text">{{ t("Ha üresen marad: T&M, nem fix scope-ú projekt") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Tervezett napszám</label>
-              <input type="number" name="planned_days" class="form-control" step="0.5" min="0" placeholder="pl. 20">
-              <div class="form-text">Hány napra szerződtünk — a ledolgozott nappal (Óra/8) összevetve</div>
+              <label class="form-label">{{ t("Tervezett napszám") }}</label>
+              <input type="number" name="planned_days" class="form-control" step="0.5" min="0" placeholder="{{ t('pl. 20') }}">
+              <div class="form-text">{{ t("Hány napra szerződtünk — a ledolgozott nappal (Óra/8) összevetve") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Típus <span class="text-danger">*</span></label>
+              <label class="form-label">{{ t("Típus") }} <span class="text-danger">*</span></label>
               <select name="project_type" class="form-select" required>
-                <option value="" disabled selected>Válasszon…</option>
-                <option value="OTLET">Ötlet</option>
-                <option value="SZAMLAZHATO">Számlázható</option>
+                <option value="" disabled selected>{{ t("Válasszon…") }}</option>
+                <option value="OTLET">{{ t("Ötlet") }}</option>
+                <option value="SZAMLAZHATO">{{ t("Számlázható") }}</option>
                 <option value="PRESALES">PreSales</option>
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Sorszám</label>
+              <label class="form-label">{{ t("Sorszám") }}</label>
               <input class="form-control pr-seq" disabled>
-              <div class="form-text">Automatikusan javasolt, ügyfelenként növekvő</div>
+              <div class="form-text">{{ t("Automatikusan javasolt, ügyfelenként növekvő") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Project kód</label>
+              <label class="form-label">{{ t("Project kód") }}</label>
               <input class="form-control pr-code" disabled>
-              <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
+              <div class="form-text">{{ t("Automatikusan összeállítva: azonosító-sorszám") }}</div>
             </div>
             <div class="col-12">
-              <label class="form-label">Projekt célja</label>
-              <textarea name="goal" class="form-control" rows="2" placeholder="Rövid leírás a projekt céljáról…"></textarea>
+              <label class="form-label">{{ t("Projekt célja") }}</label>
+              <textarea name="goal" class="form-control" rows="2" placeholder="{{ t('Rövid leírás a projekt céljáról…') }}"></textarea>
             </div>
             <div class="col-12">
-              <label class="form-label">Projekt leszállítandó(k)</label>
-              <textarea name="deliverable" class="form-control" rows="2" placeholder="Mikor tekinthető sikeresnek a projekt, milyen eredményterméket kell átadni…"></textarea>
+              <label class="form-label">{{ t("Projekt leszállítandó(k)") }}</label>
+              <textarea name="deliverable" class="form-control" rows="2" placeholder="{{ t('Mikor tekinthető sikeresnek a projekt, milyen eredményterméket kell átadni…') }}"></textarea>
             </div>
             <div class="col-12">
-              <label class="form-label">Rögzítésre jogosultak (permitted_users)</label>
+              <label class="form-label">{{ t("Rögzítésre jogosultak (permitted_users)") }}</label>
               <div class="d-flex flex-wrap gap-3">
                 {% for u in users %}
                 <div class="form-check">
@@ -234,13 +235,13 @@
                 </div>
                 {% endfor %}
               </div>
-              <div class="form-text">A project gazda mindig jogosult (ezért nincs a listában). Csak a kijelölt felhasználók adhatnak timesheet rekordot a projekthez</div>
+              <div class="form-text">{{ t("A project gazda mindig jogosult (ezért nincs a listában). Csak a kijelölt felhasználók adhatnak timesheet rekordot a projekthez") }}</div>
             </div>
           </div>
         </div>
         <div class="modal-footer py-2">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t("Mégse") }}</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>{{ t("Mentés") }}</button>
         </div>
       </form>
     </div>
@@ -257,88 +258,88 @@
       <form class="project-form" hx-post="/ui/controlling/projects/{{ row.id }}" hx-target="body" hx-push-url="true">
         <div class="modal-header py-2">
           {% if is_owner %}
-          <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Projekt módosítása</h5>
+          <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>{{ t("Projekt módosítása") }}</h5>
           {% else %}
-          <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Projekt megtekintése</h5>
+          <h5 class="modal-title"><i class="bi bi-eye me-2"></i>{{ t("Projekt megtekintése") }}</h5>
           {% endif %}
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('Bezárás') }}"></button>
         </div>
         <div class="modal-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label">Ügyfél <span class="text-danger">*</span></label>
+              <label class="form-label">{{ t("Ügyfél") }} <span class="text-danger">*</span></label>
               <input class="form-control pr-client-input" list="pr-clients-edit{{ row.id }}" value="{{ row.customer_name }}" autocomplete="off" required {% if not is_owner %}disabled{% endif %}>
               <input type="hidden" name="customer_id" class="pr-client-id" value="{{ row.customer_id }}"
                      data-initial-customer-id="{{ row.customer_id }}" required {% if not is_owner %}disabled{% endif %}>
               <datalist id="pr-clients-edit{{ row.id }}">
                 {% for c in customers %}<option value="{{ c.name }}" data-id="{{ c.id }}">{% endfor %}
               </datalist>
-              <div class="form-text">Ügyfelenként külön sorszámozás (Ügyfelek törzsadat)</div>
+              <div class="form-text">{{ t("Ügyfelenként külön sorszámozás (Ügyfelek törzsadat)") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Azonosító / rövid név <span class="text-danger">*</span></label>
+              <label class="form-label">{{ t("Azonosító / rövid név") }} <span class="text-danger">*</span></label>
               <input name="short_name" class="form-control pr-short-name" value="{{ row.short_name }}" required {% if not is_owner %}disabled{% endif %}>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Project gazda <span class="text-danger">*</span></label>
+              <label class="form-label">{{ t("Project gazda") }} <span class="text-danger">*</span></label>
               <select name="owner_id" class="form-select" required {% if not is_owner %}disabled{% endif %}>
                 {% for u in users %}
                 <option value="{{ u.id }}" {% if u.id == row.owner_id %}selected{% endif %} {% if u.role == 'read_only' and u.id != row.owner_id %}disabled{% endif %}>{{ u.name or u.email }}</option>
                 {% endfor %}
               </select>
-              <div class="form-text">Read only jogosultságú felhasználó nem választható project gazdának</div>
+              <div class="form-text">{{ t("Read only jogosultságú felhasználó nem választható project gazdának") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Státusz</label>
+              <label class="form-label">{{ t("Státusz") }}</label>
               <select name="status" class="form-select" {% if not is_owner %}disabled{% endif %}>
                 <option value="OPEN" {% if row.status == "OPEN" %}selected{% endif %}>Open</option>
                 <option value="ONHOLD" {% if row.status == "ONHOLD" %}selected{% endif %}>OnHold</option>
                 <option value="CLOSED" {% if row.status == "CLOSED" %}selected{% endif %}>Closed</option>
               </select>
-              <div class="form-text">Csak Open státuszú projektre rögzíthető új idő</div>
+              <div class="form-text">{{ t("Csak Open státuszú projektre rögzíthető új idő") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Kezdés dátuma <span class="text-danger">*</span></label>
+              <label class="form-label">{{ t("Kezdés dátuma") }} <span class="text-danger">*</span></label>
               <input type="date" name="start_date" class="form-control" value="{{ row.start_date }}" required {% if not is_owner %}disabled{% endif %}>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Tervezett végdátum</label>
+              <label class="form-label">{{ t("Tervezett végdátum") }}</label>
               <input type="date" name="planned_end_date" class="form-control" value="{{ row.planned_end_date or '' }}" {% if not is_owner %}disabled{% endif %}>
-              <div class="form-text">Ha üresen marad: T&amp;M, nem fix scope-ú projekt</div>
+              <div class="form-text">{{ t("Ha üresen marad: T&M, nem fix scope-ú projekt") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Tervezett napszám</label>
+              <label class="form-label">{{ t("Tervezett napszám") }}</label>
               <input type="number" name="planned_days" class="form-control" step="0.5" min="0" value="{{ row.planned_days if row.planned_days is not none else '' }}" {% if not is_owner %}disabled{% endif %}>
-              <div class="form-text">Hány napra szerződtünk — a ledolgozott nappal (Óra/8) összevetve</div>
+              <div class="form-text">{{ t("Hány napra szerződtünk — a ledolgozott nappal (Óra/8) összevetve") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Típus <span class="text-danger">*</span></label>
+              <label class="form-label">{{ t("Típus") }} <span class="text-danger">*</span></label>
               <select name="project_type" class="form-select" required {% if not is_owner %}disabled{% endif %}>
-                <option value="OTLET" {% if row.project_type == "OTLET" %}selected{% endif %}>Ötlet</option>
-                <option value="SZAMLAZHATO" {% if row.project_type == "SZAMLAZHATO" %}selected{% endif %}>Számlázható</option>
+                <option value="OTLET" {% if row.project_type == "OTLET" %}selected{% endif %}>{{ t("Ötlet") }}</option>
+                <option value="SZAMLAZHATO" {% if row.project_type == "SZAMLAZHATO" %}selected{% endif %}>{{ t("Számlázható") }}</option>
                 <option value="PRESALES" {% if row.project_type == "PRESALES" %}selected{% endif %}>PreSales</option>
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Sorszám</label>
+              <label class="form-label">{{ t("Sorszám") }}</label>
               <input class="form-control pr-seq" value="{{ '%03d' % row.sequence_no }}" data-initial-seq="{{ row.sequence_no }}" disabled>
-              <div class="form-text">Ügyfélváltáskor újra kiosztásra kerül</div>
+              <div class="form-text">{{ t("Ügyfélváltáskor újra kiosztásra kerül") }}</div>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Project kód</label>
+              <label class="form-label">{{ t("Project kód") }}</label>
               <input class="form-control pr-code" value="{{ row.code }}" disabled>
-              <div class="form-text">Automatikusan összeállítva: azonosító-sorszám</div>
+              <div class="form-text">{{ t("Automatikusan összeállítva: azonosító-sorszám") }}</div>
             </div>
             <div class="col-12">
-              <label class="form-label">Projekt célja</label>
+              <label class="form-label">{{ t("Projekt célja") }}</label>
               <textarea name="goal" class="form-control" rows="2" {% if not is_owner %}disabled{% endif %}>{{ row.goal or '' }}</textarea>
             </div>
             <div class="col-12">
-              <label class="form-label">Projekt leszállítandó(k)</label>
-              <textarea name="deliverable" class="form-control" rows="2" placeholder="Mikor tekinthető sikeresnek a projekt, milyen eredményterméket kell átadni…" {% if not is_owner %}disabled{% endif %}>{{ row.deliverable or '' }}</textarea>
+              <label class="form-label">{{ t("Projekt leszállítandó(k)") }}</label>
+              <textarea name="deliverable" class="form-control" rows="2" placeholder="{{ t('Mikor tekinthető sikeresnek a projekt, milyen eredményterméket kell átadni…') }}" {% if not is_owner %}disabled{% endif %}>{{ row.deliverable or '' }}</textarea>
             </div>
             <div class="col-12">
-              <label class="form-label">Rögzítésre jogosultak (permitted_users)</label>
+              <label class="form-label">{{ t("Rögzítésre jogosultak (permitted_users)") }}</label>
               <div class="d-flex flex-wrap gap-3">
                 {% for u in users %}
                 <div class="form-check">
@@ -348,16 +349,16 @@
                 </div>
                 {% endfor %}
               </div>
-              <div class="form-text">Csak a kijelölt felhasználók adhatnak timesheet rekordot a projekthez</div>
+              <div class="form-text">{{ t("Csak a kijelölt felhasználók adhatnak timesheet rekordot a projekthez") }}</div>
             </div>
           </div>
         </div>
         <div class="modal-footer py-2">
           {% if is_owner %}
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t("Mégse") }}</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>{{ t("Mentés") }}</button>
           {% else %}
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Bezár</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t("Bezár") }}</button>
           {% endif %}
         </div>
       </form>

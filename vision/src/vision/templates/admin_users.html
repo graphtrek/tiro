@@ -1,18 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Felhasználók — Tiro{% endblock %}
+{% import "_macros.html" as macros with context %}
+{% block title %}{{ t("Felhasználók") }} — Tiro{% endblock %}
 
 {% block breadcrumb %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
     <li class="breadcrumb-item">Admin</li>
-    <li class="breadcrumb-item active">Felhasználók</li>
+    <li class="breadcrumb-item active">{{ t("Felhasználók") }}</li>
   </ol>
 </nav>
 {% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-4"><i class="bi bi-people me-2"></i>Felhasználók</h1>
+<h1 class="h3 mb-4"><i class="bi bi-people me-2"></i>{{ t("Felhasználók") }}</h1>
 
 <div class="card">
   <div class="card-body pt-3">
@@ -20,12 +21,12 @@
       <thead>
         <tr>
           <th></th>
-          <th>Név</th>
+          <th>{{ t("Név") }}</th>
           <th>Email</th>
           <th>Provider</th>
           <th>Role</th>
-          <th>Utolsó belépés</th>
-          <th>Regisztrálva</th>
+          <th>{{ t("Utolsó belépés") }}</th>
+          <th>{{ t("Regisztrálva") }}</th>
           {% if is_admin %}<th></th>{% endif %}
         </tr>
       </thead>
@@ -50,7 +51,7 @@
             <form method="post" action="/ui/admin/users/impersonate" hx-boost="false" class="m-0">
               <input type="hidden" name="email" value="{{ row.email }}">
               <button type="submit" class="btn btn-sm btn-outline-warning">
-                <i class="bi bi-person-badge me-1"></i>Belépés e felhasználóként
+                <i class="bi bi-person-badge me-1"></i>{{ t("Belépés e felhasználóként") }}
               </button>
             </form>
           </td>
@@ -67,7 +68,7 @@
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     new DataTable("#user-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      {{ macros.datatables_language() }},
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
       order: [[5, "desc"]],

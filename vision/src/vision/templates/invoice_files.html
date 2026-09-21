@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Szla Fájlok — Tiro{% endblock %}
+{% block title %}{{ t("Szla Fájlok") }} — Tiro{% endblock %}
 
 {% block breadcrumb %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
-    <li class="breadcrumb-item active">Szla Fájlok</li>
+    <li class="breadcrumb-item active">{{ t("Szla Fájlok") }}</li>
   </ol>
 </nav>
 {% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-4"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Szla Fájlok</h1>
+<h1 class="h3 mb-4"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>{{ t("Szla Fájlok") }}</h1>
 
 <div class="card">
   <div class="card-body pt-3">

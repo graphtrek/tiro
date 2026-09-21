@@ -1,15 +1,16 @@
-{% from "_macros.html" import amount_fmt %}
+{% from "_macros.html" import amount_fmt with context %}
+{% import "_macros.html" as macros with context %}
 <table id="supplier-table" class="table table-hover table-sm">
   <thead>
     <tr>
-      <th>Név</th>
-      <th>Adószám</th>
-      <th class="text-end">Számlák</th>
-      <th class="text-end">Fizetetlen</th>
-      <th class="text-end">Számla összeg</th>
+      <th>{{ t("Név") }}</th>
+      <th>{{ t("Adószám") }}</th>
+      <th class="text-end">{{ t("Számlák") }}</th>
+      <th class="text-end">{{ t("Fizetetlen") }}</th>
+      <th class="text-end">{{ t("Számla összeg") }}</th>
       <th class="text-end">Bank</th>
-      <th class="text-end">Bank összeg</th>
-      <th>Utolsó számla</th>
+      <th class="text-end">{{ t("Bank összeg") }}</th>
+      <th>{{ t("Utolsó számla") }}</th>
     </tr>
   </thead>
   <tbody>
@@ -40,7 +41,7 @@
       $("#supplier-table").DataTable().destroy();
     }
     new DataTable("#supplier-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs találat" },
+      {{ macros.datatables_language() }},
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
       order: [[0, "asc"]],

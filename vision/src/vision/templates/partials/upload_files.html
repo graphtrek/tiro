@@ -2,17 +2,17 @@
 {% if storage and storage.total_files > 0 %}
 <div class="card shadow-sm">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <strong>Tárolt fájlok</strong>
-    <span class="badge bg-secondary">{{ storage.total_files }} fájl</span>
+    <strong>{{ t("Tárolt fájlok") }}</strong>
+    <span class="badge bg-secondary">{{ storage.total_files }} {{ t("fájl") }}</span>
   </div>
   <div class="table-responsive">
     <table class="table table-sm table-hover mb-0">
       <thead>
         <tr>
           <th>Bank</th>
-          <th>Fájlnév</th>
-          <th class="text-end">Méret</th>
-          <th>Módosítva</th>
+          <th>{{ t("Fájlnév") }}</th>
+          <th class="text-end">{{ t("Méret") }}</th>
+          <th>{{ t("Módosítva") }}</th>
           <th></th>
         </tr>
       </thead>
@@ -32,7 +32,7 @@
                       hx-delete="/ui/upload/files/{{ bank }}/{{ f.filename }}"
                       hx-target="closest tr"
                       hx-swap="outerHTML"
-                      hx-confirm="Biztosan törli? {{ f.filename }}">
+                      hx-confirm="{{ t('Biztosan törli?') }} {{ f.filename }}">
                 <i class="bi bi-trash"></i>
               </button>
               {% endif %}
@@ -46,7 +46,7 @@
 </div>
 {% else %}
 <div class="alert alert-secondary">
-  <i class="bi bi-inbox me-2"></i>Nincs még feltöltött CSV fájl.
+  <i class="bi bi-inbox me-2"></i>{{ t("Nincs még feltöltött CSV fájl.") }}
 </div>
 {% endif %}
 </div>

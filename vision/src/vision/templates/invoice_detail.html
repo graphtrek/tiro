@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% from "_macros.html" import payment_badge, direction_badge, amount_fmt %}
+{% from "_macros.html" import payment_badge, direction_badge, amount_fmt with context %}
 {% block title %}{{ invoice.invoice_number }} — Tiro{% endblock %}
 
 {% block breadcrumb %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
-    <li class="breadcrumb-item"><a href="/ui/invoices">Számlák</a></li>
+    <li class="breadcrumb-item"><a href="/ui/invoices">{{ t("Számlák") }}</a></li>
     <li class="breadcrumb-item active">{{ invoice.invoice_number }}</li>
   </ol>
 </nav>
@@ -27,50 +27,50 @@
   <!-- Bal: számla adatok -->
   <div class="col-12 col-lg-7">
     <div class="card shadow-sm h-100">
-      <div class="card-header"><strong>Számla adatok</strong></div>
+      <div class="card-header"><strong>{{ t("Számla adatok") }}</strong></div>
       <div class="card-body">
         <dl class="row mb-0">
-          <dt class="col-sm-4">Számlaszám</dt>
+          <dt class="col-sm-4">{{ t("Számlaszám") }}</dt>
           <dd class="col-sm-8 font-monospace">{{ invoice.invoice_number }}</dd>
 
-          <dt class="col-sm-4">Dátum</dt>
+          <dt class="col-sm-4">{{ t("Dátum") }}</dt>
           <dd class="col-sm-8">{{ invoice.invoice_date or '—' }}</dd>
 
-          <dt class="col-sm-4">Deviza</dt>
+          <dt class="col-sm-4">{{ t("Deviza") }}</dt>
           <dd class="col-sm-8">{{ invoice.currency or 'HUF' }}</dd>
 
           {% if invoice.invoice_operation %}
-          <dt class="col-sm-4">NAV művelet</dt>
+          <dt class="col-sm-4">{{ t("NAV művelet") }}</dt>
           <dd class="col-sm-8 text-muted">{{ invoice.invoice_operation }}</dd>
           {% endif %}
 
           {% if invoice.invoice_category %}
-          <dt class="col-sm-4">Számla típus</dt>
+          <dt class="col-sm-4">{{ t("Számla típus") }}</dt>
           <dd class="col-sm-8 text-muted">{{ invoice.invoice_category }}</dd>
           {% endif %}
 
-          <dt class="col-sm-4">NAV beérkezés</dt>
+          <dt class="col-sm-4">{{ t("NAV beérkezés") }}</dt>
           <dd class="col-sm-8 text-muted">{{ invoice.nav_ins_date or '—' }}</dd>
 
           {% if invoice.payment_method %}
-          <dt class="col-sm-4">Fizetési mód</dt>
+          <dt class="col-sm-4">{{ t("Fizetési mód") }}</dt>
           <dd class="col-sm-8">{{ invoice.payment_method }}</dd>
           {% endif %}
 
           {% if invoice.payment_due_date %}
-          <dt class="col-sm-4">Fizetési határidő</dt>
+          <dt class="col-sm-4">{{ t("Fizetési határidő") }}</dt>
           <dd class="col-sm-8">{{ invoice.payment_due_date }}</dd>
           {% endif %}
 
-          <dt class="col-sm-4">Státusz</dt>
+          <dt class="col-sm-4">{{ t("Státusz") }}</dt>
           <dd class="col-sm-8">
             {{ payment_badge(invoice.payment_status) }}
             {% if invoice.payment_status_locked %}
-              <span class="badge bg-secondary ms-1" title="Manuálisan beállított fizetési státusz"><i class="bi bi-lock-fill"></i> Manuális</span>
+              <span class="badge bg-secondary ms-1" title="{{ t('Manuálisan beállított fizetési státusz') }}"><i class="bi bi-lock-fill"></i> {{ t("Manuális") }}</span>
               {% if not request.state.user or request.state.user.role != 'read_only' %}
               <form hx-post="/ui/invoices/{{ invoice.id }}/fizetve" hx-target="body" hx-push-url="true" class="d-inline ms-1 m-0">
                 <input type="hidden" name="locked" value="false">
-                <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Manuális zár feloldása">
+                <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1" title="{{ t('Manuális zár feloldása') }}">
                   <i class="bi bi-unlock"></i>
                 </button>
               </form>
@@ -79,30 +79,30 @@
               {% if not request.state.user or request.state.user.role != 'read_only' %}
               <form hx-post="/ui/invoices/{{ invoice.id }}/fizetve" hx-target="body" hx-push-url="true" class="d-inline ms-1 m-0">
                 <input type="hidden" name="locked" value="true">
-                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-1" title="Manuálisan megjelölés fizetve">
-                  <i class="bi bi-check-circle"></i> Fizetve
+                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-1" title="{{ t('Manuálisan megjelölés fizetve') }}">
+                  <i class="bi bi-check-circle"></i> {{ t("Fizetve") }}
                 </button>
               </form>
               {% endif %}
             {% endif %}
           </dd>
 
-          <dt class="col-sm-4">Irány</dt>
+          <dt class="col-sm-4">{{ t("Irány") }}</dt>
           <dd class="col-sm-8">{{ direction_badge(invoice.direction) }}</dd>
 
           {% if invoice.detail %}
           {% if invoice.detail.delivery_date %}
-          <dt class="col-sm-4">Teljesítés dátuma</dt>
+          <dt class="col-sm-4">{{ t("Teljesítés dátuma") }}</dt>
           <dd class="col-sm-8">{{ invoice.detail.delivery_date }}</dd>
           {% endif %}
 
           {% if invoice.detail.exchange_rate %}
-          <dt class="col-sm-4">Árfolyam</dt>
+          <dt class="col-sm-4">{{ t("Árfolyam") }}</dt>
           <dd class="col-sm-8">{{ invoice.detail.exchange_rate }}</dd>
           {% endif %}
 
           {% if invoice.detail.invoice_appearance %}
-          <dt class="col-sm-4">Számla megjelenés</dt>
+          <dt class="col-sm-4">{{ t("Számla megjelenés") }}</dt>
           <dd class="col-sm-8 text-muted">{{ invoice.detail.invoice_appearance }}</dd>
           {% endif %}
           {% endif %}
@@ -110,9 +110,9 @@
         <hr>
         <table class="table table-sm mb-0">
           <tbody>
-            <tr><td>Nettó</td><td class="text-end">{{ amount_fmt(invoice.amount_net) }}</td></tr>
-            <tr><td>ÁFA</td><td class="text-end">{{ amount_fmt(invoice.amount_vat) }}</td></tr>
-            <tr class="table-light fw-bold"><td>Bruttó</td><td class="text-end">{{ amount_fmt(invoice.amount_total) }}</td></tr>
+            <tr><td>{{ t("Nettó") }}</td><td class="text-end">{{ amount_fmt(invoice.amount_net) }}</td></tr>
+            <tr><td>{{ t("ÁFA") }}</td><td class="text-end">{{ amount_fmt(invoice.amount_vat) }}</td></tr>
+            <tr class="table-light fw-bold"><td>{{ t("Bruttó") }}</td><td class="text-end">{{ amount_fmt(invoice.amount_total) }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -125,12 +125,12 @@
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-building me-1"></i><strong>Szállító</strong></span>
+            <span><i class="bi bi-building me-1"></i><strong>{{ t("Szállító") }}</strong></span>
             {% if not request.state.user or request.state.user.role != 'read_only' %}
             {% if invoice.supplier_id %}
             <form hx-post="/ui/invoices/{{ invoice.id }}/supplier/unlink"
                   hx-target="body" hx-push-url="true" class="d-inline m-0">
-              <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" title="Szállító leválasztása">
+              <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" title="{{ t('Szállító leválasztása') }}">
                 <i class="bi bi-x-lg"></i>
               </button>
             </form>
@@ -138,7 +138,7 @@
             <button class="btn btn-outline-primary btn-sm"
                     data-bs-toggle="modal" data-bs-target="#pickerModal"
                     data-picker-url="/ui/picker/partners?kind=supplier&invoice_id={{ invoice.id }}">
-              <i class="bi bi-link-45deg"></i> Szállító kapcsolása
+              <i class="bi bi-link-45deg"></i> {{ t("Szállító kapcsolása") }}
             </button>
             {% endif %}
             {% endif %}
@@ -149,16 +149,16 @@
               {{ invoice.supplier_name }}
             </a>
             {% if invoice.supplier_tax_id %}
-              <div class="text-muted small mt-1">Adószám: {{ invoice.supplier_tax_id }}</div>
+              <div class="text-muted small mt-1">{{ t("Adószám") }}: {{ invoice.supplier_tax_id }}</div>
             {% endif %}
             {% elif invoice.detail and invoice.detail.supplier_name %}
             <span class="fw-bold fs-5">{{ invoice.detail.supplier_name }}</span>
-            <div class="text-warning small mt-1">— nincs partner hozzárendelve —</div>
+            <div class="text-warning small mt-1">— {{ t("nincs partner hozzárendelve") }} —</div>
             {% if invoice.detail.supplier_tax_number %}
-              <div class="text-muted small mt-1">Adószám: {{ invoice.detail.supplier_tax_number }}</div>
+              <div class="text-muted small mt-1">{{ t("Adószám") }}: {{ invoice.detail.supplier_tax_number }}</div>
             {% endif %}
             {% else %}
-            <span class="text-warning">— nincs partner hozzárendelve —</span>
+            <span class="text-warning">— {{ t("nincs partner hozzárendelve") }} —</span>
             {% endif %}
             {% if invoice.detail and invoice.detail.supplier_address %}
               <div class="text-muted small mt-1">{{ invoice.detail.supplier_address }}</div>
@@ -172,12 +172,12 @@
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-person me-1"></i><strong>Vevő</strong></span>
+            <span><i class="bi bi-person me-1"></i><strong>{{ t("Vevő") }}</strong></span>
             {% if not request.state.user or request.state.user.role != 'read_only' %}
             {% if invoice.customer_id %}
             <form hx-post="/ui/invoices/{{ invoice.id }}/customer/unlink"
                   hx-target="body" hx-push-url="true" class="d-inline m-0">
-              <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" title="Vevő leválasztása">
+              <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" title="{{ t('Vevő leválasztása') }}">
                 <i class="bi bi-x-lg"></i>
               </button>
             </form>
@@ -185,7 +185,7 @@
             <button class="btn btn-outline-primary btn-sm"
                     data-bs-toggle="modal" data-bs-target="#pickerModal"
                     data-picker-url="/ui/picker/partners?kind=customer&invoice_id={{ invoice.id }}">
-              <i class="bi bi-link-45deg"></i> Vevő kapcsolása
+              <i class="bi bi-link-45deg"></i> {{ t("Vevő kapcsolása") }}
             </button>
             {% endif %}
             {% endif %}
@@ -196,16 +196,16 @@
               {{ invoice.customer_name }}
             </a>
             {% if invoice.customer_tax_id %}
-              <div class="text-muted small mt-1">Adószám: {{ invoice.customer_tax_id }}</div>
+              <div class="text-muted small mt-1">{{ t("Adószám") }}: {{ invoice.customer_tax_id }}</div>
             {% endif %}
             {% elif invoice.detail and invoice.detail.customer_name %}
             <span class="fw-bold fs-5">{{ invoice.detail.customer_name }}</span>
-            <div class="text-warning small mt-1">— nincs partner hozzárendelve —</div>
+            <div class="text-warning small mt-1">— {{ t("nincs partner hozzárendelve") }} —</div>
             {% if invoice.detail.customer_tax_number %}
-              <div class="text-muted small mt-1">Adószám: {{ invoice.detail.customer_tax_number }}</div>
+              <div class="text-muted small mt-1">{{ t("Adószám") }}: {{ invoice.detail.customer_tax_number }}</div>
             {% endif %}
             {% else %}
-            <span class="text-warning">— nincs partner hozzárendelve —</span>
+            <span class="text-warning">— {{ t("nincs partner hozzárendelve") }} —</span>
             {% endif %}
             {% if invoice.detail and invoice.detail.customer_address %}
               <div class="text-muted small mt-1">{{ invoice.detail.customer_address }}</div>
@@ -223,20 +223,20 @@
 <!-- Tételek -->
 {% if invoice.lines %}
 <div class="card shadow-sm mb-4">
-  <div class="card-header"><i class="bi bi-list-ul me-1"></i><strong>Tételek</strong> ({{ invoice.lines | length }})</div>
+  <div class="card-header"><i class="bi bi-list-ul me-1"></i><strong>{{ t("Tételek") }}</strong> ({{ invoice.lines | length }})</div>
   <div class="table-responsive">
     <table class="table table-sm mb-0">
       <thead class="table-light">
         <tr>
           <th>#</th>
-          <th>Megnevezés</th>
-          <th class="text-end">Mennyiség</th>
-          <th>Egység</th>
-          <th class="text-end">Egységár</th>
-          <th class="text-end">Nettó</th>
-          <th class="text-end">ÁFA %</th>
-          <th class="text-end">ÁFA</th>
-          <th class="text-end">Bruttó</th>
+          <th>{{ t("Megnevezés") }}</th>
+          <th class="text-end">{{ t("Mennyiség") }}</th>
+          <th>{{ t("Egység") }}</th>
+          <th class="text-end">{{ t("Egységár") }}</th>
+          <th class="text-end">{{ t("Nettó") }}</th>
+          <th class="text-end">{{ t("ÁFA %") }}</th>
+          <th class="text-end">{{ t("ÁFA") }}</th>
+          <th class="text-end">{{ t("Bruttó") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -262,14 +262,14 @@
 <!-- Áfa összesítő -->
 {% if invoice.vat_summary %}
 <div class="card shadow-sm mb-4">
-  <div class="card-header"><i class="bi bi-percent me-1"></i><strong>Áfa összesítő</strong></div>
+  <div class="card-header"><i class="bi bi-percent me-1"></i><strong>{{ t("Áfa összesítő") }}</strong></div>
   <div class="table-responsive">
     <table class="table table-sm mb-0">
       <thead class="table-light">
         <tr>
-          <th>Áfa kulcs</th>
-          <th class="text-end">Nettó</th>
-          <th class="text-end">ÁFA</th>
+          <th>{{ t("Áfa kulcs") }}</th>
+          <th class="text-end">{{ t("Nettó") }}</th>
+          <th class="text-end">{{ t("ÁFA") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -288,15 +288,15 @@
 
 <!-- Megjegyzés -->
 <div class="card shadow-sm mb-4">
-  <div class="card-header"><i class="bi bi-pencil-square me-1"></i><strong>Megjegyzés</strong></div>
+  <div class="card-header"><i class="bi bi-pencil-square me-1"></i><strong>{{ t("Megjegyzés") }}</strong></div>
   <div class="card-body">
     {% if not request.state.user or request.state.user.role != 'read_only' %}
     <form hx-post="/ui/invoices/{{ invoice.id }}/note" hx-target="body" hx-push-url="true" class="m-0">
       <div class="mb-2">
-        <textarea name="note" class="form-control form-control-sm font-monospace" rows="3" placeholder="Ide írhat megjegyzést a számlához…">{{ invoice.note or '' }}</textarea>
+        <textarea name="note" class="form-control form-control-sm font-monospace" rows="3" placeholder="{{ t('Ide írhat megjegyzést a számlához…') }}">{{ invoice.note or '' }}</textarea>
       </div>
       <button type="submit" class="btn btn-sm btn-primary">
-        <i class="bi bi-floppy me-1"></i>Mentés
+        <i class="bi bi-floppy me-1"></i>{{ t("Mentés") }}
       </button>
     </form>
     {% else %}
@@ -309,9 +309,9 @@
 <div class="card shadow-sm mb-4">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span>
-      <i class="bi bi-file-earmark-pdf me-1 text-danger"></i><strong>Kapcsolt PDF</strong>
+      <i class="bi bi-file-earmark-pdf me-1 text-danger"></i><strong>{{ t("Kapcsolt PDF") }}</strong>
       {% if invoice.invoice_file_locked %}
-        <span class="badge bg-warning text-dark ms-1" title="Manuálisan kapcsolva"><i class="bi bi-lock-fill"></i> Manuális</span>
+        <span class="badge bg-warning text-dark ms-1" title="{{ t('Manuálisan kapcsolva') }}"><i class="bi bi-lock-fill"></i> {{ t("Manuális") }}</span>
       {% endif %}
     </span>
     {% if not request.state.user or request.state.user.role != 'read_only' %}
@@ -319,14 +319,14 @@
       <form hx-post="/ui/invoices/{{ invoice.id }}/invoice-file/unlink"
             hx-target="body" hx-push-url="true" class="d-inline m-0">
         <button type="submit" class="btn btn-outline-danger btn-sm">
-          <i class="bi bi-x-lg"></i> PDF leválaszt
+          <i class="bi bi-x-lg"></i> {{ t("PDF leválaszt") }}
         </button>
       </form>
     {% else %}
       <button class="btn btn-outline-primary btn-sm"
               data-bs-toggle="modal" data-bs-target="#pickerModal"
               data-picker-url="/ui/picker/invoice-files?source_type=invoice&source_id={{ invoice.id }}">
-        <i class="bi bi-link-45deg"></i> PDF kapcsolása
+        <i class="bi bi-link-45deg"></i> {{ t("PDF kapcsolása") }}
       </button>
     {% endif %}
     {% endif %}
@@ -338,34 +338,34 @@
     </a>
   </div>
   {% else %}
-  <div class="card-body text-muted">Nincs kapcsolt PDF fájl.</div>
+  <div class="card-body text-muted">{{ t("Nincs kapcsolt PDF fájl.") }}</div>
   {% endif %}
 </div>
 
 <!-- Bank tranzakciók -->
 <div class="mb-2 d-flex justify-content-between align-items-center">
   <h5 class="mb-3">
-    <i class="bi bi-bank me-1 text-info"></i>Bank tranzakciók ({{ invoice.bank_transactions | length }})
+    <i class="bi bi-bank me-1 text-info"></i>{{ t("Bank tranzakciók") }} ({{ invoice.bank_transactions | length }})
   </h5>
   {% if not request.state.user or request.state.user.role != 'read_only' %}
   <button class="btn btn-outline-primary btn-sm mb-3"
           data-bs-toggle="modal" data-bs-target="#pickerModal"
           data-picker-url="/ui/picker/transactions?invoice_id={{ invoice.id }}">
-    <i class="bi bi-link-45deg"></i> Tranzakció kapcsolása
+    <i class="bi bi-link-45deg"></i> {{ t("Tranzakció kapcsolása") }}
   </button>
   {% endif %}
 </div>
 {% if invoice.bank_transactions %}
-{% for t in invoice.bank_transactions %}
+{% for txn in invoice.bank_transactions %}
 <div class="card shadow-sm mb-3">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <span class="font-monospace small">{{ t.bank | upper }}: {{ t.transaction_id }}</span>
+    <span class="font-monospace small">{{ txn.bank | upper }}: {{ txn.transaction_id }}</span>
     <div class="d-flex gap-2 align-items-center">
-      <span class="fw-bold">{{ amount_fmt(t.amount, t.currency) }}</span>
+      <span class="fw-bold">{{ amount_fmt(txn.amount, txn.currency) }}</span>
       {% if not request.state.user or request.state.user.role != 'read_only' %}
-      <form hx-post="/ui/invoices/{{ invoice.id }}/transactions/{{ t.id }}/unlink"
+      <form hx-post="/ui/invoices/{{ invoice.id }}/transactions/{{ txn.id }}/unlink"
             hx-target="body" hx-push-url="true" class="d-inline m-0">
-        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" title="Kapcsolat törlése">
+        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" title="{{ t('Kapcsolat törlése') }}">
           <i class="bi bi-x-lg"></i>
         </button>
       </form>
@@ -377,36 +377,36 @@
       <!-- Alapadatok -->
       <div class="col-12 col-md-6">
         <dl class="row mb-0 small">
-          <dt class="col-5 text-muted">Dátum</dt>
-          <dd class="col-7">{{ t.transaction_date.strftime('%Y-%m-%d %H:%M') if t.transaction_date else '—' }}</dd>
+          <dt class="col-5 text-muted">{{ t("Dátum") }}</dt>
+          <dd class="col-7">{{ txn.transaction_date.strftime('%Y-%m-%d %H:%M') if txn.transaction_date else '—' }}</dd>
 
-          <dt class="col-5 text-muted">Összeg</dt>
-          <dd class="col-7 fw-bold">{{ amount_fmt(t.amount, t.currency) }}</dd>
+          <dt class="col-5 text-muted">{{ t("Összeg") }}</dt>
+          <dd class="col-7 fw-bold">{{ amount_fmt(txn.amount, txn.currency) }}</dd>
 
-          <dt class="col-5 text-muted">Irány</dt>
+          <dt class="col-5 text-muted">{{ t("Irány") }}</dt>
           <dd class="col-7">
-            {% if t.direction == 'CREDIT' %}<span class="badge bg-success">CREDIT</span>
+            {% if txn.direction == 'CREDIT' %}<span class="badge bg-success">CREDIT</span>
             {% else %}<span class="badge bg-danger">DEBIT</span>{% endif %}
           </dd>
 
-          <dt class="col-5 text-muted">Egyenleg</dt>
-          <dd class="col-7">{{ amount_fmt(t.balance, t.currency) if t.balance is not none else '—' }}</dd>
+          <dt class="col-5 text-muted">{{ t("Egyenleg") }}</dt>
+          <dd class="col-7">{{ amount_fmt(txn.balance, txn.currency) if txn.balance is not none else '—' }}</dd>
 
-          <dt class="col-5 text-muted">Leírás</dt>
-          <dd class="col-7">{{ t.description or '—' }}</dd>
+          <dt class="col-5 text-muted">{{ t("Leírás") }}</dt>
+          <dd class="col-7">{{ txn.description or '—' }}</dd>
 
-          <dt class="col-5 text-muted">Referencia</dt>
-          <dd class="col-7">{{ t.payment_reference or '—' }}</dd>
+          <dt class="col-5 text-muted">{{ t("Referencia") }}</dt>
+          <dd class="col-7">{{ txn.payment_reference or '—' }}</dd>
 
-          <dt class="col-5 text-muted">Típus</dt>
-          <dd class="col-7">{{ t.transaction_type or '—' }}</dd>
+          <dt class="col-5 text-muted">{{ t("Típus") }}</dt>
+          <dd class="col-7">{{ txn.transaction_type or '—' }}</dd>
 
-          <dt class="col-5 text-muted">Kategória</dt>
-          <dd class="col-7">{{ t.category or '—' }}</dd>
+          <dt class="col-5 text-muted">{{ t("Kategória") }}</dt>
+          <dd class="col-7">{{ txn.category or '—' }}</dd>
 
-          {% if t.fees %}
-          <dt class="col-5 text-muted">Díjak összesen</dt>
-          <dd class="col-7">{{ amount_fmt(t.fees, t.currency) }}</dd>
+          {% if txn.fees %}
+          <dt class="col-5 text-muted">{{ t("Díjak összesen") }}</dt>
+          <dd class="col-7">{{ amount_fmt(txn.fees, txn.currency) }}</dd>
           {% endif %}
         </dl>
       </div>
@@ -414,60 +414,60 @@
       <!-- Partner -->
       <div class="col-12 col-md-6">
         <dl class="row mb-0 small">
-          <dt class="col-5 text-muted">Partner neve</dt>
-          <dd class="col-7">{{ t.partner_name or '—' }}</dd>
+          <dt class="col-5 text-muted">{{ t("Partner neve") }}</dt>
+          <dd class="col-7">{{ txn.partner_name or '—' }}</dd>
 
-          <dt class="col-5 text-muted">Számlaszám</dt>
-          <dd class="col-7 font-monospace">{{ t.counterparty_account or '—' }}</dd>
+          <dt class="col-5 text-muted">{{ t("Számlaszám") }}</dt>
+          <dd class="col-7 font-monospace">{{ txn.counterparty_account or '—' }}</dd>
 
           <dt class="col-5 text-muted">IBAN</dt>
-          <dd class="col-7 font-monospace">{{ t.counterparty_iban or '—' }}</dd>
+          <dd class="col-7 font-monospace">{{ txn.counterparty_iban or '—' }}</dd>
 
-          {% if t.counterparty_bank_code %}
-          <dt class="col-5 text-muted">Bankkód</dt>
-          <dd class="col-7 font-monospace">{{ t.counterparty_bank_code }}</dd>
+          {% if txn.counterparty_bank_code %}
+          <dt class="col-5 text-muted">{{ t("Bankkód") }}</dt>
+          <dd class="col-7 font-monospace">{{ txn.counterparty_bank_code }}</dd>
           {% endif %}
 
-          {% if t.counterparty_address %}
-          <dt class="col-5 text-muted">Partner címe</dt>
-          <dd class="col-7">{{ t.counterparty_address }}</dd>
+          {% if txn.counterparty_address %}
+          <dt class="col-5 text-muted">{{ t("Partner címe") }}</dt>
+          <dd class="col-7">{{ txn.counterparty_address }}</dd>
           {% endif %}
 
-          {% if t.sender_address %}
-          <dt class="col-5 text-muted">Küldő címe</dt>
-          <dd class="col-7">{{ t.sender_address }}</dd>
+          {% if txn.sender_address %}
+          <dt class="col-5 text-muted">{{ t("Küldő címe") }}</dt>
+          <dd class="col-7">{{ txn.sender_address }}</dd>
           {% endif %}
         </dl>
       </div>
 
-      {% if t.exchange_rate or t.exchange_to_currency or t.card_last_four or t.note %}
+      {% if txn.exchange_rate or txn.exchange_to_currency or txn.card_last_four or txn.note %}
       <!-- Deviza / kártya / megjegyzés -->
       <div class="col-12">
         <dl class="row mb-0 small">
-          {% if t.exchange_rate %}
-          <dt class="col-sm-2 text-muted">Árfolyam</dt>
-          <dd class="col-sm-4">{{ t.exchange_rate }}{% if t.exchange_to_currency %} → {{ t.exchange_to_currency }}{% endif %}</dd>
+          {% if txn.exchange_rate %}
+          <dt class="col-sm-2 text-muted">{{ t("Árfolyam") }}</dt>
+          <dd class="col-sm-4">{{ txn.exchange_rate }}{% if txn.exchange_to_currency %} → {{ txn.exchange_to_currency }}{% endif %}</dd>
           {% endif %}
-          {% if t.card_last_four %}
-          <dt class="col-sm-2 text-muted">Kártya</dt>
-          <dd class="col-sm-4 font-monospace">•••• {{ t.card_last_four }}</dd>
+          {% if txn.card_last_four %}
+          <dt class="col-sm-2 text-muted">{{ t("Kártya") }}</dt>
+          <dd class="col-sm-4 font-monospace">•••• {{ txn.card_last_four }}</dd>
           {% endif %}
-          {% if t.note %}
-          <dt class="col-sm-2 text-muted">Megjegyzés</dt>
-          <dd class="col-sm-10">{{ t.note }}</dd>
+          {% if txn.note %}
+          <dt class="col-sm-2 text-muted">{{ t("Megjegyzés") }}</dt>
+          <dd class="col-sm-10">{{ txn.note }}</dd>
           {% endif %}
         </dl>
       </div>
       {% endif %}
 
       <!-- PDF kapcsolat -->
-      {% if t.invoice_file_id %}
+      {% if txn.invoice_file_id %}
       <div class="col-12">
         <dl class="row mb-0 small">
-          <dt class="col-sm-2 text-muted">PDF fájl</dt>
+          <dt class="col-sm-2 text-muted">{{ t("PDF fájl") }}</dt>
           <dd class="col-sm-10">
-            <a href="/ui/invoice-files/{{ t.invoice_file_id }}/pdf" target="_blank" class="font-monospace">
-              <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ t.invoice_file_filename or t.invoice_file_id }}
+            <a href="/ui/invoice-files/{{ txn.invoice_file_id }}/pdf" target="_blank" class="font-monospace">
+              <i class="bi bi-file-earmark-pdf text-danger me-1"></i>{{ txn.invoice_file_filename or txn.invoice_file_id }}
             </a>
           </dd>
         </dl>
@@ -476,10 +476,10 @@
 
       <div class="col-12">
         <dl class="row mb-0 small text-muted">
-          <dt class="col-sm-2">Létrehozva</dt>
-          <dd class="col-sm-4">{{ t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '—' }}</dd>
-          <dt class="col-sm-2">Módosítva</dt>
-          <dd class="col-sm-4">{{ t.updated_at.strftime('%Y-%m-%d %H:%M') if t.updated_at else '—' }}</dd>
+          <dt class="col-sm-2">{{ t("Létrehozva") }}</dt>
+          <dd class="col-sm-4">{{ txn.created_at.strftime('%Y-%m-%d %H:%M') if txn.created_at else '—' }}</dd>
+          <dt class="col-sm-2">{{ t("Módosítva") }}</dt>
+          <dd class="col-sm-4">{{ txn.updated_at.strftime('%Y-%m-%d %H:%M') if txn.updated_at else '—' }}</dd>
         </dl>
       </div>
     </div>

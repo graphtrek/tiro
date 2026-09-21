@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as macros with context %}
 {% block title %}Audit — Tiro{% endblock %}
 
 {% block breadcrumb %}
@@ -13,19 +14,19 @@
 
 {% block content %}
 <h1 class="h3 mb-4"><i class="bi bi-clock-history me-2"></i>Audit</h1>
-<p class="text-muted">Felhasználói módosítások naplója — melyik oldalon, melyik rekordot, mit és mikor.</p>
+<p class="text-muted">{{ t("Felhasználói módosítások naplója — melyik oldalon, melyik rekordot, mit és mikor.") }}</p>
 
 <div class="card">
   <div class="card-body pt-3">
     <table id="audit-table" class="table table-hover table-sm text-nowrap">
       <thead>
         <tr>
-          <th>Időpont</th>
-          <th>Felhasználó</th>
-          <th>Menü</th>
-          <th>Rekord</th>
-          <th>Gomb</th>
-          <th>Részletek</th>
+          <th>{{ t("Időpont") }}</th>
+          <th>{{ t("Felhasználó") }}</th>
+          <th>{{ t("Menü") }}</th>
+          <th>{{ t("Rekord") }}</th>
+          <th>{{ t("Gomb") }}</th>
+          <th>{{ t("Részletek") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -35,7 +36,7 @@
           <td>
             {{ row.user_email or '—' }}
             {% if row.impersonator_email %}
-            <span class="badge text-bg-warning" title="Megszemélyesítve">
+            <span class="badge text-bg-warning" title="{{ t('Megszemélyesítve') }}">
               <i class="bi bi-person-badge"></i> admin: {{ row.impersonator_email }}
             </span>
             {% endif %}
@@ -48,11 +49,11 @@
               {{ row.label }}
             </span>
             {% elif row.action == 'create' %}
-            <span class="badge bg-success">létrehozás</span>
+            <span class="badge bg-success">{{ t("létrehozás") }}</span>
             {% elif row.action == 'delete' %}
-            <span class="badge bg-danger">törlés</span>
+            <span class="badge bg-danger">{{ t("törlés") }}</span>
             {% else %}
-            <span class="badge bg-primary">módosítás</span>
+            <span class="badge bg-primary">{{ t("módosítás") }}</span>
             {% endif %}
           </td>
           <td class="text-muted">
@@ -80,7 +81,7 @@
   // bound to it here would silently never run again after the first visit (see supplier_detail.html).
   (function () {
     new DataTable("#audit-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json" },
+      {{ macros.datatables_language() }},
       pageLength: 25,
       lengthMenu: [10, 25, 50, 100],
       order: [[0, "desc"]],

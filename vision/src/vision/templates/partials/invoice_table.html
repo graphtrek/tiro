@@ -1,31 +1,32 @@
-{% from "_macros.html" import payment_badge, pdf_icon, bank_icon, amount_fmt, direction_badge %}
+{% from "_macros.html" import payment_badge, pdf_icon, bank_icon, amount_fmt, direction_badge with context %}
+{% import "_macros.html" as macros with context %}
 
 <section id="inv-summary" class="invl-metrics mb-3">
   <article class="invl-metric-card">
     <span class="invl-metric-icon"><i class="bi bi-file-earmark-text"></i></span>
     <div>
-      <div class="invl-metric-label">Számlák</div>
+      <div class="invl-metric-label">{{ t("Számlák") }}</div>
       <div id="inv-sum-count" class="invl-metric-value">—</div>
     </div>
   </article>
   <article class="invl-metric-card">
     <span class="invl-metric-icon danger"><i class="bi bi-arrow-down-circle"></i></span>
     <div>
-      <div class="invl-metric-label">Bejövő</div>
+      <div class="invl-metric-label">{{ t("Bejövő") }}</div>
       <div id="inv-sum-inbound" class="invl-metric-value">—</div>
     </div>
   </article>
   <article class="invl-metric-card">
     <span class="invl-metric-icon success"><i class="bi bi-arrow-up-circle"></i></span>
     <div>
-      <div class="invl-metric-label">Kimenő</div>
+      <div class="invl-metric-label">{{ t("Kimenő") }}</div>
       <div id="inv-sum-outbound" class="invl-metric-value">—</div>
     </div>
   </article>
   <article class="invl-metric-card">
     <span class="invl-metric-icon warning"><i class="bi bi-exclamation-circle"></i></span>
     <div>
-      <div class="invl-metric-label">Fizetetlen</div>
+      <div class="invl-metric-label">{{ t("Fizetetlen") }}</div>
       <div id="inv-sum-unpaid" class="invl-metric-value">—</div>
     </div>
   </article>
@@ -34,17 +35,17 @@
 <table id="invoice-table" class="table table-hover table-sm nowrap" style="width:100%">
   <thead>
     <tr>
-      <th>Státusz</th>
-      <th>Számlaszám</th>
-      <th>Dátum</th>
-      <th>Szállító</th>
-      <th>Vevő</th>
-      <th class="text-end">Nettó</th>
-      <th class="text-end">ÁFA</th>
-      <th class="text-end">Bruttó</th>
+      <th>{{ t("Státusz") }}</th>
+      <th>{{ t("Számlaszám") }}</th>
+      <th>{{ t("Dátum") }}</th>
+      <th>{{ t("Szállító") }}</th>
+      <th>{{ t("Vevő") }}</th>
+      <th class="text-end">{{ t("Nettó") }}</th>
+      <th class="text-end">{{ t("ÁFA") }}</th>
+      <th class="text-end">{{ t("Bruttó") }}</th>
       <th>PDF</th>
       <th class="text-center">Bank</th>
-      <th>Irány</th>
+      <th>{{ t("Irány") }}</th>
     </tr>
   </thead>
   <tbody>
@@ -57,7 +58,7 @@
       <td>
         <a href="/ui/invoices/{{ row.id }}">{{ row.invoice_number }}</a>
         {% if row.payment_status_locked or row.invoice_file_locked or row.has_manual_bank_link %}
-          <i class="bi bi-lock-fill text-warning ms-1" title="Manuálisan módosítva"></i>
+          <i class="bi bi-lock-fill text-warning ms-1" title="{{ t('Manuálisan módosítva') }}"></i>
         {% endif %}
       </td>
       <td>{{ row.invoice_date or '—' }}</td>
@@ -65,14 +66,14 @@
         {% if row.supplier_id %}
           <a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.supplier_name }}</a>
         {% else %}
-          <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+          <span class="text-warning" title="{{ t('Nincs partner hozzárendelve') }}">— {{ t("nincs partner") }} —</span>
         {% endif %}
       </td>
       <td>
         {% if row.customer_id %}
           <a href="/ui/customers/{{ row.customer_id }}">{{ row.customer_name }}</a>
         {% else %}
-          <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+          <span class="text-warning" title="{{ t('Nincs partner hozzárendelve') }}">— {{ t("nincs partner") }} —</span>
         {% endif %}
       </td>
       <td class="text-end">{{ amount_fmt(row.amount_net) }}</td>
@@ -92,7 +93,7 @@
       <td>
         {% if row.bank_transaction_ids and row.bank_transaction_db_ids %}
           {% if row.bank_count == 1 %}
-            <a href="#" class="font-monospace text-decoration-none" style="font-size:.8rem" title="Bank tranzakció" data-tx-db-id="{{ row.bank_transaction_db_ids[0] }}">
+            <a href="#" class="font-monospace text-decoration-none" style="font-size:.8rem" title="{{ t('Bank tranzakció') }}" data-tx-db-id="{{ row.bank_transaction_db_ids[0] }}">
               <i class="bi bi-bank text-info"></i> {{ row.bank_transaction_ids[0] }}
             </a>
           {% else %}
@@ -120,7 +121,7 @@
       $("#invoice-table").DataTable().destroy();
     }
     const dt = new DataTable("#invoice-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs találat" },
+      {{ macros.datatables_language() }},
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
       order: [[2, "desc"]],

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import payment_badge, amount_fmt %}
+{% from "_macros.html" import payment_badge, amount_fmt with context %}
 {% block title %}Dashboard — Tiro{% endblock %}
 
 {% macro top_partner_card(title, rows, url_prefix) %}
@@ -7,7 +7,7 @@
   <div class="card-header">
     <h5 class="card-title">{{ title }}</h5>
     <div class="card-actions">
-      <a href="{{ url_prefix }}" class="text-muted small">Mind</a>
+      <a href="{{ url_prefix }}" class="text-muted small">{{ t("Mind") }}</a>
     </div>
   </div>
   <div class="card-body">
@@ -29,7 +29,7 @@
         </div>
       </div>
       {% else %}
-      <p class="text-center text-muted mb-0">Nincs adat</p>
+      <p class="text-center text-muted mb-0">{{ t("Nincs adat") }}</p>
       {% endfor %}
     </div>
   </div>
@@ -46,17 +46,17 @@
   <!-- Timesheet -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="h5 mb-0"><i class="bi bi-clock-history me-2"></i>Timesheet</h2>
-    <a href="/ui/controlling/timesheet" class="text-muted small">Mind</a>
+    <a href="/ui/controlling/timesheet" class="text-muted small">{{ t("Mind") }}</a>
   </div>
 
   <div class="card mb-4">
     <div class="card-header">
-      <h5 class="card-title">Timesheet összesítő</h5>
+      <h5 class="card-title">{{ t("Timesheet összesítő") }}</h5>
       <div class="card-actions">
         <select class="form-select form-select-sm" style="width: auto;" id="timesheetLevel">
-          <option value="daily" selected>Napi</option>
-          <option value="monthly">Havi</option>
-          <option value="yearly">Éves</option>
+          <option value="daily" selected>{{ t("Napi") }}</option>
+          <option value="monthly">{{ t("Havi") }}</option>
+          <option value="yearly">{{ t("Éves") }}</option>
         </select>
       </div>
     </div>
@@ -74,14 +74,14 @@
       <div class="widget-stat-header">
         <div>
           <div class="widget-stat-value">{{ kpis.total_invoices }}</div>
-          <div class="widget-stat-label">Összes számla</div>
+          <div class="widget-stat-label">{{ t("Összes számla") }}</div>
         </div>
         <div class="widget-stat-icon primary">
           <i class="bi bi-receipt"></i>
         </div>
       </div>
       <div class="widget-stat-change positive">
-        <i class="bi bi-file-earmark-check"></i> {{ kpis.linked_pdfs }} PDF kapcsolva
+        <i class="bi bi-file-earmark-check"></i> {{ kpis.linked_pdfs }} {{ t("PDF kapcsolva") }}
       </div>
     </div>
 
@@ -90,7 +90,7 @@
       <div class="widget-stat-header">
         <div>
           <div class="widget-stat-value">{{ kpis.unpaid_invoices }}</div>
-          <div class="widget-stat-label">Fizetetlen számla</div>
+          <div class="widget-stat-label">{{ t("Fizetetlen számla") }}</div>
         </div>
         <div class="widget-stat-icon danger">
           <i class="bi bi-wallet2"></i>
@@ -102,7 +102,7 @@
       </div>
       {% else %}
       <div class="widget-stat-change positive">
-        <i class="bi bi-check-circle"></i> Nincs tartozás
+        <i class="bi bi-check-circle"></i> {{ t("Nincs tartozás") }}
       </div>
       {% endif %}
     </div>
@@ -112,14 +112,14 @@
       <div class="widget-stat-header">
         <div>
           <div class="widget-stat-value">{{ kpis.recent_bank_count }}</div>
-          <div class="widget-stat-label">Bank tranzakció</div>
+          <div class="widget-stat-label">{{ t("Bank tranzakció") }}</div>
         </div>
         <div class="widget-stat-icon info">
           <i class="bi bi-arrow-left-right"></i>
         </div>
       </div>
       <div class="widget-stat-change">
-        <i class="bi bi-calendar3"></i> elmúlt 30 nap
+        <i class="bi bi-calendar3"></i> {{ t("elmúlt 30 nap") }}
       </div>
     </div>
 
@@ -135,7 +135,7 @@
         </div>
       </div>
       <div class="widget-stat-change">
-        <i class="bi bi-truck"></i> {{ kpis.supplier_count }} szállító · {{ kpis.customer_count }} vevő
+        <i class="bi bi-truck"></i> {{ kpis.supplier_count }} {{ t("szállító") }} · {{ kpis.customer_count }} {{ t("vevő") }}
       </div>
     </div>
   </div>
@@ -146,12 +146,12 @@
       <!-- Bevétel vs Kiadás chart -->
       <div class="card">
         <div class="card-header">
-          <h5 class="card-title">Bevétel vs Kiadás</h5>
+          <h5 class="card-title">{{ t("Bevétel vs Kiadás") }}</h5>
           <div class="card-actions">
             <select class="form-select form-select-sm" style="width: auto;" id="financePeriod">
-              <option value="3">Utolsó 3 hónap</option>
-              <option value="6">Utolsó 6 hónap</option>
-              <option value="12" selected>Utolsó 12 hónap</option>
+              <option value="3">{{ t("Utolsó 3 hónap") }}</option>
+              <option value="6">{{ t("Utolsó 6 hónap") }}</option>
+              <option value="12" selected>{{ t("Utolsó 12 hónap") }}</option>
             </select>
           </div>
         </div>
@@ -164,20 +164,20 @@
     </div>
 
     <div>
-      {{ top_partner_card('Top szállítók', top_suppliers, '/ui/suppliers') }}
+      {{ top_partner_card(t('Top szállítók'), top_suppliers, '/ui/suppliers') }}
     </div>
 
     <div>
-      {{ top_partner_card('Top vevők', top_customers, '/ui/customers') }}
+      {{ top_partner_card(t('Top vevők'), top_customers, '/ui/customers') }}
     </div>
   </div>
 
   <!-- Legutóbbi tranzakciók (full width) -->
   <div class="card mb-4">
     <div class="card-header">
-      <h5 class="card-title">Legutóbbi tranzakciók</h5>
+      <h5 class="card-title">{{ t("Legutóbbi tranzakciók") }}</h5>
       <div class="card-actions">
-        <a href="/ui/transactions" class="btn btn-sm btn-outline-primary">Mind</a>
+        <a href="/ui/transactions" class="btn btn-sm btn-outline-primary">{{ t("Mind") }}</a>
       </div>
     </div>
     <div class="card-body p-0">
@@ -185,11 +185,11 @@
         <table class="table table-hover mb-0">
           <thead>
             <tr>
-              <th>Dátum</th>
+              <th>{{ t("Dátum") }}</th>
               <th>Partner</th>
-              <th>Típus</th>
-              <th class="text-end">Összeg</th>
-              <th>Számla</th>
+              <th>{{ t("Típus") }}</th>
+              <th class="text-end">{{ t("Összeg") }}</th>
+              <th>{{ t("Számla") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -200,9 +200,9 @@
               {% set is_credit = row.direction == 'CREDIT' %}
               <td>
                 {% if is_credit %}
-                  <span class="badge badge-soft-success">Jóváírás</span>
+                  <span class="badge badge-soft-success">{{ t("Jóváírás") }}</span>
                 {% else %}
-                  <span class="badge badge-soft-warning">Terhelés</span>
+                  <span class="badge badge-soft-warning">{{ t("Terhelés") }}</span>
                 {% endif %}
               </td>
               <td class="text-end">
@@ -217,7 +217,7 @@
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="5" class="text-center text-muted py-4">Nincs adat</td></tr>
+            <tr><td colspan="5" class="text-center text-muted py-4">{{ t("Nincs adat") }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -228,9 +228,9 @@
   <!-- Legutóbbi számlák (full width) -->
   <div class="card mb-4">
     <div class="card-header">
-      <h5 class="card-title">Legutóbbi számlák</h5>
+      <h5 class="card-title">{{ t("Legutóbbi számlák") }}</h5>
       <div class="card-actions">
-        <a href="/ui/invoices" class="btn btn-sm btn-outline-primary">Mind</a>
+        <a href="/ui/invoices" class="btn btn-sm btn-outline-primary">{{ t("Mind") }}</a>
       </div>
     </div>
     <div class="card-body p-0">
@@ -238,11 +238,11 @@
         <table class="table table-hover mb-0">
           <thead>
             <tr>
-              <th>Számlaszám</th>
-              <th>Dátum</th>
-              <th>Szállító</th>
-              <th class="text-end">Bruttó</th>
-              <th>Státusz</th>
+              <th>{{ t("Számlaszám") }}</th>
+              <th>{{ t("Dátum") }}</th>
+              <th>{{ t("Szállító") }}</th>
+              <th class="text-end">{{ t("Bruttó") }}</th>
+              <th>{{ t("Státusz") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -258,14 +258,14 @@
                     {{ row.supplier_name }}
                   {% endif %}
                 {% else %}
-                  <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+                  <span class="text-warning" title="{{ t('Nincs partner hozzárendelve') }}">{{ t("— nincs partner —") }}</span>
                 {% endif %}
               </td>
               <td class="text-end fw-medium">{{ amount_fmt(row.amount_total) }}</td>
               <td>{{ payment_badge(row.payment_status) }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="5" class="text-center text-muted py-4">Nincs adat</td></tr>
+            <tr><td colspan="5" class="text-center text-muted py-4">{{ t("Nincs adat") }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -276,9 +276,9 @@
   <!-- Legutóbbi timesheet bejegyzések (full width) -->
   <div class="card">
     <div class="card-header">
-      <h5 class="card-title">Legutóbbi timesheet bejegyzések</h5>
+      <h5 class="card-title">{{ t("Legutóbbi timesheet bejegyzések") }}</h5>
       <div class="card-actions">
-        <a href="/ui/controlling/timesheet" class="btn btn-sm btn-outline-primary">Mind</a>
+        <a href="/ui/controlling/timesheet" class="btn btn-sm btn-outline-primary">{{ t("Mind") }}</a>
       </div>
     </div>
     <div class="card-body p-0">
@@ -286,12 +286,12 @@
         <table class="table table-hover mb-0">
           <thead>
             <tr>
-              <th>Dátum</th>
-              <th>Felhasználó</th>
-              <th>Projekt</th>
-              <th>Ügyfél</th>
-              <th>Tevékenység</th>
-              <th class="text-end">Óra</th>
+              <th>{{ t("Dátum") }}</th>
+              <th>{{ t("Felhasználó") }}</th>
+              <th>{{ t("Projekt") }}</th>
+              <th>{{ t("Ügyfél") }}</th>
+              <th>{{ t("Tevékenység") }}</th>
+              <th class="text-end">{{ t("Óra") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -305,7 +305,7 @@
               <td class="text-end">{{ row.hours_label }}</td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="text-center text-muted py-4">Nincs adat</td></tr>
+            <tr><td colspan="6" class="text-center text-muted py-4">{{ t("Nincs adat") }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -329,8 +329,8 @@
     var mutedColor = css.getPropertyValue('--muted-color').trim();
     var borderColor = css.getPropertyValue('--border-color-light').trim();
 
-    var huf = new Intl.NumberFormat('hu-HU', { maximumFractionDigits: 0 });
-    var hufCompact = new Intl.NumberFormat('hu-HU', { notation: 'compact', maximumFractionDigits: 1 });
+    var huf = new Intl.NumberFormat('{{ "en-US" if request.state.lang == "en" else "hu-HU" }}', { maximumFractionDigits: 0 });
+    var hufCompact = new Intl.NumberFormat('{{ "en-US" if request.state.lang == "en" else "hu-HU" }}', { notation: 'compact', maximumFractionDigits: 1 });
 
     // hx-boost re-runs this script on every body swap: drop the previous
     // Chart instance bound to the (new) canvas id before re-creating it.
@@ -385,7 +385,7 @@
         labels: slice.map(function (r) { return r.month; }),
         datasets: [
           {
-            label: 'Bevétel (bank, halmozott)',
+            label: {{ t("Bevétel (bank, halmozott)")|tojson }},
             data: cumulative(slice.map(function (r) { return r.income; })),
             borderColor: successColor,
             backgroundColor: successColor + '26',
@@ -395,7 +395,7 @@
             pointRadius: 2
           },
           {
-            label: 'Kiadás (bank, halmozott)',
+            label: {{ t("Kiadás (bank, halmozott)")|tojson }},
             data: cumulative(slice.map(function (r) { return r.expense; })),
             borderColor: dangerColor,
             backgroundColor: dangerColor + '26',
@@ -405,7 +405,7 @@
             pointRadius: 2
           },
           {
-            label: 'Kimenő számlák (halmozott)',
+            label: {{ t("Kimenő számlák (halmozott)")|tojson }},
             data: cumulative(slice.map(function (r) { return r.invoice_income || 0; })),
             borderColor: successColor,
             backgroundColor: 'transparent',
@@ -416,7 +416,7 @@
             pointRadius: 2
           },
           {
-            label: 'Bejövő számlák (halmozott)',
+            label: {{ t("Bejövő számlák (halmozott)")|tojson }},
             data: cumulative(slice.map(function (r) { return r.invoice_expense || 0; })),
             borderColor: dangerColor,
             backgroundColor: 'transparent',
@@ -494,7 +494,7 @@
           tooltip: {
             callbacks: {
               label: function (ctx) {
-                return ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('hu-HU') + ' óra';
+                return ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString('{{ "en-US" if request.state.lang == "en" else "hu-HU" }}') + {{ t(" óra")|tojson }};
               }
             }
           }

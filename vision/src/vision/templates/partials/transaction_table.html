@@ -1,4 +1,5 @@
-{% from "_macros.html" import amount_fmt %}
+{% from "_macros.html" import amount_fmt with context %}
+{% import "_macros.html" as macros with context %}
 
 <style>
   #transaction-table.dataTable.nowrap td.tx-wrap {
@@ -26,7 +27,7 @@
   <article class="invl-metric-card">
     <span class="invl-metric-icon warning"><i class="bi bi-plus-slash-minus"></i></span>
     <div>
-      <div class="invl-metric-label">Nettó</div>
+      <div class="invl-metric-label">{{ t("Nettó") }}</div>
       <div id="tx-sum-net" class="invl-metric-value">—</div>
     </div>
   </article>
@@ -36,7 +37,7 @@
   <article class="invl-metric-card">
     <span class="invl-metric-icon"><i class="bi bi-bank"></i></span>
     <div>
-      <div class="invl-metric-label">Bank egyenleg</div>
+      <div class="invl-metric-label">{{ t("Bank egyenleg") }}</div>
       <div class="invl-metric-value {% if total_balance < 0 %}text-danger{% endif %}">
         {{ amount_fmt(total_balance, currency) }}
       </div>
@@ -48,15 +49,15 @@
 <table id="transaction-table" class="table table-hover table-sm nowrap" style="width:100%">
   <thead>
     <tr>
-      <th>Tranzakció ID</th>
-      <th>Dátum</th>
-      <th class="text-end">Összeg</th>
+      <th>{{ t("Tranzakció ID") }}</th>
+      <th>{{ t("Dátum") }}</th>
+      <th class="text-end">{{ t("Összeg") }}</th>
       <th>D/C</th>
-      <th>Kapcsolt számla</th>
+      <th>{{ t("Kapcsolt számla") }}</th>
       <th>Partner</th>
       <th>PDF</th>
-      <th>Referencia</th>
-      <th>Leírás</th>
+      <th>{{ t("Referencia") }}</th>
+      <th>{{ t("Leírás") }}</th>
     </tr>
   </thead>
   <tbody>
@@ -68,7 +69,7 @@
       <td>
         <small class="text-muted font-monospace">{{ row.bank }}: {{ row.transaction_id }}</small>
         {% if row.invoice_file_locked %}
-          <i class="bi bi-lock-fill text-warning ms-1" title="Manuálisan zárolva"></i>
+          <i class="bi bi-lock-fill text-warning ms-1" title="{{ t('Manuálisan zárolva') }}"></i>
         {% endif %}
       </td>
       <td>{{ row.transaction_date.strftime('%Y-%m-%d') if row.transaction_date else '—' }}</td>
@@ -105,7 +106,7 @@
           {% elif row.customer_id %}
             <a href="/ui/customers/{{ row.customer_id }}">{{ row.partner_name }}</a>
           {% else %}
-            <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+            <span class="text-warning" title="{{ t('Nincs partner hozzárendelve') }}">— {{ t("nincs partner") }} —</span>
           {% endif %}
         {% else %}
           {% if row.customer_id %}
@@ -113,7 +114,7 @@
           {% elif row.supplier_id %}
             <a href="/ui/suppliers/{{ row.supplier_id }}">{{ row.partner_name }}</a>
           {% else %}
-            <span class="text-warning" title="Nincs partner hozzárendelve">— nincs partner —</span>
+            <span class="text-warning" title="{{ t('Nincs partner hozzárendelve') }}">— {{ t("nincs partner") }} —</span>
           {% endif %}
         {% endif %}
       </td>
@@ -145,7 +146,7 @@
       $("#transaction-table").DataTable().destroy();
     }
     const dt = new DataTable("#transaction-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs találat" },
+      {{ macros.datatables_language() }},
       pageLength: 10,
       lengthMenu: [10, 25, 50, 100],
       order: [[1, "desc"]],

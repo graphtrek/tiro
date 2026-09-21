@@ -3,20 +3,17 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import requests
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from vision.config import Settings, get_settings
+from vision.i18n import SUPPORTED_LANGS
+from vision.ui.templating import templates
 from vision.ui.utils import local_today
 
 logger = logging.getLogger(__name__)
-
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(tags=["ui"])
 
@@ -122,6 +119,26 @@ def stop_impersonation(request: Request):
         "mp_access_token",
         tokens["access_token"],
         max_age=tokens["expires_in"],
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
+@router.get("/set-language/{lang}")
+def set_language(lang: str, next: str = "/ui/"):
+    """UI nyelv váltása — cookie-ban tárolva, ld. vision.i18n.resolve_lang."""
+    settings = get_settings()
+    if lang not in SUPPORTED_LANGS:
+        lang = settings.default_language
+    safe_next = next if next.startswith("/") and not next.startswith("//") else "/ui/"
+    response = RedirectResponse(safe_next, status_code=302)
+    response.set_cookie(
+        "vision_lang",
+        lang,
+        max_age=60 * 60 * 24 * 365 * 2,
         httponly=True,
         secure=settings.cookie_secure,
         samesite="lax",

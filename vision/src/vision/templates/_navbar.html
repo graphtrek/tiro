@@ -1,7 +1,7 @@
 <nav class="navbar px-3" style="min-height:56px">
   <button class="btn btn-link p-1 border-0 d-lg-none me-2" type="button"
           data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar"
-          aria-label="Menü megnyitása">
+          aria-label="{{ t('Menü megnyitása') }}">
     <i class="fas fa-bars" style="font-size:1.2rem"></i>
   </button>
   {# "/" is the standalone pitch page — full navigation needed, see _sidebar.html #}
@@ -13,10 +13,10 @@
     {% if request.state.user.impersonator_email %}
     <span class="badge text-bg-warning d-none d-md-inline-flex align-items-center gap-1">
       <i class="bi bi-person-badge"></i>
-      Megszemélyesítve — admin: {{ request.state.user.impersonator_email }}
+      {{ t("Megszemélyesítve — admin:") }} {{ request.state.user.impersonator_email }}
     </span>
-    <a class="btn btn-sm btn-warning" href="/stop-impersonation" hx-boost="false" title="Vissza a saját fiókomba">
-      Vissza a saját fiókomba
+    <a class="btn btn-sm btn-warning" href="/stop-impersonation" hx-boost="false" title="{{ t('Vissza a saját fiókomba') }}">
+      {{ t("Vissza a saját fiókomba") }}
     </a>
     {% endif %}
     <span class="text-muted small d-none d-sm-flex align-items-center">
@@ -25,17 +25,22 @@
       {% endif %}
       {{ request.state.user.name or request.state.user.email }}
     </span>
-    <a class="btn btn-link p-1 border-0" href="/logout" hx-boost="false" title="Kijelentkezés" aria-label="Kijelentkezés">
+    <a class="btn btn-link p-1 border-0" href="/logout" hx-boost="false" title="{{ t('Kijelentkezés') }}" aria-label="{{ t('Kijelentkezés') }}">
       <i class="fas fa-sign-out-alt" style="font-size:1.1rem"></i>
     </a>
     {% endif %}
-    <button class="btn btn-link p-1 border-0" onclick="toggleTheme()" title="Téma váltás" aria-label="Téma váltás">
+    {% set other_lang = "en" if request.state.lang == "hu" else "hu" %}
+    <a class="btn btn-link p-1 border-0 fw-bold small" href="/set-language/{{ other_lang }}?next={{ request.url.path }}"
+       hx-boost="false" title="{{ t('Nyelv váltása') }}" aria-label="{{ t('Nyelv váltása') }}">
+      {{ "EN" if other_lang == "en" else "HU" }}
+    </a>
+    <button class="btn btn-link p-1 border-0" onclick="toggleTheme()" title="{{ t('Téma váltás') }}" aria-label="{{ t('Téma váltás') }}">
       <i class="fas fa-moon theme-icon-dark" style="font-size:1.1rem"></i>
       <i class="fas fa-sun theme-icon-light" style="font-size:1.1rem"></i>
     </button>
     <div id="global-spinner" class="htmx-indicator">
       <div class="spinner-border spinner-border-sm" role="status">
-        <span class="visually-hidden">Betöltés...</span>
+        <span class="visually-hidden">{{ t("Betöltés...") }}</span>
       </div>
     </div>
   </div>

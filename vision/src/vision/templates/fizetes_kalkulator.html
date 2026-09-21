@@ -1,21 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Fizetés Calculator — Tiro{% endblock %}
+{% block title %}{{ t("Fizetés Calculator") }} — Tiro{% endblock %}
 
 {% block breadcrumb %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
-    <li class="breadcrumb-item active">Fizetés Calculator</li>
+    <li class="breadcrumb-item active">{{ t("Fizetés Calculator") }}</li>
   </ol>
 </nav>
 {% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-4"><i class="bi bi-calculator me-2"></i>Fizetés Calculator</h1>
+<h1 class="h3 mb-4"><i class="bi bi-calculator me-2"></i>{{ t("Fizetés Calculator") }}</h1>
 
 {% if saved %}
 <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
-  <i class="bi bi-check-circle me-1"></i>Kalkulátor adatai mentve
+  <i class="bi bi-check-circle me-1"></i>{{ t("Kalkulátor adatai mentve") }}
   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
 {% endif %}
@@ -32,10 +32,10 @@
     <input type="hidden" name="revenue_touched" id="fc-revenue-touched" value="{{ 'true' if state.revenue_touched else 'false' }}">
     <div class="card shadow-sm">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>Bér / osztalék optimalizáció</strong>
+        <strong>{{ t("Bér / osztalék optimalizáció") }}</strong>
         {% if not request.state.user or request.state.user.role != 'read_only' %}
         <button type="submit" class="btn btn-sm btn-primary">
-          <i class="bi bi-save me-1"></i>Mentés
+          <i class="bi bi-save me-1"></i>{{ t("Mentés") }}
         </button>
         {% endif %}
       </div>
@@ -43,14 +43,14 @@
         <table class="table table-sm table-hover mb-0" id="fizetes-calc-table">
           <thead class="table-light">
             <tr>
-              <th>Tétel</th>
-              <th class="text-end">Összeg</th>
+              <th>{{ t("Tétel") }}</th>
+              <th class="text-end">{{ t("Összeg") }}</th>
             </tr>
           </thead>
           <tbody>
             <tr class="table-active">
               <td>
-                <label for="fc-net-wage-input" class="form-label mb-0 fw-semibold">Nettó munkabér</label>
+                <label for="fc-net-wage-input" class="form-label mb-0 fw-semibold">{{ t("Nettó munkabér") }}</label>
               </td>
               <td class="text-end">
                 <div class="input-group input-group-sm justify-content-end" style="max-width:220px; margin-left:auto;">
@@ -61,7 +61,7 @@
               </td>
             </tr>
             <tr>
-              <td>Ehhez szükséges bruttó bér</td>
+              <td>{{ t("Ehhez szükséges bruttó bér") }}</td>
               <td class="text-end fw-semibold" id="fc-gross-wage">—</td>
             </tr>
             <tr class="text-muted small">
@@ -69,33 +69,33 @@
               <td class="text-end" id="fc-szja">—</td>
             </tr>
             <tr class="text-muted small">
-              <td class="ps-4">Nyugdíjjárulék (10%)</td>
+              <td class="ps-4">{{ t("Nyugdíjjárulék") }} (10%)</td>
               <td class="text-end" id="fc-nyugdij">—</td>
             </tr>
             <tr class="text-muted small">
-              <td class="ps-4">Egészségbizt. + munkaerőpiaci j. (8,5%)</td>
+              <td class="ps-4">{{ t("Egészségbizt. + munkaerőpiaci j.") }} (8,5%)</td>
               <td class="text-end" id="fc-egeszsegbizt">—</td>
             </tr>
             <tr>
-              <td>Munkáltatói szocho (13%)</td>
+              <td>{{ t("Munkáltatói szocho") }} (13%)</td>
               <td class="text-end text-warning" id="fc-employer-szocho">—</td>
             </tr>
             <tr>
-              <td>Bér teljes céges költsége</td>
+              <td>{{ t("Bér teljes céges költsége") }}</td>
               <td class="text-end fw-semibold" id="fc-total-wage-cost">—</td>
             </tr>
             <tr class="table-warning">
               <td>
-                Minimálisan szükséges havi árbevétel
-                <div class="text-muted small">bérköltség + egyéb átlagos költség (5%, min. 100 000 Ft) + HIPA (2%) fedezésére, nulla eredménnyel</div>
+                {{ t("Minimálisan szükséges havi árbevétel") }}
+                <div class="text-muted small">{{ t("bérköltség + egyéb átlagos költség (5%, min. 100 000 Ft) + HIPA (2%) fedezésére, nulla eredménnyel") }}</div>
               </td>
               <td class="text-end fw-semibold" id="fc-min-revenue">—</td>
             </tr>
             <tr class="table-active">
               <td>
-                <label for="fc-revenue-input" class="form-label mb-0 fw-semibold">Tervezett havi árbevétel</label>
+                <label for="fc-revenue-input" class="form-label mb-0 fw-semibold">{{ t("Tervezett havi árbevétel") }}</label>
                 <div>
-                  <button type="button" class="btn btn-link btn-sm p-0" id="fc-use-min-revenue">minimumra állítás</button>
+                  <button type="button" class="btn btn-link btn-sm p-0" id="fc-use-min-revenue">{{ t("minimumra állítás") }}</button>
                 </div>
               </td>
               <td class="text-end">
@@ -107,7 +107,7 @@
               </td>
             </tr>
             <tr>
-              <td>Egyéb átlagos költség (5%, min. 100 000 Ft)</td>
+              <td>{{ t("Egyéb átlagos költség") }} (5%, min. 100 000 Ft)</td>
               <td class="text-end" id="fc-other-costs">—</td>
             </tr>
             <tr>
@@ -115,7 +115,7 @@
               <td class="text-end text-info" id="fc-hipa">—</td>
             </tr>
             <tr>
-              <td>Bér és költségek után maradó eredmény</td>
+              <td>{{ t("Bér és költségek után maradó eredmény") }}</td>
               <td class="text-end" id="fc-result-after-costs">—</td>
             </tr>
             <tr>
@@ -123,29 +123,29 @@
               <td class="text-end text-info" id="fc-tao">—</td>
             </tr>
             <tr>
-              <td>Osztalékra jutó összeg</td>
+              <td>{{ t("Osztalékra jutó összeg") }}</td>
               <td class="text-end" id="fc-dividend-base">—</td>
             </tr>
             <tr>
-              <td>Osztalék SZJA (15%)</td>
+              <td>{{ t("Osztalék SZJA") }} (15%)</td>
               <td class="text-end text-danger" id="fc-dividend-szja">—</td>
             </tr>
             <tr>
               <td>
-                Osztalék szocho (13%)
+                {{ t("Osztalék szocho") }} (13%)
                 <div class="text-muted small" id="fc-dividend-szocho-note"></div>
               </td>
               <td class="text-end text-warning" id="fc-dividend-szocho">—</td>
             </tr>
             <tr>
-              <td>Nettó osztalék</td>
+              <td>{{ t("Nettó osztalék") }}</td>
               <td class="text-end fw-semibold text-success" id="fc-net-dividend">—</td>
             </tr>
           </tbody>
           <tfoot class="table-light">
             <tr class="fw-bold">
-              <td>Összes nettó magánszemélynél</td>
-              <td class="text-end text-success" id="fc-total-net">—<span class="fw-normal text-muted">/hó</span></td>
+              <td>{{ t("Összes nettó magánszemélynél") }}</td>
+              <td class="text-end text-success" id="fc-total-net">—<span class="fw-normal text-muted">{{ t("/hó") }}</span></td>
             </tr>
           </tfoot>
         </table>
@@ -153,17 +153,7 @@
     </div>
     </form>
     <p class="text-muted small mt-2 mb-0">
-      A számítás közelítő becslés. A nettó munkabérből indul ki, onnan származtatja a bruttó bért
-      (33,5% munkavállalói terhelés: 15% SZJA + 10% nyugdíjjárulék + 8,5% egészségbiztosítási és
-      munkaerőpiaci járulék) és a munkáltatói szochót (13%), majd ebből számolja a bérköltség
-      fedezéséhez minimálisan szükséges havi árbevételt — feltételezve, hogy a cégnek emellett az
-      árbevétel 5%-ának megfelelő (de legalább 100 000 Ft) egyéb átlagos költsége (rezsi, könyvelés,
-      stb.) és 2%-os HIPA (helyi iparűzési adó) fizetési kötelezettsége is van. A tervezett árbevétel mezőben ennél
-      magasabb összeget megadva a fennmaradó eredmény társasági adóját (TAO 9%) és a kifizethető
-      osztalék terheit (SZJA 15% + szocho 13%) is kiszámítja. Az osztalék szochójára 2026-ban éves
-      plafon vonatkozik: a minimálbér (322 800 Ft) 24-szerese, azaz 7 747 200 Ft — a magánszemély
-      bérjövedelme ebbe beleszámít, és csak a plafonból megmaradó rész után kell osztalék szochót
-      fizetni (évi legfeljebb 1 007 136 Ft).
+      {{ t("A számítás közelítő becslés. A nettó munkabérből indul ki, onnan származtatja a bruttó bért (33,5% munkavállalói terhelés: 15% SZJA + 10% nyugdíjjárulék + 8,5% egészségbiztosítási és munkaerőpiaci járulék) és a munkáltatói szochót (13%), majd ebből számolja a bérköltség fedezéséhez minimálisan szükséges havi árbevételt — feltételezve, hogy a cégnek emellett az árbevétel 5%-ának megfelelő (de legalább 100 000 Ft) egyéb átlagos költsége (rezsi, könyvelés, stb.) és 2%-os HIPA (helyi iparűzési adó) fizetési kötelezettsége is van. A tervezett árbevétel mezőben ennél magasabb összeget megadva a fennmaradó eredmény társasági adóját (TAO 9%) és a kifizethető osztalék terheit (SZJA 15% + szocho 13%) is kiszámítja. Az osztalék szochójára 2026-ban éves plafon vonatkozik: a minimálbér (322 800 Ft) 24-szerese, azaz 7 747 200 Ft — a magánszemély bérjövedelme ebbe beleszámít, és csak a plafonból megmaradó rész után kell osztalék szochót fizetni (évi legfeljebb 1 007 136 Ft).") }}
     </p>
   </div>
 </div>
@@ -195,19 +185,19 @@
   var revenueTouched = revenueTouchedInput.value === 'true';
 
   function fmt(value) {
-    return Math.round(value).toLocaleString('hu-HU') + ' Ft';
+    return Math.round(value).toLocaleString('{{ "en-US" if request.state.lang == "en" else "hu-HU" }}') + ' Ft';
   }
 
   // A szocho-plafon állapotát magyarázó sor az osztalék szocho alatt.
   function szochoCapNote(remainingCapAnnual, dividendBase, dividendSzochoBase) {
-    var cap = 'Éves plafon: ' + fmt(SZOCHO_CAP_ANNUAL) + ' (minimálbér ' + SZOCHO_CAP_MULTIPLIER + '×)';
+    var cap = {{ t("Éves plafon:")|tojson }} + ' ' + fmt(SZOCHO_CAP_ANNUAL) + ' (' + {{ t("minimálbér")|tojson }} + ' ' + SZOCHO_CAP_MULTIPLIER + '×)';
     if (remainingCapAnnual <= 0) {
-      return cap + ' — a bérjövedelem kimeríti, az osztalék után nincs szocho.';
+      return cap + ' — ' + {{ t("a bérjövedelem kimeríti, az osztalék után nincs szocho.")|tojson }};
     }
     if (dividendSzochoBase >= dividendBase) {
-      return cap + ' — a bér és az osztalék együtt a plafon alatt marad.';
+      return cap + ' — ' + {{ t("a bér és az osztalék együtt a plafon alatt marad.")|tojson }};
     }
-    return cap + ' — ebből az osztaléknak csak ~' + fmt(dividendSzochoBase) + '/hó része szochoköteles.';
+    return cap + ' — ' + {{ t("ebből az osztaléknak csak ~")|tojson }} + fmt(dividendSzochoBase) + {{ t("/hó része szochoköteles.")|tojson }};
   }
 
   function recalc() {
@@ -277,7 +267,7 @@
       remainingCapAnnual, dividendBase, dividendSzochoBase
     );
     document.getElementById('fc-net-dividend').textContent = '~' + fmt(netDividend);
-    document.getElementById('fc-total-net').innerHTML = '~' + fmt(totalNet) + '<span class="fw-normal text-muted">/hó</span>';
+    document.getElementById('fc-total-net').innerHTML = '~' + fmt(totalNet) + '<span class="fw-normal text-muted">' + {{ t("/hó")|tojson }} + '</span>';
   }
 
   document.getElementById('fc-net-wage-input').addEventListener('input', recalc);

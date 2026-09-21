@@ -1,5 +1,6 @@
+{% import "_macros.html" as macros with context %}
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="{{ request.state.lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -103,12 +104,12 @@
       <div class="modal-content">
         <div class="modal-header py-2">
           <h5 class="modal-title" id="invoiceDetailModalLabel">
-            <i class="bi bi-file-earmark-text me-2"></i><span id="invoice-modal-title">Számla részletei</span>
+            <i class="bi bi-file-earmark-text me-2"></i><span id="invoice-modal-title">{{ t("Számla részletei") }}</span>
           </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('Bezárás') }}"></button>
         </div>
         <div id="invoice-detail-modal-body">
-          <div class="modal-body"><p class="text-muted">Betöltés…</p></div>
+          <div class="modal-body"><p class="text-muted">{{ t("Betöltés…") }}</p></div>
         </div>
       </div>
     </div>
@@ -146,9 +147,9 @@
       });
 
       invModal.addEventListener('hidden.bs.modal', function () {
-        document.getElementById('invoice-modal-title').textContent = 'Számla részletei';
+        document.getElementById('invoice-modal-title').textContent = {{ t("Számla részletei")|tojson }};
         document.getElementById('invoice-detail-modal-body').innerHTML =
-          '<div class="modal-body"><p class="text-muted">Betöltés…</p></div>';
+          '<div class="modal-body"><p class="text-muted">' + {{ t("Betöltés…")|tojson }} + '</p></div>';
       });
 
       // Several pages (invoices/transactions/customer_detail/supplier_detail) define their
@@ -308,11 +309,11 @@
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="pickerModalLabel">Kapcsolat kiválasztása</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+          <h5 class="modal-title" id="pickerModalLabel">{{ t("Kapcsolat kiválasztása") }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('Bezárás') }}"></button>
         </div>
         <div class="modal-body" id="picker-modal-body">
-          <p class="text-muted">Betöltés…</p>
+          <p class="text-muted">{{ t("Betöltés…") }}</p>
         </div>
       </div>
     </div>
@@ -377,7 +378,7 @@
               colDefs.push({ targets: -2, visible: false });
             }
             new DataTable('#' + tbl.id, {
-              language: { url: 'https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json', emptyTable: 'Nincs találat' },
+              {{ macros.datatables_language() }},
               pageLength: 10,
               lengthMenu: [10, 25, 50],
               autoWidth: false,
@@ -393,7 +394,7 @@
         if (tbl && $.fn.DataTable.isDataTable('#' + tbl.id)) {
           $('#' + tbl.id).DataTable().destroy();
         }
-        body.innerHTML = '<p class="text-muted">Betöltés…</p>';
+        body.innerHTML = '<p class="text-muted">' + {{ t("Betöltés…")|tojson }} + '</p>';
         // Restore the offcanvas (if not already re-opened by htmx:afterSwap)
         var ocEl = pickerModal._sourceOffcanvas;
         if (ocEl && !ocEl.classList.contains('show')) {

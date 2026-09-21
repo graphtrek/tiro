@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     api_port: int = Field(8009, validation_alias=AliasChoices("VISION_API_PORT", "API_PORT"))
     log_level: str = "INFO"
 
+    # UI localization — cookie-perzisztált nyelv, "hu" vagy "en"
+    default_language: str = "hu"
+
     @property
     def auth_public_url_or_default(self) -> str:
         return self.auth_public_url or self.auth_service_url

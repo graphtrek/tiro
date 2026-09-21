@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "_macros.html" import amount_fmt %}
-{% block title %}Adók — Tiro{% endblock %}
+{% from "_macros.html" import amount_fmt with context %}
+{% block title %}{{ t("Adók") }} — Tiro{% endblock %}
 
 {% block content %}
 {% set tax_colors = {
@@ -16,12 +16,12 @@
 } %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="h3 mb-0"><i class="bi bi-receipt me-2"></i>Adók — {{ report.year }}</h1>
+  <h1 class="h3 mb-0"><i class="bi bi-receipt me-2"></i>{{ t("Adók") }} — {{ report.year }}</h1>
   <form method="get" action="/ui/adok" class="d-flex gap-2 align-items-center">
-    <label class="form-label mb-0 text-muted small">Év:</label>
+    <label class="form-label mb-0 text-muted small">{{ t("Év:") }}</label>
     <input type="number" name="year" value="{{ report.year }}" min="2020" max="2099"
            class="form-control form-control-sm" style="width:90px">
-    <button type="submit" class="btn btn-sm btn-outline-secondary">Frissít</button>
+    <button type="submit" class="btn btn-sm btn-outline-secondary">{{ t("Frissít") }}</button>
   </form>
 </div>
 
@@ -29,7 +29,7 @@
 <div class="d-flex flex-nowrap gap-3 mb-4 overflow-auto">
   <div class="card kpi-card shadow-sm h-100 border-danger flex-fill" style="min-width:150px;">
     <div class="card-body">
-      <div class="card-title kpi-title-compact">Összes adó</div>
+      <div class="card-title kpi-title-compact">{{ t("Összes adó") }}</div>
       <div class="kpi-value kpi-value-compact text-danger">{{ amount_fmt(report.grand_total) }}</div>
     </div>
   </div>
@@ -52,24 +52,24 @@
 <div class="card shadow-sm mb-4">
   <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
-      <i class="bi bi-calendar3 me-2"></i><strong>Havi bontás — {{ report.year }}</strong>
+      <i class="bi bi-calendar3 me-2"></i><strong>{{ t("Havi bontás") }} — {{ report.year }}</strong>
     </div>
-    <span class="text-muted small">Bruttó bevétel: <span class="fw-semibold text-body">{{ amount_fmt(report.gross_revenue) }}</span></span>
+    <span class="text-muted small">{{ t("Bruttó bevétel:") }} <span class="fw-semibold text-body">{{ amount_fmt(report.gross_revenue) }}</span></span>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0">
         <thead class="table-light">
           <tr>
-            <th>Hónap</th>
-            <th class="text-end text-secondary">Jövedelem</th>
+            <th>{{ t("Hónap") }}</th>
+            <th class="text-end text-secondary">{{ t("Jövedelem") }}</th>
             {% for label in report.tax_labels %}
             {% if report.totals_by_type.get(label, 0) %}
             {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
             <th class="text-end {{ c.text }}">{{ label }}</th>
             {% endif %}
             {% endfor %}
-            <th class="text-end fw-bold">Összesen</th>
+            <th class="text-end fw-bold">{{ t("Összesen") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -92,7 +92,7 @@
         </tbody>
         <tfoot class="table-light">
           <tr class="fw-semibold">
-            <td>Összesen</td>
+            <td>{{ t("Összesen") }}</td>
             <td class="text-end text-secondary">{{ amount_fmt(report.gross_revenue) }}</td>
             {% for label in report.tax_labels %}
             {% set yearly = report.totals_by_type.get(label, 0) %}
@@ -118,7 +118,7 @@
 } %}
 {% if saved %}
 <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
-  <i class="bi bi-check-circle me-1"></i>Becsült bevételek mentve
+  <i class="bi bi-check-circle me-1"></i>{{ t("Becsült bevételek mentve") }}
   <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
 {% endif %}
@@ -132,15 +132,15 @@
 <div class="card shadow-sm mb-4">
   <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
     <div>
-      <i class="bi bi-graph-up-arrow me-2"></i><strong>Becsült adók — {{ estimate.year }}</strong>
+      <i class="bi bi-graph-up-arrow me-2"></i><strong>{{ t("Becsült adók") }} — {{ estimate.year }}</strong>
       <span class="text-muted small ms-2">TAO/KIVA {{ (estimate.tao_rate*100)|int }}%, HIPA {{ (estimate.hipa_rate*100)|int }}%</span>
     </div>
     <div class="d-flex align-items-center gap-3">
-      <span class="text-muted small">Becsült bruttó bevétel: <span class="fw-semibold text-body becsult-gross-total">{{ amount_fmt(estimate.totals.gross_revenue) }}</span></span>
+      <span class="text-muted small">{{ t("Becsült bruttó bevétel:") }} <span class="fw-semibold text-body becsult-gross-total">{{ amount_fmt(estimate.totals.gross_revenue) }}</span></span>
       <input type="hidden" name="year" value="{{ estimate.year }}">
       {% if not request.state.user or request.state.user.role != 'read_only' %}
       <button type="submit" class="btn btn-sm btn-primary">
-        <i class="bi bi-save me-1"></i>Mentés
+        <i class="bi bi-save me-1"></i>{{ t("Mentés") }}
       </button>
       {% endif %}
     </div>
@@ -151,14 +151,14 @@
              data-tao-rate="{{ estimate.tao_rate }}" data-hipa-rate="{{ estimate.hipa_rate }}">
         <thead class="table-light">
           <tr>
-            <th>Hónap</th>
-            <th class="text-end text-secondary">Becsült bevétel</th>
+            <th>{{ t("Hónap") }}</th>
+            <th class="text-end text-secondary">{{ t("Becsült bevétel") }}</th>
             {% for label in estimate_labels %}
             {% set c = tax_colors.get(label, {"text": "text-secondary"}) %}
             <th class="text-end {{ c.text }}">{{ label }}</th>
             {% endfor %}
-            <th class="text-end fw-bold">Összes Adó</th>
-            <th class="text-end text-success">Eredmény</th>
+            <th class="text-end fw-bold">{{ t("Összes Adó") }}</th>
+            <th class="text-end text-success">{{ t("Eredmény") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -188,7 +188,7 @@
             <td class="text-end text-success fw-semibold becsult-eredmeny" data-row="{{ row_idx }}">{{ amount_fmt(row.gross_revenue - row.total) }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="{{ estimate_labels|length + 4 }}" class="text-center text-muted">Nincs adat</td></tr>
+          <tr><td colspan="{{ estimate_labels|length + 4 }}" class="text-center text-muted">{{ t("Nincs adat") }}</td></tr>
           {% endfor %}
         </tbody>
         <tfoot class="table-light">
@@ -216,16 +216,16 @@
 {% if report.transactions %}
 <div class="card shadow-sm">
   <div class="card-header">
-    <i class="bi bi-list-ul me-2"></i><strong>Tranzakciók</strong>
+    <i class="bi bi-list-ul me-2"></i><strong>{{ t("Tranzakciók") }}</strong>
   </div>
   <div class="card-body p-0">
     <table class="table table-sm table-hover mb-0">
       <thead class="table-light">
         <tr>
-          <th>Dátum</th>
-          <th>Megnevezés</th>
-          <th>Adónem</th>
-          <th class="text-end">Összeg</th>
+          <th>{{ t("Dátum") }}</th>
+          <th>{{ t("Megnevezés") }}</th>
+          <th>{{ t("Adónem") }}</th>
+          <th class="text-end">{{ t("Összeg") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -244,7 +244,7 @@
 </div>
 {% else %}
 <div class="alert alert-info">
-  <i class="bi bi-info-circle me-2"></i>Nincs rögzített adófizetés {{ report.year }}-ben.
+  <i class="bi bi-info-circle me-2"></i>{{ t("Nincs rögzített adófizetés") }} {{ report.year }}{{ t("-ben.") }}
 </div>
 {% endif %}
 {% endblock %}
@@ -259,7 +259,7 @@
   var HIPA_RATE = parseFloat(table.getAttribute('data-hipa-rate'));
 
   function fmt(value) {
-    return Math.round(value).toLocaleString('hu-HU') + ' Ft';
+    return Math.round(value).toLocaleString('{{ "en-US" if request.state.lang == "en" else "hu-HU" }}') + ' Ft';
   }
 
   function cellHtml(value) {

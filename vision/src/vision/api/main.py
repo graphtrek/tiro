@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from vision.auth import current_token, extract_token, verify_jwt
 from vision.config import configure_logging, get_settings
+from vision.i18n import resolve_lang
 from vision.ui.admin_router import router as admin_ui_router
 from vision.ui.bank_statements_router import router as bank_statements_ui_router
 from vision.ui.controlling_router import router as controlling_ui_router
@@ -47,12 +48,13 @@ _PUBLIC_PATHS = {"/", "/pitch", "/login", "/logout", "/health", "/favicon.ico"}
 
 
 def _is_public(path: str) -> bool:
-    return path in _PUBLIC_PATHS or path.startswith("/static/")
+    return path in _PUBLIC_PATHS or path.startswith("/static/") or path.startswith("/set-language/")
 
 
 @app.middleware("http")
 async def require_auth(request: Request, call_next):
     settings = get_settings()
+    request.state.lang = resolve_lang(request, settings)
     if not settings.auth_enabled or _is_public(request.url.path):
         return await call_next(request)
 

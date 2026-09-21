@@ -1,23 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Vevők — Tiro{% endblock %}
+{% block title %}{{ t("Vevők") }} — Tiro{% endblock %}
 
 {% block breadcrumb %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
-    <li class="breadcrumb-item active">Vevők</li>
+    <li class="breadcrumb-item active">{{ t("Vevők") }}</li>
   </ol>
 </nav>
 {% endblock %}
 
-{% from "_macros.html" import amount_fmt %}
+{% from "_macros.html" import amount_fmt with context %}
+{% import "_macros.html" as macros with context %}
 {% block content %}
 <div class="d-flex align-items-center flex-wrap gap-2 mb-4">
-  <h1 class="h3 mb-0"><i class="bi bi-people me-2"></i>Vevők</h1>
+  <h1 class="h3 mb-0"><i class="bi bi-people me-2"></i>{{ t("Vevők") }}</h1>
   {% if not request.state.user or request.state.user.role != 'read_only' %}
   <div class="ms-auto d-flex gap-2">
     <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newCustomerModal">
-      <i class="bi bi-plus-lg me-1"></i>Új vevő
+      <i class="bi bi-plus-lg me-1"></i>{{ t("Új vevő") }}
     </button>
   </div>
   {% endif %}
@@ -34,14 +35,14 @@
 <table id="customer-table" class="table table-hover table-sm">
   <thead>
     <tr>
-      <th>Név</th>
-      <th>Adószám</th>
-      <th class="text-end">Számlák</th>
-      <th class="text-end">Fizetetlen</th>
-      <th class="text-end">Számla összeg</th>
+      <th>{{ t("Név") }}</th>
+      <th>{{ t("Adószám") }}</th>
+      <th class="text-end">{{ t("Számlák") }}</th>
+      <th class="text-end">{{ t("Fizetetlen") }}</th>
+      <th class="text-end">{{ t("Számla összeg") }}</th>
       <th class="text-end">Bank</th>
-      <th class="text-end">Bank összeg</th>
-      <th>Utolsó számla</th>
+      <th class="text-end">{{ t("Bank összeg") }}</th>
+      <th>{{ t("Utolsó számla") }}</th>
     </tr>
   </thead>
   <tbody>
@@ -75,21 +76,21 @@
     <div class="modal-content">
       <form hx-post="/ui/customers" hx-target="body" hx-push-url="true">
         <div class="modal-header py-2">
-          <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Új vevő</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Bezárás"></button>
+          <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>{{ t("Új vevő") }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ t('Bezárás') }}"></button>
         </div>
         <div class="modal-body">
           <div class="mb-3">
-            <label class="form-label">Név <span class="text-danger">*</span></label>
+            <label class="form-label">{{ t("Név") }} <span class="text-danger">*</span></label>
             <input name="name" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Adószám</label>
+            <label class="form-label">{{ t("Adószám") }}</label>
             <input name="tax_id" class="form-control">
-            <div class="form-text">Ha ismert, add meg — enélkül a NAV-szinkron nem tudja majd automatikusan összekapcsolni ezt a partnert</div>
+            <div class="form-text">{{ t("Ha ismert, add meg — enélkül a NAV-szinkron nem tudja majd automatikusan összekapcsolni ezt a partnert") }}</div>
           </div>
           <div class="mb-3">
-            <label class="form-label">Cím</label>
+            <label class="form-label">{{ t("Cím") }}</label>
             <input name="address" class="form-control">
           </div>
           <div class="row">
@@ -98,13 +99,13 @@
               <input name="email" type="email" class="form-control">
             </div>
             <div class="col-6 mb-3">
-              <label class="form-label">Telefon</label>
+              <label class="form-label">{{ t("Telefon") }}</label>
               <input name="phone" class="form-control">
             </div>
           </div>
           <div class="row">
             <div class="col-6 mb-3">
-              <label class="form-label">Fizetési határidő (nap)</label>
+              <label class="form-label">{{ t("Fizetési határidő (nap)") }}</label>
               <input name="payment_terms" type="number" min="0" class="form-control">
             </div>
           </div>
@@ -114,14 +115,14 @@
               <input name="iban" class="form-control">
             </div>
             <div class="col-6 mb-3">
-              <label class="form-label">Bankszámlaszám</label>
+              <label class="form-label">{{ t("Bankszámlaszám") }}</label>
               <input name="bban" class="form-control">
             </div>
           </div>
         </div>
         <div class="modal-footer py-2">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Mégse</button>
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Mentés</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ t("Mégse") }}</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>{{ t("Mentés") }}</button>
         </div>
       </form>
     </div>
@@ -134,7 +135,7 @@
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     new DataTable("#customer-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs találat" },
+      {{ macros.datatables_language() }},
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
       order: [[0, "asc"]],

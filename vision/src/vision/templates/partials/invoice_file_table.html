@@ -1,15 +1,16 @@
-{% from "_macros.html" import amount_fmt, bank_icon %}
+{% from "_macros.html" import amount_fmt, bank_icon with context %}
+{% import "_macros.html" as macros with context %}
 <table id="file-table" class="table table-hover table-sm nowrap" style="width:100%">
   <thead>
     <tr>
-      <th>Fájlnév</th>
-      <th class="text-end">Méret</th>
-      <th>Kapcsolt számla</th>
-      <th>Szállító</th>
-      <th class="text-end">Összeg</th>
-      <th>Bank tranzakció</th>
-      <th>Szöveg</th>
-      <th class="text-end">Művelet</th>
+      <th>{{ t("Fájlnév") }}</th>
+      <th class="text-end">{{ t("Méret") }}</th>
+      <th>{{ t("Kapcsolt számla") }}</th>
+      <th>{{ t("Szállító") }}</th>
+      <th class="text-end">{{ t("Összeg") }}</th>
+      <th>{{ t("Bank tranzakció") }}</th>
+      <th>{{ t("Szöveg") }}</th>
+      <th class="text-end">{{ t("Művelet") }}</th>
     </tr>
   </thead>
   <tbody>
@@ -50,7 +51,7 @@
                 hx-delete="/ui/invoice-files/{{ row.id }}/delete"
                 hx-target="#table-container"
                 hx-swap="innerHTML"
-                hx-confirm="Biztosan törli a fájlt? '{{ row.filename }}'">
+                hx-confirm="{{ t('Biztosan törli a fájlt?') }} '{{ row.filename }}'">
           <i class="bi bi-trash"></i>
         </button>
         {% endif %}
@@ -70,7 +71,7 @@
       $("#file-table").DataTable().destroy();
     }
     new DataTable("#file-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs találat" },
+      {{ macros.datatables_language() }},
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
       responsive: true,

@@ -2,12 +2,12 @@
   <thead>
     <tr>
       <th>Bank</th>
-      <th>Típus</th>
-      <th>Fájlnév</th>
-      <th>Időszak</th>
-      <th class="text-end">Méret</th>
-      <th>Módosítva</th>
-      <th class="text-end">Művelet</th>
+      <th>{{ t("Típus") }}</th>
+      <th>{{ t("Fájlnév") }}</th>
+      <th>{{ t("Időszak") }}</th>
+      <th class="text-end">{{ t("Méret") }}</th>
+      <th>{{ t("Módosítva") }}</th>
+      <th class="text-end">{{ t("Művelet") }}</th>
     </tr>
   </thead>
   <tbody>
@@ -32,7 +32,7 @@
         {% if not anonymized %}
         <a class="btn btn-sm btn-outline-secondary"
            href="{{ base }}/download"
-           download hx-boost="false" title="Letöltés">
+           download hx-boost="false" title="{{ t('Letöltés') }}">
           <i class="bi bi-download"></i>
         </a>
         {% endif %}
@@ -41,7 +41,7 @@
                 hx-delete="{{ base }}"
                 hx-target="#table-container"
                 hx-swap="innerHTML"
-                hx-confirm="Biztosan törli? {{ f.filename }}">
+                hx-confirm="{{ t('Biztosan törli?') }} {{ f.filename }}">
           <i class="bi bi-trash"></i>
         </button>
         {% endif %}
@@ -57,7 +57,7 @@
       $("#bank-statement-table").DataTable().destroy();
     }
     new DataTable("#bank-statement-table", {
-      language: { url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", emptyTable: "Nincs feltöltött bankkivonat" },
+      language: { {% if request.state.lang == "hu" %}url: "https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json", {% endif %}emptyTable: {{ t("Nincs feltöltött bankkivonat")|tojson }} },
       pageLength: 15,
       lengthMenu: [10, 15, 25, 50, 100],
       responsive: true,

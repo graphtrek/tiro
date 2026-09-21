@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="hu" data-bs-theme="light">
+<html lang="{{ request.state.lang }}" data-bs-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tiro — A digitális cégtitkár</title>
+  <title>{{ t("Tiro — A digitális cégtitkár") }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Questrial&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -347,9 +347,12 @@
     </a>
   </div>
   <div class="nav-links">
-    <a href="#features" class="hide-mob">Funkciók</a>
-    <a href="#tiro-story" class="hide-mob">Ki volt Tiro?</a>
-    <a href="/ui/" class="btn-nav"><i class="bi bi-speedometer2 me-1"></i>Lépj be</a>
+    <a href="#features" class="hide-mob">{{ t("Funkciók") }}</a>
+    <a href="#tiro-story" class="hide-mob">{{ t("Ki volt Tiro?") }}</a>
+    {% set other_lang = "en" if request.state.lang == "hu" else "hu" %}
+    <a href="/set-language/{{ other_lang }}?next=/" class="hide-mob" style="font-weight:700"
+       title="{{ t('Nyelv váltása') }}" aria-label="{{ t('Nyelv váltása') }}">{{ "EN" if other_lang == "en" else "HU" }}</a>
+    <a href="/ui/" class="btn-nav"><i class="bi bi-speedometer2 me-1"></i>{{ t("Lépj be") }}</a>
   </div>
 </nav>
 
@@ -358,23 +361,21 @@
   <div class="container">
     <div class="hero-grid">
       <div>
-        <div class="hero-pill"><i class="bi bi-stars"></i>AI cégtitkár</div>
+        <div class="hero-pill"><i class="bi bi-stars"></i>{{ t("AI cégtitkár") }}</div>
         <h1>
-          <span>Tiro</span> intézte ura feljegyzéseit és ügyeit,
-          hogy Cicero <span>államférfiként</span> dolgozhasson.
+          {{ t("<span>Tiro</span> intézte ura feljegyzéseit és ügyeit, hogy Cicero <span>államférfiként</span> dolgozhasson.")|safe }}
         </h1>
         <p class="hero-lead">
-          Ezt a szerepet tölti be ez az alkalmazás is — csendben, megbízhatóan
-          intézi a számokat, hogy azzal foglalkozhass, amiben a legjobb vagy.
+          {{ t("Ezt a szerepet tölti be ez az alkalmazás is — csendben, megbízhatóan intézi a számokat, hogy azzal foglalkozhass, amiben a legjobb vagy.") }}
         </p>
         <div class="hero-actions">
           <a href="/ui/" class="btn-primary-hero">
-            <i class="bi bi-speedometer2"></i>Élő Dashboard
+            <i class="bi bi-speedometer2"></i>{{ t("Élő Dashboard") }}
           </a>
         </div>
       </div>
       <div class="hero-image">
-        <img src="/static/images/illustrations/hero-illustration.webp" alt="Tiro digitális cégtitkár irányítópultja">
+        <img src="/static/images/illustrations/hero-illustration.webp" alt="{{ t('Tiro digitális cégtitkár irányítópultja') }}">
       </div>
     </div>
   </div>
@@ -386,19 +387,19 @@
     <div class="stats-grid">
       <div>
         <div class="stat-val text-accent">4+</div>
-        <div class="stat-label">Integrált pénzügyi forrás</div>
+        <div class="stat-label">{{ t("Integrált pénzügyi forrás") }}</div>
       </div>
       <div>
         <div class="stat-val text-cyan">100%</div>
-        <div class="stat-label">Privát AI — adatszivárgás nélkül</div>
+        <div class="stat-label">{{ t("Privát AI — adatszivárgás nélkül") }}</div>
       </div>
       <div>
-        <div class="stat-val text-green">Valós</div>
-        <div class="stat-label">Élő tranzakciós adatok</div>
+        <div class="stat-val text-green">{{ t("Valós") }}</div>
+        <div class="stat-label">{{ t("Élő tranzakciós adatok") }}</div>
       </div>
       <div>
         <div class="stat-val" style="color:var(--amber)">9</div>
-        <div class="stat-label">Intelligencia terület</div>
+        <div class="stat-label">{{ t("Intelligencia terület") }}</div>
       </div>
     </div>
   </div>
@@ -409,11 +410,10 @@
   <div class="container">
     <div class="problem-grid">
       <div>
-        <span class="section-eyebrow">A probléma</span>
-        <h2 class="section-h2">A számok ott vannak.<br>A válasz sehol.</h2>
+        <span class="section-eyebrow">{{ t("A probléma") }}</span>
+        <h2 class="section-h2">{{ t("A számok ott vannak.") }}<br>{{ t("A válasz sehol.") }}</h2>
         <p class="section-lead mt-3">
-          A tulajdonos nem ERP-t akar. Egy cégtitkárt akar, aki összerakja
-          a képet — azonnal, magyarul, a saját céges adataiból.
+          {{ t("A tulajdonos nem ERP-t akar. Egy cégtitkárt akar, aki összerakja a képet — azonnal, magyarul, a saját céges adataiból.") }}
         </p>
       </div>
       <div class="q-grid">
@@ -429,7 +429,7 @@
         ] %}
         <div class="q-item">
           <i class="bi bi-question-circle"></i>
-          <span>{{ q }}</span>
+          <span>{{ t(q) }}</span>
         </div>
         {% endfor %}
       </div>
@@ -481,31 +481,16 @@
         </svg>
       </div>
       <div>
-        <span class="section-eyebrow">A név mögött</span>
-        <h2 class="section-h2">Ki volt Tiro?</h2>
+        <span class="section-eyebrow">{{ t("A név mögött") }}</span>
+        <h2 class="section-h2">{{ t("Ki volt Tiro?") }}</h2>
         <p class="section-lead mt-3" style="max-width:560px">
-          Marcus Tullius Tiro Kr. e. 103 körül született — rabszolgaként,
-          Cicero apjának háztartásában. Alig két évvel volt fiatalabb
-          Marcus Tullius Cicerónál, a híres szónoknál és államférfinál,
-          és vele együtt nevelkedett. Felnőttként Cicero titkára,
-          íródeákja lett.
+          {{ t("Marcus Tullius Tiro Kr. e. 103 körül született — rabszolgaként, Cicero apjának háztartásában. Alig két évvel volt fiatalabb Marcus Tullius Cicerónál, a híres szónoknál és államférfinál, és vele együtt nevelkedett. Felnőttként Cicero titkára, íródeákja lett.") }}
         </p>
         <p class="section-lead mt-2" style="max-width:560px">
-          Kr. e. 63 körül Tiro kidolgozta a <strong style="color:var(--text)">Tironi
-          jegyeket</strong> (notae Tironianae) — az első latin gyorsírási
-          rendszert. Ezzel szóról szóra le tudta jegyezni Cicero beszédeit
-          valós időben, köztük a híres Catilina-beszédeket a szenátusban.
-          Cicero Kr. e. 53-ban felszabadította.
+          {{ t("Kr. e. 63 körül Tiro kidolgozta a <strong style=\"color:var(--text)\">Tironi jegyeket</strong> (notae Tironianae) — az első latin gyorsírási rendszert. Ezzel szóról szóra le tudta jegyezni Cicero beszédeit valós időben, köztük a híres Catilina-beszédeket a szenátusban. Cicero Kr. e. 53-ban felszabadította.")|safe }}
         </p>
         <p class="section-lead mt-2" style="max-width:560px">
-          Cicero Kr. e. 43-as meggyilkolása után Tiro gyűjtötte össze,
-          szerkesztette és adta ki ura leveleit és beszédeit — így maradtak
-          fenn az utókornak —, és megírta Cicero életrajzát is. Állítólag
-          közel száz évet élt. Ma <strong style="color:var(--accent)">a
-          gyorsírás atyjaként</strong> tartják számon: a Tironi jegyek több
-          mint ezer évig használatban maradtak, és a mai
-          <strong style="color:var(--text)">„&amp;"</strong> jel is az egyik
-          Tiro-féle rövidítésből ered.
+          {{ t("Cicero Kr. e. 43-as meggyilkolása után Tiro gyűjtötte össze, szerkesztette és adta ki ura leveleit és beszédeit — így maradtak fenn az utókornak —, és megírta Cicero életrajzát is. Állítólag közel száz évet élt. Ma <strong style=\"color:var(--accent)\">a gyorsírás atyjaként</strong> tartják számon: a Tironi jegyek több mint ezer évig használatban maradtak, és a mai <strong style=\"color:var(--text)\">„&amp;\"</strong> jel is az egyik Tiro-féle rövidítésből ered.")|safe }}
         </p>
       </div>
     </div>
@@ -516,53 +501,52 @@
 <section id="features">
   <div class="container">
     <div class="text-center mb-5">
-      <span class="section-eyebrow">A megoldás</span>
-      <h2 class="section-h2">9 területen ad azonnali választ</h2>
+      <span class="section-eyebrow">{{ t("A megoldás") }}</span>
+      <h2 class="section-h2">{{ t("9 területen ad azonnali választ") }}</h2>
       <p class="section-lead mx-auto mt-2">
-        Nem szoftvert adunk el — egy digitális cégtitkárt, aki elvégzi
-        a papírmunkát.
+        {{ t("Nem szoftvert adunk el — egy digitális cégtitkárt, aki elvégzi a papírmunkát.") }}
       </p>
     </div>
     <div class="bento">
 
       <div class="bento-card bc-6">
         <div class="bc-icon bc-accent"><i class="bi bi-cash-stack"></i></div>
-        <div class="bc-title">Cash-flow előrejelzés</div>
-        <div class="bc-body">Meddig elegendő a pénz, mikor várható likviditási feszültség.</div>
+        <div class="bc-title">{{ t("Cash-flow előrejelzés") }}</div>
+        <div class="bc-body">{{ t("Meddig elegendő a pénz, mikor várható likviditási feszültség.") }}</div>
         <ul class="bc-list">
-          <li>Havi egyenleg trendje grafikonon</li>
-          <li>Várható hiány figyelmeztetés</li>
-          <li>Optimális kifizetési idő</li>
+          <li>{{ t("Havi egyenleg trendje grafikonon") }}</li>
+          <li>{{ t("Várható hiány figyelmeztetés") }}</li>
+          <li>{{ t("Optimális kifizetési idő") }}</li>
         </ul>
         <div class="bc-illustration">
-          <img src="/static/images/illustrations/feature-cashflow.webp" alt="Cash-flow előrejelzés illusztráció" loading="lazy">
+          <img src="/static/images/illustrations/feature-cashflow.webp" alt="{{ t('Cash-flow előrejelzés illusztráció') }}" loading="lazy">
         </div>
       </div>
 
       <div class="bento-card bc-6">
         <div class="bc-icon bc-purple"><i class="bi bi-bar-chart-line"></i></div>
-        <div class="bc-title">Automatikus költségelemzés</div>
-        <div class="bc-body">Kategorizált kiadások, szokatlan tételek, előfizetések nyomon követése.</div>
+        <div class="bc-title">{{ t("Automatikus költségelemzés") }}</div>
+        <div class="bc-body">{{ t("Kategorizált kiadások, szokatlan tételek, előfizetések nyomon követése.") }}</div>
         <ul class="bc-list">
-          <li>Melyik kategória nőtt</li>
-          <li>Ismétlődő kiadások listája</li>
-          <li>Rendkívüli tételek kiemelése</li>
+          <li>{{ t("Melyik kategória nőtt") }}</li>
+          <li>{{ t("Ismétlődő kiadások listája") }}</li>
+          <li>{{ t("Rendkívüli tételek kiemelése") }}</li>
         </ul>
         <div class="bc-illustration">
-          <img src="/static/images/illustrations/feature-expenses.webp" alt="Automatikus költségelemzés illusztráció" loading="lazy">
+          <img src="/static/images/illustrations/feature-expenses.webp" alt="{{ t('Automatikus költségelemzés illusztráció') }}" loading="lazy">
         </div>
       </div>
 
       <div class="bento-card bc-4">
         <div class="bc-icon bc-green"><i class="bi bi-graph-up"></i></div>
-        <div class="bc-title">Projekt profitabilitás</div>
+        <div class="bc-title">{{ t("Projekt profitabilitás") }}</div>
         <ul class="bc-list">
-          <li>Projekt/ügyfél szintű margin</li>
-          <li>Veszteséges projektek azonosítása</li>
-          <li>Historikus összehasonlítás</li>
+          <li>{{ t("Projekt/ügyfél szintű margin") }}</li>
+          <li>{{ t("Veszteséges projektek azonosítása") }}</li>
+          <li>{{ t("Historikus összehasonlítás") }}</li>
         </ul>
         <div class="bc-illustration">
-          <img src="/static/images/illustrations/feature-profitability.webp" alt="Projekt profitabilitás illusztráció" loading="lazy">
+          <img src="/static/images/illustrations/feature-profitability.webp" alt="{{ t('Projekt profitabilitás illusztráció') }}" loading="lazy">
         </div>
       </div>
 
@@ -570,86 +554,86 @@
         <div class="bc-icon bc-orange"><i class="bi bi-robot"></i></div>
         <div class="bc-title" style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
           AI CFO Owner Chat
-          <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--orange);background:rgba(234,88,12,0.12);border:1px solid rgba(234,88,12,0.32);border-radius:1rem;padding:0.18rem 0.65rem">Következő fejlesztés</span>
+          <span style="font-size:0.68rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--orange);background:rgba(234,88,12,0.12);border:1px solid rgba(234,88,12,0.32);border-radius:1rem;padding:0.18rem 0.65rem">{{ t("Következő fejlesztés") }}</span>
         </div>
         <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:1.5rem;align-items:center;margin-top:0.75rem">
           <div>
-            <div class="bc-body">Természetes nyelven kérdezheted majd a saját adataidat — privát AI modellel, adatszivárgás nélkül.</div>
+            <div class="bc-body">{{ t("Természetes nyelven kérdezheted majd a saját adataidat — privát AI modellel, adatszivárgás nélkül.") }}</div>
             <div style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.5rem">
               {% for q in ["Mikor volt a legmagasabb bevételünk és miért?","Miért csökkent a profitunk Q3-ban?","Melyik ügyfél fizet a legtöbbet?"] %}
               <div style="background:rgba(234,88,12,0.1);border:1px solid rgba(234,88,12,0.28);border-radius:0.5rem;padding:0.55rem 0.85rem;font-size:0.88rem;color:#7c3a0f">
-                <i class="bi bi-chat-left-text me-1" style="color:var(--orange)"></i>{{ q }}
+                <i class="bi bi-chat-left-text me-1" style="color:var(--orange)"></i>{{ t(q) }}
               </div>
               {% endfor %}
             </div>
           </div>
           <div class="bc-illustration" style="margin-top:0">
-            <img src="/static/images/illustrations/feature-ai-chat.webp" alt="AI CFO Owner Chat illusztráció" loading="lazy">
+            <img src="/static/images/illustrations/feature-ai-chat.webp" alt="{{ t('AI CFO Owner Chat illusztráció') }}" loading="lazy">
           </div>
         </div>
       </div>
 
       <div class="bento-card bc-4">
         <div class="bc-icon bc-amber"><i class="bi bi-piggy-bank"></i></div>
-        <div class="bc-title">Adóoptimalizálás</div>
+        <div class="bc-title">{{ t("Adóoptimalizálás") }}</div>
         <ul class="bc-list">
-          <li>Osztalék időzítési javaslat</li>
-          <li>ÁFA cash-flow optimalizálás</li>
-          <li>Beruházási lehetőségek</li>
+          <li>{{ t("Osztalék időzítési javaslat") }}</li>
+          <li>{{ t("ÁFA cash-flow optimalizálás") }}</li>
+          <li>{{ t("Beruházási lehetőségek") }}</li>
         </ul>
         <div class="bc-illustration">
-          <img src="/static/images/illustrations/feature-tax.webp" alt="Adóoptimalizálás illusztráció" loading="lazy">
+          <img src="/static/images/illustrations/feature-tax.webp" alt="{{ t('Adóoptimalizálás illusztráció') }}" loading="lazy">
         </div>
       </div>
 
       <div class="bento-card bc-4">
         <div class="bc-icon bc-cyan"><i class="bi bi-speedometer2"></i></div>
-        <div class="bc-title">Tulajdonosi dashboard</div>
+        <div class="bc-title">{{ t("Tulajdonosi dashboard") }}</div>
         <ul class="bc-list">
-          <li>Céges pénzek + bankok együtt</li>
-          <li>Wise + IBKR egy helyen</li>
-          <li>Projekt áttekintő</li>
+          <li>{{ t("Céges pénzek + bankok együtt") }}</li>
+          <li>{{ t("Wise + IBKR egy helyen") }}</li>
+          <li>{{ t("Projekt áttekintő") }}</li>
         </ul>
         <div class="bc-illustration">
-          <img src="/static/images/illustrations/feature-dashboard.webp" alt="Tulajdonosi dashboard illusztráció" loading="lazy">
+          <img src="/static/images/illustrations/feature-dashboard.webp" alt="{{ t('Tulajdonosi dashboard illusztráció') }}" loading="lazy">
         </div>
       </div>
 
       <div class="bento-card bc-4">
         <div class="bc-icon bc-red"><i class="bi bi-exclamation-triangle"></i></div>
-        <div class="bc-title">Korai figyelmeztető</div>
+        <div class="bc-title">{{ t("Korai figyelmeztető") }}</div>
         <ul class="bc-list">
-          <li>Cash-flow probléma előrejelzés</li>
-          <li>Marketing ROI romlás jelzés</li>
-          <li>Koncentrációs kockázat riasztás</li>
+          <li>{{ t("Cash-flow probléma előrejelzés") }}</li>
+          <li>{{ t("Marketing ROI romlás jelzés") }}</li>
+          <li>{{ t("Koncentrációs kockázat riasztás") }}</li>
         </ul>
         <div class="bc-illustration">
-          <img src="/static/images/illustrations/feature-alerts.webp" alt="Korai figyelmeztető illusztráció" loading="lazy">
+          <img src="/static/images/illustrations/feature-alerts.webp" alt="{{ t('Korai figyelmeztető illusztráció') }}" loading="lazy">
         </div>
       </div>
 
       <div class="bento-card bc-6">
         <div class="bc-icon bc-cyan"><i class="bi bi-calculator"></i></div>
-        <div class="bc-title">Bér- és fizetéskalkulátor</div>
-        <div class="bc-body">Nettó/bruttó bérszámfejtés, járulékok és adók automatikus kiszámítása magyar szabályozás szerint.</div>
+        <div class="bc-title">{{ t("Bér- és fizetéskalkulátor") }}</div>
+        <div class="bc-body">{{ t("Nettó/bruttó bérszámfejtés, járulékok és adók automatikus kiszámítása magyar szabályozás szerint.") }}</div>
         <ul class="bc-list">
-          <li>Bruttó ↔ nettó átváltás</li>
-          <li>Munkáltatói terhek kimutatása</li>
-          <li>Cafeteria és kedvezmények kezelése</li>
+          <li>{{ t("Bruttó ↔ nettó átváltás") }}</li>
+          <li>{{ t("Munkáltatói terhek kimutatása") }}</li>
+          <li>{{ t("Cafeteria és kedvezmények kezelése") }}</li>
         </ul>
       </div>
 
       <div class="bento-card bc-6">
         <div class="bc-icon bc-purple"><i class="bi bi-stopwatch"></i></div>
-        <div class="bc-title">Munkaidő és projektkövetés</div>
-        <div class="bc-body">Munkatársak és alvállalkozók rögzítik a ledolgozott órákat, projektenként és ügyfelenként csoportosítva.</div>
+        <div class="bc-title">{{ t("Munkaidő és projektkövetés") }}</div>
+        <div class="bc-body">{{ t("Munkatársak és alvállalkozók rögzítik a ledolgozott órákat, projektenként és ügyfelenként csoportosítva.") }}</div>
         <ul class="bc-list">
-          <li>Napi/heti óra-rögzítés</li>
-          <li>Projekt szintű kimutatás</li>
-          <li>Alvállalkozói elszámolás alapja</li>
+          <li>{{ t("Napi/heti óra-rögzítés") }}</li>
+          <li>{{ t("Projekt szintű kimutatás") }}</li>
+          <li>{{ t("Alvállalkozói elszámolás alapja") }}</li>
         </ul>
         <div class="bc-illustration">
-          <img src="/static/images/illustrations/feature-timetrack.webp" alt="Munkaidő és projektkövetés illusztráció" loading="lazy">
+          <img src="/static/images/illustrations/feature-timetrack.webp" alt="{{ t('Munkaidő és projektkövetés illusztráció') }}" loading="lazy">
         </div>
       </div>
 
@@ -661,30 +645,30 @@
 <section class="section-alt">
   <div class="container">
     <div class="text-center mb-5">
-      <span class="section-eyebrow">Hogyan működik</span>
-      <h2 class="section-h2">Négy lépésben él a saját adataidból</h2>
-      <p class="section-lead mx-auto mt-2">Nincs manuális adatbevitel — Tiro a forrásból olvas.</p>
+      <span class="section-eyebrow">{{ t("Hogyan működik") }}</span>
+      <h2 class="section-h2">{{ t("Négy lépésben él a saját adataidból") }}</h2>
+      <p class="section-lead mx-auto mt-2">{{ t("Nincs manuális adatbevitel — Tiro a forrásból olvas.") }}</p>
     </div>
     <div class="steps-grid">
       <div class="step-item">
         <div class="step-circle">1</div>
-        <h3>Csatlakoztatás</h3>
-        <p>Gmail, NAV Online Számla, bankszámlák és IBKR összekötése — egyszeri beállítás.</p>
+        <h3>{{ t("Csatlakoztatás") }}</h3>
+        <p>{{ t("Gmail, NAV Online Számla, bankszámlák és IBKR összekötése — egyszeri beállítás.") }}</p>
       </div>
       <div class="step-item">
         <div class="step-circle">2</div>
-        <h3>Szinkronizálás</h3>
-        <p>Tiro automatikusan letölti a számlákat, tranzakciókat és PDF mellékleteket.</p>
+        <h3>{{ t("Szinkronizálás") }}</h3>
+        <p>{{ t("Tiro automatikusan letölti a számlákat, tranzakciókat és PDF mellékleteket.") }}</p>
       </div>
       <div class="step-item">
         <div class="step-circle">3</div>
-        <h3>Összefésülés</h3>
-        <p>Számlák, kifizetések és fájlok automatikus párosítása és egyeztetése.</p>
+        <h3>{{ t("Összefésülés") }}</h3>
+        <p>{{ t("Számlák, kifizetések és fájlok automatikus párosítása és egyeztetése.") }}</p>
       </div>
       <div class="step-item">
         <div class="step-circle">4</div>
-        <h3>Válasz</h3>
-        <p>Nyitod a dashboardot — vagy hamarosan egyszerűen megkérdezed, amit tudni akarsz.</p>
+        <h3>{{ t("Válasz") }}</h3>
+        <p>{{ t("Nyitod a dashboardot — vagy hamarosan egyszerűen megkérdezed, amit tudni akarsz.") }}</p>
       </div>
     </div>
   </div>
@@ -693,10 +677,10 @@
 <!-- Integrations -->
 <section>
   <div class="container text-center">
-    <span class="section-eyebrow">Integrációk</span>
-    <h2 class="section-h2">Minden forrásból közvetlenül</h2>
+    <span class="section-eyebrow">{{ t("Integrációk") }}</span>
+    <h2 class="section-h2">{{ t("Minden forrásból közvetlenül") }}</h2>
     <p class="section-lead mx-auto mt-2 mb-4">
-      Nem kell manuálisan exportálni — a rendszer a forrásból olvas.
+      {{ t("Nem kell manuálisan exportálni — a rendszer a forrásból olvas.") }}
     </p>
     <div class="int-grid">
       {% for icon, name, live, color in [
@@ -710,7 +694,7 @@
         <div class="int-icon" style="color:{{ color }}"><i class="bi {{ icon }}"></i></div>
         <div class="int-name">{{ name }}</div>
         <div class="int-status {% if live %}status-live{% else %}status-soon{% endif %}">
-          {% if live %}● aktív{% else %}◌ hamarosan{% endif %}
+          {% if live %}● {{ t("aktív") }}{% else %}◌ {{ t("hamarosan") }}{% endif %}
         </div>
       </div>
       {% endfor %}
@@ -721,11 +705,11 @@
 <!-- CTA -->
 <div class="cta-section">
   <div class="container">
-    <h2>Kész átadni a papírmunkát Tirónak?</h2>
-    <p>Az élő dashboard azonnal elérhető — nézd meg, hogyan dolgozik.</p>
+    <h2>{{ t("Kész átadni a papírmunkát Tirónak?") }}</h2>
+    <p>{{ t("Az élő dashboard azonnal elérhető — nézd meg, hogyan dolgozik.") }}</p>
     <div class="hero-actions" style="justify-content:center">
       <a href="/ui/" class="btn-primary-hero" style="padding:0.95rem 2.4rem;font-size:1.02rem">
-        <i class="bi bi-speedometer2"></i>Élő Dashboard megnyitása
+        <i class="bi bi-speedometer2"></i>{{ t("Élő Dashboard megnyitása") }}
       </a>
     </div>
   </div>
@@ -733,11 +717,11 @@
 
 <!-- Footer -->
 <footer>
-  <span>Tiro</span> — AI cégtitkár &nbsp;·&nbsp;
-  <a href="/">Főoldal</a> &nbsp;·&nbsp;
+  <span>Tiro</span> — {{ t("AI cégtitkár") }} &nbsp;·&nbsp;
+  <a href="/">{{ t("Főoldal") }}</a> &nbsp;·&nbsp;
   <a href="/ui/">Dashboard</a>
   <div style="margin-top:0.85rem;display:flex;align-items:center;justify-content:center;gap:0.4rem">
-    <span style="color:var(--subtle)">Készítette</span>
+    <span style="color:var(--subtle)">{{ t("Készítette") }}</span>
     <a href="https://graphtrek.co/" target="_blank" rel="noopener"
        style="display:inline-flex;align-items:center;gap:0.4rem;font-weight:800;color:var(--text)">
       <img src="/static/images/graphtrek-logo.png" alt="Graphtrek" style="width:18px;height:18px;border-radius:0.3rem">Graphtrek

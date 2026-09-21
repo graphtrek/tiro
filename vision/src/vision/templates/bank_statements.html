@@ -1,19 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Bankkivonatok — Tiro{% endblock %}
+{% block title %}{{ t("Bankkivonatok") }} — Tiro{% endblock %}
 
 {% block breadcrumb %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="/ui/">Dashboard</a></li>
-    <li class="breadcrumb-item active">Bankkivonatok</li>
+    <li class="breadcrumb-item active">{{ t("Bankkivonatok") }}</li>
   </ol>
 </nav>
 {% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-1"><i class="bi bi-receipt me-2"></i>Bankkivonatok</h1>
+<h1 class="h3 mb-1"><i class="bi bi-receipt me-2"></i>{{ t("Bankkivonatok") }}</h1>
 <p class="text-muted small mb-3">
-  Feltöltött PDF kivonatok és a feldolgozott CSV kivonatok — mindkettő letölthető.
+  {{ t("Feltöltött PDF kivonatok és a feldolgozott CSV kivonatok — mindkettő letölthető.") }}
 </p>
 
 {% if not request.state.user or request.state.user.role != 'read_only' %}
@@ -35,7 +35,7 @@
            onclick="document.getElementById('file-input').click()">
         <i class="bi bi-file-earmark-arrow-up text-muted"></i>
         <span class="small text-muted">
-          PDF bankkivonat feltöltése — húzd ide, vagy <span class="text-primary">tallózás</span>
+          {{ t("PDF bankkivonat feltöltése — húzd ide, vagy") }} <span class="text-primary">{{ t("tallózás") }}</span>
         </span>
         <span id="drop-filename" class="small fw-semibold text-success d-none"></span>
         <span id="bank-preview-badge"></span>
@@ -43,19 +43,19 @@
       <input type="file" id="file-input" name="file" accept=".pdf" class="d-none" required>
 
       <select name="bank" class="form-select form-select-sm" style="width:auto"
-              title="Bank kézi megadása (opcionális)">
-        <option value="">Automatikus detektálás</option>
+              title="{{ t('Bank kézi megadása (opcionális)') }}">
+        <option value="">{{ t("Automatikus detektálás") }}</option>
         <option value="erste">Erste</option>
         <option value="wise">Wise</option>
       </select>
 
       <div class="form-check mb-0">
         <input type="checkbox" class="form-check-input" id="overwrite-check" name="overwrite" value="true">
-        <label class="form-check-label small" for="overwrite-check">Felülírás</label>
+        <label class="form-check-label small" for="overwrite-check">{{ t("Felülírás") }}</label>
       </div>
 
       <button type="submit" class="btn btn-sm btn-primary">
-        <i class="bi bi-upload me-1"></i>Feltöltés
+        <i class="bi bi-upload me-1"></i>{{ t("Feltöltés") }}
       </button>
 
       <span id="upload-spinner" class="htmx-indicator spinner-border spinner-border-sm text-primary" role="status"></span>

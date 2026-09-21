@@ -1,24 +1,24 @@
-{% from "_macros.html" import amount_fmt, direction_badge %}
+{% from "_macros.html" import amount_fmt, direction_badge with context %}
 
 {% if invoice %}
 <div class="card border-primary mb-3">
   <div class="card-header py-1 px-3 bg-primary bg-opacity-10 small fw-semibold text-primary">
-    <i class="bi bi-file-earmark-text me-1"></i>Számla
+    <i class="bi bi-file-earmark-text me-1"></i>{{ t("Számla") }}
   </div>
   <div class="card-body py-2 px-3">
     <div class="d-flex flex-wrap gap-3">
       <div>
-        <div class="text-muted" style="font-size:.7rem">Számlaszám</div>
+        <div class="text-muted" style="font-size:.7rem">{{ t("Számlaszám") }}</div>
         <div class="small fw-bold font-monospace">{{ invoice.invoice_number }}</div>
       </div>
       <div>
-        <div class="text-muted" style="font-size:.7rem">Irány</div>
+        <div class="text-muted" style="font-size:.7rem">{{ t("Irány") }}</div>
         <div class="small">{{ direction_badge(invoice.direction) }}</div>
       </div>
       {% set partner_name = (invoice.detail.supplier_name if kind == 'supplier' else invoice.detail.customer_name) if invoice.detail else None %}
       {% if partner_name %}
       <div>
-        <div class="text-muted" style="font-size:.7rem">{{ 'Szállító' if kind == 'supplier' else 'Vevő' }} (számla szerint)</div>
+        <div class="text-muted" style="font-size:.7rem">{{ t("Szállító") if kind == 'supplier' else t("Vevő") }} ({{ t("számla szerint") }})</div>
         <div class="small fw-bold">{{ partner_name }}</div>
       </div>
       {% endif %}
@@ -30,23 +30,23 @@
 {% if tx %}
 <div class="card border-info mb-3">
   <div class="card-header py-1 px-3 bg-info bg-opacity-10 small fw-semibold text-info">
-    <i class="bi bi-bank me-1"></i>Bank tranzakció
+    <i class="bi bi-bank me-1"></i>{{ t("Bank tranzakció") }}
   </div>
   <div class="card-body py-2 px-3">
     <div class="d-flex flex-wrap gap-3">
       <div>
-        <div class="text-muted" style="font-size:.7rem">Dátum</div>
+        <div class="text-muted" style="font-size:.7rem">{{ t("Dátum") }}</div>
         <div class="small fw-bold">{{ tx.transaction_date.strftime('%Y-%m-%d') if tx.transaction_date else '—' }}</div>
       </div>
       <div>
-        <div class="text-muted" style="font-size:.7rem">Összeg</div>
+        <div class="text-muted" style="font-size:.7rem">{{ t("Összeg") }}</div>
         <div class="small fw-bold {% if tx.direction == 'CREDIT' %}text-success{% else %}text-danger{% endif %}">
           {% if tx.direction == 'DEBIT' %}−{% else %}+{% endif %}{{ amount_fmt(tx.amount, tx.currency) }}
         </div>
       </div>
       {% if tx.counterparty_name %}
       <div>
-        <div class="text-muted" style="font-size:.7rem">Partner (tranzakció szerint)</div>
+        <div class="text-muted" style="font-size:.7rem">Partner ({{ t("tranzakció szerint") }})</div>
         <div class="small fw-bold">{{ tx.counterparty_name }}</div>
       </div>
       {% endif %}
@@ -59,9 +59,9 @@
   <table id="picker-partners-table" class="table table-sm table-hover mb-0">
     <thead class="table-light">
       <tr>
-        <th>Név</th>
-        <th>Adószám</th>
-        <th>Cím</th>
+        <th>{{ t("Név") }}</th>
+        <th>{{ t("Adószám") }}</th>
+        <th>{{ t("Cím") }}</th>
         <th></th>
       </tr>
     </thead>
@@ -81,7 +81,7 @@
             <input type="hidden" name="{{ kind }}_id" value="{{ row.id }}">
             <button type="submit" class="btn btn-primary btn-sm py-0"
                     onclick="bootstrap.Modal.getInstance(document.getElementById('pickerModal'))?.hide()">
-              Kiválaszt
+              {{ t("Kiválaszt") }}
             </button>
           </form>
           {% endif %}
@@ -95,7 +95,7 @@
 {% if not request.state.user or request.state.user.role != 'read_only' %}
 <hr>
 <button class="btn btn-link btn-sm p-0" type="button" data-bs-toggle="collapse" data-bs-target="#createPartnerForm">
-  <i class="bi bi-plus-lg me-1"></i>Új {{ 'szállító' if kind == 'supplier' else 'vevő' }} létrehozása és kapcsolása
+  <i class="bi bi-plus-lg me-1"></i>{{ t("Új szállító létrehozása és kapcsolása") if kind == 'supplier' else t("Új vevő létrehozása és kapcsolása") }}
 </button>
 <div class="collapse mt-2" id="createPartnerForm">
   <form hx-post="{{ create_link_url_prefix }}"
@@ -103,17 +103,17 @@
         hx-swap="innerHTML"
         hx-push-url="{{ 'true' if hx_target == 'body' else 'false' }}">
     <div class="mb-2">
-      <label class="form-label small mb-0">Név <span class="text-danger">*</span></label>
+      <label class="form-label small mb-0">{{ t("Név") }} <span class="text-danger">*</span></label>
       <input name="name" class="form-control form-control-sm" required
              value="{{ (invoice.detail.supplier_name if kind == 'supplier' else invoice.detail.customer_name) if invoice and invoice.detail else (tx.counterparty_name if tx else '') }}">
     </div>
     <div class="mb-2">
-      <label class="form-label small mb-0">Adószám</label>
+      <label class="form-label small mb-0">{{ t("Adószám") }}</label>
       <input name="tax_id" class="form-control form-control-sm"
              value="{{ (invoice.detail.supplier_tax_number if kind == 'supplier' else invoice.detail.customer_tax_number) if invoice and invoice.detail else '' }}">
     </div>
     <div class="mb-2">
-      <label class="form-label small mb-0">Cím</label>
+      <label class="form-label small mb-0">{{ t("Cím") }}</label>
       <input name="address" class="form-control form-control-sm"
              value="{{ (invoice.detail.supplier_address if kind == 'supplier' else invoice.detail.customer_address) if invoice and invoice.detail else (tx.counterparty_address if tx else '') }}">
     </div>
@@ -123,13 +123,13 @@
         <input name="email" type="email" class="form-control form-control-sm">
       </div>
       <div class="col-6 mb-2">
-        <label class="form-label small mb-0">Telefon</label>
+        <label class="form-label small mb-0">{{ t("Telefon") }}</label>
         <input name="phone" class="form-control form-control-sm">
       </div>
     </div>
     {% if kind == 'customer' %}
     <div class="mb-2">
-      <label class="form-label small mb-0">Fizetési határidő (nap)</label>
+      <label class="form-label small mb-0">{{ t("Fizetési határidő (nap)") }}</label>
       <input name="payment_terms" type="number" min="0" class="form-control form-control-sm">
     </div>
     {% endif %}
@@ -140,14 +140,14 @@
                value="{{ tx.counterparty_iban if tx else '' }}">
       </div>
       <div class="col-6 mb-2">
-        <label class="form-label small mb-0">Bankszámlaszám</label>
+        <label class="form-label small mb-0">{{ t("Bankszámlaszám") }}</label>
         <input name="bban" class="form-control form-control-sm"
                value="{{ (invoice.detail.supplier_bank_account if kind == 'supplier' else invoice.detail.customer_bank_account) if invoice and invoice.detail else (tx.counterparty_account if tx else '') }}">
       </div>
     </div>
     <button type="submit" class="btn btn-primary btn-sm mt-1"
             onclick="bootstrap.Modal.getInstance(document.getElementById('pickerModal'))?.hide()">
-      <i class="bi bi-save me-1"></i>Mentés és kapcsolás
+      <i class="bi bi-save me-1"></i>{{ t("Mentés és kapcsolás") }}
     </button>
   </form>
 </div>

@@ -5,17 +5,13 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
 
 from vision.clients.uploader import UploaderClient
+from vision.ui.templating import templates
 from vision.ui.utils import is_anonymized
-
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter(prefix="/ui", tags=["bank-statements-ui"])
 logger = logging.getLogger(__name__)

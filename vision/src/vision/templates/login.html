@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="{{ request.state.lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Belépés – Tiro</title>
+  <title>{{ t("Belépés") }} – Tiro</title>
 
   <script>
     (function () {
@@ -68,9 +68,15 @@
     <div class="login-card">
 
       <!-- Logo / brand (NiceAdmin: logo + name above the card) -->
-      <div class="text-center mb-4">
+      <div class="d-flex align-items-center justify-content-center position-relative mb-4">
         <a href="/" class="login-brand text-body">
           <i class="bi bi-vector-pen me-2"></i>Tiro
+        </a>
+        {% set other_lang = "en" if request.state.lang == "hu" else "hu" %}
+        <a class="btn btn-link p-1 border-0 fw-bold small position-absolute end-0"
+           href="/set-language/{{ other_lang }}?next=/login"
+           title="{{ t('Nyelv váltása') }}" aria-label="{{ t('Nyelv váltása') }}">
+          {{ "EN" if other_lang == "en" else "HU" }}
         </a>
       </div>
 
@@ -78,8 +84,8 @@
         <div class="card-body p-4 p-sm-5">
 
           <div class="text-center mb-4">
-            <h1 class="mb-2">Biztonságos belépés</h1>
-            <p class="text-muted mb-0">Jelentkezz be a Tiro rendszer használatához.</p>
+            <h1 class="mb-2">{{ t("Biztonságos belépés") }}</h1>
+            <p class="text-muted mb-0">{{ t("Jelentkezz be a Tiro rendszer használatához.") }}</p>
           </div>
 
           {% if error %}
@@ -100,14 +106,14 @@
           </div>
 
           <p class="text-muted text-center small mt-4 mb-0">
-            Csak Google-fiókkal lehet belépni.
+            {{ t("Csak Google-fiókkal lehet belépni.") }}
           </p>
 
         </div>
       </div>
 
       <p class="text-center text-muted small mt-4 mb-0">
-        &copy; {{ current_year }} Graphtrek &middot; <a href="/" class="text-muted">Tiro bemutató</a>
+        &copy; {{ current_year }} Graphtrek &middot; <a href="/" class="text-muted">{{ t("Tiro bemutató") }}</a>
       </p>
 
     </div>

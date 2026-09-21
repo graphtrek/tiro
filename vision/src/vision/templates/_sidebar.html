@@ -1,14 +1,14 @@
 <nav id="sidebar" class="offcanvas-lg offcanvas-start d-flex flex-column py-3 px-2"
-     tabindex="-1" aria-label="Navigáció">
+     tabindex="-1" aria-label="{{ t('Navigáció') }}">
   <div class="d-flex justify-content-end d-lg-none px-1 pb-2">
-    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Bezárás"></button>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="{{ t('Bezárás') }}"></button>
   </div>
   <ul class="nav flex-column gap-1">
     <li class="nav-item">
       {# the home page (pitch.html) is standalone with its own <head> styles — a
          boosted body swap would drop them, so force a full navigation #}
       <a class="nav-link {% if request.url.path == '/' %}active{% endif %}" href="/" hx-boost="false">
-        <i class="fas fa-home"></i> Kezdőlap
+        <i class="fas fa-home"></i> {{ t("Kezdőlap") }}
       </a>
     </li>
     <li class="nav-item mt-2">
@@ -30,18 +30,18 @@
       <a class="nav-link {% if not szamlak_open %}collapsed{% endif %}" href="#szamlak-nav"
          data-bs-toggle="collapse" role="button"
          aria-expanded="{{ 'true' if szamlak_open else 'false' }}" aria-controls="szamlak-nav">
-        <i class="fas fa-file-invoice"></i> Pénzügy
+        <i class="fas fa-file-invoice"></i> {{ t("Pénzügy") }}
         <i class="fas fa-chevron-down nav-chevron ms-auto"></i>
       </a>
       <ul id="szamlak-nav" class="nav-content collapse {% if szamlak_open %}show{% endif %}">
         <li>
           <a class="nav-link {% if '/ui/invoices' in request.url.path %}active{% endif %}" href="/ui/invoices">
-            <i class="fas fa-file-invoice-dollar"></i> Számlák
+            <i class="fas fa-file-invoice-dollar"></i> {{ t("Számlák") }}
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/invoice-files' in request.url.path %}active{% endif %}" href="/ui/invoice-files">
-            <i class="fas fa-file-pdf"></i> Szla Fájlok
+            <i class="fas fa-file-pdf"></i> {{ t("Szla Fájlok") }}
           </a>
         </li>
         <li>
@@ -51,22 +51,22 @@
         </li>
         <li>
           <a class="nav-link {% if '/ui/bank-statements' in request.url.path %}active{% endif %}" href="/ui/bank-statements">
-            <i class="fas fa-receipt"></i> Bankkivonatok
+            <i class="fas fa-receipt"></i> {{ t("Bankkivonatok") }}
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/dividend' in request.url.path %}active{% endif %}" href="/ui/dividend">
-            <i class="fas fa-coins"></i> Osztalék
+            <i class="fas fa-coins"></i> {{ t("Osztalék") }}
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/adok' in request.url.path %}active{% endif %}" href="/ui/adok">
-            <i class="fas fa-percent"></i> Adók
+            <i class="fas fa-percent"></i> {{ t("Adók") }}
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/fizetes-kalkulator' in request.url.path %}active{% endif %}" href="/ui/fizetes-kalkulator">
-            <i class="fas fa-calculator"></i> Fizetés Calculator
+            <i class="fas fa-calculator"></i> {{ t("Fizetés Calculator") }}
           </a>
         </li>
       </ul>
@@ -77,18 +77,18 @@
       <a class="nav-link {% if not partnerek_open %}collapsed{% endif %}" href="#partnerek-nav"
          data-bs-toggle="collapse" role="button"
          aria-expanded="{{ 'true' if partnerek_open else 'false' }}" aria-controls="partnerek-nav">
-        <i class="fas fa-handshake"></i> Partnerek
+        <i class="fas fa-handshake"></i> {{ t("Partnerek") }}
         <i class="fas fa-chevron-down nav-chevron ms-auto"></i>
       </a>
       <ul id="partnerek-nav" class="nav-content collapse {% if partnerek_open %}show{% endif %}">
         <li>
           <a class="nav-link {% if '/ui/suppliers' in request.url.path %}active{% endif %}" href="/ui/suppliers">
-            <i class="fas fa-truck"></i> Szállítók
+            <i class="fas fa-truck"></i> {{ t("Szállítók") }}
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/customers' in request.url.path %}active{% endif %}" href="/ui/customers">
-            <i class="fas fa-users"></i> Vevők
+            <i class="fas fa-users"></i> {{ t("Vevők") }}
           </a>
         </li>
       </ul>
@@ -109,17 +109,17 @@
         </li>
         <li>
           <a class="nav-link {% if '/ui/controlling/reports' in request.url.path %}active{% endif %}" href="/ui/controlling/reports">
-            <i class="fas fa-chart-bar"></i> Riportok
+            <i class="fas fa-chart-bar"></i> {{ t("Riportok") }}
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/controlling/projects' in request.url.path %}active{% endif %}" href="/ui/controlling/projects">
-            <i class="fas fa-diagram-project"></i> Projektek
+            <i class="fas fa-diagram-project"></i> {{ t("Projektek") }}
           </a>
         </li>
         <li>
           <a class="nav-link {% if '/ui/controlling/vacation' in request.url.path %}active{% endif %}" href="/ui/controlling/vacation">
-            <i class="fas fa-umbrella-beach"></i> Szabadság
+            <i class="fas fa-umbrella-beach"></i> {{ t("Szabadság") }}
           </a>
         </li>
       </ul>
@@ -143,7 +143,7 @@
         </li>
         <li>
           <a class="nav-link {% if '/ui/admin/activity-types' in request.url.path %}active{% endif %}" href="/ui/admin/activity-types">
-            <i class="fas fa-tags"></i> Tevékenység típusok
+            <i class="fas fa-tags"></i> {{ t("Tevékenység típusok") }}
           </a>
         </li>
         <li>
@@ -158,7 +158,7 @@
         </li>
         <li>
           <a class="nav-link {% if '/ui/upload' in request.url.path %}active{% endif %}" href="/ui/upload">
-            <i class="fas fa-upload"></i> Feltöltés
+            <i class="fas fa-upload"></i> {{ t("Feltöltés") }}
           </a>
         </li>
       </ul>

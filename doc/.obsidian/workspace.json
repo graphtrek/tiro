@@ -25,18 +25,42 @@
             "id": "6c613c16d1def3ce",
             "type": "leaf",
             "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          },
+          {
+            "id": "d70dc740bcd93356",
+            "type": "leaf",
+            "state": {
               "type": "markdown",
               "state": {
-                "file": "bank-prompt.md",
+                "file": "tiro/Welcome.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "bank-prompt"
+              "title": "Welcome"
+            }
+          },
+          {
+            "id": "08fd86223c984361",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "attachment-downloader-spec.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "attachment-downloader-spec"
             }
           }
         ],
-        "currentTab": 1
+        "currentTab": 3
       }
     ],
     "direction": "vertical"
@@ -200,8 +224,12 @@
       "bases:Create new base": false
     }
   },
-  "active": "6c613c16d1def3ce",
+  "active": "08fd86223c984361",
   "lastOpenFiles": [
+    "attachment-downloader-prompt.md",
+    "tiro/Welcome.md",
+    "bank-spec.md",
+    "bank-prompt.md",
     "INDEX.md",
     "invoice-core-spec.md",
     "invoice-core-prompt.md",
@@ -210,8 +238,6 @@
     "auth-service-spec.md",
     "auth-service-prompt.md",
     "attachment-downloader-spec.md",
-    "attachment-downloader-prompt.md",
-    "bank-prompt.md",
     "docs/wiki",
     "docs",
     "uploader-promp.md",
@@ -223,7 +249,6 @@
     "Clippings",
     "inventory-spec.md",
     "inventory-promp.md",
-    "bank-spec.md",
     "Névtelen.base",
     "invoice-file-filter-spec.md",
     "wise-prompt.md",

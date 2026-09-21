@@ -1,43 +1,43 @@
-{% from "_macros.html" import payment_badge, direction_badge, amount_fmt %}
+{% from "_macros.html" import payment_badge, direction_badge, amount_fmt with context %}
 <div class="modal-body">
   <div class="row g-3 mb-3">
     <!-- Számla adatok -->
     <div class="col-12 col-md-7">
       <div class="card h-100">
-        <div class="card-header py-2"><strong>Számla adatok</strong></div>
+        <div class="card-header py-2"><strong>{{ t("Számla adatok") }}</strong></div>
         <div class="card-body py-2">
           <dl class="row mb-0 small">
-            <dt class="col-sm-4 text-muted">Számlaszám</dt>
+            <dt class="col-sm-4 text-muted">{{ t("Számlaszám") }}</dt>
             <dd class="col-sm-8 font-monospace">{{ invoice.invoice_number }}</dd>
 
-            <dt class="col-sm-4 text-muted">Dátum</dt>
+            <dt class="col-sm-4 text-muted">{{ t("Dátum") }}</dt>
             <dd class="col-sm-8">{{ invoice.invoice_date or '—' }}</dd>
 
-            <dt class="col-sm-4 text-muted">Deviza</dt>
+            <dt class="col-sm-4 text-muted">{{ t("Deviza") }}</dt>
             <dd class="col-sm-8">{{ invoice.currency or 'HUF' }}</dd>
 
             {% if invoice.payment_method %}
-            <dt class="col-sm-4 text-muted">Fizetési mód</dt>
+            <dt class="col-sm-4 text-muted">{{ t("Fizetési mód") }}</dt>
             <dd class="col-sm-8">{{ invoice.payment_method }}</dd>
             {% endif %}
 
             {% if invoice.payment_due_date %}
-            <dt class="col-sm-4 text-muted">Fizetési határidő</dt>
+            <dt class="col-sm-4 text-muted">{{ t("Fizetési határidő") }}</dt>
             <dd class="col-sm-8">{{ invoice.payment_due_date }}</dd>
             {% endif %}
 
-            <dt class="col-sm-4 text-muted">Státusz</dt>
+            <dt class="col-sm-4 text-muted">{{ t("Státusz") }}</dt>
             <dd class="col-sm-8">{{ payment_badge(invoice.payment_status) }}</dd>
 
-            <dt class="col-sm-4 text-muted">Irány</dt>
+            <dt class="col-sm-4 text-muted">{{ t("Irány") }}</dt>
             <dd class="col-sm-8">{{ direction_badge(invoice.direction) }}</dd>
           </dl>
           <hr class="my-2">
           <table class="table table-sm mb-0 small">
             <tbody>
-              <tr><td class="text-muted">Nettó</td><td class="text-end">{{ amount_fmt(invoice.amount_net) }}</td></tr>
-              <tr><td class="text-muted">ÁFA</td><td class="text-end">{{ amount_fmt(invoice.amount_vat) }}</td></tr>
-              <tr class="fw-bold"><td>Bruttó</td><td class="text-end">{{ amount_fmt(invoice.amount_total) }}</td></tr>
+              <tr><td class="text-muted">{{ t("Nettó") }}</td><td class="text-end">{{ amount_fmt(invoice.amount_net) }}</td></tr>
+              <tr><td class="text-muted">{{ t("ÁFA") }}</td><td class="text-end">{{ amount_fmt(invoice.amount_vat) }}</td></tr>
+              <tr class="fw-bold"><td>{{ t("Bruttó") }}</td><td class="text-end">{{ amount_fmt(invoice.amount_total) }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -48,7 +48,7 @@
     <div class="col-12 col-md-5">
       <div class="card mb-2">
         <div class="card-body py-2">
-          <div class="text-muted small mb-1"><i class="bi bi-building me-1"></i>Szállító</div>
+          <div class="text-muted small mb-1"><i class="bi bi-building me-1"></i>{{ t("Szállító") }}</div>
           {% if invoice.supplier_id %}
           <a href="/ui/suppliers/{{ invoice.supplier_id }}" class="fw-bold text-decoration-none">{{ invoice.supplier_name }}</a>
           {% if invoice.supplier_tax_id %}
@@ -56,7 +56,7 @@
           {% endif %}
           {% elif invoice.detail and invoice.detail.supplier_name %}
           <span class="fw-bold">{{ invoice.detail.supplier_name }}</span>
-          <div class="text-warning small">nincs partner hozzárendelve</div>
+          <div class="text-warning small">{{ t("nincs partner hozzárendelve") }}</div>
           {% if invoice.detail.supplier_tax_number %}
             <div class="text-muted small">{{ invoice.detail.supplier_tax_number }}</div>
           {% endif %}
@@ -73,7 +73,7 @@
       </div>
       <div class="card">
         <div class="card-body py-2">
-          <div class="text-muted small mb-1"><i class="bi bi-person me-1"></i>Vevő</div>
+          <div class="text-muted small mb-1"><i class="bi bi-person me-1"></i>{{ t("Vevő") }}</div>
           {% if invoice.customer_id %}
           <a href="/ui/customers/{{ invoice.customer_id }}" class="fw-bold text-decoration-none">{{ invoice.customer_name }}</a>
           {% if invoice.customer_tax_id %}
@@ -81,7 +81,7 @@
           {% endif %}
           {% elif invoice.detail and invoice.detail.customer_name %}
           <span class="fw-bold">{{ invoice.detail.customer_name }}</span>
-          <div class="text-warning small">nincs partner hozzárendelve</div>
+          <div class="text-warning small">{{ t("nincs partner hozzárendelve") }}</div>
           {% if invoice.detail.customer_tax_number %}
             <div class="text-muted small">{{ invoice.detail.customer_tax_number }}</div>
           {% endif %}
@@ -108,27 +108,27 @@
           <i class="bi bi-box-arrow-up-right me-1"></i>{{ invoice.invoice_file_filename or ('file #' ~ invoice.invoice_file_id) }}
         </a>
         {% if invoice.invoice_file_locked %}
-          <span class="badge bg-warning text-dark ms-1"><i class="bi bi-lock-fill"></i> Manuális</span>
+          <span class="badge bg-warning text-dark ms-1"><i class="bi bi-lock-fill"></i> {{ t("Manuális") }}</span>
         {% endif %}
       {% else %}
-        <span class="text-muted small">Nincs kapcsolt PDF fájl</span>
+        <span class="text-muted small">{{ t("Nincs kapcsolt PDF fájl") }}</span>
       {% endif %}
     </div>
   </div>
 
   <!-- Tételek -->
   {% if invoice.lines %}
-  <h6 class="text-muted mb-2"><i class="bi bi-list-ul me-1"></i>Tételek ({{ invoice.lines | length }})</h6>
+  <h6 class="text-muted mb-2"><i class="bi bi-list-ul me-1"></i>{{ t("Tételek") }} ({{ invoice.lines | length }})</h6>
   <div class="table-responsive mb-3">
     <table class="table table-sm table-hover small mb-0">
       <thead class="table-light">
         <tr>
-          <th>Megnevezés</th>
-          <th class="text-end">Mennyiség</th>
-          <th class="text-end">Egységár</th>
-          <th class="text-end">Nettó</th>
-          <th class="text-end">ÁFA %</th>
-          <th class="text-end">Bruttó</th>
+          <th>{{ t("Megnevezés") }}</th>
+          <th class="text-end">{{ t("Mennyiség") }}</th>
+          <th class="text-end">{{ t("Egységár") }}</th>
+          <th class="text-end">{{ t("Nettó") }}</th>
+          <th class="text-end">{{ t("ÁFA %") }}</th>
+          <th class="text-end">{{ t("Bruttó") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -149,31 +149,31 @@
 
   <!-- Bank tranzakciók -->
   {% if invoice.bank_transactions %}
-  <h6 class="text-muted mb-2"><i class="bi bi-bank me-1"></i>Bank tranzakciók ({{ invoice.bank_transactions | length }})</h6>
+  <h6 class="text-muted mb-2"><i class="bi bi-bank me-1"></i>{{ t("Bank tranzakciók") }} ({{ invoice.bank_transactions | length }})</h6>
   <div class="table-responsive">
     <table class="table table-sm table-hover small mb-0">
       <thead class="table-light">
         <tr>
-          <th>Dátum</th>
+          <th>{{ t("Dátum") }}</th>
           <th>Bank</th>
-          <th class="text-end">Összeg</th>
+          <th class="text-end">{{ t("Összeg") }}</th>
           <th>D/C</th>
           <th>Partner</th>
-          <th>Referencia</th>
+          <th>{{ t("Referencia") }}</th>
         </tr>
       </thead>
       <tbody>
-        {% for t in invoice.bank_transactions %}
+        {% for txn in invoice.bank_transactions %}
         <tr>
-          <td class="text-nowrap">{{ t.transaction_date.strftime('%Y-%m-%d') if t.transaction_date else '—' }}</td>
-          <td>{{ t.bank | upper }}</td>
-          <td class="text-end fw-bold">{{ amount_fmt(t.amount, t.currency) }}</td>
+          <td class="text-nowrap">{{ txn.transaction_date.strftime('%Y-%m-%d') if txn.transaction_date else '—' }}</td>
+          <td>{{ txn.bank | upper }}</td>
+          <td class="text-end fw-bold">{{ amount_fmt(txn.amount, txn.currency) }}</td>
           <td>
-            {% if t.direction == 'CREDIT' %}<span class="badge bg-success">CREDIT</span>
+            {% if txn.direction == 'CREDIT' %}<span class="badge bg-success">CREDIT</span>
             {% else %}<span class="badge bg-danger">DEBIT</span>{% endif %}
           </td>
-          <td>{{ t.partner_name or '—' }}</td>
-          <td class="font-monospace">{{ t.payment_reference or '—' }}</td>
+          <td>{{ txn.partner_name or '—' }}</td>
+          <td class="font-monospace">{{ txn.payment_reference or '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -183,7 +183,7 @@
 </div>
 <div class="modal-footer py-2">
   <a href="/ui/invoices/{{ invoice.id }}" class="btn btn-outline-primary btn-sm">
-    <i class="bi bi-box-arrow-up-right me-1"></i> Megnyitás
+    <i class="bi bi-box-arrow-up-right me-1"></i> {{ t("Megnyitás") }}
   </a>
-  <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Bezárás</button>
+  <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ t("Bezárás") }}</button>
 </div>

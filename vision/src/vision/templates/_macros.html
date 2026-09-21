@@ -13,7 +13,7 @@
     "PARTIAL": ("bg-warning text-dark", "Részleges"),
   } -%}
   {%- if status in cfg -%}
-    <span class="badge {{ cfg[status][0] }}">{{ cfg[status][1] }}</span>
+    <span class="badge {{ cfg[status][0] }}">{{ t(cfg[status][1]) }}</span>
   {%- else -%}
     <span class="badge bg-secondary">{{ status }}</span>
   {%- endif -%}
@@ -26,7 +26,7 @@
     "PARTIAL": ("pending", "Részleges"),
   } %}
   {% if status in cfg %}
-    <span class="inv-status {{ cfg[status][0] }}">{{ cfg[status][1] }}</span>
+    <span class="inv-status {{ cfg[status][0] }}">{{ t(cfg[status][1]) }}</span>
   {% else %}
     <span class="inv-status draft">{{ status }}</span>
   {% endif %}
@@ -51,15 +51,15 @@
 
 {% macro pdf_icon(has_pdf) %}
   {% if has_pdf %}
-    <i class="bi bi-file-earmark-check text-success" title="Van PDF"></i>
+    <i class="bi bi-file-earmark-check text-success" title="{{ t('Van PDF') }}"></i>
   {% else %}
-    <i class="bi bi-file-earmark-x text-secondary" title="Nincs PDF"></i>
+    <i class="bi bi-file-earmark-x text-secondary" title="{{ t('Nincs PDF') }}"></i>
   {% endif %}
 {% endmacro %}
 
 {% macro bank_icon(count) %}
   {% if count and count > 0 %}
-    <span class="badge bg-info text-dark" title="{{ count }} bank tranzakció">
+    <span class="badge bg-info text-dark" title="{{ t('{count} bank tranzakció').format(count=count) }}">
       <i class="bi bi-bank"></i> {{ count }}
     </span>
   {% else %}
@@ -69,8 +69,12 @@
 
 {% macro direction_badge(direction) %}
   {% if direction == "INBOUND" %}
-    <span class="badge bg-primary">Bejövő</span>
+    <span class="badge bg-primary">{{ t("Bejövő") }}</span>
   {% else %}
-    <span class="badge bg-secondary">Kimenő</span>
+    <span class="badge bg-secondary">{{ t("Kimenő") }}</span>
   {% endif %}
 {% endmacro %}
+
+{% macro datatables_language() -%}
+language: { {% if request.state.lang == "hu" %}url: 'https://cdn.datatables.net/plug-ins/2.0.8/i18n/hu.json', {% endif %}emptyTable: {{ t("Nincs találat")|tojson }} }
+{%- endmacro %}
