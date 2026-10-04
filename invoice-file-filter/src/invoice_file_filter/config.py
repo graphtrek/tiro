@@ -64,7 +64,7 @@ class Settings(BaseSettings):
 
     # ── PDF source / extraction ─────────────────────────────
     output_dir: str = "../attachment-downloader/downloads"
-    invoice_keywords: list[str] = ["invoice", "bill", "szamla", "számla", "számviteli bizonylat"]
+    invoice_keywords: list[str] = ["invoice", "bill", "szamla", "számla", "számlája", "helyesbítő", "storno", "számviteli bizonylat"]
 
     # ── OCR fallback (Tesseract) ─────────────────────────────
     ocr_enabled: bool = True
