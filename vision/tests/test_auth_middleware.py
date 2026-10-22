@@ -139,3 +139,47 @@ def test_logout_clears_cookies(client: TestClient, keypair):
     assert response.headers["location"] == "/login"
     set_cookie = response.headers.get_list("set-cookie")
     assert any("mp_access_token" in c for c in set_cookie)
+
+
+def test_expired_access_token_silently_refreshes_with_valid_refresh_cookie(
+    client: TestClient, keypair, monkeypatch
+):
+    """Lejárt access token + érvényes refresh cookie → nincs redirect, a kérés
+    lefut és egy új mp_access_token cookie érkezik vissza."""
+    private_pem, _ = keypair
+    old = int(time.time()) - 3600
+    expired_token = make_token(private_pem, iat=old, exp=old + 900)
+    new_token = make_token(private_pem)
+
+    def fake_refresh(refresh_token: str, settings):
+        assert refresh_token == "a-valid-refresh-token"
+        return {"access_token": new_token, "expires_in": 900}
+
+    monkeypatch.setattr("vision.api.main.refresh_access_token", fake_refresh)
+    client.cookies.set("mp_access_token", expired_token)
+    client.cookies.set("mp_refresh_token", "a-valid-refresh-token")
+
+    response = client.get("/ui/invoices", headers={"Accept": "text/html"})
+
+    assert response.status_code == 200
+    set_cookie = response.headers.get_list("set-cookie")
+    assert any(f"mp_access_token={new_token}" in c for c in set_cookie)
+
+
+def test_expired_access_token_with_invalid_refresh_cookie_still_redirects(
+    client: TestClient, keypair, monkeypatch
+):
+    """Ha a refresh token is érvénytelen (az auth szerviz elutasítja), a
+    viselkedés a korábbival egyezik: redirect a /login-ra."""
+    private_pem, _ = keypair
+    old = int(time.time()) - 3600
+    expired_token = make_token(private_pem, iat=old, exp=old + 900)
+
+    monkeypatch.setattr("vision.api.main.refresh_access_token", lambda *_args: None)
+    client.cookies.set("mp_access_token", expired_token)
+    client.cookies.set("mp_refresh_token", "a-revoked-refresh-token")
+
+    response = client.get("/ui/invoices", headers={"Accept": "text/html"})
+
+    assert response.status_code == 302
+    assert response.headers["location"].startswith("/login?next=")

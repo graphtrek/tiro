@@ -8,6 +8,7 @@ import requests
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
+from vision.auth import REFRESH_COOKIE_NAME
 from vision.config import Settings, get_settings
 from vision.i18n import SUPPORTED_LANGS
 from vision.ui.templating import templates
@@ -73,20 +74,20 @@ def logout(request: Request):
     """Kijelentkezés: refresh token visszavonása az auth szerviznél + cookie törlés."""
     settings = get_settings()
     access = request.cookies.get("mp_access_token")
-    refresh = request.cookies.get("mp_refresh_token")
+    refresh = request.cookies.get(REFRESH_COOKIE_NAME)
     if access:
         try:
             requests.post(
                 f"{settings.auth_service_url}/auth/logout",
                 headers={"Authorization": f"Bearer {access}"},
-                cookies={"mp_refresh_token": refresh} if refresh else None,
+                cookies={REFRESH_COOKIE_NAME: refresh} if refresh else None,
                 timeout=settings.request_timeout,
             )
         except requests.RequestException as exc:
             logger.warning("Auth szerviz logout nem érhető el: %s", exc)
     response = RedirectResponse("/login", status_code=302)
     response.delete_cookie("mp_access_token", path="/")
-    response.delete_cookie("mp_refresh_token", path="/")
+    response.delete_cookie(REFRESH_COOKIE_NAME, path="/")
     return response
 
 
@@ -99,13 +100,13 @@ def stop_impersonation(request: Request):
     identitására állítja vissza az access tokent, új admin/kezdeményezés nélkül.
     """
     settings = get_settings()
-    refresh = request.cookies.get("mp_refresh_token")
+    refresh = request.cookies.get(REFRESH_COOKIE_NAME)
     if not refresh:
         return RedirectResponse("/login", status_code=302)
     try:
         resp = requests.post(
             f"{settings.auth_service_url}/auth/refresh",
-            cookies={"mp_refresh_token": refresh},
+            cookies={REFRESH_COOKIE_NAME: refresh},
             timeout=settings.request_timeout,
         )
         resp.raise_for_status()

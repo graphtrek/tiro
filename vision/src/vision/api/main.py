@@ -11,8 +11,15 @@ from urllib.parse import quote
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
-from vision.auth import current_token, extract_token, verify_jwt
+from vision.auth import (
+    REFRESH_COOKIE_NAME,
+    current_token,
+    extract_token,
+    refresh_access_token,
+    verify_jwt,
+)
 from vision.config import configure_logging, get_settings
 from vision.i18n import resolve_lang
 from vision.ui.admin_router import router as admin_ui_router
@@ -60,6 +67,25 @@ async def require_auth(request: Request, call_next):
 
     token = extract_token(request)
     claims = verify_jwt(token, settings) if token else None
+
+    # Lejárt (vagy egyéb okból érvénytelen) access token esetén próbáljunk csendes
+    # frissítést a refresh cookie-val, mielőtt a felhasználót kidobnánk a /login-ra —
+    # így egy épp folyamatban lévő kérés (pl. egy HTMX form submit) nem veszik el
+    # csak azért, hogy a 15 perces access token közben lejárt.
+    refreshed_tokens = None
+    if claims is None:
+        refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+        if refresh_token:
+            refreshed_tokens = await run_in_threadpool(
+                refresh_access_token, refresh_token, settings
+            )
+            if refreshed_tokens:
+                new_claims = verify_jwt(refreshed_tokens["access_token"], settings)
+                if new_claims is not None:
+                    token, claims = refreshed_tokens["access_token"], new_claims
+                else:
+                    refreshed_tokens = None
+
     if claims is None:
         next_url = request.url.path
         if request.url.query:
@@ -83,15 +109,28 @@ async def require_auth(request: Request, call_next):
 
     request.state.user = claims
     if claims.get("role") == "read_only" and request.method not in ("GET", "HEAD", "OPTIONS"):
-        return JSONResponse(
+        response = JSONResponse(
             {"detail": "Csak olvasási jogosultság — írási művelet nem engedélyezett"},
             status_code=403,
         )
-    ctx = current_token.set(token)
-    try:
-        return await call_next(request)
-    finally:
-        current_token.reset(ctx)
+    else:
+        ctx = current_token.set(token)
+        try:
+            response = await call_next(request)
+        finally:
+            current_token.reset(ctx)
+
+    if refreshed_tokens:
+        response.set_cookie(
+            "mp_access_token",
+            refreshed_tokens["access_token"],
+            max_age=refreshed_tokens["expires_in"],
+            httponly=True,
+            secure=settings.cookie_secure,
+            samesite="lax",
+            path="/",
+        )
+    return response
 
 
 @app.middleware("http")

@@ -21,6 +21,7 @@ from vision.config import Settings
 logger = logging.getLogger(__name__)
 
 ACCESS_COOKIE_NAME = "mp_access_token"
+REFRESH_COOKIE_NAME = "mp_refresh_token"
 
 # A beérkező kérés Bearer tokenje — a kliens hívások (invoice-core, uploader)
 # ezt adják tovább (token passthrough).
@@ -93,6 +94,27 @@ def verify_jwt(token: str, settings: Settings) -> dict | None:
     if claims.get("typ") != "access":
         return None
     return claims
+
+
+def refresh_access_token(refresh_token: str, settings: Settings) -> dict | None:
+    """Csendes access token frissítés — lejárt access token, de érvényes refresh
+    token esetén nem kényszerítjük a felhasználót újra-bejelentkezésre.
+
+    Visszaadja az auth szerviz /auth/refresh válaszát (access_token, expires_in),
+    vagy None-t, ha a refresh token is érvénytelen/lejárt/visszavont — ekkor a
+    hívó a megszokott /login redirectre esik vissza.
+    """
+    try:
+        resp = requests.post(
+            f"{settings.auth_service_url}/auth/refresh",
+            cookies={REFRESH_COOKIE_NAME: refresh_token},
+            timeout=settings.request_timeout,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        logger.debug("Csendes token frissítés sikertelen: %s", exc)
+        return None
+    return resp.json()
 
 
 class TokenPassthrough(requests.auth.AuthBase):
