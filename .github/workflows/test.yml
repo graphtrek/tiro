@@ -12,27 +12,27 @@ jobs:
       matrix:
         include:
           - project: nav-invoice
-            python-version: "3.11"
+            python-version: "3.14"
           - project: attachment-downloader
             python-version: "3.11"
           - project: invoice-file-filter
-            python-version: "3.10"
+            python-version: "3.14"
           - project: invoice-core
-            python-version: "3.10"
+            python-version: "3.14"
           - project: bank
-            python-version: "3.11"
+            python-version: "3.14"
           - project: vision
-            python-version: "3.11"
+            python-version: "3.14"
           - project: auth
-            python-version: "3.11"
+            python-version: "3.14"
           - project: uploader
-            python-version: "3.11"
+            python-version: "3.14"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v10
         with:
           python-version: ${{ matrix.python-version }}
 
